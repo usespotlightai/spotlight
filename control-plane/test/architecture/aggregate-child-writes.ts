@@ -31,6 +31,12 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
       'contexts/insights/infrastructure/persistence/drizzle/ledgers/chats.ledger.ts',
     ],
   },
+  chat_run_spend: {
+    why: 'Insights ledger of what each Agent chat run cost, written from run usage events',
+    writers: [
+      'contexts/insights/infrastructure/persistence/drizzle/ledgers/chats.ledger.ts',
+    ],
+  },
   configuration_change: {
     why: 'Identity audit projection of shared-kernel ConfigurationChange events (owner decision)',
     writers: [

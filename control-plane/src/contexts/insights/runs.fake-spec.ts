@@ -44,6 +44,7 @@ import { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import { ScoreFact } from '@insights/domain/value-objects/score-fact.vo';
 import { LIVE } from '@insights/domain/value-objects/score-origin';
+import { RunEndings } from '@insights/infrastructure/acl/run-endings.adapter';
 import { inScope, removeVersioned } from '@insights/scoped.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -52,6 +53,8 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+const ENDINGS = new RunEndings();
 
 export const WORKSPACE = WorkspaceId.of('ws_1');
 export const TEAM = TeamId.of('team_1');
@@ -167,7 +170,12 @@ export const costedRecord = (
   );
 
 export const factOf = (record: RunRecord): RunFact => {
-  const fact = record.factWith(null, null, null);
+  const fact = record.factWith(
+    null,
+    null,
+    null,
+    record.end ? ENDINGS.outsideCauseOf(record.end) : null,
+  );
 
   if (!fact) {
     throw new Error(`run ${record.runId.value} has not ended`);
@@ -191,6 +199,7 @@ export const factsWith = (
         ),
       ),
       followedAtOf(record, records),
+      record.end ? ENDINGS.outsideCauseOf(record.end) : null,
     );
 
     return fact ? [fact] : [];
@@ -409,6 +418,7 @@ export class StationFactsInMemory implements StationFactsPort {
           ),
         ),
         followedAtOf(record, ended),
+        record.end ? ENDINGS.outsideCauseOf(record.end) : null,
       );
 
       return fact ? [fact] : [];

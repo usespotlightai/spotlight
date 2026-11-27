@@ -48,6 +48,7 @@ const recording = (runs: readonly EndedRun[]) => {
     unfinishedRuns: async () => [],
     traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
     taskRunOf: async () => null,
+    chatRunOf: async () => null,
     endedRun: async (runId) =>
       runs.find((each) => each.runId.equals(runId)) ?? null,
     configsInOrder: async () => [],
@@ -135,7 +136,8 @@ describe('recording that a run ended', () => {
     await recorder.ended('run_1', 'stopped');
 
     expect(
-      (await recorder.stored('run_1'))?.factWith(null, null, null)?.ending,
+      (await recorder.stored('run_1'))?.factWith(null, null, null, null)
+        ?.ending,
     ).toBe('stopped');
   });
 
@@ -185,7 +187,8 @@ describe('recording that a run ended', () => {
     await recorder.ended('run_1');
 
     expect(
-      (await recorder.stored('run_1'))?.factWith(null, null, null)?.ending,
+      (await recorder.stored('run_1'))?.factWith(null, null, null, null)
+        ?.ending,
     ).toBe('superseded');
   });
 
@@ -207,7 +210,7 @@ describe('recording that a run ended', () => {
     );
 
     const record = await recorder.stored('run_1');
-    expect(record?.factWith(null, null, null)?.ending).toBe('superseded');
+    expect(record?.factWith(null, null, null, null)?.ending).toBe('superseded');
     expect(record?.version).toBe(1);
   });
 

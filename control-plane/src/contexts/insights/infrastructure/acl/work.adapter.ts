@@ -1,4 +1,5 @@
 import type {
+  ChatRun,
   ConfigInOrder,
   EndedRun,
   StationConfigView,
@@ -18,6 +19,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { StationConfigShape } from '@work/application/contracts/station-config.contract';
+import type { ChatRunsPort } from '@work/application/ports/chat-runs.port';
 import type {
   EndedStationRun,
   StationRunsPort,
@@ -52,6 +54,7 @@ const configViewOf = (config: StationConfigShape): StationConfigView => ({
 export class Work implements WorkPort {
   constructor(
     private readonly stations: StationRunsPort,
+    private readonly chats: ChatRunsPort,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -111,6 +114,22 @@ export class Work implements WorkPort {
           workspaceId: WorkspaceId.of(run.workspaceId),
           taskId: TaskId.of(run.taskId),
           teamId: TeamId.of(run.teamId),
+        }
+      : null;
+  }
+
+  async chatRunOf(runId: RunId): Promise<ChatRun | null> {
+    const run = await this.chats.of(runId.value);
+
+    return run
+      ? {
+          runId: RunId.of(run.runId),
+          workspaceId: WorkspaceId.of(run.workspaceId),
+          teamId: TeamId.of(run.teamId),
+          chatId: run.chatId,
+          harness: run.harness,
+          model: run.model,
+          repositories: run.repositories,
         }
       : null;
   }

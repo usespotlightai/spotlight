@@ -1,5 +1,6 @@
 import { ProjectPullRequestFacts } from '@insights/application/services/project-pull-request-facts.service';
 import { ProjectRunFacts } from '@insights/application/services/project-run-facts.service';
+import { RunEndings } from '@insights/infrastructure/acl/run-endings.adapter';
 import { DrizzlePullRequestFacts } from '@insights/infrastructure/persistence/drizzle/projections/pull-request-facts.projection';
 import { DrizzleRunFacts } from '@insights/infrastructure/persistence/drizzle/projections/run-facts.projection';
 import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
@@ -48,6 +49,7 @@ export const projectedInsights = (
     taskActions,
     pullRequests,
     new DrizzleRunFacts(context),
+    new RunEndings(),
     context,
   );
   const pullRequestFacts = new ProjectPullRequestFacts(

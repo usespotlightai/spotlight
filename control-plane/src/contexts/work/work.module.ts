@@ -8,6 +8,7 @@ import { contextBindings } from '@platform/bindings/context-bindings';
 import { RunnersModule } from '@runners/runners.module';
 import { RunsModule } from '@runs/runs.module';
 import { SecretsModule } from '@secrets/secrets.module';
+import { CHAT_RUNS } from '@work/application/ports/chat-runs.port';
 import { CHAT_TOOL_EXTENSIONS } from '@work/application/ports/chat-tool-extensions.port';
 import { CONNECTION_ASKS } from '@work/application/ports/connection-asks.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
@@ -54,6 +55,7 @@ const BINDINGS = contextBindings([STATION_DELETION_GUARD]);
     MEMBER_INBOXES,
     NOTICES,
     STATION_RUNS,
+    CHAT_RUNS,
     RUN_EVIDENCE,
     TRIALABLE_RUNS,
     STATION_CONFIG_CANDIDATES,

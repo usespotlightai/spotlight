@@ -13,6 +13,7 @@ import { InsightsAccess } from '@insights/application/services/insights-access.s
 import { RecordAskingRun } from '@insights/application/services/record-asking-run.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
+import { RecordChatSpend } from '@insights/application/services/record-chat-spend.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
 import { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
@@ -32,9 +33,12 @@ import { RunRecordVersionConflictError } from '@insights/domain/exceptions/run-r
 import type { ConfigIntervalBound } from '@insights/domain/services/config-intervals';
 import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
 import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.adapter';
 import { DrizzleChats } from '@insights/infrastructure/persistence/drizzle/ledgers/chats.ledger';
 import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
+import { costCountsIn } from '@insights/infrastructure/persistence/drizzle/readers/insights/cost-counts.sql';
+import { overviewCountsIn } from '@insights/infrastructure/persistence/drizzle/readers/insights/overview-counts.sql';
 import { DrizzleStationFacts } from '@insights/infrastructure/persistence/drizzle/readers/station-facts.reader';
 import { DrizzleClaimsRevisionRepository } from '@insights/infrastructure/persistence/drizzle/repositories/claims-revision.repository';
 import { DrizzleClaimsSourceRepository } from '@insights/infrastructure/persistence/drizzle/repositories/claims-source.repository';
@@ -45,7 +49,10 @@ import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence
 import { DrizzleScoreRepository } from '@insights/infrastructure/persistence/drizzle/repositories/score.repository';
 import { DrizzleStationAlertStateRepository } from '@insights/infrastructure/persistence/drizzle/repositories/station-alert-state.repository';
 import { DrizzleTaskFailuresRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-failures.repository';
-import { chatRecord } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
+import {
+  chatRecord,
+  chatRunSpend,
+} from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { insightsSubscribers } from '@insights/presentation/events/insights.subscribers';
 import { checkOf, factOf, lastConfigRunsFrom } from '@insights/runs.fake-spec';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -138,6 +145,18 @@ const endedRun = (
 
 const work: WorkPort = {
   endedRun: async (runId) => ended.get(runId.value) ?? null,
+  chatRunOf: async (runId) =>
+    runId.value.startsWith('chat_run_')
+      ? {
+          runId,
+          workspaceId: WorkspaceId.of(WORKSPACE),
+          teamId: TeamId.of('team_left_out'),
+          chatId: 'chat_planning',
+          harness: 'claude-code',
+          model: 'opus',
+          repositories: ['acme/api'],
+        }
+      : null,
   taskRunOf: async (runId) => {
     const run = ended.get(runId.value);
 
@@ -322,6 +341,7 @@ beforeAll(async () => {
     failing: new RecordTaskFailure(failures, recorder, context),
     recordingTaskActions: new RecordTaskAction(taskActions, recorder, context),
     chatting: new RecordChat(chats, deletions, context),
+    spendingInChats: new RecordChatSpend(work, chats, deletions, context),
     recording: new RecordPullRequests(pullRequests, recorder, context),
     shaping: new RecordChangeShape(work, shapes, recorder, context),
     watching: new WatchStations(
@@ -1104,5 +1124,139 @@ describe('the config runs a station’s runs make', () => {
     expect(
       (await listedAt('station_order', 2)).map((each) => each.runs),
     ).toEqual([['order_y'], ['order_x']]);
+  });
+});
+
+describe('what the stations’ signals leave out, and what Agent chats spent', () => {
+  const TEAM = TeamId.of('team_left_out');
+  const ON = new Date('2026-11-01T05:00:00.000Z');
+  const inPeriod = () => ({
+    workspaceId: WorkspaceId.of(WORKSPACE),
+    teamId: TEAM,
+    period: InsightsPeriod.of('7d', new Date('2026-11-02T00:00:00.000Z')),
+  });
+  const chatUsage = (runId: string, cost: number | null) => ({
+    kind: RUN_USAGE_RECORDED,
+    runId,
+    workspaceId: WORKSPACE,
+    requester: {
+      owner: 'work',
+      kind: 'chat',
+      id: 'chat_planning',
+      token: null,
+      team: TEAM.value,
+    },
+    listed: true,
+    ms: 60_000,
+    steps: 4,
+    errors: 0,
+    changedLines: 0,
+    contextTokens: null,
+    contextWindow: null,
+    cost,
+    currency: cost === null ? null : 'USD',
+    spentCosts: cost === null ? [] : [{ amount: cost, currency: 'USD' }],
+    unpricedCalls: 0,
+    inputTokens: null,
+    outputTokens: null,
+    cacheReadTokens: null,
+    cacheWriteTokens: null,
+    servers: [],
+    skillsRead: [],
+  });
+
+  beforeAll(async () => {
+    const runs: readonly [string, string | null][] = [
+      ['left_refused_1', 'refused'],
+      ['left_refused_2', 'refused'],
+      ['left_lost', 'runner-lost'],
+      ['left_worked', null],
+    ];
+
+    for (const [runId, failure] of runs) {
+      endedRun(runId, {
+        teamId: TEAM,
+        stationId: StationId.of('station_left'),
+        taskId: TaskId.of(`task_${runId}`),
+        model: 'sonnet',
+        startedAt: failure === 'refused' ? null : ON,
+        endedAt: ON,
+      });
+      await runEnded(
+        runId,
+        failure === null ? {} : { outcome: 'failed', failure },
+      );
+    }
+
+    await deliver(
+      'insights.record-chat-run-spend',
+      chatUsage('chat_run_1', 0.5),
+    );
+    await deliver(
+      'insights.record-chat-run-spend',
+      chatUsage('chat_run_1', 0.9),
+    );
+  });
+
+  it('counts for a station only the runs that ended in its own work, and says why the others were left out', async () => {
+    const counts = await overviewCountsIn(database.db, inPeriod());
+
+    expect(counts.current.runs).toBe(4);
+    expect(
+      counts.stations.stations.find((each) => each.stationId === 'station_left')
+        ?.current.runs,
+    ).toBe(1);
+    expect(counts.stations.team.current.failed).toBe(0);
+    expect(
+      [...counts.leftOut].sort((a, b) => a.cause.localeCompare(b.cause)),
+    ).toEqual([
+      { cause: 'infrastructure', runs: 1 },
+      { cause: 'refused', runs: 2 },
+    ]);
+  });
+
+  it('adds what Agent chats spent to the spend, once per run, as a place of its own beside the stations', async () => {
+    const { current } = await costCountsIn(database.db, inPeriod());
+
+    expect(current.spend?.currency).toBe('USD');
+    expect(current.spend?.amount).toBeCloseTo(4 * 0.4 + 0.5);
+    expect(current.shares).toContainEqual(
+      expect.objectContaining({
+        part: 'station',
+        key: null,
+        amount: 0.5,
+        runs: 1,
+      }),
+    );
+    expect(current.links).toContainEqual(
+      expect.objectContaining({
+        source: { kind: 'model', key: 'opus' },
+        target: { kind: 'station', key: null },
+        amount: 0.5,
+      }),
+    );
+    expect(current.links).toContainEqual(
+      expect.objectContaining({
+        source: { kind: 'station', key: null },
+        target: { kind: 'repository', key: 'acme/api' },
+        amount: 0.5,
+      }),
+    );
+  });
+
+  it('forgets what a deleted team’s Agent chats spent', async () => {
+    await deliver('insights.delete-chats-of-deleted-team', {
+      kind: TEAM_DELETED,
+      workspaceId: WORKSPACE,
+      teamId: TEAM.value,
+      key: 'left-out',
+    });
+
+    expect(
+      await database.db
+        .select()
+        .from(chatRunSpend)
+        .where(eq(chatRunSpend.teamId, TEAM.value)),
+    ).toEqual([]);
   });
 });

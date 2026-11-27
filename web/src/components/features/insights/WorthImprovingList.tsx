@@ -17,6 +17,8 @@ import { useCollapsibles } from '@/hooks/useCollapsibles';
 import {
   formatCount,
   formatStation,
+  type LeftOutRuns,
+  leftOutNote,
   STATIONS_WORTH_IMPROVING_HEADINGS,
   STATIONS_WORTH_IMPROVING_NOTE,
   type StationNames,
@@ -30,6 +32,7 @@ type WorthImprovingListProps = {
   slug: string;
   teamId: string;
   stations: readonly WorthImproving[];
+  leftOut: readonly LeftOutRuns[];
   names: StationNames;
 };
 
@@ -37,9 +40,11 @@ export function WorthImprovingList({
   slug,
   teamId,
   stations,
+  leftOut,
   names,
 }: WorthImprovingListProps) {
   const collapsibles = useCollapsibles();
+  const notCounted = leftOutNote(leftOut);
 
   return (
     <InsightsCard
@@ -48,6 +53,11 @@ export function WorthImprovingList({
       title="Stations worth improving"
       description={STATIONS_WORTH_IMPROVING_NOTE}
     >
+      {notCounted !== null && (
+        <p data-slot="left-out" className="pb-2 text-muted-foreground text-xs">
+          {notCounted}
+        </p>
+      )}
       {stations.length === 0 ? (
         <HealthyLine title="All stations are healthy">
           No issues in this period.

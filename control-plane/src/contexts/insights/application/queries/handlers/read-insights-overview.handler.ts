@@ -17,7 +17,10 @@ import {
   headlineDeltasOf,
   headlineFrom,
 } from '@insights/domain/services/headline';
-import { stationsWorthImprovingFrom } from '@insights/domain/services/station-ranking';
+import {
+  leftOutRunsFrom,
+  stationsWorthImprovingFrom,
+} from '@insights/domain/services/station-ranking';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -73,6 +76,7 @@ export class ReadInsightsOverviewHandler implements QueryHandlerPort<
           counts.stations,
           counts.failingBefore,
         ),
+        leftOut: leftOutRunsFrom(counts.leftOut),
         people: namedOf(ids, await this.people.namesOf(ids)),
       };
     } catch (error) {

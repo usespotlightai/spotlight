@@ -11,6 +11,7 @@ import {
   CHECK_VERDICTS,
   type CheckVerdict,
 } from '@insights/domain/value-objects/check-verdict';
+import { LEFT_OUT_CAUSES } from '@insights/domain/value-objects/left-out-cause';
 import {
   type ActionKind,
   DECIDING_ACTIONS,
@@ -131,6 +132,7 @@ export interface StoredReason {
 export const runRecordEnding = pgEnum('run_record_ending', RUN_ENDINGS);
 export const runRecordChecks = pgEnum('run_record_checks', CHECK_VERDICTS);
 export const runResolution = pgEnum('run_resolution', RUN_RESOLUTIONS);
+export const runLeftOut = pgEnum('run_left_out', LEFT_OUT_CAUSES);
 export const decidingActionKind = pgEnum('deciding_action', DECIDING_ACTIONS);
 export const pullRequestState = pgEnum(
   'pull_request_state',
@@ -250,6 +252,7 @@ export const runFact = pgTable(
     ending: runRecordEnding('ending').notNull(),
     resolution: runResolution('resolution').notNull(),
     ran: boolean('ran').notNull(),
+    leftOut: runLeftOut('left_out'),
     ranAConfig: boolean('ran_a_config').notNull(),
     size: runSize('size'),
     failure: text('failure'),
@@ -499,6 +502,30 @@ export const chatRecord = pgTable(
   (table) => [
     index('chat_record_team_idx').on(table.teamId, table.startedAt),
     index('chat_record_workspace_idx').on(table.workspaceId),
+  ],
+);
+
+export const chatRunSpend = pgTable(
+  'chat_run_spend',
+  {
+    runId: text('run_id').primaryKey(),
+    chatId: text('chat_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    harness: text('harness').notNull(),
+    model: text('model'),
+    repositories: jsonb('repositories').$type<string[]>().notNull(),
+    cost: amount('cost'),
+    currency: text('currency'),
+    spentAt: timestamptz('spent_at').notNull(),
+  },
+  (table) => [
+    check('chat_run_spend_currency_code', isCurrencyCode(table.currency)),
+    index('chat_run_spend_team_idx').on(
+      table.workspaceId,
+      table.teamId,
+      table.spentAt,
+    ),
   ],
 );
 

@@ -6,6 +6,7 @@ import { RunRecordErased } from '@insights/domain/events/run-record-erased.event
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import type { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
+import type { LeftOutCause } from '@insights/domain/value-objects/left-out-cause';
 import type {
   ActedOnTool,
   PersonAction,
@@ -168,12 +169,14 @@ export class RunRecord extends EventRecorder {
     opening: TaskOpeningFact | null,
     pullRequest: RunPullRequest | null,
     followedAt: Date | null,
+    endedOutside: LeftOutCause | null,
   ): RunFact | null {
     return this.end
       ? RunFact.of({
           runId: this.runId,
           workspaceId: this.workspaceId,
           end: this.end,
+          endedOutside,
           supersededAt: this.supersededAt,
           followedAt,
           asked: this.asked,

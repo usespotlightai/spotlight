@@ -37,6 +37,7 @@ const workOfTeam = (teamId: string): WorkPort => ({
       teamId: TeamId.of(teamId),
       taskId: TaskId.of('task_1'),
     }),
+  chatRunOf: async () => null,
   taskRunOf: async (runId) => ({
     runId,
     workspaceId: WorkspaceId.of('ws_1'),
@@ -87,7 +88,7 @@ const acting = async (...runs: Ended[]) => {
         server: each.server,
       })) ?? [],
     disposition: async (runId: string) =>
-      (await records.of(RunId.of(runId)))?.factWith(null, null, null)
+      (await records.of(RunId.of(runId)))?.factWith(null, null, null, null)
         ?.disposition ?? null,
     next: async (runId: string) =>
       (await records.of(RunId.of(runId)))?.actions.decidingAction?.kind ?? null,

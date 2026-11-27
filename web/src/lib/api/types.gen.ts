@@ -7397,6 +7397,17 @@ export type StationWorthImprovingResponseDto = {
   mixedCurrencies: boolean;
 };
 
+export type LeftOutRunsResponseDto = {
+  /**
+   * Why the runs ended outside their station’s work: refused before they started, failed in setup, lost to an infrastructure problem such as a lost runner, or cancelled
+   */
+  cause: 'refused' | 'setup' | 'infrastructure' | 'cancelled';
+  /**
+   * Runs this period that ended for that reason
+   */
+  runs: number;
+};
+
 export type PersonNameResponseDto = {
   personId: string;
   /**
@@ -7428,9 +7439,13 @@ export type InsightsOverviewResponseDto = {
    */
   outputMixedCurrencies: boolean;
   /**
-   * Stations with at least three runs whose signals rose against the period before or trail the team, the most signals first
+   * Stations with at least three runs whose signals rose against the period before or trail the team, the most signals first. Runs that ended outside their station’s work count for none of them
    */
   worthImproving: Array<StationWorthImprovingResponseDto>;
+  /**
+   * Runs this period that the stations’ signals leave out, by why they ended outside their station’s work, the most first
+   */
+  leftOut: Array<LeftOutRunsResponseDto>;
   people: Array<PersonNameResponseDto>;
 };
 
@@ -7808,7 +7823,7 @@ export type InsightsPeopleResponseDto = {
 
 export type CostSliceResponseDto = {
   /**
-   * What the slice is: a harness, model, station id or repository; none for the harness’s own model or runs with no repository
+   * What the slice is: a harness, model, station id or repository; none for the harness’s own model, the team’s Agent chats among stations, or runs with no repository
    */
   key: string | null;
   /**
@@ -7820,7 +7835,7 @@ export type CostSliceResponseDto = {
    */
   share: number | null;
   /**
-   * Runs in the slice
+   * Runs in the slice, Agent chat runs among them
    */
   runs: number;
 };
@@ -7829,7 +7844,7 @@ export type CostFlowNodeResponseDto = {
   id: string;
   kind: 'model' | 'station' | 'repository';
   /**
-   * The model, station id or repository; none for the harness’s own model or no repository
+   * The model, station id or repository; none for the harness’s own model, the team’s Agent chats as a station, or no repository
    */
   key: string | null;
 };
@@ -7884,11 +7899,11 @@ export type StationCacheUseResponseDto = {
 
 export type CostBreakdownResponseDto = {
   /**
-   * Spend this period; none, and every slice empty, where nothing was priced or prices came in more than one currency
+   * Spend this period, of the stations’ runs and the Agent chats’ runs; none, and every slice empty, where nothing was priced or prices came in more than one currency
    */
   spend: MoneyResponseDto | null;
   /**
-   * Runs that ran with no price
+   * Runs, of stations or Agent chats, that ran with no price
    */
   unpriced: number;
   /**
@@ -7903,11 +7918,11 @@ export type CostBreakdownResponseDto = {
    */
   byRepository: Array<CostSliceResponseDto>;
   /**
-   * Models, stations and repositories, for a Sankey diagram
+   * Models, stations and the Agent chats, and repositories, for a Sankey diagram
    */
   nodes: Array<CostFlowNodeResponseDto>;
   /**
-   * Spend from model to station, and station to repository
+   * Spend from model to station or the Agent chats, and from there to repository
    */
   links: Array<CostFlowLinkResponseDto>;
   /**
@@ -7921,7 +7936,7 @@ export type InsightsCostResponseDto = {
   period: InsightsPeriodResponseDto;
   cost: CostBreakdownResponseDto;
   /**
-   * Spend against the period before, where both periods were priced in one currency
+   * Spend, Agent chats too, against the period before, where both periods were priced in one currency
    */
   spendChange: DeltaResponseDto | null;
 };

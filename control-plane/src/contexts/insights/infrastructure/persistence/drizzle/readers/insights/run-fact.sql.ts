@@ -15,7 +15,9 @@ export const inEndOrder = sql`${runFact.endedAt}, ${runFact.runId} collate "C"`;
 
 export const ran = sql`${runFact.ran}`;
 
-export const priced = sql`${ran} and ${runFact.cost} is not null and coalesce(${runFact.currency}, '') <> ''`;
+export const countsForItsStation = sql`${runFact.leftOut} is null`;
+
+const priced = sql`${ran} and ${runFact.cost} is not null and coalesce(${runFact.currency}, '') <> ''`;
 
 export const withResolution = (resolution: RunResolution): SQL =>
   sql`${ran} and ${runFact.resolution} = ${resolution}`;
@@ -57,7 +59,10 @@ export const isCurrent = sql.raw('"run_fact"."is_current"');
 
 export const day = sql.raw('"run_fact"."day"');
 
-export const periodFacts = (team: TeamInPeriod): SQL => {
+export const periodFacts = (
+  team: TeamInPeriod,
+  matching: SQL = sql`true`,
+): SQL => {
   const { current, previous } = team.period;
 
   return sql`
@@ -66,11 +71,13 @@ export const periodFacts = (team: TeamInPeriod): SQL => {
       ${runFact.endedAt} >= ${iso(current.from)}::timestamptz as is_current,
       to_char(${runFact.endedAt} at time zone 'UTC', 'YYYY-MM-DD') as day
     from ${runFact}
-    where ${onTeam(team)} and ${endedIn(previous.from, current.to)}`;
+    where ${onTeam(team)} and ${endedIn(previous.from, current.to)} and ${matching}`;
 };
 
-export const factsInPeriod = (team: TeamInPeriod): SQL =>
-  sql`(${periodFacts(team)}) as ${runFact}`;
+export const factsInPeriod = (
+  team: TeamInPeriod,
+  matching: SQL = sql`true`,
+): SQL => sql`(${periodFacts(team, matching)}) as ${runFact}`;
 
 export interface StationRow extends Record<string, unknown> {
   readonly part: boolean;
@@ -95,7 +102,7 @@ export const stationsInEndOrder = (facts: SQL, part?: SQL): SQL => {
     order by ${part ? sql`part, ` : sql``}ended_at, run_id collate "C"`;
 };
 
-export const spendColumns = sql`
+const spendColumns = sql`
   sum(${runFact.cost}::float8 order by ${inEndOrder}) filter (where ${priced}) as amount,
   min(${runFact.currency}) filter (where ${priced}) as currency,
   count(distinct ${runFact.currency}) filter (where ${priced})::int as currencies,

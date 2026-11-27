@@ -288,6 +288,7 @@ export const overviewOf = (
     outputCurrency: runs.length > 0 ? 'USD' : null,
     outputMixedCurrencies: false,
     worthImproving: worthImprovingOf(teamId, span),
+    leftOut: [],
     people: peopleNamed(headline.peopleIds),
   };
 };

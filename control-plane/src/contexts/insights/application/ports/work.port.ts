@@ -39,6 +39,16 @@ export interface TaskRun {
   readonly teamId: TeamId;
 }
 
+export interface ChatRun {
+  readonly runId: RunId;
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly chatId: string;
+  readonly harness: string;
+  readonly model: string | null;
+  readonly repositories: readonly string[];
+}
+
 export interface ConfigPart {
   readonly part: string;
   readonly name: string | null;
@@ -106,6 +116,8 @@ export interface WorkPort {
   endedRun(runId: RunId): Promise<EndedRun | null>;
 
   taskRunOf(runId: RunId): Promise<TaskRun | null>;
+
+  chatRunOf(runId: RunId): Promise<ChatRun | null>;
 
   unfinishedRuns(teamId: TeamId): Promise<readonly UnfinishedRun[]>;
 

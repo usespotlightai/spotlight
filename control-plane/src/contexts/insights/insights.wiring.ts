@@ -107,6 +107,7 @@ import { RecheckJudgeDisagreements } from '@insights/application/services/rechec
 import { RecordAskingRun } from '@insights/application/services/record-asking-run.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
+import { RecordChatSpend } from '@insights/application/services/record-chat-spend.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
 import { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
@@ -136,6 +137,7 @@ import { Evidence } from '@insights/infrastructure/acl/evidence.adapter';
 import { Lines } from '@insights/infrastructure/acl/lines.adapter';
 import { MemoryUse } from '@insights/infrastructure/acl/memory-use.adapter';
 import { People } from '@insights/infrastructure/acl/people.adapter';
+import { RunEndings } from '@insights/infrastructure/acl/run-endings.adapter';
 import { StationJudges } from '@insights/infrastructure/acl/station-judges.adapter';
 import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.adapter';
 import { Work } from '@insights/infrastructure/acl/work.adapter';
@@ -203,6 +205,10 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import {
+  CHAT_RUNS,
+  type ChatRunsPort,
+} from '@work/application/ports/chat-runs.port';
+import {
   INBOX_REQUESTS,
   type InboxRequestsPort,
 } from '@work/application/ports/inbox-requests.port';
@@ -230,9 +236,12 @@ export const INSIGHTS_CONTROLLERS: readonly Type[] = [
 export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   {
     provide: WORK,
-    inject: [STATION_RUNS, LOGGER],
-    useFactory: (stations: StationRunsPort, logger: LoggerPort) =>
-      new Work(stations, logger),
+    inject: [STATION_RUNS, CHAT_RUNS, LOGGER],
+    useFactory: (
+      stations: StationRunsPort,
+      chats: ChatRunsPort,
+      logger: LoggerPort,
+    ) => new Work(stations, chats, logger),
   },
   {
     provide: DEFINED_SKILLS,
@@ -587,6 +596,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
         taskActions,
         pullRequests,
         facts,
+        new RunEndings(),
         transaction,
       ),
   },
@@ -763,6 +773,16 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     ) => new RecordChat(chats, deletions, transaction),
   },
   {
+    provide: RecordChatSpend,
+    inject: [WORK, DrizzleChats, DrizzleDeletions, TRANSACTION],
+    useFactory: (
+      work: WorkPort,
+      chats: DrizzleChats,
+      deletions: DrizzleDeletions,
+      transaction: TransactionPort,
+    ) => new RecordChatSpend(work, chats, deletions, transaction),
+  },
+  {
     provide: RecordPullRequests,
     inject: [DrizzlePullRequestRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
@@ -857,6 +877,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       RecordTaskFailure,
       RecordTaskAction,
       RecordChat,
+      RecordChatSpend,
       RecordPullRequests,
       RecordChangeShape,
       WatchStations,
@@ -884,6 +905,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       failing: RecordTaskFailure,
       recordingTaskActions: RecordTaskAction,
       chatting: RecordChat,
+      spendingInChats: RecordChatSpend,
       recording: RecordPullRequests,
       shaping: RecordChangeShape,
       watching: WatchStations,
@@ -909,6 +931,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
           failing,
           recordingTaskActions,
           chatting,
+          spendingInChats,
           recording,
           shaping,
           watching,

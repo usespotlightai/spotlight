@@ -6,19 +6,24 @@ import type {
 import type { HeadlineCounts } from '@insights/domain/services/headline';
 import type { OverviewCounts } from '@insights/domain/services/overview-counts';
 import type { TallyCounts } from '@insights/domain/services/run-tally';
+import type { LeftOutCount } from '@insights/domain/services/station-ranking';
+import type { LeftOutCause } from '@insights/domain/value-objects/left-out-cause';
 import { configMarkers } from '@insights/infrastructure/persistence/drizzle/readers/insights/config-markers.sql';
 import { pullRequestDeliveriesIn } from '@insights/infrastructure/persistence/drizzle/readers/insights/pull-request-deliveries.sql';
 import {
   asUtc,
   atWithin,
+  endedIn,
   factsInPeriod,
   isCurrent,
   msOf,
+  onTeam,
   ran,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
   failingIn,
   stationCountsIn,
+  teamCountsIn,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/station-counts.sql';
 import { teamActivity } from '@insights/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
@@ -36,6 +41,11 @@ interface TasksRow extends Record<string, unknown> {
 interface ActionsRow extends Record<string, unknown> {
   readonly is_current: boolean;
   readonly actions: number;
+}
+
+interface LeftOutRow extends Record<string, unknown> {
+  readonly cause: LeftOutCause;
+  readonly runs: number;
 }
 
 interface PersonRow extends Record<string, unknown> {
@@ -92,6 +102,23 @@ const actionsIn = async (
   `);
 
   return result.rows;
+};
+
+const leftOutIn = async (
+  db: DrizzleDatabase,
+  team: TeamInPeriod,
+): Promise<readonly LeftOutCount[]> => {
+  const { current } = team.period;
+  const result = await db.execute<LeftOutRow>(sql`
+    select ${runFact.leftOut} as cause, count(*)::int as runs
+    from ${runFact}
+    where ${onTeam(team)}
+      and ${endedIn(current.from, current.to)}
+      and ${runFact.leftOut} is not null
+    group by ${runFact.leftOut}
+  `);
+
+  return result.rows.map((row) => ({ cause: row.cause, runs: row.runs }));
 };
 
 const peopleIn = async (
@@ -153,13 +180,20 @@ export const overviewCountsIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
 ): Promise<OverviewCounts> => {
-  const stations = await stationCountsIn(db, team);
+  const every = await teamCountsIn(db, team);
+  const stations = await stationCountsIn(db, team, 'station-work');
+  const leftOut = await leftOutIn(db, team);
   const tasks = await tasksIn(db, team);
   const actions = await actionsIn(db, team);
   const people = await peopleIn(db, team);
   const deliveries = await pullRequestDeliveriesIn(db, team);
   const markers = await markersIn(db, team);
-  const failingBefore = await failingIn(db, team, team.period.previous);
+  const failingBefore = await failingIn(
+    db,
+    team,
+    team.period.previous,
+    'station-work',
+  );
   const headlineOf = (current: boolean, tally: TallyCounts) =>
     headlineCountsFrom(
       tally,
@@ -171,29 +205,29 @@ export const overviewCountsIn = async (
     );
 
   return {
-    current: headlineOf(true, stations.team.current),
-    previous: headlineOf(false, stations.team.previous),
+    current: headlineOf(true, every.current),
+    previous: headlineOf(false, every.previous),
     deliveries,
     spending: new Map(
-      [...stations.team.byDay].flatMap(
-        ([day, tally]): [string, DaySpending][] =>
-          tally.runs > 0
-            ? [
-                [
-                  day,
-                  {
-                    runs: tally.runs,
-                    spend: tally.cost,
-                    unpriced: tally.unpriced,
-                    mixedCurrencies: tally.mixedCurrencies,
-                  },
-                ],
-              ]
-            : [],
+      [...every.byDay].flatMap(([day, tally]): [string, DaySpending][] =>
+        tally.runs > 0
+          ? [
+              [
+                day,
+                {
+                  runs: tally.runs,
+                  spend: tally.cost,
+                  unpriced: tally.unpriced,
+                  mixedCurrencies: tally.mixedCurrencies,
+                },
+              ],
+            ]
+          : [],
       ),
     ),
     markers,
     stations,
     failingBefore,
+    leftOut,
   };
 };
