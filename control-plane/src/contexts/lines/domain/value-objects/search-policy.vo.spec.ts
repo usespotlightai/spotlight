@@ -22,7 +22,7 @@ const fieldOf = (made: () => unknown): string | null => {
 };
 
 describe('LineSearchPolicy', () => {
-  it('is on by default, with a monthly ceiling of 50 USD and 10 USD a search every 7 days', () => {
+  it('is on by default, with a monthly ceiling of 50 USD, 10 USD a search every 7 days and 3 requested tests a day', () => {
     expect(LineSearchPolicy.DEFAULT.toPrimitives()).toEqual({
       enabled: true,
       monthlyCeiling: 50,
@@ -31,7 +31,21 @@ describe('LineSearchPolicy', () => {
       period: '7d',
       onAlert: true,
       cooldown: '3d',
+      requestsPerDay: 3,
     });
+  });
+
+  it('takes from 1 to 20 requested tests a day', () => {
+    expect(LineSearchPolicy.of({ requestsPerDay: 20 }).requestsPerDay).toBe(20);
+    expect(fieldOf(() => LineSearchPolicy.of({ requestsPerDay: 0 }))).toBe(
+      'requestsPerDay',
+    );
+    expect(fieldOf(() => LineSearchPolicy.of({ requestsPerDay: 21 }))).toBe(
+      'requestsPerDay',
+    );
+    expect(fieldOf(() => LineSearchPolicy.of({ requestsPerDay: 2.5 }))).toBe(
+      'requestsPerDay',
+    );
   });
 
   it('fills in what it leaves out from the default, in an upper-case currency', () => {
@@ -94,6 +108,7 @@ describe('LineSearchPolicy', () => {
         iterations: 5,
         repeats: 2,
         objective: 'success',
+        requestsPerDay: 6,
       }),
     });
 
@@ -107,6 +122,7 @@ describe('LineSearchPolicy', () => {
       iterations: 5,
       repeats: 2,
       objective: 'success',
+      requestsPerDay: 6,
     });
     expect(resolved?.agent?.toPrimitives()).toEqual({
       harness: 'claude-code',
@@ -125,6 +141,7 @@ describe('LineSearchPolicy', () => {
       iterations: null,
       repeats: null,
       objective: null,
+      requestsPerDay: 3,
     });
   });
 
@@ -170,6 +187,17 @@ describe('LineSearchPolicy', () => {
   });
 });
 
+describe('LineSearchPolicy.inheritedByStation', () => {
+  it('gives a station that leaves its search settings out the line settings', () => {
+    const line = LineSearchPolicy.of({ requestsPerDay: 5, cooldown: '1d' });
+    const inherited = line.inheritedByStation();
+
+    expect(inherited.requestsPerDay).toBe(5);
+    expect(inherited.cooldown.text).toBe('1d');
+    expect(inherited).toEqual(line.resolvedFor({ kind: 'work', search: null }));
+  });
+});
+
 describe('StationSearchOverride', () => {
   it('leaves every setting it does not name to the line', () => {
     expect(StationSearchOverride.of({})).toMatchObject({
@@ -182,6 +210,7 @@ describe('StationSearchOverride', () => {
       iterations: null,
       repeats: null,
       objective: null,
+      requestsPerDay: null,
     });
   });
 
@@ -198,6 +227,9 @@ describe('StationSearchOverride', () => {
     expect(fieldOf(() => StationSearchOverride.of({ repeats: 6 }))).toBe(
       'repeats',
     );
+    expect(
+      fieldOf(() => StationSearchOverride.of({ requestsPerDay: 21 })),
+    ).toBe('requestsPerDay');
   });
 
   it('refuses a ceiling of 0 or above 1,000', () => {

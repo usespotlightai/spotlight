@@ -1,5 +1,5 @@
 {
-  "id": "7d929bba-ba9e-4d7f-95a1-67edd9e129c4",
+  "id": "7ff87bba-41c9-4887-888a-b1e78389926e",
   "prevId": "10871cf8-13b2-4f18-b29e-610862e61ce0",
   "version": "7",
   "dialect": "postgresql",
@@ -3205,6 +3205,12 @@
         "reverted_by": {
           "name": "reverted_by",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mergeable": {
+          "name": "mergeable",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": false
         },
@@ -22000,7 +22006,6 @@
         "attachments-gone",
         "answer-gone",
         "repository-gone",
-        "repository-missing",
         "not-at-the-station",
         "candidate-unfit",
         "cannot-start",

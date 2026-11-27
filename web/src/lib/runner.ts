@@ -87,8 +87,8 @@ export const runnersPath = (slug: string) => `${settingsPath(slug)}/runners`;
 
 export const addHostPath = (slug: string) => `${runnersPath(slug)}/new`;
 
-export const installCommand = (token: string) =>
-  `curl -fsSL ${window.location.origin}/api/install.sh | sh -s -- --token ${token}`;
+export const installCommand = () =>
+  `sh -c 'printf "Pool token: "; stty -echo; read -r SPOTLIGHT_POOL_TOKEN; stty echo; echo; export SPOTLIGHT_POOL_TOKEN; curl -fsSL ${window.location.origin}/api/install.sh | sh'`;
 
 export const onlineCount = (fleet: Fleet) =>
   fleet.hosts.filter((host) => host.online).length;
@@ -267,15 +267,23 @@ export const hiddenRunTip = (run: LeasedRun): string =>
     ? 'Title hidden. This agent chat belongs to a team you’re not on.'
     : 'Title hidden. This run belongs to a team you’re not on.';
 
+const deletedRun = (run: LeasedRun): string =>
+  run.kind === 'chat' ? 'Deleted agent chat' : 'Deleted task';
+
 export const formatRun = (run: LeasedRun | null): string => {
   if (run === null) {
     return 'No run yet';
   }
 
-  return (
-    run.title ??
-    (isUnnamed(run.kind) ? UNNAMED_RUNS[run.kind] : hiddenRunTip(run))
-  );
+  if (run.title !== null) {
+    return run.title;
+  }
+
+  if (isUnnamed(run.kind)) {
+    return UNNAMED_RUNS[run.kind];
+  }
+
+  return run.readable ? deletedRun(run) : hiddenRunTip(run);
 };
 
 export const hiddenFromViewer = (run: LeasedRun | null): boolean =>

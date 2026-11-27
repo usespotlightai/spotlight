@@ -43,6 +43,7 @@ export interface LineSearchRow {
   readonly period: string;
   readonly onAlert: boolean;
   readonly cooldown: string;
+  readonly requestsPerDay?: number;
 }
 
 export interface StationSearchRow {
@@ -59,6 +60,7 @@ export interface StationSearchRow {
   readonly iterations: number | null;
   readonly repeats: number | null;
   readonly objective: string | null;
+  readonly requestsPerDay?: number | null;
 }
 
 export interface ConfigSourceRow {

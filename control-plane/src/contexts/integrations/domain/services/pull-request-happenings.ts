@@ -12,7 +12,8 @@ type ActivityKind =
   | 'commented'
   | 'changes-requested'
   | 'checks-failed'
-  | 'closed-unmerged';
+  | 'closed-unmerged'
+  | 'conflicted';
 
 export type ReportedActivity = Exclude<ActivityKind, 'opened' | 'labelled'>;
 
@@ -33,6 +34,7 @@ export type PullRequestHappening =
       readonly to: 'its-task' | 'its-review';
       readonly branch: string | null;
       readonly pullRequest: PullRequestUrl | null;
+      readonly statesVerdict: boolean;
     }
   | {
       readonly kind: 'review-request';
@@ -67,6 +69,9 @@ const reviewRequest = (
       ]
     : [];
 
+const statesVerdict = (activity: ReportedActivity): boolean =>
+  activity === 'changes-requested';
+
 const mentions = (facts: PullRequestActivityFacts): boolean =>
   (facts.activity === 'commented' || facts.activity === 'changes-requested') &&
   (facts.comment?.includes(MENTION) ?? false);
@@ -96,6 +101,7 @@ export const PullRequestHappenings = {
         to: 'its-task',
         branch: facts.branch,
         pullRequest: facts.pullRequest,
+        statesVerdict: statesVerdict(activity),
       },
       ...(facts.pullRequest
         ? [
@@ -105,6 +111,7 @@ export const PullRequestHappenings = {
               to: 'its-review' as const,
               branch: null,
               pullRequest: facts.pullRequest,
+              statesVerdict: statesVerdict(activity),
             },
           ]
         : []),

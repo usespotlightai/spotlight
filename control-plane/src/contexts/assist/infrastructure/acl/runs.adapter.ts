@@ -79,9 +79,10 @@ export class Runs implements RunsPort {
       workspaceId: order.workspaceId.value,
       harness: basedOn.harness.value,
       priority: ASSIST_PRIORITY,
+      // Place it as the base run was placed. What that run ran in is a digest, which no runner offers, so it can't pin this.
       placement: {
         labelGroups: basedOn.placement.labelGroups,
-        image: basedOn.placement.image?.value ?? basedOn.image,
+        image: basedOn.placement.image?.value ?? null,
       },
       spec: {
         command,

@@ -6,6 +6,8 @@ export const gitHubKeys = {
   status: (slug?: string) => ['github', 'status', slug ?? null] as const,
   connection: (slug?: string, installationId?: string | null) =>
     ['github', 'connect', slug ?? null, installationId ?? null] as const,
+  installations: (slug?: string) =>
+    ['github', 'installations', slug ?? null] as const,
 };
 
 const POLL_MS = 10_000;

@@ -28,6 +28,7 @@ export const stationSearchRow = (
     iterations: override.iterations,
     repeats: override.repeats,
     objective: override.objective,
+    requestsPerDay: override.requestsPerDay,
   };
 
 export const lineSearchOf = (

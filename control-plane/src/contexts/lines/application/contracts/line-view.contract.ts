@@ -46,6 +46,7 @@ export interface SearchPolicyView {
   readonly iterations: number | null;
   readonly repeats: number | null;
   readonly objective: SearchObjectiveView | null;
+  readonly requestsPerDay: number;
 }
 
 export interface StationAlertView {

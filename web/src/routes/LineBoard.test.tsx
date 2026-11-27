@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
+import { WorkspaceContextMenu } from '@/components/shell/context-menu/WorkspaceContextMenu';
 import { LineBoard } from '@/routes/LineBoard';
 
 const line = {
@@ -53,6 +54,17 @@ vi.mock('@/hooks/api/useAssignTask', () => ({
   useAssignTask: () => ({ mutate: vi.fn() }),
 }));
 
+const opens = (open: readonly string[], denial = 'between-work-stations') =>
+  line.stations.map(({ id }) => ({
+    stationId: id,
+    denial: open.includes(id) ? null : denial,
+    skips: [],
+    sendsBack: false,
+  }));
+
+const AT_WORK = (stationId: string) =>
+  opens(['station_0', stationId, 'station_5']);
+
 const tasks = [
   {
     id: 'task_1',
@@ -61,6 +73,7 @@ const tasks = [
     title: 'Fix the queue',
     description: null,
     createdAt: '2026-08-04T09:15:00.000Z',
+    handMoves: AT_WORK('station_1'),
   },
   {
     id: 'task_2',
@@ -68,6 +81,7 @@ const tasks = [
     title: 'Sort the inbox',
     description: null,
     createdAt: '2026-08-05T09:15:00.000Z',
+    handMoves: AT_WORK('station_2'),
   },
   {
     id: 'task_3',
@@ -75,6 +89,7 @@ const tasks = [
     title: 'Drain the backlog',
     description: null,
     createdAt: '2026-08-06T09:15:00.000Z',
+    handMoves: AT_WORK('station_1'),
   },
   {
     id: 'task_4',
@@ -82,6 +97,7 @@ const tasks = [
     title: 'Groom the idea',
     description: null,
     createdAt: '2026-08-07T09:15:00.000Z',
+    handMoves: opens(line.stations.map(({ id }) => id)),
   },
 ];
 
@@ -109,7 +125,7 @@ vi.mock('@/hooks/api/useTasks', () => ({
   }),
 }));
 vi.mock('@/hooks/api/useAddTask', () => ({
-  useAddTask: () => ({ mutate: added }),
+  useAddTask: () => ({ mutateAsync: added }),
 }));
 vi.mock('@/hooks/api/useMoveTask', () => ({
   useMoveTask: () => ({ mutate: moved }),
@@ -385,6 +401,7 @@ describe('LineBoard', () => {
         title: 'Ship the fix',
         description: null,
         createdAt: '2026-08-08T09:15:00.000Z',
+        handMoves: opens(['station_5'], 'out-of-completed'),
       },
     ]);
     renderAt('line_1');
@@ -522,10 +539,52 @@ describe('LineBoard', () => {
   });
 
   it('opens on the view last looked at, however it is reached', () => {
-    localStorage.setItem('spotlight.board-view', 'completed');
+    localStorage.setItem('spotlight.board-view.line_1', 'completed');
     renderAt('line_1');
 
     expect(named()).toEqual(['Completed']);
+  });
+
+  it('opens another line on its own view, not on the one last looked at elsewhere', async () => {
+    const user = userEvent.setup();
+    lined.mockReturnValue([line, { ...line, id: 'line_2', name: 'Review' }]);
+    const { unmount } = renderAt('line_1');
+
+    await user.click(screen.getByRole('button', { name: 'Backlog' }));
+    unmount();
+    renderAt('line_2');
+
+    expect(named()).not.toContain('Backlog');
+    expect(named()).toContain('Triage');
+  });
+
+  it('selects a task from its right-click menu', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/w/acme/team/team_1/lines/line_1']}>
+        <WorkspaceContextMenu slug="acme" onOpenTab={vi.fn()}>
+          <Routes>
+            <Route
+              path="/w/:slug/team/:teamId/lines/:lineId"
+              element={<LineBoard />}
+            />
+          </Routes>
+        </WorkspaceContextMenu>
+      </MemoryRouter>,
+    );
+
+    fireEvent.contextMenu(screen.getByText('Fix the queue'), {
+      clientX: 40,
+      clientY: 60,
+    });
+    await user.click(await screen.findByRole('menuitem', { name: 'Select' }));
+
+    expect(
+      screen.getByRole('checkbox', { name: 'Select Fix the queue' }),
+    ).toBeChecked();
+    expect(
+      document.querySelector('[data-slot="selection-bar"]'),
+    ).toBeInTheDocument();
   });
 
   it('drops the selection when the view changes under it', async () => {

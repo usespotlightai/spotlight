@@ -175,6 +175,9 @@ const handoverOf = (value: JsonValue | undefined): RunSpecShape['handover'] => {
 
   return {
     options: textsAt(handover.options, 'spec handover options'),
+    ...present('resumeOptions', handover.resumeOptions, (each) =>
+      textsAt(each, 'spec handover resume options'),
+    ),
     noteLimit: numberAt(handover.noteLimit, 'spec handover note limit'),
   };
 };

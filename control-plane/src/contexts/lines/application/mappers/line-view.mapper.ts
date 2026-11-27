@@ -23,6 +23,7 @@ const searchOf = (policy: SearchPolicy | null): SearchPolicyView | null =>
     iterations: policy.iterations,
     repeats: policy.repeats,
     objective: policy.objective,
+    requestsPerDay: policy.requestsPerDay,
   };
 
 const stationOf = (

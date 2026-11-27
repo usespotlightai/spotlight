@@ -25,7 +25,6 @@ import type { PushDiffReservationDropped } from '@change-review/domain/events/pu
 import type { ReviewCommentDeleted } from '@change-review/domain/events/review-comment-deleted.event';
 import type { ReviewCommentEdited } from '@change-review/domain/events/review-comment-edited.event';
 import type { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
-import type { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import type { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import type { StackCheckLayersFailed } from '@change-review/domain/events/stack-check-layers-failed.event';
 import type { StackCheckReservationDropped } from '@change-review/domain/events/stack-check-reservation-dropped.event';
@@ -323,11 +322,6 @@ export const changeReviewSubscribers = (
     'change-review.post-review',
     ['review.submitted'],
     (event) => reviews.onSubmitted(event),
-  ),
-  subscribing<ReviewPosted>(
-    'change-review.post-file-comments',
-    ['review.posted'],
-    (event) => reviews.onPosted(event),
   ),
   subscribing<IncludedCommentPosted>(
     'change-review.record-posted-comment',
