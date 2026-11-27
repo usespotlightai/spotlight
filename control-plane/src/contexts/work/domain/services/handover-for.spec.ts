@@ -314,7 +314,7 @@ describe('HandoverFor.after', () => {
     ).toEqual(HandoverFor.outcome(silent));
   });
 
-  it('takes the last words of a run that names no next step as its note', () => {
+  it('says what a run that names no next step waits for, then gives its last words', () => {
     const silent = RunResult.of({
       exitCode: 0,
       failure: null,
@@ -330,7 +330,10 @@ describe('HandoverFor.after', () => {
     });
 
     expect(resolved.kind).toBe('review');
-    expect(resolved.body.value).toBe('Here is a draft you can use.');
+    expect(resolved.body.value).toBe(
+      'The run finished without saying where the task should go next.\n\nHere is a draft you can use.',
+    );
+    expect(resolved.account?.value).toBe('Here is a draft you can use.');
   });
 
   it('says the run named no next step when it left no words either', () => {

@@ -488,7 +488,18 @@ describe('Replay', () => {
       }
     });
 
-    it('is rejected against a replay it cannot be read beside: another config, other repeats or another ceiling', () => {
+    it('takes a ceiling no higher than the replay it compares with', () => {
+      const against = finishedLive();
+
+      expect(
+        handed(against, { ceiling: Money.ceiling(4, 'USD') }).ceiling.amount,
+      ).toBe(4);
+      expect(() =>
+        handed(against, { ceiling: Money.ceiling(20, 'USD') }),
+      ).toThrow(InvalidReplayError);
+    });
+
+    it('is rejected against a replay it cannot be read beside: another config, other repeats or a higher ceiling', () => {
       const against = finishedLive();
 
       for (const more of [

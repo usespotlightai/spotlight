@@ -19,6 +19,7 @@ import { ChatHeardFromTask } from '@work/domain/events/chat-heard-from-task.even
 import { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
 import { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
 import { ChatPullRequestOpened } from '@work/domain/events/chat-pull-request-opened.event';
+import { ChatResolved } from '@work/domain/events/chat-resolved.event';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
@@ -29,6 +30,7 @@ import { ProposalBecameTask } from '@work/domain/events/proposal-became-task.eve
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { ProposalRestored } from '@work/domain/events/proposal-restored.event';
 import { ProposalsReplaced } from '@work/domain/events/proposals-replaced.event';
+import { SetupPullRequestMerged } from '@work/domain/events/setup-pull-request-merged.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
@@ -299,10 +301,14 @@ export class Chat extends EventRecorder {
     return this.currentRunId !== null;
   }
 
+  get keepsNoLiveWorkingCopy(): boolean {
+    return this.resolvedAt !== null && !this.running;
+  }
+
   resolve(by: UserId, at: Date): Chat {
     this.assertStarter(by);
 
-    return this.resolvedAt ? this : this.with({ resolvedAt: at, readAt: at });
+    return this.resolvedAt ? this : this.resolvedAs(at);
   }
 
   reopen(by: UserId, at: Date): Chat {
@@ -624,6 +630,28 @@ export class Chat extends EventRecorder {
     return opened;
   }
 
+  setupPullRequestClosed(
+    pullRequest: PullRequestUrl,
+    merged: boolean,
+    at: Date,
+  ): Chat {
+    if (
+      !merged ||
+      !this.setup?.pullRequest?.equals(pullRequest) ||
+      this.resolvedAt
+    ) {
+      return this;
+    }
+
+    const resolved = this.with({ resolvedAt: at, readAt: at });
+
+    resolved.record(
+      new SetupPullRequestMerged(this.id, this.workspaceId, this.startedBy),
+    );
+
+    return resolved;
+  }
+
   assignRun(runId: RunId, at: Date): Chat {
     if (this.running) {
       throw new InvalidChatTransitionError(
@@ -738,7 +766,23 @@ export class Chat extends EventRecorder {
       this.nothingWaits &&
       this.proposals.some(({ proposal }) => proposal.becameTask);
 
-    return answered ? this.with({ resolvedAt: at, readAt: at }) : this;
+    if (!answered) {
+      return this;
+    }
+
+    return this.resolvedAt
+      ? this.with({ resolvedAt: at, readAt: at })
+      : this.resolvedAs(at);
+  }
+
+  private resolvedAs(at: Date): Chat {
+    const resolved = this.with({ resolvedAt: at, readAt: at });
+
+    resolved.record(
+      new ChatResolved(this.id, this.workspaceId, this.startedBy, at),
+    );
+
+    return resolved;
   }
 
   private endRun(runId: RunId): Chat {

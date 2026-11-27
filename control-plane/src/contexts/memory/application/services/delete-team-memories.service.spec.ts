@@ -1,6 +1,7 @@
 import { DeleteTeamMemories } from '@memory/application/services/delete-team-memories.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryVersionConflictError } from '@memory/domain/exceptions/memory-version-conflict.error';
+import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
 import type {
   MemoryUpkeepRepository,
   MemoryUpkeepScheduleRepository,
@@ -59,6 +60,21 @@ const deleting = (
       scheduleLeft = false;
     },
   } as unknown as MemoryUpkeepScheduleRepository;
+  const checksLeft = ['check_1'];
+  const checks = {
+    ofTeam: async () =>
+      checksLeft.map((id) => ({
+        id,
+        isDeleted: false,
+        delete: () => ({ id, isDeleted: true }),
+      })),
+    save: async (check: { id: string; isDeleted: boolean }) => {
+      if (check.isDeleted) {
+        removed.push(check.id);
+        checksLeft.splice(checksLeft.indexOf(check.id), 1);
+      }
+    },
+  } as unknown as DuplicateCheckRepository;
   const memories = {
     ofTeam: async () => [...stored.values()],
     save: async (memory: Memory) => {
@@ -82,20 +98,21 @@ const deleting = (
     },
     upkeeps,
     schedules,
+    checks,
   );
 
   return { service, stored, removed, transactions: () => transactions };
 };
 
 describe('DeleteTeamMemories', () => {
-  it('removes the schedule and each upkeep, then each memory of the team, in a transaction each', async () => {
+  it('removes the schedule, each upkeep and each duplicate check, then each memory of the team, in a transaction each', async () => {
     const { service, stored, removed, transactions } = deleting(new Set());
 
     await service.deleteForTeam(TEAM);
 
     expect(stored.size).toBe(0);
-    expect(transactions()).toBe(7);
-    expect(removed).toEqual(['schedule', 'upkeep_1', 'upkeep_2']);
+    expect(transactions()).toBe(8);
+    expect(removed).toEqual(['schedule', 'upkeep_1', 'upkeep_2', 'check_1']);
   });
 
   it('keeps the memories it removed when another changed meanwhile, and a retry removes the rest', async () => {

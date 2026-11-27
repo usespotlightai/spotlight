@@ -87,6 +87,11 @@ export type WebhookEvent =
       readonly snapshot: PullRequestSnapshot | null;
     }
   | {
+      readonly kind: 'default-branch-pushed';
+      readonly repository: string;
+      readonly branch: string;
+    }
+  | {
       readonly kind: 'pull-request-activity';
       readonly activity: PullRequestActivity;
     };

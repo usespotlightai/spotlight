@@ -1,8 +1,10 @@
+import type { DuplicateCheckReactions } from '@memory/application/events/handlers/duplicate-check-reactions.handler';
 import type { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import type { UpkeepReactions } from '@memory/application/events/handlers/upkeep-reactions.handler';
 import type { DeleteMemoryProposalSet } from '@memory/application/services/delete-memory-proposal-set.service';
 import type { DeleteTeamMemories } from '@memory/application/services/delete-team-memories.service';
 import type { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
+import type { WakeDuplicateChecks } from '@memory/application/services/wake-duplicate-checks.service';
 import type { WakeUpkeepSweeps } from '@memory/application/services/wake-upkeep-sweeps.service';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
@@ -31,6 +33,10 @@ import {
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import {
+  TASK_TURN_AWAITED,
+  type TaskTurnAwaitedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-turn-awaited.integration-event';
+import {
   TEAM_DELETED,
   type TeamDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
@@ -50,11 +56,41 @@ export const memorySubscribers = (
   recording: RecordRunMemoryUses,
   upkeep: UpkeepReactions,
   waking: WakeUpkeepSweeps,
+  checking: DuplicateCheckReactions,
+  wakingChecks: WakeDuplicateChecks,
 ): readonly DomainEventSubscriber[] => [
   subscribing<AssistSessionSettledIntegrationEvent>(
     'memory.wake-on-assist-session-settled',
     [ASSIST_SESSION_SETTLED],
     (event) => waking.settled({ purpose: event.purpose, key: event.key }),
+  ),
+  subscribing<AssistSessionSettledIntegrationEvent>(
+    'memory.wake-duplicate-check-on-assist-session-settled',
+    [ASSIST_SESSION_SETTLED],
+    (event) => wakingChecks.settled({ purpose: event.purpose, key: event.key }),
+  ),
+  subscribing<DispatchEndedIntegrationEvent>(
+    'memory.check-proposed-memories-for-duplicates',
+    [DISPATCH_ENDED],
+    (event) =>
+      checking.onRunEnded({
+        id: RunId.of(event.runId),
+        taskId: event.taskId ? TaskId.of(event.taskId) : null,
+      }),
+  ),
+  subscribing<TaskTurnAwaitedIntegrationEvent>(
+    'memory.check-proposed-memories-for-duplicates-when-run-waits',
+    [TASK_TURN_AWAITED],
+    (event) =>
+      checking.onRunEnded({
+        id: RunId.of(event.runId),
+        taskId: TaskId.of(event.taskId),
+      }),
+  ),
+  subscribing<TaskDeletedIntegrationEvent>(
+    'memory.delete-duplicate-checks-of-deleted-task',
+    [TASK_DELETED],
+    (event) => checking.onTaskDeleted(TaskId.of(event.taskId)),
   ),
   subscribing<MemoryUpkeepSwept>(
     'memory.notify-upkeep',

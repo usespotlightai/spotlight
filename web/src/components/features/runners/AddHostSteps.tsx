@@ -9,6 +9,7 @@ import { Steps } from '@/components/shared/steps/Steps';
 import { useCreateRunnerPool } from '@/hooks/api/useCreateRunnerPool';
 import { useRunnerPools } from '@/hooks/api/useRunnerPools';
 import { useTimeout } from '@/hooks/useTimeout';
+import { messageOf } from '@/lib/error';
 import { installCommand, suggestedPoolName } from '@/lib/runner';
 
 const MOVE_ON_MS = 2_000;
@@ -53,6 +54,7 @@ export function AddHostSteps({ slug, workspaceId }: AddHostStepsProps) {
             key={suggested}
             defaultName={suggested}
             creating={creating.isPending || Boolean(created)}
+            refusal={creating.error ? messageOf(creating.error) : null}
             onCreate={(name) => creating.mutate(name)}
             onEdit={() => creating.error && creating.reset()}
           />
@@ -65,17 +67,20 @@ export function AddHostSteps({ slug, workspaceId }: AddHostStepsProps) {
             ? `Add the machine to the ${created.key} pool`
             : 'Add the machine to the pool'
         }
-        description="Run this command on the machine while Docker or another container runtime is running. It asks how many sandboxes run at once and which runner image to use. Spotlight shows the pool token in it only once."
+        description="Run this command on the machine while Docker or another container runtime is running. When it asks for the pool token, paste the token. The token stays out of your shell history. The command then asks how many sandboxes run at once and which runner image to use. Spotlight shows the pool token only once."
         open={shown === 2}
         onOpen={created ? pick(2) : undefined}
       >
         {created && (
-          <CopyBlock
-            text={installCommand(created.token)}
-            label="Copy command"
-            focused
-            onCopy={() => later(() => setMovedOn(true), MOVE_ON_MS)}
-          />
+          <div className="flex flex-col gap-2">
+            <CopyBlock
+              text={installCommand()}
+              label="Copy command"
+              focused
+              onCopy={() => later(() => setMovedOn(true), MOVE_ON_MS)}
+            />
+            <CopyBlock text={created.token} label="Copy pool token" />
+          </div>
         )}
       </Step>
 

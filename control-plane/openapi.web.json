@@ -3419,7 +3419,7 @@
             "description": "No such task or station for this caller"
           },
           "422": {
-            "description": "A person may only start a task from the backlog, park it back there, or close it"
+            "description": "A person may only start a task from the backlog, park it back there, close it, or send a finished task back to an earlier station"
           }
         },
         "summary": "Move a task to another station on the same line",
@@ -4439,6 +4439,47 @@
           }
         },
         "summary": "Point this workspace at a GitHub App installation",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
+    "/workspaces/{slug}/github/installations": {
+      "get": {
+        "operationId": "listGitHubInstallations",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GitHubInstallationResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "List the installations of the App that the caller can reach on GitHub",
         "tags": [
           "workspaces"
         ]
@@ -6131,6 +6172,54 @@
         ]
       }
     },
+    "/teams/{teamId}/memories/{memoryId}/restore": {
+      "post": {
+        "operationId": "restoreTeamMemory",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "memoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such memory for this caller"
+          },
+          "409": {
+            "description": "It is not retired, or a newer memory replaced it"
+          }
+        },
+        "summary": "Brief a retired memory to runs again",
+        "tags": [
+          "memories"
+        ]
+      }
+    },
     "/teams/{teamId}/runs/{runId}/memories": {
       "get": {
         "operationId": "readRunMemories",
@@ -6968,6 +7057,11 @@
             "example": "3d",
             "description": "The shortest time between two automatic searches of a station, as in 12h or 3d"
           },
+          "requestsPerDay": {
+            "type": "number",
+            "example": 3,
+            "description": "The most requested tests of station changes that one station takes in one UTC day"
+          },
           "agent": {
             "nullable": true,
             "description": "The agent that proposes candidates. Null when Spotlight picks one.",
@@ -7010,6 +7104,7 @@
           "period",
           "onAlert",
           "cooldown",
+          "requestsPerDay",
           "agent",
           "iterations",
           "repeats",
@@ -7323,6 +7418,11 @@
             "type": "string",
             "example": "3d",
             "description": "The shortest time between two automatic searches of a station, as in 12h or 3d"
+          },
+          "requestsPerDay": {
+            "type": "number",
+            "example": 3,
+            "description": "The most requested tests of station changes that one station takes in one UTC day"
           }
         },
         "required": [
@@ -7332,7 +7432,8 @@
           "ceiling",
           "period",
           "onAlert",
-          "cooldown"
+          "cooldown",
+          "requestsPerDay"
         ]
       },
       "LineResponseDto": {
@@ -11407,6 +11508,48 @@
           "harness"
         ]
       },
+      "TaskHandMoveResponseDto": {
+        "type": "object",
+        "properties": {
+          "stationId": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          },
+          "denial": {
+            "type": "string",
+            "enum": [
+              "out-of-completed",
+              "between-work-stations",
+              "on-hold",
+              null
+            ],
+            "nullable": true,
+            "example": "between-work-stations",
+            "description": "Why a person may not move the task to this station: a completed task stays completed, only runs move a task between work stations, or the task is on hold for someone else. Null where the person may move it there."
+          },
+          "skips": {
+            "example": [
+              "b2e6f9a1-4c3d-4e8f-a7b0-5d1c2e3f4a56"
+            ],
+            "description": "The work stations that the move skips: the ones before this station, when the task starts from the backlog",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sendsBack": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether the move sends the finished task back to this station, with a reason that the next run reads: an earlier work station, or one its station passes to"
+          }
+        },
+        "required": [
+          "stationId",
+          "denial",
+          "skips",
+          "sendsBack"
+        ]
+      },
       "TaskResponseDto": {
         "type": "object",
         "properties": {
@@ -11556,6 +11699,13 @@
                 "$ref": "#/components/schemas/TaskRunNotStartedResponseDto"
               }
             ]
+          },
+          "handMoves": {
+            "description": "Each station of the line, and whether the caller may move the task there by hand. While the task waits on a question, the stations its station passes work to are open too, as they are to its agent. Empty where the task is on no line the caller reads.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskHandMoveResponseDto"
+            }
           }
         },
         "required": [
@@ -11577,7 +11727,8 @@
           "note",
           "source",
           "hold",
-          "runNotStarted"
+          "runNotStarted",
+          "handMoves"
         ]
       },
       "TaskPageResponseDto": {
@@ -12553,6 +12704,12 @@
             "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
             "nullable": true,
             "description": "The task it was dropped after. Left out for the top of the station."
+          },
+          "reason": {
+            "type": "string",
+            "example": "The pull request conflicts with main. Rebase it and run the tests.",
+            "nullable": true,
+            "description": "Why the person moves the task. It goes on the task, so the next run reads it."
           }
         },
         "required": [
@@ -13454,6 +13611,18 @@
             "type": "boolean",
             "description": "Whether a setup chat can start: the GitHub App is installed and a host runs sandboxes"
           },
+          "setupRefusal": {
+            "type": "string",
+            "enum": [
+              "needs-an-admin",
+              "code-unreachable",
+              "needs-egress",
+              null
+            ],
+            "nullable": true,
+            "example": "code-unreachable",
+            "description": "What keeps the viewer from starting a setup chat, the first that applies, as the start of one refuses it: needs-an-admin (the viewer is not a workspace owner or admin), code-unreachable (the GitHub App is not installed) or needs-egress (no host serves the workspace, and no push pool names an egress). Null when the viewer can start one"
+          },
           "viewerIsAdmin": {
             "type": "boolean",
             "description": "Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts"
@@ -13473,6 +13642,7 @@
           "provisioning",
           "steps",
           "canSetUp",
+          "setupRefusal",
           "viewerIsAdmin",
           "setupChat"
         ]
@@ -13509,13 +13679,32 @@
           "installUrl"
         ]
       },
+      "GitHubInstallationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "81234567",
+            "description": "The installation id that GitHub assigned"
+          },
+          "account": {
+            "type": "string",
+            "example": "acme",
+            "description": "The GitHub organisation or user the App is installed on"
+          }
+        },
+        "required": [
+          "id",
+          "account"
+        ]
+      },
       "ConnectGitHubRequestDto": {
         "type": "object",
         "properties": {
           "installationId": {
             "type": "string",
             "example": "81234567",
-            "description": "The installation GitHub named when it sent you back"
+            "description": "The installation GitHub named when it sent you back, or one from the installations list"
           }
         },
         "required": [
@@ -15298,6 +15487,34 @@
           "reason"
         ]
       },
+      "SimilarMemoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "memoryId": {
+            "type": "string",
+            "example": "memory_2"
+          },
+          "handle": {
+            "type": "string",
+            "example": "M-2"
+          },
+          "body": {
+            "type": "string",
+            "example": "The sandbox has no make, so npm ci cannot compile better-sqlite3."
+          },
+          "reason": {
+            "type": "string",
+            "example": "It gives the same advice as M-2: skip the better-sqlite3 build scripts because the image cannot compile it.",
+            "description": "Why the model found that the proposal repeats it"
+          }
+        },
+        "required": [
+          "memoryId",
+          "handle",
+          "body",
+          "reason"
+        ]
+      },
       "MemoryDecisionResponseDto": {
         "type": "object",
         "properties": {
@@ -15500,6 +15717,16 @@
               "type": "string"
             }
           },
+          "similarTo": {
+            "nullable": true,
+            "description": "The active memory that a model found the proposal repeats, applying in the same place, so it may be a duplicate; null while unchecked and once decided",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SimilarMemoryResponseDto"
+              }
+            ]
+          },
           "decision": {
             "nullable": true,
             "description": "Who approved or rejected it, and when",
@@ -15544,6 +15771,7 @@
           "retires",
           "editable",
           "inactiveMemories",
+          "similarTo",
           "decision",
           "harness",
           "steps",
@@ -15991,6 +16219,11 @@
                 "$ref": "#/components/schemas/MemoryLinkResponseDto"
               }
             ]
+          },
+          "restorable": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether a person can restore it: a person retired it and no newer memory replaced it"
           }
         },
         "required": [
@@ -16012,7 +16245,8 @@
           "provenance",
           "runs",
           "superseded",
-          "successor"
+          "successor",
+          "restorable"
         ]
       },
       "RetireMemoryRequestDto": {
@@ -16124,6 +16358,16 @@
               "type": "string"
             }
           },
+          "similarTo": {
+            "nullable": true,
+            "description": "The active memory that a model found the proposal repeats, applying in the same place, so it may be a duplicate; null while unchecked and once decided",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SimilarMemoryResponseDto"
+              }
+            ]
+          },
           "decision": {
             "nullable": true,
             "description": "Who approved or rejected it, and when",
@@ -16180,6 +16424,7 @@
           "retires",
           "editable",
           "inactiveMemories",
+          "similarTo",
           "decision",
           "harness",
           "steps",

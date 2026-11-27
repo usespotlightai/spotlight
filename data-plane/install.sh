@@ -123,7 +123,7 @@ main() {
 
   note_path
   status=0
-  if [ "$#" -gt 0 ]; then
+  if [ "$#" -gt 0 ] || [ -n "${SPOTLIGHT_POOL_TOKEN:-}" ]; then
     "$BIN_DIR/spotlight" host init --url "$API_BASE" "$@" || status=$?
   else
     next_step "To see what is set up on this computer:"

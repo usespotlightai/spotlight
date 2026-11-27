@@ -45,6 +45,7 @@ export function ThemeToggle({ theme, onChange }: ThemeToggleProps) {
         {OPTIONS.map(({ value, label, Icon }) => (
           <Tooltip key={value}>
             <TooltipTrigger
+              iconOnly
               render={
                 <Radio.Root
                   value={value}

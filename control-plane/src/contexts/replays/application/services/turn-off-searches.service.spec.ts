@@ -31,6 +31,7 @@ const policyOf = (on: boolean): SearchPolicy =>
     iterations: null,
     repeats: null,
     objective: null,
+    requestsPerDay: 3,
   });
 
 const turningOff = () =>

@@ -69,6 +69,10 @@ class PullRequestsInMemory implements PullRequestRepository {
     return [...this.rows.values()].filter((each) => each.title === title);
   }
 
+  async openIn() {
+    return [...this.rows.values()].filter((each) => each.state === 'open');
+  }
+
   async lastUpdatedBefore(
     before: Date,
     after: PullRequest | null,
@@ -166,6 +170,7 @@ class PullRequestsInMemory implements PullRequestRepository {
         botComments: pullRequest.botComments,
         threads: pullRequest.threads,
         revertedBy: pullRequest.revertedBy,
+        mergeable: pullRequest.mergeable,
         version: pullRequest.version + 1,
       }),
     );

@@ -204,6 +204,14 @@ export class LineMap {
     ];
   }
 
+  skips(from: Station, to: Station): readonly Station[] {
+    return from.isBacklog && to.isAgentStation
+      ? this.stations.filter(
+          (each) => each.isAgentStation && each.position < to.position,
+        )
+      : [];
+  }
+
   passDenial(from: StationId, to: Station): PassDenial | null {
     if (to.id.equals(from)) {
       return 'already-there';
@@ -229,6 +237,15 @@ export class LineMap {
     const parks = from.isAgentStation && to.isBacklog;
 
     return starts || parks || to.isCompleted ? null : 'between-work-stations';
+  }
+
+  sendsBack(from: Station, to: Station): boolean {
+    return (
+      from.isAgentStation &&
+      to.isAgentStation &&
+      !from.id.equals(to.id) &&
+      (from.routesTo(to.id) || to.position < from.position)
+    );
   }
 
   endsAt(stationId: StationId): boolean {

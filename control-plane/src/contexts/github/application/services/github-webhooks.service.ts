@@ -8,6 +8,7 @@ import type {
   WebhookParserPort,
 } from '@github/application/ports/webhook-parser.port';
 import type { WebhookSignaturePort } from '@github/application/ports/webhook-signature.port';
+import type { PullRequestMergeability } from '@github/application/services/pull-request-mergeability.service';
 import type { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
@@ -25,6 +26,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     private readonly logger: LoggerPort,
     private readonly checkRuns: CheckRunsPort,
     private readonly visibilities: RecordsRepositoryVisibility,
+    private readonly mergeability: PullRequestMergeability,
   ) {}
 
   verifies(delivery: GitHubDelivery): boolean {
@@ -248,6 +250,14 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
         byBot: event.byBot,
         pushedAt: event.pushedAt,
       });
+    }
+
+    if (event.kind === 'default-branch-pushed') {
+      await this.mergeability.baseMoved(
+        from,
+        Repository.of(event.repository),
+        event.branch,
+      );
     }
 
     if (event.kind === 'pull-request-reopened') {

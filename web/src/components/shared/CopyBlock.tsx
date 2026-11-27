@@ -1,6 +1,11 @@
 import { CodeBlock } from '@/components/shared/CodeBlock';
 import { CopyIcon } from '@/components/shared/CopyIcon';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useCopied } from '@/hooks/useCopied';
 
 const focusOnMount = (button: HTMLButtonElement | null) => {
@@ -22,20 +27,27 @@ export function CopyBlock({ text, label, focused, onCopy }: CopyBlockProps) {
       command={text}
       className="pr-1"
       trailing={
-        <Button
-          ref={focused ? focusOnMount : undefined}
-          variant="ghost"
-          size="icon-xs"
-          aria-label={copied ? 'Copied' : label}
-          title={label}
-          className="m-1.5 text-muted-foreground"
-          onClick={() => {
-            void copy(text);
-            onCopy?.();
-          }}
-        >
-          <CopyIcon copied={copied} />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            iconOnly
+            render={
+              <Button
+                ref={focused ? focusOnMount : undefined}
+                variant="ghost"
+                size="icon-xs"
+                aria-label={copied ? 'Copied' : label}
+                className="m-1.5 text-muted-foreground"
+                onClick={() => {
+                  void copy(text);
+                  onCopy?.();
+                }}
+              />
+            }
+          >
+            <CopyIcon copied={copied} />
+          </TooltipTrigger>
+          <TooltipContent>{copied ? 'Copied' : label}</TooltipContent>
+        </Tooltip>
       }
     />
   );

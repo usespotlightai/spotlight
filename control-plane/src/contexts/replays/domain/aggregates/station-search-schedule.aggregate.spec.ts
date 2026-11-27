@@ -37,15 +37,17 @@ const automatic = () => {
     searchId: SearchId.of(`search_${starts}`),
     request: null,
     candidates: [CandidateId.of(`live_${starts}`)],
+    requestsPerDay: 3,
   };
 };
 
 const SEARCH = SearchId.of('search_running');
 
-const join = (request: string, at: Date) => ({
+const join = (request: string, at: Date, requestsPerDay = 3) => ({
   searchId: SEARCH,
   request: CandidateId.of(request),
   at,
+  requestsPerDay,
 });
 
 const joinOf = (request: string) => ({
@@ -231,6 +233,7 @@ describe('StationSearchSchedule', () => {
       searchId: SearchId.of('search_requested'),
       request: CandidateId.of('requested'),
       candidates: [CandidateId.of('live'), CandidateId.of('requested')],
+      requestsPerDay: 3,
     });
 
     expect(after.lastStartedAt).toEqual(before.lastStartedAt);
@@ -251,7 +254,7 @@ describe('StationSearchSchedule', () => {
       .requested(join('b', day))
       .requested(join('c', day));
 
-    expect(full.takesRequestOn(day)).toBe(false);
+    expect(full.takesRequestOn(day, 3)).toBe(false);
     expect(() => full.requested(join('d', day))).toThrow(
       RequestLimitReachedError,
     );
@@ -259,6 +262,61 @@ describe('StationSearchSchedule', () => {
       day: '2026-10-30',
       counted: [CandidateId.of('e')],
     });
+  });
+
+  it('takes as many requests a day as the search of the station allows', () => {
+    const day = new Date('2026-10-29T08:00:00.000Z');
+    const once = created().requested(join('a', day, 1));
+
+    expect(once.takesRequestOn(day, 1)).toBe(false);
+    expect(() => once.requested(join('b', day, 1))).toThrow(
+      new RequestLimitReachedError(
+        STATION.stationId,
+        1,
+        new Date('2026-10-30T00:00:00.000Z'),
+      ),
+    );
+    expect(once.requested(join('b', day, 5)).takesRequestOn(day, 5)).toBe(true);
+  });
+
+  it('counts requests afresh from the next 00:00 UTC, also across a month and a year', () => {
+    const late = new Date('2026-10-29T23:59:59.000Z');
+    const full = created().requested(join('a', late, 1));
+
+    expect(full.requestsResetAfter(late)).toEqual(
+      new Date('2026-10-30T00:00:00.000Z'),
+    );
+    expect(full.takesRequestOn(full.requestsResetAfter(late), 1)).toBe(true);
+    expect(
+      created().requestsResetAfter(new Date('2026-12-31T00:00:00.000Z')),
+    ).toEqual(new Date('2027-01-01T00:00:00.000Z'));
+  });
+
+  it('keeps the requests it counted after the limit goes down', () => {
+    const day = '2026-10-29';
+    const stored = StationSearchSchedule.rehydrate({
+      station: STATION,
+      setId: ReplaySetId.of('set_1'),
+      lastStartedAt: null,
+      lastSkip: null,
+      searchedTasks: [],
+      alertPendingSince: null,
+      rejected: [],
+      rejectedAgainst: null,
+      lastRejectedAt: null,
+      lastImprovedAt: null,
+      requests: {
+        day,
+        counted: ['a', 'b', 'c', 'd', 'e'].map((each) => CandidateId.of(each)),
+      },
+      pendingSteps: [],
+      checkAfter: NOW,
+      version: 0,
+    });
+
+    expect(stored.takesRequestOn(new Date(`${day}T12:00:00.000Z`), 3)).toBe(
+      false,
+    );
   });
 
   it('keeps the latest time a merged pull request improved the station', () => {
@@ -305,7 +363,7 @@ describe('StationSearchSchedule', () => {
       withdrawnA
         .requested(join('c', day))
         .requested(join('d', day))
-        .takesRequestOn(day),
+        .takesRequestOn(day, 3),
     ).toBe(false);
   });
 

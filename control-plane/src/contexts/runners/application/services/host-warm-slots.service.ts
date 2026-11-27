@@ -42,7 +42,7 @@ export class HostWarmSlots implements WarmSlotsPort {
     });
   }
 
-  async drainWarmOn(
+  async drainIdleOn(
     hostId: string,
     at: Date,
     runWaits: () => Promise<boolean>,
@@ -71,7 +71,9 @@ export class HostWarmSlots implements WarmSlotsPort {
             hostId,
             lineId: found.chosen.warm?.lineId.value ?? null,
           },
-          'Draining a warm sandbox so a queued run can take its slot',
+          found.chosen.warm
+            ? 'Draining a warm sandbox so a queued run can take its slot'
+            : 'Draining an idle sandbox early so a queued run can take its slot',
         );
       }
     });

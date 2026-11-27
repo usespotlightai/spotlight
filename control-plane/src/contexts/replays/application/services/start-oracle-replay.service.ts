@@ -8,10 +8,12 @@ import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import {
   type OracleAnswered,
   oracleAnswerOf,
 } from '@replays/domain/services/oracle-answer';
+import { oracleCeilingOf } from '@replays/domain/services/oracle-ceiling';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
@@ -26,6 +28,7 @@ export class StartOracleReplay {
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
+    private readonly searches: SearchRepository,
     private readonly configs: StationConfigs,
     private readonly replayRuns: ReplayRunDispatching,
     private readonly insights: InsightsPort,
@@ -57,6 +60,10 @@ export class StartOracleReplay {
       return;
     }
 
+    const search = baseline.searchId
+      ? await this.searches.find(baseline.searchId)
+      : null;
+    const ceiling = oracleCeilingOf(baseline, search);
     const oracle = Candidate.oracleOf(live, {
       id: CandidateId.of(this.ids.generate()),
       at: this.clock.now(),
@@ -91,7 +98,7 @@ export class StartOracleReplay {
             set: locked.snapshot,
             candidate: oracle.asReplayed,
             baseline: false,
-            ceiling: baseline.ceiling,
+            ceiling,
             repeats: baseline.repeats,
             oracle: {
               answers,

@@ -120,6 +120,33 @@ describe('GitHubWebhookProvider', () => {
     ]);
   });
 
+  it('raises a conflict on the task of the pull request, apart from any delivery', () => {
+    const [raised] = providerOver([]).provider.conflicted({
+      pullRequest: 'https://github.com/acme/api/pull/18',
+      branch: 'spotlight/fix-the-queue',
+      base: 'main',
+    });
+
+    expect(raised).toMatchObject({
+      happening: 'github.pull_request.conflicted',
+      summary: 'The pull request conflicts with its base branch.',
+      correlationKeys: {
+        branch: 'spotlight/fix-the-queue',
+        marks: [
+          {
+            kind: PULL_REQUEST_MARK,
+            value: 'https://github.com/acme/api/pull/18',
+          },
+        ],
+      },
+      message: {
+        body: 'The pull request conflicts with main. Rebase the branch on main and push it.',
+      },
+      ourOwn: false,
+      closedPullRequest: null,
+    });
+  });
+
   it('names the checks that failed, with the failed step and the end of the log', async () => {
     expect(
       (
@@ -173,6 +200,26 @@ describe('GitHubWebhookProvider', () => {
       to: 14,
       reviewComment: 'PRRC_1',
       pullRequest: MERGED.pullRequest,
+    });
+  });
+
+  it('says that a review requests changes, before what the review says', async () => {
+    expect(
+      (
+        await readOne({
+          ...MERGED,
+          activity: 'changes-requested',
+          reviewComment: {
+            body: 'Accept empty filters.',
+            path: null,
+            from: null,
+            to: null,
+            id: 'PRR_1',
+          },
+        })
+      ).message,
+    ).toMatchObject({
+      body: 'Changes were requested on the pull request.\n\nAccept empty filters.',
     });
   });
 

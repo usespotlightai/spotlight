@@ -566,7 +566,7 @@ export class TaskController {
   })
   @ApiUnprocessableEntityResponse({
     description:
-      'A person may only start a task from the backlog, park it back there, or close it',
+      'A person may only start a task from the backlog, park it back there, close it, or send a finished task back to an earlier station',
   })
   @HttpCode(HttpStatus.OK)
   @ApiForbiddenResponse({
@@ -589,6 +589,7 @@ export class TaskController {
         body.revision,
         body.afterTaskId ?? null,
         user.id,
+        body.reason ?? null,
       ),
     );
 

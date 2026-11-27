@@ -6,6 +6,10 @@ const oldestFirst = (a: Sandbox, b: Sandbox): number =>
   a.startedAt.getTime() - b.startedAt.getTime() ||
   (a.id.value < b.id.value ? -1 : a.id.value > b.id.value ? 1 : 0);
 
+const longestIdleFirst = (a: Sandbox, b: Sandbox): number =>
+  (a.idleSince?.getTime() ?? 0) - (b.idleSince?.getTime() ?? 0) ||
+  oldestFirst(a, b);
+
 export const WarmSlots = {
   roomForWarm(host: RunnerHost, holders: HostSlotHolders): boolean {
     return host.hasFreeSlot(holders.taken + 1);
@@ -27,7 +31,11 @@ export const WarmSlots = {
     return (
       onHost
         .filter((each) => each.takesFirstRunOn(host, now))
-        .sort(oldestFirst)[0] ?? null
+        .sort(oldestFirst)[0] ??
+      onHost
+        .filter((each) => each.waitsForFollowUpOn(host, now))
+        .sort(longestIdleFirst)[0] ??
+      null
     );
   },
 };

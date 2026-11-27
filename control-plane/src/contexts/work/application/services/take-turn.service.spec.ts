@@ -363,7 +363,7 @@ describe('TakeTurn', () => {
       await turn.take(turnFacts({ session: 'session_1' }));
 
       expect(turn.tasks[0]?.notes[0]?.body.value).toBe(
-        'Here is a draft you can use.',
+        'The run finished without saying where the task should go next.\n\nHere is a draft you can use.',
       );
     });
 

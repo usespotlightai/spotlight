@@ -7,7 +7,7 @@ export interface WarmSlotsPort {
     start: () => Promise<T | null>,
   ): Promise<T | null>;
 
-  drainWarmOn(
+  drainIdleOn(
     hostId: string,
     at: Date,
     runWaits: () => Promise<boolean>,
