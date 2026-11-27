@@ -207,27 +207,7 @@ const runIndex = fc.oneof(
   },
 );
 
-interface RunLine {
-  readonly line: string;
-  readonly fingerprint: string;
-}
-
-const runLine: fc.Arbitrary<RunLine> = fc.record({
-  line: fc.oneof(
-    { weight: 4, arbitrary: fc.constant(LINE) },
-    { weight: 1, arbitrary: fc.constant('line_2') },
-  ),
-  fingerprint: fc.oneof(
-    { weight: 4, arbitrary: fc.constant(SETUP) },
-    { weight: 1, arbitrary: fc.constant('setup_2') },
-  ),
-});
-
-type Step =
-  | { readonly kind: 'adopt'; readonly sandbox: number; readonly run: number }
-  | Exclude<Action, { kind: 'adopt' }>;
-
-const step: fc.Arbitrary<Step> = fc.oneof(
+const action: fc.Arbitrary<Action> = fc.oneof(
   {
     weight: 6,
     arbitrary: fc.record({
@@ -254,22 +234,7 @@ const step: fc.Arbitrary<Step> = fc.oneof(
   { weight: 1, arbitrary: fc.constant({ kind: 'sweep' as const }) },
 );
 
-const actions: fc.Arbitrary<readonly Action[]> = fc
-  .tuple(
-    fc.array(runLine, { minLength: RUNS.length, maxLength: RUNS.length }),
-    fc.array(step, { minLength: 2, maxLength: 5 }),
-  )
-  .map(([lines, steps]) =>
-    steps.map((each): Action => {
-      if (each.kind !== 'adopt') {
-        return each;
-      }
-
-      const { line, fingerprint } = lines[each.run];
-
-      return { ...each, line, fingerprint };
-    }),
-  );
+const actions = fc.array(action, { minLength: 2, maxLength: 5 });
 
 interface WarmRace {
   readonly place: Place;
@@ -306,7 +271,7 @@ const performed = (
       return service.releaseRun(runIds[each.run], AT).then(() => true);
     case 'drain-for-queued':
       return slots
-        .drainWarmOn(place.host.id.value, AT, async () => true)
+        .drainIdleOn(place.host.id.value, AT, async () => true)
         .then(() => true);
     case 'sweep':
       return service.drainIdle(AT).then(() => true);

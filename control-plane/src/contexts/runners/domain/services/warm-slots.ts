@@ -1,10 +1,15 @@
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import type { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import type { HostSlotHolders } from '@runners/domain/services/host-slot-holders';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 const oldestFirst = (a: Sandbox, b: Sandbox): number =>
   a.startedAt.getTime() - b.startedAt.getTime() ||
   (a.id.value < b.id.value ? -1 : a.id.value > b.id.value ? 1 : 0);
+
+const longestIdleFirst = (a: Sandbox, b: Sandbox): number =>
+  (a.idleSince?.getTime() ?? 0) - (b.idleSince?.getTime() ?? 0) ||
+  oldestFirst(a, b);
 
 export const WarmSlots = {
   roomForWarm(host: RunnerHost, holders: HostSlotHolders): boolean {
@@ -25,9 +30,17 @@ export const WarmSlots = {
     }
 
     return (
-      onHost
-        .filter((each) => each.takesFirstRunOn(host, now))
-        .sort(oldestFirst)[0] ?? null
+      firstOf(
+        onHost
+          .filter((each) => each.takesFirstRunOn(host, now))
+          .sort(oldestFirst),
+      ) ??
+      firstOf(
+        onHost
+          .filter((each) => each.waitsForFollowUpOn(host, now))
+          .sort(longestIdleFirst),
+      ) ??
+      null
     );
   },
 };
