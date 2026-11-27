@@ -218,6 +218,7 @@ const pullRequestActivity = (
     merged: payload.pull_request?.merged === true,
     reviewState: text(payload.review?.state),
     checkConclusion: text(payload.check_suite?.conclusion),
+    issueIsPullRequest: Boolean(payload.issue?.pull_request),
   });
 
   if (!activity) {

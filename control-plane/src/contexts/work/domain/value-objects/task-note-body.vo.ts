@@ -1,3 +1,4 @@
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { InvalidTaskNoteError } from '@work/domain/exceptions/invalid-task-note.error';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
@@ -69,6 +70,12 @@ export class TaskNoteBody {
     const anchored = [anchor?.place, anchor?.body].filter(Boolean).join('\n');
 
     return TaskNoteBody.of(anchored || summary);
+  }
+
+  static branchPullRequest(pullRequest: PullRequestUrl): TaskNoteBody {
+    return TaskNoteBody.of(
+      `Pull request ${pullRequest.value} is open from the branch of this task. It is now the pull request of the task.`,
+    );
   }
 
   static heldMove(to: StationName, account: TaskNoteBody): TaskNoteBody {
