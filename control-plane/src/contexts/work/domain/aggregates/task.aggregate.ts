@@ -1261,10 +1261,14 @@ export class Task extends EventRecorder {
       .map((each) => each.url);
   }
 
+  ownsPullRequest(url: PullRequestUrl): boolean {
+    return this.pullRequests.some((each) => each.equals(url));
+  }
+
   private hasPullRequest(url: PullRequestUrl): boolean {
     return (
       (this.reviewedPullRequest?.url.equals(url) ?? false) ||
-      this.pullRequests.some((each) => each.equals(url))
+      this.ownsPullRequest(url)
     );
   }
 
@@ -1775,6 +1779,10 @@ export class Task extends EventRecorder {
     switch (outcome.kind) {
       case 'stays':
         return this.addMessage(newNote);
+      case 'asks':
+        return this.running || this.onHold || this.awaitingReview
+          ? this.addMessage(newNote)
+          : this.askedAbout(newNote, null);
       case 'held':
         return this.holdMoveUntilPullRequestsClose(
           outcome.to.id,
