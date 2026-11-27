@@ -25,6 +25,7 @@ import {
   PULL_REQUESTS,
   type PullRequestPort,
 } from '@github/application/ports/pull-request.port';
+import { REACHABLE_INSTALLATIONS } from '@github/application/ports/reachable-installations.port';
 import {
   REPOSITORY_ACCESS,
   RepositoryAccessPort,
@@ -50,8 +51,10 @@ import {
   type WebhookSignaturePort,
 } from '@github/application/ports/webhook-signature.port';
 import { WORKSPACE_CONNECTIONS } from '@github/application/ports/workspace-connections.port';
+import { ListGitHubInstallationsHandler } from '@github/application/queries/handlers/list-github-installations.handler';
 import { ListRepositoriesHandler } from '@github/application/queries/handlers/list-repositories.handler';
 import { ReadGitHubHandler } from '@github/application/queries/handlers/read-github.handler';
+import { ListGitHubInstallationsQuery } from '@github/application/queries/list-github-installations.query';
 import { ListRepositoriesQuery } from '@github/application/queries/list-repositories.query';
 import { ReadGitHubQuery } from '@github/application/queries/read-github.query';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
@@ -74,6 +77,7 @@ import { GitHubPullRequestComments } from '@github/infrastructure/github/github-
 import { GitHubPullRequestReactions } from '@github/infrastructure/github/github-pull-request-reactions';
 import { GitHubPullRequestReviews } from '@github/infrastructure/github/github-pull-request-reviews';
 import { GitHubPullRequests } from '@github/infrastructure/github/github-pull-requests';
+import { GitHubReachableInstallations } from '@github/infrastructure/github/github-reachable-installations';
 import { GitHubRepositoryContents } from '@github/infrastructure/github/github-repository-contents';
 import { GitHubRepositorySettings } from '@github/infrastructure/github/github-repository-settings';
 import { GitHubReviewComments } from '@github/infrastructure/github/github-review-comments';
@@ -376,6 +380,13 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: REACHABLE_INSTALLATIONS,
+    inject: [LINKED_ACCOUNTS],
+    useFactory: (accounts: LinkedAccountsPort) =>
+      new GitHubReachableInstallations(accounts),
+  },
+
+  {
     provide: REPOSITORY_ACCESS,
     inject: [ENV, INSTALLATIONS],
     useFactory: (env: Env, installations: InstallationsPort) =>
@@ -447,6 +458,12 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
     WORKSPACE_CONNECTIONS,
     GITHUB_APP,
   ]),
+
+  ...bindQueryHandler(
+    ListGitHubInstallationsQuery,
+    ListGitHubInstallationsHandler,
+    [WORKSPACE_READER, REACHABLE_INSTALLATIONS],
+  ),
 
   ...bindCommandHandler(ConnectGitHubCommand, ConnectGitHubHandler, [
     WORKSPACE_ACCESS,

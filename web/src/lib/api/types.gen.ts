@@ -4480,9 +4480,20 @@ export type GitHubConnectionStatusResponseDto = {
   installUrl: string | null;
 };
 
+export type GitHubInstallationResponseDto = {
+  /**
+   * The installation id that GitHub assigned
+   */
+  id: string;
+  /**
+   * The GitHub organisation or user the App is installed on
+   */
+  account: string;
+};
+
 export type ConnectGitHubRequestDto = {
   /**
-   * The installation GitHub named when it sent you back
+   * The installation GitHub named when it sent you back, or one from the installations list
    */
   installationId: string;
 };
@@ -18367,6 +18378,32 @@ export type ConnectGitHubResponses = {
 };
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
+
+export type ListGitHubInstallationsData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/github/installations';
+};
+
+export type ListGitHubInstallationsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListGitHubInstallationsResponses = {
+  200: Array<GitHubInstallationResponseDto>;
+};
+
+export type ListGitHubInstallationsResponse = ListGitHubInstallationsResponses[keyof ListGitHubInstallationsResponses];
 
 export type GetPushKeyData = {
   body?: never;
