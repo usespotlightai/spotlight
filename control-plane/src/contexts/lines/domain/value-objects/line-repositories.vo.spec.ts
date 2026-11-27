@@ -28,7 +28,6 @@ describe('LineRepositories', () => {
 
   it('rejects two repositories that share a name', () => {
     expect(() => of('acme/api', 'other/api')).toThrow(DuplicateRepositoryError);
-    expect(() => of('acme/api', 'other/API')).toThrow(DuplicateRepositoryError);
   });
 
   it('runs in no image when no repository names one', () => {

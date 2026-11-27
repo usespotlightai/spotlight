@@ -74,6 +74,7 @@ const ended = (
     workspaceId?: WorkspaceId;
     teamId?: TeamId;
     endedHoursAgo?: number;
+    repositories?: readonly string[];
   } = {},
 ): RunRecord =>
   RunRecord.empty(RunId.of(runId), options.workspaceId ?? WORKSPACE).recordEnd(
@@ -90,7 +91,7 @@ const ended = (
         model: 'opus',
         effort: null,
         profileKey: null,
-        repositories: ['acme/api'],
+        repositories: options.repositories ?? ['acme/api'],
         skills: ['grafana'],
       }),
       queuedAt: at((options.endedHoursAgo ?? 1) + 0.5),
@@ -570,9 +571,23 @@ describe('run facts', () => {
     expect(await allFacts()).toHaveLength(1_205);
   });
 
-  it('counts the spend of the runs on one repository in one slice and one link', async () => {
-    await records.add(withUsageRecorded(ended('run_1', 'task_1')));
-    await records.add(withUsageRecorded(ended('run_2', 'task_2')));
+  it('counts the spend of the runs on one repository in one slice and one link, whatever case each run names it in, and drills down to them all', async () => {
+    await records.add(
+      withUsageRecorded(
+        ended('run_1', 'task_1', {
+          endedHoursAgo: 2,
+          repositories: ['acme/api'],
+        }),
+      ),
+    );
+    await records.add(
+      withUsageRecorded(
+        ended('run_2', 'task_2', {
+          endedHoursAgo: 1,
+          repositories: ['Acme/API'],
+        }),
+      ),
+    );
     const reader = new DrizzleInsightsReader(
       new DrizzleReading(
         database.db,
@@ -581,11 +596,45 @@ describe('run facts', () => {
         }),
       ),
     );
+    const window = { from: at(24), to: at(0) };
 
     const { current } = await reader.costCounts({
       workspaceId: WORKSPACE,
       teamId: TEAM,
       period: InsightsPeriod.of('7d', new Date(NOW)),
+    });
+    const listed = await reader.runPage({
+      window: { workspaceId: WORKSPACE, teamId: TEAM, ...window },
+      filter: runFilterOf(
+        {
+          lineId: null,
+          stationId: null,
+          outcome: null,
+          harness: null,
+          model: { kind: 'any' },
+          repository: { kind: 'is', value: 'acme/api' },
+          fingerprint: null,
+          taskId: null,
+          taskIds: null,
+          personId: null,
+          day: null,
+          week: null,
+          skillEnabled: null,
+          skillUsed: null,
+          server: null,
+          serverFailed: null,
+          failedAfter: null,
+          dismissedTool: null,
+          dismissedServer: { kind: 'any' },
+          pullRequestState: null,
+          humanAction: null,
+          resolution: null,
+          asked: false,
+        },
+        window,
+      ),
+      offset: 0,
+      limit: 10,
     });
 
     expect(
@@ -598,6 +647,10 @@ describe('run facts', () => {
         .filter((each) => each.target.kind === 'repository')
         .map((each) => [each.target.key, each.amount]),
     ).toEqual([['acme/api', 2.5]]);
+    expect(listed.runs.map((each) => each.runId).sort()).toEqual([
+      'run_1',
+      'run_2',
+    ]);
   });
 
   it('stores how the run ended as its rules say, the size of its change, and whether it ran its config', async () => {

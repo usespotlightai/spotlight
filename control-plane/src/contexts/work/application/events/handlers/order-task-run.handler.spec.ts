@@ -3,7 +3,6 @@ import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
-import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -24,7 +23,6 @@ import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import {
   lineMapOf,
-  repositoryOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
@@ -42,7 +40,6 @@ const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
     teamId: TeamId.of('team_1'),
     key: LineKey.of('delivery'),
     name: LineName.of('Delivery'),
-    repositories: [repositoryOf(Repository.of('acme/api'))],
     stations: [
       stationOf({
         id: StationId.of(backlogId),
@@ -116,6 +113,7 @@ const ORDERED: OrderedRun = {
   briefedTask: null,
   briefedMemories: BriefedMemories.none(),
   configuredAs: null,
+  repositories: [],
   toolsOnMarks: [],
 };
 
@@ -183,28 +181,15 @@ describe('OrderTaskRun', () => {
     ).toEqual(['sentry.get-issue']);
   });
 
-  it('records each repository the run checks out by its owner and name, whether it works on the task or reviews a pull request', async () => {
-    const working = ordering();
-    const reviewing = ordering({
-      task: Task.rehydrate({
-        ...added().reviews(
-          PullRequestUrl.of('https://github.com/Acme/API/pull/4'),
-          { outside: false },
-          delivery(),
-          NOW,
-        ),
-        currentRunId: RUN,
-      }),
+  it('records the repositories the run’s order checks out', async () => {
+    const API = Repository.of('acme/api');
+    const { handler, task, added } = ordering({
+      ordered: { ...ORDERED, repositories: [API] },
     });
 
-    await working.handler.on(handed(working.task));
-    await reviewing.handler.on(handed(reviewing.task));
+    await handler.on(handed(task));
 
-    for (const { added: dispatched } of [working, reviewing]) {
-      expect(
-        dispatched.mock.calls[0]?.[0]?.repositories.map((each) => each.value),
-      ).toEqual(['acme/api']);
-    }
+    expect(added.mock.calls[0]?.[0]?.repositories).toEqual([API]);
   });
 
   it('orders nothing twice', async () => {

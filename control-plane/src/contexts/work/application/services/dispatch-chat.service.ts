@@ -183,6 +183,7 @@ export class DispatchChat implements ChatDispatching {
         omitted: memories.omitted,
       }),
       configuredAs: null,
+      repositories: [],
       toolsOnMarks: [],
     };
   }

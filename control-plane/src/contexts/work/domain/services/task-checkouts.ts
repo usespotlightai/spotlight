@@ -20,27 +20,24 @@ const reviewedOrAll = <T extends object | string>(
   all: readonly T[],
 ): readonly T[] => (reviewing !== null && reviewing !== '' ? [reviewing] : all);
 
+// A run works in each repository by its full owner/name, spelled as its line spells it, whatever case the pull request it reviews spells it in.
 export const repositoriesReviewedOrAll = (
   reviewing: Repository | null,
   line: LineMap,
-): readonly Repository[] => reviewedOrAll(reviewing, line.repositories.all);
+): readonly Repository[] =>
+  reviewedOrAll(
+    reviewing
+      ? (line.repositories.all.find((each) => each.equals(reviewing)) ??
+          reviewing)
+      : null,
+    line.repositories.all,
+  );
 
 export const repositoriesForTask = (
   task: Task | null,
   line: LineMap,
 ): readonly Repository[] =>
   repositoriesReviewedOrAll(task?.reviewedHead?.repository ?? null, line);
-
-// A run names each repository it checks out by its full owner/name, spelled as its line spells it.
-export const repositoriesRunIn = (
-  task: Task,
-  line: LineMap,
-): readonly Repository[] =>
-  repositoriesForTask(task, line).map(
-    (repository) =>
-      line.repositories.all.find((each) => each.equals(repository)) ??
-      repository,
-  );
 
 export const repositoryForTaskNamed = (
   name: RepositoryName,

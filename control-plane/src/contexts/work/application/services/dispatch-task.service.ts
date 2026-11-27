@@ -212,6 +212,7 @@ export class DispatchTask implements TaskDispatching {
         omitted: memories.omitted,
       }),
       configuredAs: this.ordering.configuredAs(ordered, line),
+      repositories: order.checkouts.map((each) => each.repository),
       toolsOnMarks: order.enabled.toolsOnMarks.filter((each) =>
         described.some((tool) => tool.tool.equals(each)),
       ),

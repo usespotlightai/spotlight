@@ -18,6 +18,7 @@ import {
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { firstOf } from '@shared-kernel/domain/item-at';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { repositoryNameKey } from '@shared-kernel/domain/services/repository-names';
 import {
   and,
   count,
@@ -63,7 +64,7 @@ const repositoryWhere = (repository: Narrowing): SQL | undefined => {
 
   return repository.kind === 'none'
     ? sql`jsonb_array_length(${runFact.repositories}) = 0`
-    : containing(runFact.repositories, [repository.value]);
+    : sql`exists (select 1 from jsonb_array_elements_text(${runFact.repositories}) as repository(name) where lower(repository.name) = ${repositoryNameKey(repository.value)})`;
 };
 
 const containing = (column: SQLWrapper, value: unknown): SQL =>

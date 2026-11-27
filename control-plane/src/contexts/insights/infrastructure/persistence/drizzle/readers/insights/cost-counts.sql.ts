@@ -69,8 +69,20 @@ const sharesOf = sql`
   select null, 1, priced.cost::float8
   where jsonb_array_length(priced.repositories) = 0`;
 
-const firstAt = (offset: SQL): SQL =>
-  sql`min(array[priced.place::int, (${offset})::int])`;
+// A repository's name is the same whatever its case, so its spend counts under one name: the spelling its first run gave it.
+const repositoryShares = sql`
+  shared as (
+    select priced.place, priced.station_id, share.key, share.position, share.amount, lower(share.key) as name_key
+    from priced cross join lateral (${sharesOf}) as share
+  ),
+  spelled as (
+    select shared.name_key, (array_agg(shared.key order by shared.place, shared.position))[1] as key
+    from shared
+    group by shared.name_key
+  )`;
+
+const firstAt = (offset: SQL, place: SQL = sql`priced.place`): SQL =>
+  sql`min(array[${place}::int, (${offset})::int])`;
 
 const placeOf = ([run, offset]: [number, number]): CostPlace => ({
   run,
@@ -95,7 +107,8 @@ const sharesIn = async (
   team: TeamInPeriod,
 ): Promise<readonly CostShareCount[]> => {
   const result = await db.execute<ShareRow>(sql`
-    with priced as (${runsIn(team, team.period.current, priced)})
+    with priced as (${runsIn(team, team.period.current, priced)}),
+    ${repositoryShares}
     select 'harness' as part, priced.harness as key, sum(priced.cost::float8 order by priced.place) as amount, count(*)::int as runs, ${firstAt(sql`0`)} as first
     from priced group by priced.harness
     union all
@@ -105,9 +118,9 @@ const sharesIn = async (
     select 'station', priced.station_id, sum(priced.cost::float8 order by priced.place), count(*)::int, ${firstAt(sql`1`)}
     from priced group by priced.station_id
     union all
-    select 'repository', share.key, sum(share.amount order by priced.place, share.position), count(*)::int, ${firstAt(sql`1 + share.position`)}
-    from priced cross join lateral (${sharesOf}) as share
-    group by share.key
+    select 'repository', spelled.key, sum(shared.amount order by shared.place, shared.position), count(*)::int, ${firstAt(sql`1 + shared.position`, sql`shared.place`)}
+    from shared join spelled on spelled.name_key is not distinct from shared.name_key
+    group by spelled.key
   `);
 
   return result.rows.map((row) => ({
@@ -124,13 +137,14 @@ const linksIn = async (
   team: TeamInPeriod,
 ): Promise<readonly CostLinkCount[]> => {
   const result = await db.execute<LinkRow>(sql`
-    with priced as (${runsIn(team, team.period.current, priced)})
+    with priced as (${runsIn(team, team.period.current, priced)}),
+    ${repositoryShares}
     select 'model' as source_kind, priced.model as source_key, 'station' as target_kind, priced.station_id as target_key, sum(priced.cost::float8 order by priced.place) as amount, ${firstAt(sql`0`)} as first
     from priced group by priced.model, priced.station_id
     union all
-    select 'station', priced.station_id, 'repository', share.key, sum(share.amount order by priced.place, share.position), ${firstAt(sql`share.position`)}
-    from priced cross join lateral (${sharesOf}) as share
-    group by priced.station_id, share.key
+    select 'station', shared.station_id, 'repository', spelled.key, sum(shared.amount order by shared.place, shared.position), ${firstAt(sql`shared.position`, sql`shared.place`)}
+    from shared join spelled on spelled.name_key is not distinct from shared.name_key
+    group by shared.station_id, spelled.key
   `);
 
   return result.rows.map((row) => ({

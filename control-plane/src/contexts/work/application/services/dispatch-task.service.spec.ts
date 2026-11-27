@@ -630,6 +630,26 @@ describe('DispatchTask', () => {
       ]);
     });
 
+    it('records each repository it checks out by its owner and name, as the line spells it, whether it works on the task or reviews a pull request', async () => {
+      const station = stations[1];
+
+      await dispatch(station, undefined, ['acme/api', 'acme/web']);
+      await dispatch(
+        station,
+        task(station.id.value).reviews(
+          PullRequestUrl.of('https://github.com/ACME/Api/pull/42'),
+          { outside: false },
+          lineWith(),
+          new Date(0),
+        ),
+        ['acme/api', 'acme/web'],
+      );
+
+      expect(
+        ordered.map((each) => each.repositories.map((one) => one.value)),
+      ).toEqual([['acme/api', 'acme/web'], ['acme/api']]);
+    });
+
     it('makes each checkout ready as its repository says', async () => {
       await dispatch(stations[1], undefined, [
         repositoryOf(Repository.of('acme/api'), {
