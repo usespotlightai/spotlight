@@ -29,10 +29,7 @@ import type {
   RunReasoning,
   WorkRunLookupPort,
 } from '@work/application/ports/work-run-lookup.port';
-import {
-  reasoningCommandsOf,
-  reasoningTextOf,
-} from '@work/application/rendering/reasoning-text';
+import { reasoningTextOf } from '@work/application/rendering/reasoning-text';
 import { referencesUnder } from '@work/application/services/journal-references';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -60,7 +57,11 @@ const reasoned = ({ step, index }: NumberedJournalStep): ReasonedStep[] => {
           index,
           kind: reasoning.kind,
           text: reasoningTextOf(reasoning),
-          commands: reasoningCommandsOf(reasoning),
+          commands: reasoning.commands.map(({ name, argument, shown }) => ({
+            name,
+            argument,
+            shown,
+          })),
         },
       ]
     : [];

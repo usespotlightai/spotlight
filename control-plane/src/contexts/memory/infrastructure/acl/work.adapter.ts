@@ -15,7 +15,10 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { WorkRunLookupPort } from '@work/application/ports/work-run-lookup.port';
+import type {
+  ReasonedCommand,
+  WorkRunLookupPort,
+} from '@work/application/ports/work-run-lookup.port';
 import type { WorkTaskLookupPort } from '@work/application/ports/work-task-lookup.port';
 
 const MEMORY_FILES = { folder: MEMORY_FOLDER, extension: '.md' };
@@ -117,7 +120,9 @@ export class Work implements WorkPort {
         index: each.index,
         kind: each.kind,
         text: each.text,
-        commands: each.commands,
+        commands: each.commands.map(
+          (command: ReasonedCommand) => command.shown,
+        ),
       })) ?? null
     );
   }

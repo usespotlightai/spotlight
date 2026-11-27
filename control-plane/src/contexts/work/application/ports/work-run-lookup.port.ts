@@ -60,12 +60,25 @@ export interface LeasedRunLookup extends RunContext {
   readonly isolated: boolean;
 }
 
+/** A spotlight command that a step ran, read as the CLI read it. */
+export interface ReasonedCommand {
+  readonly name: 'remember' | 'forget' | 'handover';
+  /**
+   * The prose the CLI received inline: the body of `remember`, the reason of `forget`, the note of `handover`. Null
+   * where the script gave it another way, such as `--body -` from stdin.
+   */
+  readonly argument: string | null;
+  /** The command alone, for a person to read. */
+  readonly shown: string;
+}
+
 export interface ReasonedStep {
   readonly index: number;
   readonly kind: 'message' | 'thought' | 'planned' | 'handover' | 'remember';
+  /** The step as a person reads it: a spotlight command alone, the first where it ran several. */
   readonly text: string;
-  /** Each spotlight command the step ran, alone, in order: more than one where one step ran several. */
-  readonly commands: readonly string[];
+  /** Each spotlight command the step ran, in order: more than one where one step ran several. */
+  readonly commands: readonly ReasonedCommand[];
 }
 
 export interface RunReasoning {

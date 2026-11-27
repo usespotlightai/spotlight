@@ -342,7 +342,7 @@ describe('WorkRunLookup, reading how a run reasoned', () => {
     ]);
   });
 
-  it('offers a spotlight command the agent ran as the command alone', async () => {
+  it('offers a spotlight command the agent ran as the command alone, with what the CLI received', async () => {
     const reasoned = await lookingUp({
       for: { kind: 'chat', chatId: ChatId.of('chat_1') },
       attempts: [
@@ -360,7 +360,47 @@ describe('WorkRunLookup, reading how a run reasoned', () => {
         index: 0,
         kind: 'remember',
         text: 'spotlight remember --kind rationale --body "Retry once"',
-        commands: ['spotlight remember --kind rationale --body "Retry once"'],
+        commands: [
+          {
+            name: 'remember',
+            argument: 'Retry once',
+            shown: 'spotlight remember --kind rationale --body "Retry once"',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('offers each command of a step that ran several, shown as the first', async () => {
+    const reasoned = await lookingUp({
+      for: { kind: 'chat', chatId: ChatId.of('chat_1') },
+      attempts: [
+        journalOf([
+          step({
+            kind: 'tool',
+            text: "spotlight forget M-2 --because 'Gone.' && spotlight remember --kind rationale --body - < note.md",
+          }),
+        ]),
+      ],
+    }).reasoning(RUN, 1);
+
+    expect(reasoned?.steps).toEqual([
+      {
+        index: 0,
+        kind: 'remember',
+        text: "spotlight forget M-2 --because 'Gone.'",
+        commands: [
+          {
+            name: 'forget',
+            argument: 'Gone.',
+            shown: "spotlight forget M-2 --because 'Gone.'",
+          },
+          {
+            name: 'remember',
+            argument: null,
+            shown: 'spotlight remember --kind rationale --body -',
+          },
+        ],
       },
     ]);
   });
