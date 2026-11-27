@@ -283,7 +283,8 @@ export class StationTrials implements StationTrialsPort {
       tools: described,
       boundSecrets: order.boundSecrets,
       sandboxEnv: [],
-      // A trial runs in isolation and pushes nothing.
+      // Accepted difference from the original run: a trial compares the
+      // candidate configuration, and what the GitHub App may do is not part of it.
       grants: AppGrants.unread(),
     });
     const briefing = nonEmpty(followedUp)
