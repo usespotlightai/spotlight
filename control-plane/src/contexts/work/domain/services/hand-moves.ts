@@ -6,6 +6,7 @@ import {
   type HoldViewer,
   HoldRights,
 } from '@work/domain/services/hold-rights';
+import { SendBack } from '@work/domain/services/send-back';
 import type { MoveDenial } from '@work/domain/value-objects/line-denial';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
@@ -13,6 +14,7 @@ import type { Station } from '@work/domain/value-objects/station.vo';
 export interface HandMovedTask {
   readonly stationId: StationId;
   readonly hold: HeldFor | null;
+  readonly finished: boolean;
 }
 
 export const HAND_MOVE_DENIALS = [
@@ -27,6 +29,7 @@ export interface HandMove {
   readonly to: Station;
   readonly denial: HandMoveDenial | null;
   readonly skips: readonly Station[];
+  readonly sendsBack: boolean;
 }
 
 type EndsHold = (hold: HeldFor) => boolean;
@@ -43,6 +46,9 @@ const denialBetween = (
   }
   if (task.hold && !endsHold(task.hold)) {
     return 'on-hold';
+  }
+  if (SendBack.allows(task, line, to)) {
+    return null;
   }
   return line.moveDenial(from, to);
 };
@@ -85,6 +91,7 @@ export const HandMoves = {
         to,
         denial,
         skips: denial ? [] : line.skips(from, to),
+        sendsBack: denial === null && SendBack.allows(task, line, to),
       };
     });
   },

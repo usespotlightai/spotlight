@@ -357,6 +357,28 @@ describe('Sandbox', () => {
     ).toThrow(InconsistentStateError);
     expect(() => withLeases([], null)).toThrow(InconsistentStateError);
   });
+  describe('kept for a follow-up', () => {
+    const RUN = RunId.of('run_1');
+
+    const idle = () => started().releaseRun(RUN, later(1_000));
+
+    it('drains for a queued run while no run and no editor holds it', () => {
+      expect(idle().waitsForFollowUpOn(reporting, NOW)).toBe(true);
+      expect(idle().drainedForQueuedRun(reporting, NOW).current).toBe(
+        'draining',
+      );
+    });
+
+    it('stays for a run, an editor, or a host that does not report it', () => {
+      const held = started();
+      const edited = idle().holdEditor(editor('conn_1'), NOW);
+
+      expect(held.drainedForQueuedRun(reporting, NOW)).toBe(held);
+      expect(edited.drainedForQueuedRun(reporting, NOW)).toBe(edited);
+      expect(idle().drainedForQueuedRun(silent, NOW).current).toBe('open');
+    });
+  });
+
   describe('retired when its work is finished', () => {
     const RUN = RunId.of('run_1');
 

@@ -104,6 +104,7 @@ export function StationSection({
         {onAddTask && (
           <Tooltip>
             <TooltipTrigger
+              iconOnly
               render={
                 <button
                   type="button"

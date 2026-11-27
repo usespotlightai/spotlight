@@ -59,6 +59,15 @@ describe('DeliveryStages', () => {
     expect(screen.getByText('+50%')).toBeInTheDocument();
   });
 
+  it('says it counts Spotlight’s pull requests and people’s reviews', () => {
+    showing(delivery());
+
+    expect(
+      screen.getByRole('heading', { name: /Past the last station/ }),
+    ).toHaveTextContent('Spotlight’s PRs');
+    expect(screen.getByText('First human reviews')).toBeInTheDocument();
+  });
+
   it('opens nothing where no pull request was first reviewed', () => {
     showing(delivery({ reviewed: 0, reviewedTaskIds: [] }));
 

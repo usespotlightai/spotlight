@@ -108,6 +108,9 @@ export const tooFewRunsNote = (calibration: JudgeCalibration): string =>
 
 export const NOT_MEASURED = 'Not measured';
 
+const ONE_VERDICT_NOTE =
+  'Agreement cannot be measured while people give every run the same verdict. It shows when people pass some runs and send back others.';
+
 type Reading = NonNullable<JudgeCalibration['reading']>;
 
 const READING_WORDS: Record<Reading, string> = {
@@ -169,7 +172,7 @@ export const formatCalibration = (calibration: JudgeCalibration): string => {
     case 'too-few-pairs':
       return `Judge verdicts are hidden until ${calibration.minPairs} runs have a verdict from the judge and from people. Runs so far: ${calibration.pairs}.`;
     case 'no-agreement':
-      return 'Judge verdicts are hidden. Agreement cannot be measured while every verdict is the same.';
+      return `Judge verdicts are hidden. ${ONE_VERDICT_NOTE}`;
     case 'below-min-agreement':
       return `Judge verdicts are hidden. Cohen’s kappa: ${formatStat(calibration.agreement)}. Minimum required: ${formatStat(calibration.minAgreement)}.`;
   }
@@ -193,7 +196,7 @@ const hiddenBecause = (calibration: JudgeCalibration): string => {
     case 'below-min-agreement':
       return `Cohen’s kappa is below the minimum, ${formatStat(calibration.minAgreement)}.`;
     case 'no-agreement':
-      return 'Agreement cannot be measured while every verdict is the same.';
+      return ONE_VERDICT_NOTE;
     case 'unreadable-rubric':
       return 'The judge’s claims cannot be read.';
     case 'no-judge':
@@ -329,10 +332,13 @@ const measuredStats = (version: RubricVersion): ComparisonStat[] => {
     {
       label: 'Cohen’s kappa',
       value: formatStat(agreement.kappa),
-      detail: readingWord(agreement.reading),
+      detail:
+        agreement.kappa === null
+          ? NOT_MEASURED
+          : readingWord(agreement.reading),
       gauge: agreement.kappa,
       failing: agreement.belowMinimum,
-      note: kappaNoteOf(),
+      note: kappaNoteOf(agreement.kappa === null ? ONE_VERDICT_NOTE : null),
     },
     {
       label: 'Same verdict',

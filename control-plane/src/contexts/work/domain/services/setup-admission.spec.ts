@@ -25,6 +25,13 @@ describe('SetupAdmission', () => {
     expect(
       SetupAdmission.refusalOf({
         requesterIsAdmin: true,
+        codeReachable: false,
+        egressAvailable: false,
+      }),
+    ).toBe('code-unreachable');
+    expect(
+      SetupAdmission.refusalOf({
+        requesterIsAdmin: true,
         codeReachable: true,
         egressAvailable: false,
       }),

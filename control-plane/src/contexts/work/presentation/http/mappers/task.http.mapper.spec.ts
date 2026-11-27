@@ -28,7 +28,9 @@ const dto: TaskDto = {
   source: 'linear',
   hold: null,
   runNotStarted: null,
-  handMoves: [{ stationId: 'station_2', denial: null, skips: [] }],
+  handMoves: [
+    { stationId: 'station_2', denial: null, skips: [], sendsBack: false },
+  ],
 };
 
 describe('TaskHttpMapper', () => {

@@ -69,6 +69,7 @@ interface TaskHandMoveDto {
   readonly stationId: string;
   readonly denial: HandMoveDenial | null;
   readonly skips: readonly string[];
+  readonly sendsBack: boolean;
 }
 
 interface TaskRunNotStartedDto {

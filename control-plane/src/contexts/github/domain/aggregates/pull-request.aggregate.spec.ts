@@ -3,10 +3,13 @@ import {
   type PullRequestComment,
   type PullRequestSnapshot,
 } from '@github/domain/aggregates/pull-request.aggregate';
+import { PullRequestBaseMoved } from '@github/domain/events/pull-request-base-moved.event';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import { PullRequestConflicted } from '@github/domain/events/pull-request-conflicted.event';
 import type { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import { BotComment } from '@github/domain/value-objects/bot-comment.vo';
+import { MergeabilityRead } from '@github/domain/value-objects/mergeability-read.vo';
 import { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
 import { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -110,6 +113,7 @@ const stored = (pullRequest: PullRequest) =>
     botComments: pullRequest.botComments,
     threads: pullRequest.threads,
     revertedBy: pullRequest.revertedBy,
+    mergeable: pullRequest.mergeable,
     version: pullRequest.isStored
       ? pullRequest.version + 1
       : pullRequest.version,
@@ -835,6 +839,112 @@ describe('PullRequest', () => {
           opened().recordComment(comment(1, 'created', { on: 'conversation' })),
         ),
       ).toEqual([]);
+    });
+  });
+
+  describe('mergeability', () => {
+    const CONFLICTS = MergeabilityRead.of({
+      state: 'open',
+      mergeable: false,
+      branch: 'fix/uploads',
+      base: 'main',
+    });
+    const MERGES = MergeabilityRead.of({ ...CONFLICTS, mergeable: true });
+
+    it('says the base of an open pull request moved, and of no other', () => {
+      expect(opened().baseMoved('main').pullEvents()).toEqual([
+        new PullRequestBaseMoved(
+          WORKSPACE,
+          URL_7,
+          Repository.of('acme/api'),
+          7,
+          'main',
+        ),
+      ]);
+      for (const state of ['merged', 'closed'] as const) {
+        const done = stored(opened({ state, closedAt: MERGED }));
+
+        expect(done.baseMoved('main')).toBe(done);
+      }
+    });
+
+    it('says it conflicts when it starts to conflict', () => {
+      const conflicting = stored(opened()).readMergeability(CONFLICTS);
+
+      expect(conflicting.mergeable).toBe(false);
+      expect(conflicting.pullEvents()).toEqual([
+        new PullRequestConflicted(
+          WORKSPACE,
+          URL_7,
+          Repository.of('acme/api'),
+          'fix/uploads',
+          'main',
+        ),
+      ]);
+      expect(
+        kinds(
+          stored(stored(opened()).readMergeability(MERGES)).readMergeability(
+            CONFLICTS,
+          ),
+        ),
+      ).toEqual(['pull-request.conflicted']);
+    });
+
+    it('does not say so again while it still conflicts', () => {
+      const conflicting = stored(stored(opened()).readMergeability(CONFLICTS));
+
+      expect(conflicting.readMergeability(CONFLICTS)).toBe(conflicting);
+    });
+
+    it('says so again once a push to it made its mergeability unknown', () => {
+      const pushed = stored(
+        stored(stored(opened()).readMergeability(CONFLICTS)).recordPush({
+          repository: Repository.of('acme/api'),
+          head: 'a'.repeat(40),
+          baseTip: 'b'.repeat(40),
+          pushedBy: 'ada',
+          byBot: false,
+          pushedAt: at(3),
+        }),
+      );
+
+      expect(pushed.mergeable).toBeNull();
+      expect(kinds(pushed.readMergeability(CONFLICTS))).toEqual([
+        'pull-request.conflicted',
+      ]);
+    });
+
+    it('keeps that it merges without saying anything', () => {
+      const merging = stored(opened()).readMergeability(MERGES);
+
+      expect(merging.mergeable).toBe(true);
+      expect(kinds(merging)).toEqual([]);
+    });
+
+    it('reads nothing into a pull request that is no longer open', () => {
+      const closed = stored(opened({ state: 'closed', closedAt: MERGED }));
+
+      expect(closed.readMergeability(CONFLICTS)).toBe(closed);
+    });
+
+    it('reads nothing from GitHub saying the pull request is no longer open', () => {
+      const open = stored(opened());
+
+      expect(
+        open.readMergeability(
+          MergeabilityRead.of({ ...CONFLICTS, state: 'merged' }),
+        ),
+      ).toBe(open);
+    });
+
+    it('reads nothing while GitHub still computes it', () => {
+      const open = stored(opened());
+
+      expect(
+        open.readMergeability(
+          MergeabilityRead.of({ ...CONFLICTS, mergeable: null }),
+        ),
+      ).toBe(open);
     });
   });
 });

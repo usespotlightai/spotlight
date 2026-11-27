@@ -8,6 +8,7 @@ import { REVISION_COOLDOWN_MS } from '@insights/domain/services/revision-trigger
 import { ClaimsRevisionId } from '@insights/domain/value-objects/claims-revision-id.vo';
 import {
   OPENED_AT,
+  REVISABLE_SPLIT,
   REVISED_STATION,
   startedRevision,
 } from '@insights/judge-repair.fake-spec';
@@ -42,8 +43,9 @@ describe('ClaimsRevision', () => {
     expect(ClaimsRevision.mayStart(startedRevision(), later(1))).toBe(false);
   });
 
-  it('may start again only 7 days after the last one ended', () => {
-    const ended = startedRevision().ended({
+  it('may start again only 7 days after the last one that judged candidates ended', () => {
+    const leased = startedRevision().leaseJob(OPENED_AT);
+    const ended = leased.reserveJudgeCalls(leased.round, 40).ended({
       reason: 'no-gain',
       now: OPENED_AT,
     });
@@ -56,6 +58,24 @@ describe('ClaimsRevision', () => {
     );
   });
 
+  it.each(['no-candidates', 'too-few-labelled-runs', 'unavailable'] as const)(
+    'may start again at once after one that ended with %s before it judged a candidate',
+    (reason) => {
+      const ended = startedRevision().ended({ reason, now: OPENED_AT });
+
+      expect(ClaimsRevision.mayStart(ended, later(1))).toBe(true);
+    },
+  );
+
+  it('may start again at once after one whose drafting kept failing', () => {
+    const failed = startedRevision()
+      .leaseJob(OPENED_AT)
+      .draftingFailed(OPENED_AT)
+      .deadLetter(later(1));
+
+    expect(ClaimsRevision.mayStart(failed, later(2))).toBe(true);
+  });
+
   it('refuses to start in the cooldown', () => {
     expect(() =>
       ClaimsRevision.started({
@@ -64,7 +84,25 @@ describe('ClaimsRevision', () => {
         rubric: rubricOf(),
         trigger: 'claim-missing',
         latest: startedRevision(),
+        split: REVISABLE_SPLIT,
         now: later(1),
+      }),
+    ).toThrow(InvalidClaimsRevisionError);
+  });
+
+  it('refuses to start with too few labelled runs held out', () => {
+    expect(() =>
+      ClaimsRevision.started({
+        id: ClaimsRevisionId.of('revision_2'),
+        station: REVISED_STATION,
+        rubric: rubricOf(),
+        trigger: 'claim-missing',
+        latest: null,
+        split: {
+          ...REVISABLE_SPLIT,
+          heldOut: REVISABLE_SPLIT.heldOut.slice(1),
+        },
+        now: OPENED_AT,
       }),
     ).toThrow(InvalidClaimsRevisionError);
   });

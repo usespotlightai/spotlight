@@ -73,6 +73,7 @@ export const TaskMapper = {
         {
           stationId: StationId.of(summary.stationId),
           hold: summary.hold && heldOf(summary.hold),
+          finished: summary.finished,
         },
         reading.lineOf(summary.stationId),
         viewer,
@@ -80,6 +81,7 @@ export const TaskMapper = {
         stationId: move.to.id.value,
         denial: move.denial,
         skips: move.skips.map((each) => each.id.value),
+        sendsBack: move.sendsBack,
       })),
       note: summary.note
         ? {

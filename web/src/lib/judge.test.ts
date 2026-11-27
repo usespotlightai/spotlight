@@ -62,7 +62,7 @@ describe('judge', () => {
     expect(
       formatCalibration({ ...CALIBRATION, hiddenReason: 'no-agreement' }),
     ).toBe(
-      'Judge verdicts are hidden. Agreement cannot be measured while every verdict is the same.',
+      'Judge verdicts are hidden. Agreement cannot be measured while people give every run the same verdict. It shows when people pass some runs and send back others.',
     );
   });
 
@@ -169,6 +169,19 @@ describe('comparisonStats', () => {
     });
   });
 
+  it('says kappa is not measured, and why, while people give every run the same verdict', () => {
+    const [kappa, same] = comparisonStats(
+      version({ kappa: null, observed: 8 / 12, agreed: 8, compared: 12 }),
+      QUALIFIED,
+    );
+
+    expect(kappa).toMatchObject({ value: '–', detail: 'Not measured' });
+    expect(kappa?.note.body).toMatch(
+      /^Agreement cannot be measured while people give every run the same verdict\./,
+    );
+    expect(same).toMatchObject({ value: '67%', detail: '8 of 12 runs' });
+  });
+
   it('shows no figures while the server says too few runs have both verdicts, only how far along they are', () => {
     const few = version({
       pairs: 3,
@@ -202,7 +215,7 @@ describe('comparisonStats', () => {
   it('notes no reading where there is no figure, and gives the scale as rows', () => {
     const [kappa] = comparisonStats(version(), QUALIFIED);
 
-    expect(kappa?.detail).toBeNull();
+    expect(kappa?.detail).toBe('Not measured');
     expect(kappa?.note.rows?.map(([, word]) => word)).toEqual([
       'Almost perfect',
       'Substantial',

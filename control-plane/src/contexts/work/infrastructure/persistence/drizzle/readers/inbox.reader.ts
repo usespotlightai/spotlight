@@ -61,6 +61,7 @@ import {
   openAskIn,
   stillOpen,
   TURNING_NOTE_KINDS,
+  unreadIn,
   worksOn,
 } from '@work/domain/services/conversations';
 import { HoldRights } from '@work/domain/services/hold-rights';
@@ -68,7 +69,6 @@ import {
   RunStopPolicy,
   type StoppableRun,
 } from '@work/domain/services/run-stop-policy';
-import { anyUnread } from '@work/domain/services/unread';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -579,7 +579,7 @@ const conversationItem = (
       : null;
   const unread =
     ConversationAudience.notifies(row.standing) &&
-    anyUnread(conversation.notes);
+    unreadIn(conversation, row.finishedAt !== null);
 
   return {
     kind: 'task',
@@ -1007,7 +1007,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       this.db,
       this.progress,
       scope,
-      sql`(${isNull(task.finishedAt)} or ${task.unreadAsk})`,
+      isNull(task.finishedAt),
     );
     const taskIds = rows.map((row) => row.taskId);
     const [marks, newest] = await Promise.all([

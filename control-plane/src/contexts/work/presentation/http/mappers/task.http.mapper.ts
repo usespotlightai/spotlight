@@ -71,7 +71,12 @@ export const TaskHttpMapper = {
         : null,
       dto.handMoves.map(
         (each) =>
-          new TaskHandMoveResponseDto(each.stationId, each.denial, each.skips),
+          new TaskHandMoveResponseDto(
+            each.stationId,
+            each.denial,
+            each.skips,
+            each.sendsBack,
+          ),
       ),
     );
   },

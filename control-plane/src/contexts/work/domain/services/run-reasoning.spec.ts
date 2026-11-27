@@ -45,7 +45,23 @@ describe('reasoning in a run’s journal', () => {
       }),
     ).toEqual({
       kind: 'remember',
-      text: '{"command":"spotlight remember --kind failure --body \\"CI flakes\\""}',
+      text: 'spotlight remember --kind failure --body "CI flakes"',
+      commandAt: 0,
+    });
+  });
+
+  it('finds where in the script the command it ran starts', () => {
+    const script = 'cd api && spotlight remember --kind rationale --body "x"';
+
+    expect(reasoningIn({ kind: 'tool', text: script })).toEqual({
+      kind: 'remember',
+      text: script,
+      commandAt: script.indexOf('spotlight'),
+    });
+    expect(reasoningIn({ kind: 'message', text: 'Retrying once.' })).toEqual({
+      kind: 'message',
+      text: 'Retrying once.',
+      commandAt: null,
     });
   });
 

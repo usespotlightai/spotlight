@@ -173,8 +173,16 @@ export class TeamMemoryDetailResponseDto extends TeamMemoryResponseDto {
   @ApiProperty({ type: MemoryLinkResponseDto, nullable: true })
   readonly successor: MemoryLinkResponseDto | null;
 
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether a person can restore it: a person retired it and no newer memory replaced it',
+  })
+  readonly restorable: boolean;
+
   constructor(memory: TeamMemoryDetailDto) {
     super(memory);
+    this.restorable = memory.restorable;
     this.superseded = memory.superseded
       ? new MemoryLinkResponseDto(memory.superseded)
       : null;
