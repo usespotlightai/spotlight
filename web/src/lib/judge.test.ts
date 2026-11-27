@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -9,6 +11,7 @@ import {
   formatJudgeVerdict,
   formatVerdict,
   lineRangeOf,
+  MAX_VERDICT_REASON,
   pairsStat,
   type RubricVersion,
   scoreVisibility,
@@ -255,5 +258,23 @@ describe('lineRangeOf', () => {
 
   it('has no lines without a header', () => {
     expect(lineRangeOf(hunk(null))).toBeNull();
+  });
+});
+
+describe('MAX_VERDICT_REASON', () => {
+  it('is the limit the API sets on the reason of a run’s verdict', () => {
+    const api: unknown = JSON.parse(
+      readFileSync('../control-plane/openapi.json', 'utf8'),
+    );
+
+    expect(api).toMatchObject({
+      components: {
+        schemas: {
+          RecordRunVerdictRequestDto: {
+            properties: { reason: { maxLength: MAX_VERDICT_REASON } },
+          },
+        },
+      },
+    });
   });
 });
