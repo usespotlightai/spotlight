@@ -7,12 +7,14 @@ import { cn } from '@/lib/utils';
 
 type ShortcutKeysProps = ({ id: ShortcutId } | { keys: Keys }) & {
   plain?: boolean;
+  filled?: boolean;
   size?: 'sm' | 'md';
   className?: string;
 };
 
 export function ShortcutKeys({
   plain,
+  filled,
   size,
   className,
   ...shown
@@ -40,7 +42,7 @@ export function ShortcutKeys({
           )}
           <span aria-hidden className="contents">
             {capsOf(chord, mac).map((cap) => (
-              <Kbd key={cap} plain={plain} size={size}>
+              <Kbd key={cap} plain={plain} filled={filled} size={size}>
                 {cap}
               </Kbd>
             ))}
