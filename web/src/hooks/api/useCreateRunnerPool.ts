@@ -6,7 +6,7 @@ import {
 
 import { runnerPoolKeys } from '@/hooks/api/useRunnerPools';
 import { createRunnerPool } from '@/lib/api';
-import { messageOf } from '@/lib/error';
+import { refusalOf } from '@/lib/error';
 import { nonEmpty } from '@/lib/non-empty';
 
 const POOL_TOKEN_HEADER = 'Spotlight-Pool-Token';
@@ -43,7 +43,9 @@ export function useCreateRunnerPool(
         );
       }
 
-      throw new Error(messageOf(error, 'Sorry, the pool couldn’t be created.'));
+      throw new Error(
+        refusalOf(error, ['key'], 'Sorry, the pool couldn’t be created.'),
+      );
     },
     onSuccess: () =>
       queryClient.invalidateQueries({

@@ -98,10 +98,33 @@ describe('useCreateWorkspaceToken', () => {
     );
   });
 
-  it('says what Spotlight found wrong with the token', async () => {
+  it('says why Spotlight refused the name, without naming the field', async () => {
+    const advice =
+      'Use lowercase letters, digits and dashes, such as ci-deploy (at most 64 characters).';
+    createWorkspaceToken.mockResolvedValue(
+      answered(422, {
+        detail: `name: ${advice}`,
+        errors: [{ path: 'name', message: advice, severity: 'error' }],
+      }),
+    );
+    const { result } = creating();
+
+    act(() => result.current.mutate(SPEC));
+
+    await waitFor(() => expect(result.current.error?.message).toBe(advice));
+  });
+
+  it('says what Spotlight found wrong with the token, naming each field', async () => {
     createWorkspaceToken.mockResolvedValue(
       answered(422, {
         detail: 'scopes: include read, plan or configure',
+        errors: [
+          {
+            path: 'scopes',
+            message: 'include read, plan or configure',
+            severity: 'error',
+          },
+        ],
       }),
     );
     const { result } = creating();

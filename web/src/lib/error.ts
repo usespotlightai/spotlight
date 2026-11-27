@@ -30,6 +30,40 @@ export function messageOf(
   return fallback;
 }
 
+const reasonFor = (
+  error: unknown,
+  fields: readonly string[],
+): string | null => {
+  const path = fieldOf(error, 'path');
+  const message = fieldOf(error, 'message');
+
+  return typeof path === 'string' &&
+    fields.includes(path) &&
+    typeof message === 'string' &&
+    message.length > 0
+    ? message
+    : null;
+};
+
+// What Spotlight found wrong, for a form that shows it beside the fields it names: their reasons without the field names. A problem with any other field keeps its detail, which names each field.
+export function refusalOf(
+  thrown: unknown,
+  fields: readonly string[],
+  fallback?: string,
+): string {
+  const errors = fieldOf(thrown, 'errors');
+
+  if (Array.isArray(errors) && errors.length > 0) {
+    const reasons = errors.map((error) => reasonFor(error, fields));
+
+    if (reasons.every((reason) => reason !== null)) {
+      return reasons.join(' ');
+    }
+  }
+
+  return messageOf(thrown, fallback);
+}
+
 const answered = (thrown: unknown, status: number): boolean => {
   return (
     fieldOf(thrown, 'statusCode') === status ||

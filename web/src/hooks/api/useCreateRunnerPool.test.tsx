@@ -79,6 +79,22 @@ describe('useCreateRunnerPool', () => {
     );
   });
 
+  it('says why Spotlight refused the name, without naming the field', async () => {
+    const advice =
+      'Use lowercase letters, digits and dashes, such as dev-host (at most 64 characters).';
+    createRunnerPool.mockResolvedValue(
+      answered(422, {
+        detail: `key: ${advice}`,
+        errors: [{ path: 'key', message: advice, severity: 'error' }],
+      }),
+    );
+    const result = creating();
+
+    act(() => result.current.mutate('Dev Host'));
+
+    await waitFor(() => expect(result.current.error?.message).toBe(advice));
+  });
+
   it('fails when Spotlight answers no token', async () => {
     createRunnerPool.mockResolvedValue(answered(201, { key: 'my-computer' }));
     const result = creating();

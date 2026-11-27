@@ -6,7 +6,7 @@ import {
 
 import { tokenKeys } from '@/hooks/api/useWorkspaceTokens';
 import { createWorkspaceToken } from '@/lib/api';
-import { messageOf } from '@/lib/error';
+import { refusalOf } from '@/lib/error';
 import { nonEmpty } from '@/lib/non-empty';
 import { required } from '@/lib/required';
 import type { TokenSpec } from '@/lib/token';
@@ -46,7 +46,7 @@ export function useCreateWorkspaceToken(
       }
 
       throw new Error(
-        messageOf(error, 'Sorry, the token couldn’t be created.'),
+        refusalOf(error, ['name'], 'Sorry, the token couldn’t be created.'),
       );
     },
     onSettled: () =>

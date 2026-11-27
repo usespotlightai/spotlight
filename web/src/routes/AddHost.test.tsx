@@ -97,16 +97,29 @@ describe('AddHost', () => {
     expect(screen.getByText('The runners')).toBeInTheDocument();
   });
 
-  it('creates a pool with the name given', async () => {
+  it('suggests a pool name, and creates it when no other is typed', async () => {
     const person = userEvent.setup();
 
     renderPage();
 
-    expect(screen.getByLabelText('Pool name')).toHaveValue('my-computer-1');
+    const name = screen.getByLabelText('Pool name');
+    expect(name).toHaveValue('');
+    expect(name).toHaveAttribute('placeholder', 'my-computer-1');
 
     await person.click(screen.getByRole('button', { name: 'Create pool' }));
 
     expect(create).toHaveBeenCalledWith('my-computer-1');
+  });
+
+  it('creates the pool with the name typed instead of the suggested one', async () => {
+    const person = userEvent.setup();
+
+    renderPage();
+
+    await person.type(screen.getByLabelText('Pool name'), 'dev-host');
+    await person.click(screen.getByRole('button', { name: 'Create pool' }));
+
+    expect(create).toHaveBeenCalledWith('dev-host');
   });
 
   it('suggests the first numbered name no pool has yet', () => {
@@ -118,7 +131,10 @@ describe('AddHost', () => {
 
     renderPage();
 
-    expect(screen.getByLabelText('Pool name')).toHaveValue('my-computer-3');
+    expect(screen.getByLabelText('Pool name')).toHaveAttribute(
+      'placeholder',
+      'my-computer-3',
+    );
   });
 
   it('keeps the pool name as it is typed, for Spotlight to check', async () => {
@@ -138,14 +154,14 @@ describe('AddHost', () => {
   it('says why Spotlight refused the pool name', () => {
     creating.mockReturnValue({
       error: new Error(
-        'key: is lowercase words joined by dashes, at most 64 characters, as in ephemeral',
+        'Use lowercase letters, digits and dashes, such as dev-host (at most 64 characters).',
       ),
     });
 
     renderPage();
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'key: is lowercase words joined by dashes, at most 64 characters, as in ephemeral',
+      'Use lowercase letters, digits and dashes, such as dev-host (at most 64 characters).',
     );
   });
 

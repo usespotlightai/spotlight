@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { nonEmpty } from '@/lib/non-empty';
 
 type CreatePoolFormProps = {
-  defaultName: string;
+  suggestedName: string;
   creating: boolean;
   refusal: string | null;
   onCreate: (name: string) => void;
@@ -13,22 +13,19 @@ type CreatePoolFormProps = {
 };
 
 export function CreatePoolForm({
-  defaultName,
+  suggestedName,
   creating,
   refusal,
   onCreate,
   onEdit,
 }: CreatePoolFormProps) {
   const nameId = useId();
-  const [name, setName] = useState(defaultName);
-  const named = name.trim();
+  const [name, setName] = useState('');
+  const named = name.trim() || suggestedName;
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (named) {
-      onCreate(named);
-    }
+    onCreate(named);
   };
 
   return (
@@ -41,7 +38,7 @@ export function CreatePoolForm({
         <FieldInput
           id={nameId}
           name="name"
-          required
+          placeholder={suggestedName}
           autoComplete="off"
           spellCheck={false}
           disabled={creating}
@@ -52,7 +49,7 @@ export function CreatePoolForm({
           }}
         />
 
-        <Button type="submit" disabled={!named || creating}>
+        <Button type="submit" disabled={creating}>
           Create pool
         </Button>
       </div>

@@ -268,13 +268,13 @@ describe('ApiAccess', () => {
   it('says why Spotlight refused the token', async () => {
     refusal.mockReturnValue(
       new Error(
-        'name: is lowercase words joined by dashes, at most 64 characters, as in ci',
+        'Use lowercase letters, digits and dashes, such as ci-deploy (at most 64 characters).',
       ),
     );
     const { dialog } = await openCreate();
 
     expect(within(dialog).getByRole('alert')).toHaveTextContent(
-      'name: is lowercase words joined by dashes, at most 64 characters, as in ci',
+      'Use lowercase letters, digits and dashes, such as ci-deploy (at most 64 characters).',
     );
   });
 
