@@ -91,7 +91,13 @@ export class GitHubConnectionController {
     }
 
     return found.map(
-      (each) => new GitHubInstallationResponseDto(each.id, each.account),
+      (each) =>
+        new GitHubInstallationResponseDto(
+          each.id,
+          each.account,
+          each.usedElsewhere,
+          each.usedBy,
+        ),
     );
   }
 
@@ -107,7 +113,7 @@ export class GitHubConnectionController {
     description: 'Not an owner or admin, or not an admin of the installation',
   })
   @ApiConflictResponse({
-    description: 'The installation is already connected to another workspace',
+    description: 'Another workspace already uses the installation',
   })
   @HttpCode(HttpStatus.NO_CONTENT)
   async connect(

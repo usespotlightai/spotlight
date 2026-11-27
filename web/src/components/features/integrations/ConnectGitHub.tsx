@@ -1,4 +1,5 @@
 import { ChevronDown } from 'lucide-react';
+import { useId } from 'react';
 
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ export function ConnectGitHub({
   const installations = useGitHubInstallations(slug);
   const connect = useConnectGitHubInstallation(slug);
   const found = installations.data ?? [];
+  const hint = useId();
 
   if (found.length === 0) {
     return (
@@ -56,11 +58,28 @@ export function ConnectGitHub({
             <DropdownMenuItem
               key={each.id}
               closeOnClick
+              disabled={each.usedElsewhere}
+              aria-describedby={each.usedElsewhere ? hint : undefined}
               onClick={() => connect.mutate(each.id)}
+              className={cn(each.usedElsewhere && 'flex-col items-start gap-0')}
             >
-              {each.account}
+              <div>{each.account}</div>
+              {each.usedElsewhere && (
+                <div className="text-muted-foreground text-xs">
+                  Used by {each.usedBy ?? 'another workspace'}
+                </div>
+              )}
             </DropdownMenuItem>
           ))}
+          {found.some((each) => each.usedElsewhere) && (
+            <p
+              id={hint}
+              className="max-w-60 px-1.5 py-1 text-muted-foreground text-xs leading-5"
+            >
+              An installation serves one workspace. Install on another account
+              to connect this workspace.
+            </p>
+          )}
         </DropdownMenuGroup>
 
         <DropdownMenuSeparator />

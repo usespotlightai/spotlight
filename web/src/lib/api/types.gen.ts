@@ -4540,6 +4540,14 @@ export type GitHubInstallationResponseDto = {
    * The GitHub organisation or user the App is installed on
    */
   account: string;
+  /**
+   * Whether another workspace uses the installation, so this one cannot connect it
+   */
+  usedElsewhere: boolean;
+  /**
+   * The name of the workspace that uses the installation, where the caller is a member of it
+   */
+  usedBy: string | null;
 };
 
 export type ConnectGitHubRequestDto = {
@@ -18438,7 +18446,7 @@ export type ConnectGitHubErrors = {
    */
   404: unknown;
   /**
-   * The installation is already connected to another workspace
+   * Another workspace already uses the installation
    */
   409: unknown;
 };

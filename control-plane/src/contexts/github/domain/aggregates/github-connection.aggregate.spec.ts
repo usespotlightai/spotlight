@@ -91,20 +91,31 @@ describe('GitHubConnection', () => {
     ).toThrow(ConnectForbiddenError);
   });
 
-  it('denies an installation another workspace already has', () => {
+  it('denies an installation another workspace already has, and names it', () => {
     expect(() =>
       none().connectTo(INSTALLED, {
         ...allowed,
-        connectedWorkspace: ELSEWHERE,
+        connectedWorkspace: { id: ELSEWHERE, name: 'Tidepool Labs' },
       }),
-    ).toThrow(InstallationAlreadyConnectedError);
+    ).toThrow(new InstallationAlreadyConnectedError('Tidepool Labs').message);
+  });
+
+  it('denies an installation a workspace the caller can’t see has, without naming it', () => {
+    expect(() =>
+      none().connectTo(INSTALLED, {
+        ...allowed,
+        connectedWorkspace: { id: ELSEWHERE, name: null },
+      }),
+    ).toThrow(
+      'Another workspace already uses this GitHub installation. Install the App on another account for this workspace.',
+    );
   });
 
   it('takes again an installation it already has itself', () => {
     expect(
       connected().connectTo(INSTALLED, {
         ...allowed,
-        connectedWorkspace: WORKSPACE,
+        connectedWorkspace: { id: WORKSPACE, name: 'Acme' },
       }).installation,
     ).toEqual(INSTALLED);
   });

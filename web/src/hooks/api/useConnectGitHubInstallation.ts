@@ -20,6 +20,10 @@ export function useConnectGitHubInstallation(
         throwOnError: true,
       });
     },
+    onError: () =>
+      queryClient.invalidateQueries({
+        queryKey: gitHubKeys.installations(slug),
+      }),
     onSuccess: () =>
       Promise.all(
         [gitHubKeys.status(slug), ['repositories', slug], ['onboarding']].map(

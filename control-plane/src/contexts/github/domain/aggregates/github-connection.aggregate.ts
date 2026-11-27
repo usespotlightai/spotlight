@@ -2,15 +2,22 @@ import { WorkspaceConnected } from '@github/domain/events/workspace-connected.ev
 import { WorkspaceDisconnected } from '@github/domain/events/workspace-disconnected.event';
 import { ConnectForbiddenError } from '@github/domain/exceptions/connect-forbidden.error';
 import { InstallationAlreadyConnectedError } from '@github/domain/exceptions/installation-already-connected.error';
+import { isHeldElsewhere } from '@github/domain/services/installation-holder';
 import type { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
+interface ConnectedWorkspace {
+  readonly id: WorkspaceId;
+  // Null where the caller may not see that workspace.
+  readonly name: string | null;
+}
+
 export interface ConnectPreconditions {
   readonly isWorkspaceAdmin: boolean;
   readonly isInstallationAdmin: boolean;
-  readonly connectedWorkspace: WorkspaceId | null;
+  readonly connectedWorkspace: ConnectedWorkspace | null;
 }
 
 export class GitHubConnection extends EventRecorder {
@@ -61,11 +68,10 @@ export class GitHubConnection extends EventRecorder {
     if (!preconditions.isInstallationAdmin) {
       throw new ConnectForbiddenError('not-installation-admin');
     }
-    if (
-      preconditions.connectedWorkspace &&
-      !preconditions.connectedWorkspace.equals(this.workspaceId)
-    ) {
-      throw new InstallationAlreadyConnectedError(installation.value);
+    const holder = preconditions.connectedWorkspace;
+
+    if (holder && isHeldElsewhere(holder.id, this.workspaceId)) {
+      throw new InstallationAlreadyConnectedError(holder.name);
     }
 
     const connected =
