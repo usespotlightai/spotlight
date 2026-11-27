@@ -45,7 +45,11 @@ export const revisionTriggerOf = (input: {
   ) {
     return 'claim-wrong';
   }
-  if (input.calibration && revisesClaimsOf(input.calibration)) {
+  if (
+    input.answers.length > 0 &&
+    input.calibration &&
+    revisesClaimsOf(input.calibration)
+  ) {
     return 'calibration-failed';
   }
   if (

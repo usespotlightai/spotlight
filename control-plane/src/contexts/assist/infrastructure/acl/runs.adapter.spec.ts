@@ -8,6 +8,7 @@ import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import type { RunsPort as RunQueuePort } from '@runs/application/ports/runs.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -127,6 +128,36 @@ describe('queuing the run of an assist session', () => {
       extensions: {
         assist: { purpose: 'insights.judge', files: ORDER.files },
       },
+    });
+  });
+
+  it('places the run where the base run could run, not on the digest that run happened to start in', async () => {
+    const ranIn = 'ghcr.io/acme/runner@sha256:' + 'a'.repeat(64);
+    const onDefault = adapting({
+      facts: [{ ...BASED_ON, image: ranIn }],
+    });
+    const onTag = adapting({
+      facts: [
+        {
+          ...BASED_ON,
+          image: ranIn,
+          placement: RunnerPlacement.of(['vpc-internal']).in(
+            RunnerImage.of('ghcr.io/acme/runner:node'),
+          ),
+        },
+      ],
+    });
+
+    await onDefault.adapter.enqueue(ORDER);
+    await onTag.adapter.enqueue(ORDER);
+
+    expect(onDefault.enqueued[0]?.placement).toEqual({
+      labelGroups: [['vpc-internal']],
+      image: null,
+    });
+    expect(onTag.enqueued[0]?.placement).toEqual({
+      labelGroups: [['vpc-internal']],
+      image: 'ghcr.io/acme/runner:node',
     });
   });
 

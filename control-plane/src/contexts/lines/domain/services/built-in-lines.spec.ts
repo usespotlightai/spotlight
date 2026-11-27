@@ -44,6 +44,15 @@ describe('the built-in Delivery line', () => {
     expect(passes('code-review')).toEqual(['spec', 'implementation']);
   });
 
+  it('sends work back to implementation when its checks fail or its pull request conflicts', () => {
+    const backTo = (happening: string) =>
+      delivery?.reactions.find((each) => each.happening.value === happening)?.to
+        .value;
+
+    expect(backTo('github.checks.failed')).toBe('implementation');
+    expect(backTo('github.pull_request.conflicted')).toBe('implementation');
+  });
+
   it('lets implementation pass work on to code review, or back to spec', () => {
     expect(passes('implementation')).toEqual(['code-review', 'spec']);
   });
@@ -61,5 +70,36 @@ describe('the built-in Delivery line', () => {
     expect(opening('spec')?.agentPrompt?.value).toContain(
       'comes back from Implementation or Code Review',
     );
+  });
+
+  it('parks a task in the backlog when its pull request is closed without a merge', () => {
+    const reaction = delivery?.reactions.find(
+      (each) => each.happening.value === 'github.pull_request.closed-unmerged',
+    );
+
+    expect(reaction?.to.value).toBe('backlog');
+  });
+
+  it('tells code review to answer a question on the pull request instead of changing code', () => {
+    const prompt = opening('code-review')?.agentPrompt?.value;
+
+    expect(prompt).toMatch(/A\s+question is a question/);
+    expect(prompt).toContain('you do not edit');
+  });
+
+  it('tells implementation to leave the pull request to code review', () => {
+    expect(opening('implementation')?.agentPrompt?.value).toContain(
+      'Do not open a pull request: Code Review opens it.',
+    );
+  });
+});
+
+describe('the claims of the built-in judges', () => {
+  const claims = BUILT_IN_STATIONS.flatMap((each) => each.judge?.claims ?? []);
+
+  it('can each be met or failed by every run, so the judge gives a run the same verdict each time', () => {
+    for (const claim of claims) {
+      expect(claim).not.toMatch(/^(When|If|Where|Each finding of)\b/);
+    }
   });
 });

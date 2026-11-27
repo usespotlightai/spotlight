@@ -111,6 +111,7 @@ describe('GitHubPullRequestReviews', () => {
       event: 'comment',
       body: 'One thing',
       comments: [],
+      onFiles: [],
     });
 
     const posted = requests.find((each) => each.method === 'POST');
@@ -158,6 +159,7 @@ describe('GitHubPullRequestReviews', () => {
       event: 'request-changes',
       body: 'Two things',
       comments: COMMENTS,
+      onFiles: [],
     });
 
     const posted = requests.find((each) => each.method === 'POST');
@@ -209,6 +211,7 @@ describe('GitHubPullRequestReviews', () => {
       event: 'comment',
       body: '',
       comments: COMMENTS,
+      onFiles: [],
     });
 
     const [, , , folded] = requests;
@@ -220,6 +223,46 @@ describe('GitHubPullRequestReviews', () => {
       githubId: 901,
       postedAs: 'comment',
       comments: [null, null],
+    });
+  });
+
+  it('posts one review that requests changes and holds the comments on whole files, on no line', async () => {
+    const requests = answering(({ url, method }) => {
+      if (isFiles(url)) {
+        return { status: 200, body: FILES };
+      }
+      if (method === 'GET' && url.endsWith('/pulls/7')) {
+        return { status: 200, body: { head: { sha: 'abc123' } } };
+      }
+      if (method === 'POST') {
+        return { status: 200, body: { id: 904, html_url: 'r' } };
+      }
+      return { status: 200, body: [] };
+    });
+
+    const submitted = await reviews('personal').submit({
+      ...ON,
+      event: 'request-changes',
+      body: 'Two things',
+      comments: [],
+      onFiles: [{ path: 'src/a.ts', body: 'Split this file' }],
+    });
+
+    const posted = requests.filter((each) => each.method === 'POST');
+    expect(posted).toHaveLength(1);
+    expect(posted[0]?.url).toMatch(/\/pulls\/7\/reviews$/);
+    expect(posted[0]?.body).toMatchObject({
+      event: 'REQUEST_CHANGES',
+      comments: [],
+    });
+    expect(posted[0]?.body?.body).toBe(
+      'Two things\n\n---\n\n**`src/a.ts`**\n\nSplit this file',
+    );
+    expect(requests.some((each) => isFiles(each.url))).toBe(false);
+    expect(submitted).toEqual({
+      githubId: 904,
+      postedAs: 'request-changes',
+      comments: [],
     });
   });
 
@@ -253,6 +296,7 @@ describe('GitHubPullRequestReviews', () => {
       event: 'comment',
       body: '',
       comments: [COMMENTS[0]],
+      onFiles: [],
     });
 
     expect(submitted.comments).toEqual([{ id: 31, url: 'c31' }]);
@@ -298,6 +342,7 @@ describe('GitHubPullRequestReviews', () => {
           body: 'No test covers this',
         },
       ],
+      onFiles: [],
     });
 
     const posted = requests.filter((each) => each.method === 'POST');
@@ -344,6 +389,7 @@ describe('GitHubPullRequestReviews', () => {
       event: 'request-changes',
       body: 'The rename is backwards.',
       comments: [],
+      onFiles: [],
     });
 
     const posted = requests.filter((each) => each.method === 'POST');

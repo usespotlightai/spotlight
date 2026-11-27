@@ -46,6 +46,11 @@ export const openIn = <
   return last && stillOpen(last) ? last : null;
 };
 
+export const unreadIn = (
+  conversation: { readonly notes: readonly ReadableNote[] },
+  taskFinished: boolean,
+): boolean => !taskFinished && anyUnread(conversation.notes);
+
 export const listedAsOpen = <T>(
   conversation: {
     readonly from: T;
@@ -54,7 +59,9 @@ export const listedAsOpen = <T>(
   },
   taskFinished: boolean,
 ): boolean =>
-  stillOpen(conversation) ? !taskFinished : anyUnread(conversation.notes);
+  stillOpen(conversation)
+    ? !taskFinished
+    : unreadIn(conversation, taskFinished);
 
 export const reopenable = (
   from: NotePosition,
@@ -116,7 +123,9 @@ export const conversationsOf = (
   return cut;
 };
 
-export type ReviewState = 'pending' | 'answered';
+export const REVIEW_STATES = ['pending', 'answered', 'moved-on'] as const;
+
+export type ReviewState = (typeof REVIEW_STATES)[number];
 
 interface Review {
   readonly from: NotePosition;
@@ -133,14 +142,21 @@ const sinceReopened = <T extends { kind: TaskNoteKind }>(
   return notes.slice(reopened + 1);
 };
 
-const answeredAfter = <T extends { kind: TaskNoteKind }>(
+const reviewStateAfter = <T extends { kind: TaskNoteKind }>(
   notes: readonly T[],
   at: number,
-): boolean =>
-  sinceReopened(notes.slice(at + 1)).some(
+): ReviewState => {
+  const closing = sinceReopened(notes.slice(at + 1)).find(
     (later) =>
       later.kind === ANSWERS_A_QUESTION || later.kind === CLOSES_A_CONVERSATION,
   );
+
+  if (!closing) {
+    return 'pending';
+  }
+
+  return closing.kind === ANSWERS_A_QUESTION ? 'answered' : 'moved-on';
+};
 
 const containing = (cut: readonly Conversation[], at: NotePosition) =>
   cut.find(
@@ -172,7 +188,7 @@ export const reviewsIn = <
       reviews.set(note.runId.value, {
         runId: note.runId,
         from: conversation.from,
-        state: answeredAfter(notes, at) ? 'answered' : 'pending',
+        state: reviewStateAfter(notes, at),
       });
     }
   });
@@ -191,7 +207,7 @@ export const awaitsAPerson = <T extends { kind: TaskNoteKind }>(
     }
   });
 
-  return asked !== -1 && !answeredAfter(notes, asked);
+  return asked !== -1 && reviewStateAfter(notes, asked) === 'pending';
 };
 
 export const pendingIn = <T extends { kind: TaskNoteKind }>(

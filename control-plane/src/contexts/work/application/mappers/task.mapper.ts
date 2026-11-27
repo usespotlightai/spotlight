@@ -1,3 +1,4 @@
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { TaskDto } from '@work/application/dto/task.dto';
 import type {
@@ -6,16 +7,19 @@ import type {
 } from '@work/application/ports/task-reader.port';
 import type { MessageReading } from '@work/application/services/message-reading';
 import type { ConversationViewer } from '@work/domain/services/conversation-audience';
-import { HoldRights } from '@work/domain/services/hold-rights';
+import { HandMoves } from '@work/domain/services/hand-moves';
+import { type HeldFor, HoldRights } from '@work/domain/services/hold-rights';
 import type { MessagedTask } from '@work/domain/services/message-effect';
 import { TaskWaits } from '@work/domain/services/task-waits';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
+const heldOf = (hold: TaskHoldSummary): HeldFor => ({
+  by: UserId.of(hold.by.id),
+  chat: hold.chatId === null ? null : ChatId.of(hold.chatId),
+});
+
 const holdToDto = (hold: TaskHoldSummary, viewer: ConversationViewer) => {
-  const held = {
-    by: UserId.of(hold.by.id),
-    chat: hold.chatId === null ? null : ChatId.of(hold.chatId),
-  };
+  const held = heldOf(hold);
 
   return {
     ...hold,
@@ -65,6 +69,21 @@ export const TaskMapper = {
       source: summary.source,
       hold: summary.hold ? holdToDto(summary.hold, viewer) : null,
       runNotStarted: summary.runNotStarted,
+      handMoves: HandMoves.of(
+        {
+          stationId: StationId.of(summary.stationId),
+          hold: summary.hold && heldOf(summary.hold),
+          awaiting: summary.awaitingReview,
+          finished: summary.finished,
+        },
+        reading.lineOf(summary.stationId),
+        viewer,
+      ).map((move) => ({
+        stationId: move.to.id.value,
+        denial: move.denial,
+        skips: move.skips.map((each) => each.id.value),
+        sendsBack: move.sendsBack,
+      })),
       note: summary.note
         ? {
             position: summary.note.position,

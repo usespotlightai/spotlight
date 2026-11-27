@@ -7,9 +7,10 @@ export class RequestLimitReachedError extends DomainError {
   constructor(
     stationId: StationId,
     readonly limit: number,
+    readonly resetsAt: Date,
   ) {
     super(
-      `The station ${stationId.value} took ${limit} requested candidates today already`,
+      `The station ${stationId.value} took ${limit} requested candidates today already. The count resets at ${resetsAt.toISOString()}`,
     );
     this.name = 'RequestLimitReachedError';
   }

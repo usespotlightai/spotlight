@@ -12,6 +12,7 @@ export const LINE_SEARCH: LineSearchResponseDto = {
   period: '7d',
   onAlert: true,
   cooldown: '3d',
+  requestsPerDay: 3,
 };
 
 export const station = (

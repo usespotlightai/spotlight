@@ -80,6 +80,10 @@ import {
   DeliveryWorkPort,
 } from '@integrations/application/ports/delivery-work.port';
 import { EXPRESSION_CHECKS } from '@integrations/application/ports/expression-checks.port';
+import {
+  GITHUB_HAPPENINGS,
+  type GitHubHappeningsPort,
+} from '@integrations/application/ports/github-happenings.port';
 import { HOOK_FIRING_HISTORY } from '@integrations/application/ports/hook-firing-history.port';
 import {
   HOOK_TOOLS,
@@ -184,6 +188,7 @@ import { ProcessDueDeliveries } from '@integrations/application/services/process
 import { ProcessDuePolls } from '@integrations/application/services/process-due-polls.service';
 import { ProvidedTools } from '@integrations/application/services/provided-tools.service';
 import { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
+import { PullRequestConflictReactions } from '@integrations/application/services/pull-request-conflict-reactions.service';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
 import { RelistServers } from '@integrations/application/services/relist-servers.service';
 import { ResolveToolForRun } from '@integrations/application/services/resolve-tool-for-run.service';
@@ -439,6 +444,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       SCHEDULE_CURSORS,
       InboundDeliveryRetention,
       LOGGER,
+      PullRequestConflictReactions,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -457,6 +463,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       schedules: ScheduleCursorRepository,
       deliveries: InboundDeliveryRetention,
       logger: LoggerPort,
+      conflicts: PullRequestConflictReactions,
     ) => {
       types.register('integrations', INTEGRATIONS_PAYLOAD_TYPES);
       subscribers.register(
@@ -476,6 +483,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
           new IntegrationCursors(polls, schedules),
           deliveries,
           new MemberConnections(connections, logger),
+          conflicts,
         ),
       );
       return true;
@@ -879,6 +887,18 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     inject: [GITHUB_WEBHOOKS],
     useFactory: (github: GitHubWebhooksPort) =>
       new GitHubWebhookProvider(github),
+  },
+
+  { provide: GITHUB_HAPPENINGS, useExisting: GitHubWebhookProvider },
+
+  {
+    provide: PullRequestConflictReactions,
+    inject: [GITHUB_HAPPENINGS, DELIVERY_REACTIONS, LOGGER],
+    useFactory: (
+      happenings: GitHubHappeningsPort,
+      reactions: DeliveryReactionsPort,
+      logger: LoggerPort,
+    ) => new PullRequestConflictReactions(happenings, reactions, logger),
   },
 
   {

@@ -3,6 +3,7 @@ import { pageOf } from '@/mocks/paging';
 import { scenario } from '@/mocks/scenario';
 import { world } from '@/mocks/world';
 import { avatars, WORKSPACE_AVATAR } from '@/mocks/world/avatars';
+import { withHandMoves } from '@/mocks/world/hand-moves';
 import { pullRequestSummaryOf } from '@/mocks/world/pull-request-summaries';
 import { runsOfAnyTask } from '@/mocks/world/run-stories';
 import { settingsWorld } from '@/mocks/world/settings';
@@ -62,11 +63,13 @@ export const shellHandlers = [
       .toLowerCase()
       .split(/\s+/)
       .filter(Boolean);
-    const tasks = (world().tasks[teamId] ?? []).filter((task) => {
-      const text = `${task.title}\n${task.description ?? ''}`.toLowerCase();
+    const tasks = (world().tasks[teamId] ?? [])
+      .filter((task) => {
+        const text = `${task.title}\n${task.description ?? ''}`.toLowerCase();
 
-      return words.every((word) => text.includes(word));
-    });
+        return words.every((word) => text.includes(word));
+      })
+      .map((task) => withHandMoves(teamId, task));
 
     return json(
       query.get('state') === 'completed-station'
@@ -85,10 +88,11 @@ export const shellHandlers = [
   }),
 
   api.get('/teams/:teamId/tasks/:taskId', ({ params }) => {
-    const task = world().tasks[String(params.teamId)]?.find(
+    const teamId = String(params.teamId);
+    const task = world().tasks[teamId]?.find(
       (each) => each.id === String(params.taskId),
     );
-    return task ? json(task) : notFound();
+    return task ? json(withHandMoves(teamId, task)) : notFound();
   }),
 
   api.get('/teams/:teamId/tasks/:taskId/runs', ({ params }) =>

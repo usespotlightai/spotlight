@@ -29,6 +29,7 @@ export function WorkspaceSidebar({
 }: WorkspaceSidebarProps) {
   const { data: waiting } = useInbox(slug);
   const unseen = waiting?.filter((each) => each.unread) ?? [];
+  const unread = unseen.length > 0 ? `${unseen.length} unread` : undefined;
 
   return (
     <>
@@ -48,9 +49,13 @@ export function WorkspaceSidebar({
             <SidebarLink
               to={inboxPath(slug)}
               icon={Inbox}
+              hint={unread}
               trailing={
-                unseen.length > 0 ? (
-                  <p className="text-xs">{unseen.length}</p>
+                unread ? (
+                  <p className="text-xs">
+                    <span aria-hidden>{unseen.length}</span>
+                    <span className="sr-only">{unread}</span>
+                  </p>
                 ) : null
               }
             >

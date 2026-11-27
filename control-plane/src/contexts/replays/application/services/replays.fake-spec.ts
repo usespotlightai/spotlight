@@ -567,6 +567,7 @@ export class FakeLines implements LinesPort {
           lineName: 'Delivery',
           key: station.key,
           name: station.name,
+          source: station.source,
         }
       : null;
   };

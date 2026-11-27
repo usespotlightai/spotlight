@@ -98,6 +98,7 @@ const task = (
   pullRequests: [],
   hold: null,
   runNotStarted: null,
+  handMoves: [],
   createdBy: PRIYA,
   assignee: PRIYA,
   note: null,

@@ -3,6 +3,7 @@ import type { WorkspaceSecretDto } from '@secrets/application/dto/workspace-secr
 import { WorkspaceSecretMapper } from '@secrets/application/mappers/workspace-secret.mapper';
 import type { SecretResourcesPort } from '@secrets/application/ports/secret-resources.port';
 import type { ListWorkspaceSecretsQuery } from '@secrets/application/queries/list-workspace-secrets.query';
+import type { SecretReaches } from '@secrets/application/services/secret-reaches.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -13,6 +14,7 @@ export class ListWorkspaceSecretsHandler implements QueryHandlerPort<
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: SecretResourcesPort,
+    private readonly reaches: SecretReaches,
   ) {}
 
   async execute(
@@ -29,9 +31,12 @@ export class ListWorkspaceSecretsHandler implements QueryHandlerPort<
       }
 
       const manages = permissions.scopes.has('secrets');
+      const reached = await this.reaches.ofEach(
+        await this.resources.secretsIn(permissions.workspaceId),
+      );
 
-      return (await this.resources.secretsIn(permissions.workspaceId)).map(
-        (each) => WorkspaceSecretMapper.toDto(each, manages),
+      return reached.map(({ record, reach }) =>
+        WorkspaceSecretMapper.toDto(record, manages, reach),
       );
     } catch (error) {
       rethrowAsApplicationError(error);

@@ -99,6 +99,11 @@ export class RunnerTrust extends EventRecorder {
     return !this.isDeleted && this.workload.matches(claims);
   }
 
+  // Its hosts inject the secrets of a run through their own egress.
+  get injectsSecrets(): boolean {
+    return !this.isDeleted;
+  }
+
   capacity(mode: PoolMode): Exclude<PoolCapacity, 'full'> {
     return this.isDeleted || mode !== 'pull' ? 'gone' : 'open';
   }

@@ -2,13 +2,11 @@ import { type SubmitEvent, useId, useState } from 'react';
 
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
-import { sanitizeSlug, slugify } from '@/lib/slug';
-
-const LONGEST_NAME = 64;
 
 type CreatePoolFormProps = {
   defaultName: string;
   creating: boolean;
+  refusal: string | null;
   onCreate: (name: string) => void;
   onEdit: () => void;
 };
@@ -16,12 +14,13 @@ type CreatePoolFormProps = {
 export function CreatePoolForm({
   defaultName,
   creating,
+  refusal,
   onCreate,
   onEdit,
 }: CreatePoolFormProps) {
   const nameId = useId();
   const [name, setName] = useState(defaultName);
-  const named = slugify(name);
+  const named = name.trim();
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -43,11 +42,11 @@ export function CreatePoolForm({
           name="name"
           required
           autoComplete="off"
-          maxLength={LONGEST_NAME}
+          spellCheck={false}
           disabled={creating}
           value={name}
           onChange={(event) => {
-            setName(sanitizeSlug(event.target.value));
+            setName(event.target.value);
             onEdit();
           }}
         />
@@ -56,6 +55,12 @@ export function CreatePoolForm({
           Create pool
         </Button>
       </div>
+
+      {refusal && (
+        <p role="alert" className="text-destructive text-xs">
+          {refusal}
+        </p>
+      )}
     </form>
   );
 }

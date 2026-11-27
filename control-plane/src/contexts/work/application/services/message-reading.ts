@@ -15,22 +15,26 @@ import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 export interface MessageReading {
   readonly viewer: ConversationViewer;
   readonly stationOf: (stationId: string) => StationFacts;
+  readonly lineOf: (stationId: string) => LineMap | null;
 }
 
 export const messageReadingOf = (
   viewer: ConversationViewer,
   lines: readonly LineMap[],
-): MessageReading => ({
-  viewer,
-  stationOf: (stationId) => {
+): MessageReading => {
+  const lineOf = (stationId: string): LineMap | null => {
     const id = StationId.of(stationId);
 
-    return MessageEffect.stationOn(
-      lines.find((each) => each.stationAt(id) !== null) ?? null,
-      id,
-    );
-  },
-});
+    return lines.find((each) => each.stationAt(id) !== null) ?? null;
+  };
+
+  return {
+    viewer,
+    lineOf,
+    stationOf: (stationId) =>
+      MessageEffect.stationOn(lineOf(stationId), StationId.of(stationId)),
+  };
+};
 
 export const messageReadingOn = async (
   viewer: Promise<ConversationViewer>,

@@ -77,6 +77,7 @@ const policyOf = (over: Partial<Parameters<typeof SearchPolicy.of>[0]> = {}) =>
     iterations: 2,
     repeats: null,
     objective: null,
+    requestsPerDay: 3,
     ...over,
   });
 
@@ -212,7 +213,7 @@ describe('AutoSearches', () => {
     expect(first.calibrates).toBe(true);
     expect(seed.calibration).toBe(true);
     expect(seed.repeats).toBe(3);
-    expect(seed.ceiling).toEqual(first.ceilingSplit.seed);
+    expect(seed.ceiling).toEqual(first.ceilingSplit.seedReplay);
 
     await memory.replayRepository.save(
       replayedAs(seed, () => 'completed', 0.001),
@@ -361,6 +362,7 @@ describe('AutoSearches', () => {
           inSet: aSet(10).entries.map((each) => each.taskId),
           at: new Date(NOW.getTime() - 30 * DAY),
           cooldownMilliseconds: 3 * DAY,
+          requestsPerDay: 3,
           searchId: SearchId.of('search_earlier'),
           request: null,
           candidates: [],

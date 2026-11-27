@@ -434,22 +434,27 @@ describe('the inbox, open and resolved', () => {
     expect(await openIds(line)).toEqual([reopened, kept]);
   });
 
-  it('keeps a resolved conversation open while its ask is unseen, on a finished task too', async () => {
+  it('keeps a resolved conversation open while its ask is unseen, but not on a finished task', async () => {
     const line = await aLine();
+    const unseen = await line.addTask({ stationId: line.work });
     const finished = await line.addTask({
       stationId: line.completed,
       finishedAt: at(9),
     });
     const seen = await line.addTask({ stationId: line.work });
 
-    await line.addNotes(finished, [
+    await line.addNotes(unseen, [
       { kind: 'asked', at: at(0), unseen: true },
       { kind: 'answered', at: at(1) },
       { kind: 'passed', at: at(2) },
     ]);
-    await line.addNotes(seen, [
-      { kind: 'asked', at: at(3) },
+    await line.addNotes(finished, [
+      { kind: 'asked', at: at(3), unseen: true },
       { kind: 'passed', at: at(4) },
+    ]);
+    await line.addNotes(seen, [
+      { kind: 'asked', at: at(5) },
+      { kind: 'passed', at: at(6) },
     ]);
 
     const open =
@@ -458,7 +463,7 @@ describe('the inbox, open and resolved', () => {
         UserId.of(line.viewer),
       )) ?? [];
 
-    expect(open.map((each) => each.id)).toEqual([`${finished}:0`]);
+    expect(open.map((each) => each.id)).toEqual([`${unseen}:0`]);
     expect(open[0]).toMatchObject({
       resolved: true,
       unread: true,

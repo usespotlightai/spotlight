@@ -74,6 +74,20 @@ vi.mock('@/hooks/api/useDisconnectIntegration', () => ({
   }),
 }));
 
+const connectInstallation = vi.fn();
+let installed: { id: string; account: string }[] = [];
+
+vi.mock('@/hooks/api/useGitHubInstallations', () => ({
+  useGitHubInstallations: () => query(installed),
+}));
+
+vi.mock('@/hooks/api/useConnectGitHubInstallation', () => ({
+  useConnectGitHubInstallation: () => ({
+    mutate: connectInstallation,
+    isPending: false,
+  }),
+}));
+
 vi.mock('@/hooks/api/useSetToolRule', () => ({
   useSetToolRule: () => ({ mutate: vi.fn(), isPending: false }),
 }));
@@ -164,6 +178,8 @@ beforeEach(() => {
   connectFailed.mockReturnValue(false);
   disconnectFailed.mockReturnValue(false);
   github.mockReturnValue(ready());
+  installed = [];
+  connectInstallation.mockClear();
   configuration.mockReturnValue(read());
   connections.mockReturnValue(joined());
   members.mockReturnValue(undefined);
@@ -235,6 +251,22 @@ describe('TeamIntegrations', () => {
     ).toBeInTheDocument();
   });
 
+  it('connects an installation that is already on GitHub from the opened row', async () => {
+    installed = [{ id: '42', account: 'acme' }];
+    github.mockReturnValue(ready({ connected: false }));
+    showing();
+
+    const opened = await opening('GitHub');
+    await userEvent.click(
+      within(opened).getByRole('button', { name: 'Connect GitHub' }),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'acme' }),
+    );
+
+    expect(connectInstallation).toHaveBeenCalledWith('42');
+  });
+
   it('says which repositories the App can access, and keeps managing it in the opened row', async () => {
     showing();
 
@@ -250,6 +282,9 @@ describe('TeamIntegrations', () => {
     expect(
       within(opened).getByRole('link', { name: 'Manage on GitHub' }),
     ).toHaveAttribute('href', INSTALL);
+    expect(
+      within(opened).queryByRole('button', { name: 'Connect GitHub' }),
+    ).not.toBeInTheDocument();
   });
 
   it('marks a repository the team’s lines use that the App cannot access', async () => {

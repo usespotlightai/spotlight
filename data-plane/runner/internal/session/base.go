@@ -17,10 +17,18 @@ func markBases(ctx context.Context, dir string, checkouts []protocol.Checkout, l
 
 	for _, checkout := range checkouts {
 		git := gitIn(ctx, filepath.Join(dir, checkout.Path))
+		branch := baseBranchOf(checkout)
 
 		base := "HEAD"
-		if left, err := git("merge-base", "HEAD", baseBranchOf(checkout)); err == nil && left != "" {
+		if left, err := git("merge-base", "HEAD", branch); err == nil && left != "" {
 			base = left
+			if output, err := git("symbolic-ref", stackcheck.BaseBranchRef, branch); err != nil {
+				log.Warn("could not mark the branch a checkout started from",
+					"path", checkout.Path,
+					"error", err,
+					"output", output,
+				)
+			}
 		}
 
 		if output, err := git("update-ref", stackcheck.BaseRef, base); err != nil {
