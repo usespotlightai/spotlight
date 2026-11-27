@@ -92,6 +92,39 @@ describe('the built-in Delivery line', () => {
       'Do not open a pull request: Code Review opens it.',
     );
   });
+
+  it('tells implementation and code review to run the app and load a page and its entry script, and to say so when they cannot', () => {
+    for (const key of ['implementation', 'code-review']) {
+      const prompt = opening(key)?.agentPrompt?.value;
+
+      expect(prompt).toMatch(/dev or preview\s+server/);
+      expect(prompt).toMatch(/Load a\s+page from it and the entry script/);
+      expect(prompt).toMatch(/say so in your note/);
+    }
+  });
+
+  it('tells code review to follow the run instructions the change adds or changes', () => {
+    expect(opening('code-review')?.agentPrompt?.value).toMatch(
+      /run instructions that the change adds\s+or changes/,
+    );
+    expect(opening('code-review')?.judge?.claims).toContain(
+      'The review tried any run instructions that the change adds or changes.',
+    );
+  });
+
+  it('has code review end its note with whether the app runs', () => {
+    expect(opening('code-review')?.agentPrompt?.value).toContain(
+      '    Runs: yes and what you loaded, or no and why.\n    Merges cleanly:',
+    );
+  });
+
+  it('has the judges of implementation and code review check that the run said whether the app runs', () => {
+    for (const key of ['implementation', 'code-review']) {
+      expect(opening(key)?.judge?.claims).toContain(
+        'The note says whether the app ran and what it loaded, or why it could not be run.',
+      );
+    }
+  });
 });
 
 describe('the claims of the built-in judges', () => {

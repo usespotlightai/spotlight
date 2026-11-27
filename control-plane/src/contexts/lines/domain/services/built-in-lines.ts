@@ -167,6 +167,16 @@ End every note with this line:
 
     Decisions for a person: none, or each decision you put to a person.`;
 
+const RUNNING_THE_APP = `Tests, the type check and a build can all pass while the app fails to start,
+so run the app too, where the repository has one. Start the dev or preview
+server that the README or the package scripts name, in the background. Load a
+page from it and the entry script that page loads, with \`curl\`, and check that
+each answers without an error: a page can load while its script fails. Stop
+the server when you are done.
+
+If nothing in the repository runs, or the app needs a service the workspace
+does not have, such as a database, say so in your note. Do not leave it out.`;
+
 const IMPLEMENTATION = `## Implementation
 
 Make the change the spec describes, and no more than it.
@@ -175,6 +185,8 @@ Match the surrounding code: its naming, its structure, its idioms. Write tests
 that would fail without your change. Run the tests and the linter, and leave
 them passing — a change that does not build is not done. Where the station has
 a check, run it before you hand over.
+
+${RUNNING_THE_APP}
 
 Commit your work and push it. The workspace is already on the branch this
 task belongs to, so push that branch and nothing else:
@@ -185,8 +197,8 @@ Do not open a pull request: Code Review opens it. If the spec tells you to open
 one, skip that step. When the change is pushed and its checks pass, pass the
 task to Code Review, not to a person.
 
-Say in your note: what you changed, what you tested, and anything you found
-that the spec did not anticipate.
+Say in your note: what you changed, what you tested, whether the app ran and
+what you loaded, and anything you found that the spec did not anticipate.
 
 If the spec turns out to be wrong, or leaves out something the change depends
 on, do not improvise a different change: pass the task back to Spec, and say
@@ -276,6 +288,12 @@ Also look for:
 - A requirement of the task that the change does not meet, including one that
   says what not to do.
 
+${RUNNING_THE_APP}
+
+Try the run instructions that the change adds or changes as well, such as a
+new script or a step in the README, exactly as they are written. An app that
+does not start, or a page or script that fails to load, is a high finding.
+
 Check that the branch still merges into the branch it started from:
 
     git fetch origin
@@ -284,9 +302,10 @@ Check that the branch still merges into the branch it started from:
 A conflict is a finding: pass the task back to Implementation to rebase it.
 
 Say in your note what you found, most serious first, each finding with its
-severity, or say plainly that you found nothing. Then end the note with this
-line, also when you found nothing:
+severity, or say plainly that you found nothing. Then end the note with these
+two lines, also when you found nothing:
 
+    Runs: yes and what you loaded, or no and why.
     Merges cleanly: yes, or no and the conflicting files.
 
 If the code needs changing, pass the task back to implementation. If the
@@ -352,6 +371,7 @@ const IMPLEMENTATION_CLAIMS = [
   'The change matches the surrounding code.',
   'The change adds tests that fail without it.',
   'The tests pass after the change.',
+  'The note says whether the app ran and what it loaded, or why it could not be run.',
   "The change is pushed to the task's branch.",
   'The run opened no pull request.',
   'The note says what changed, what was tested, and what the spec did not anticipate.',
@@ -362,6 +382,8 @@ const CODE_REVIEW_CLAIMS = [
   'The note lists each finding with its severity, its file and line, what goes wrong and what would fix it, or says plainly that it found nothing.',
   'No finding is false, and no severity is overstated.',
   'The run did not change, commit or push any file.',
+  'The note says whether the app ran and what it loaded, or why it could not be run.',
+  'The review tried any run instructions that the change adds or changes.',
   'The note ends with a line that says whether the branch merges cleanly.',
   'The handover matches the note: done with a pull request when nothing blocks, Implementation for a fault in the code or a conflict, Spec for a fault in the plan.',
 ];
