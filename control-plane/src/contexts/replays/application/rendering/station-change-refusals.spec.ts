@@ -33,4 +33,23 @@ describe('stationChangeRefusalReason', () => {
       'The station took the most requested tests for today. Maximum requests a day: 3. The count resets at 2026-10-30 00:00 UTC. To allow more, set requests_per_day in the search block of the station or of the line in Terraform.',
     );
   });
+
+  it('says how often the judge agreed with itself and which claims changed most, when it knows', () => {
+    expect(
+      stationChangeRefusalReason('judge-unstable', NEXT_MONTH, {
+        warning: { kind: 'judge-unstable', agreement: 13 / 18, compared: 18 },
+        claimFlips: [
+          { claim: 'Each finding is real.', flipped: 5 },
+          { claim: 'Each finding says where it is.', flipped: 4 },
+          { claim: 'A fault went back to Implementation.', flipped: 3 },
+          { claim: 'The note is short.', flipped: 1 },
+        ],
+      }),
+    ).toBe(
+      'The judge of the station does not give the same verdict twice for the same run. Calibration judged 18 runs twice, and the two verdicts agreed for 13 of them (72%). Spotlight needs at least 80%. The claims whose result changed most between the two verdicts: “Each finding is real.” in 5 runs; “Each finding says where it is.” in 4 runs; “A fault went back to Implementation.” in 3 runs. Please make the claims of the judge more exact.',
+    );
+    expect(stationChangeRefusalReason('judge-unstable', NEXT_MONTH)).toBe(
+      'The judge of the station does not give the same verdict twice for the same run. Please make the claims of the judge more exact.',
+    );
+  });
 });

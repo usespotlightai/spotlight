@@ -56,7 +56,13 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
       <PageHeader
         title={<Breadcrumbs segments={trail} />}
         heading={false}
-        trailing={<TaskActions title={task.title} onDelete={remove} />}
+        trailing={
+          <TaskActions
+            title={task.title}
+            running={task.progress === 'in-progress'}
+            onDelete={remove}
+          />
+        }
         actions={
           hold && (
             <OnHoldPill

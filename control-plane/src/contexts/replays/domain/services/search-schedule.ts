@@ -45,6 +45,7 @@ export type SetVerdict =
       readonly kind: 'skip';
       readonly reason: SetSkipReason;
       readonly checkAfter: Date;
+      readonly warning: SearchWarning | null;
     };
 
 export interface SpendingSearch {
@@ -204,20 +205,26 @@ const HEALTH_SKIPS = [
 ] as const satisfies readonly (SearchSkipReason & SearchWarning['kind'])[];
 
 export const setVerdict = (input: SetInput): SetVerdict => {
-  const skip = (reason: SetSkipReason): SetVerdict => ({
+  const skip = (
+    reason: SetSkipReason,
+    warning: SearchWarning | null = null,
+  ): SetVerdict => ({
     kind: 'skip',
     reason,
     checkAfter: after(input.now, SET_RECHECK_MS),
+    warning,
   });
-  const warned = HEALTH_SKIPS.find((reason) =>
-    input.warnings.some((each) => each.kind === reason),
-  );
+  const [warned] = HEALTH_SKIPS.flatMap((reason) => {
+    const warning = input.warnings.find((each) => each.kind === reason);
+
+    return warning ? [{ reason, warning }] : [];
+  });
 
   if (input.tooSmall) {
     return skip('set-too-small');
   }
   if (warned) {
-    return skip(warned);
+    return skip(warned.reason, warned.warning);
   }
   if (!input.freshHeldOut) {
     return skip('no-fresh-held-out');

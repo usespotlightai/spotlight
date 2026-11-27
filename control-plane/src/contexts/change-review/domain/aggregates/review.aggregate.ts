@@ -260,14 +260,7 @@ export class Review extends EventRecorder {
       verdictOnGitHub: input.verdictOnGitHub,
     });
 
-    posted.record(
-      new ReviewPosted(
-        this.id,
-        this.workspaceId,
-        this.taskId,
-        plan.onFiles.map((comment) => comment.id),
-      ),
-    );
+    posted.record(new ReviewPosted(this.id, this.workspaceId, this.taskId));
     plan.onLines.forEach((comment, position) => {
       posted.record(
         new IncludedCommentPosted(
@@ -277,7 +270,7 @@ export class Review extends EventRecorder {
         ),
       );
     });
-    for (const comment of plan.deleted) {
+    for (const comment of [...plan.onFiles, ...plan.deleted]) {
       posted.record(new IncludedCommentPosted(this.id, comment.id, null));
     }
 

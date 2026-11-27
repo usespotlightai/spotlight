@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { secretsPath } from '@/lib/settings';
+import { setScenario } from '@/mocks/scenario';
 import { serveMockApi } from '@/mocks/testing';
 import { SLUG } from '@/mocks/world';
 import { MockApplication } from '@/stories/MockApplication';
@@ -50,6 +51,18 @@ describe('Secrets on the mock API', () => {
         name: 'Replace value of STAGING_VIEWER_TOKEN',
       }),
     ).toBeVisible();
+  });
+
+  it('links to how to define a secret where there is none', async () => {
+    setScenario({ state: 'empty' });
+    render(<MockApplication at={secretsPath(SLUG)} />);
+
+    expect(
+      await screen.findByRole('link', { name: 'spotlight_secret' }, WAIT),
+    ).toHaveAttribute(
+      'href',
+      'https://docs.usespotlight.ai/docs/reference/terraform/secret',
+    );
   });
 
   it('sets the value of a secret that awaits one, and never shows it', async () => {

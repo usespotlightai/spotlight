@@ -1,6 +1,11 @@
 import { X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 type HostSelectionBarProps = {
   count: number;
@@ -38,15 +43,23 @@ export function HostSelectionBar({
         {deleting ? 'Deleting…' : 'Delete'}
       </Button>
 
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={onClear}
-        aria-label="Clear selection"
-        className="rounded-full"
-      >
-        <X />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger
+          iconOnly
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onClear}
+              aria-label="Clear selection"
+              className="rounded-full"
+            />
+          }
+        >
+          <X />
+        </TooltipTrigger>
+        <TooltipContent side="top">Clear the selection</TooltipContent>
+      </Tooltip>
     </div>
   );
 }

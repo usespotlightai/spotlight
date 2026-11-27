@@ -1,5 +1,8 @@
 import type { StationChangeRefusal } from '@replays/application/contracts/station-change-tests.contract';
 import { SKIP_ADVICE } from '@replays/application/rendering/skip-advice';
+import type { ClaimFlips } from '@replays/domain/services/claim-flips';
+import type { SearchWarning } from '@replays/domain/services/search-warnings';
+import { JUDGE_UNSTABLE_BELOW } from '@replays/domain/services/set-health';
 import { FEWEST_SEARCH_TASKS } from '@replays/domain/value-objects/held-out-split.vo';
 
 interface RequestLimit {
@@ -9,9 +12,15 @@ interface RequestLimit {
 
 export interface RefusalDetail {
   readonly requestLimit?: RequestLimit;
+  readonly warning?: SearchWarning | null;
+  readonly claimFlips?: readonly ClaimFlips[];
 }
 
 const NO_DETAIL: RefusalDetail = {};
+
+const MOST_FLIPPED = 3;
+
+const MAX_CLAIM = 120;
 
 const advised = (reason: keyof typeof SKIP_ADVICE): string =>
   SKIP_ADVICE[reason].join(' ');
@@ -21,8 +30,40 @@ const day = (at: Date): string => at.toISOString().slice(0, 10);
 const time = (at: Date): string =>
   `${day(at)} ${at.toISOString().slice(11, 16)} UTC`;
 
+const percent = (value: number): string => `${Math.round(value * 100)}%`;
+
+const runsOf = (count: number): string =>
+  `${count} ${count === 1 ? 'run' : 'runs'}`;
+
+const clipped = (text: string): string =>
+  text.length > MAX_CLAIM ? `${text.slice(0, MAX_CLAIM - 1)}…` : text;
+
+const flippedOf = (flips: readonly ClaimFlips[]): string =>
+  flips.length > 0
+    ? ` The claims whose result changed most between the two verdicts: ${flips
+        .slice(0, MOST_FLIPPED)
+        .map((each) => `“${clipped(each.claim)}” in ${runsOf(each.flipped)}`)
+        .join('; ')}.`
+    : '';
+
+const judgeUnstable = (detail: RefusalDetail): string => {
+  const { warning } = detail;
+
+  if (warning?.kind !== 'judge-unstable') {
+    return advised('judge-unstable');
+  }
+
+  const [said, asked] = SKIP_ADVICE['judge-unstable'];
+  const agreed = Math.round(warning.agreement * warning.compared);
+
+  return `${said} Calibration judged ${runsOf(warning.compared)} twice, and the two verdicts agreed for ${agreed} of them (${percent(warning.agreement)}). Spotlight needs at least ${percent(JUDGE_UNSTABLE_BELOW)}.${flippedOf(detail.claimFlips ?? [])} ${asked}`;
+};
+
 const REASONS: Readonly<
-  Record<Exclude<StationChangeRefusal, 'monthly-ceiling'>, string>
+  Record<
+    Exclude<StationChangeRefusal, 'monthly-ceiling' | 'judge-unstable'>,
+    string
+  >
 > = {
   'station-gone': 'The station is no longer on the line.',
   'not-replayable': 'The station has no live config that Spotlight can replay.',
@@ -43,7 +84,6 @@ const REASONS: Readonly<
     'Earlier searches used the held-out tasks of the replay set. Spotlight has no fresh held-out tasks to measure the change on.',
   'ceiling-too-low': advised('ceiling-too-low'),
   noisy: advised('noisy'),
-  'judge-unstable': advised('judge-unstable'),
   'judge-disagrees-with-people': advised('judge-disagrees-with-people'),
   'flaky-checks': advised('flaky-checks'),
   'no-headroom':
@@ -64,7 +104,11 @@ export const stationChangeRefusalReason = (
     return `The searches of the line reached their monthly ceiling. Next month starts: ${day(nextMonthStart)}`;
   }
 
-  return refusal === 'request-limit'
-    ? requestLimit(detail.requestLimit)
+  if (refusal === 'request-limit') {
+    return requestLimit(detail.requestLimit);
+  }
+
+  return refusal === 'judge-unstable'
+    ? judgeUnstable(detail)
     : REASONS[refusal];
 };

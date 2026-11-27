@@ -12,6 +12,7 @@ export function ClearSelection({ onClear }: { onClear: () => void }) {
   return (
     <Tooltip>
       <TooltipTrigger
+        iconOnly
         render={
           <Button
             variant="ghost"

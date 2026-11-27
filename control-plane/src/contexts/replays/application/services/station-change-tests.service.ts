@@ -227,7 +227,7 @@ export class StationChangeTests {
     });
 
     if (ready.kind === 'skip') {
-      return this.refused(ready.reason);
+      return this.refused(ready.reason, ready);
     }
 
     const candidate = this.candidateOf(

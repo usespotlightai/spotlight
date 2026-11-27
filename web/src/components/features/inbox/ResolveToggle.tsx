@@ -26,6 +26,7 @@ export function ResolveToggle({
   return (
     <Tooltip>
       <TooltipTrigger
+        iconOnly
         // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the trigger renders this button around its children
         render={<button type="button" />}
         aria-label={label}

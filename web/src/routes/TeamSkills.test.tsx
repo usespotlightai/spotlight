@@ -123,9 +123,13 @@ describe('TeamSkills', () => {
     skills.mockReturnValue({ skills: [] });
     showing();
 
+    expect(screen.getByText(/No skills\./)).toBeInTheDocument();
     expect(
-      screen.getByText('No skills defined for this team.'),
-    ).toBeInTheDocument();
+      screen.getByRole('link', { name: 'spotlight_skill' }),
+    ).toHaveAttribute(
+      'href',
+      'https://docs.usespotlight.ai/docs/reference/terraform/skill',
+    );
   });
 
   it('says the skills could not be loaded, rather than that there are none, and tries again on request', async () => {

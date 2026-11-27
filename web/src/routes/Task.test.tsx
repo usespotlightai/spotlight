@@ -15,6 +15,7 @@ const task = {
   attachments: [],
   createdAt: '2026-08-04T09:15:00.000Z',
   pullRequests: [],
+  sendsBackTo: [],
 };
 
 const worked = vi.fn((): unknown[] => []);
@@ -447,6 +448,43 @@ describe('Task', () => {
     ).toEqual(['Backlog', 'Triage', 'Completed']);
   });
 
+  it('sends a finished task back to an earlier station, with the reason the person gives', async () => {
+    const user = userEvent.setup();
+    listed.mockReturnValue([
+      {
+        ...task,
+        stationId: 'station_2',
+        finished: true,
+        sendsBackTo: ['station_1'],
+      },
+    ]);
+    renderAt('task_1');
+
+    await user.click(screen.getByRole('button', { name: /Station/ }));
+    await screen.findByRole('menu');
+
+    expect(
+      screen.getAllByRole('menuitemradio').map((each) => each.textContent),
+    ).toEqual(['Backlog', 'Triage', 'Spec', 'Completed']);
+
+    await user.click(screen.getByRole('menuitemradio', { name: 'Triage' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Reason' }),
+      'The pull request conflicts with main.',
+    );
+    await user.click(screen.getByRole('button', { name: 'Send back' }));
+
+    expect(moved).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      taskId: 'task_1',
+      revision: 2,
+      stationId: 'station_1',
+      afterTaskId: null,
+      reason: 'The pull request conflicts with main.',
+    });
+  });
+
   it('offers nothing to move to once a task is completed', async () => {
     const user = userEvent.setup();
     listed.mockReturnValue([{ ...task, stationId: 'station_3' }]);
@@ -458,6 +496,83 @@ describe('Task', () => {
     expect(
       screen.getAllByRole('menuitemradio').map((each) => each.textContent),
     ).toEqual(['Completed']);
+  });
+
+  describe('moving a task in progress to the completed station', () => {
+    const complete = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(screen.getByRole('button', { name: /Station/ }));
+      await screen.findByRole('menu');
+      await user.click(
+        screen.getByRole('menuitemradio', { name: 'Completed' }),
+      );
+    };
+
+    beforeEach(() => {
+      listed.mockReturnValue([{ ...task, progress: 'in-progress' }]);
+    });
+
+    it('says the run stops and unpushed changes are lost, before it moves', async () => {
+      const user = userEvent.setup();
+      renderAt('task_1');
+
+      await complete(user);
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'Move "Fix the queue" to Completed?',
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /stops the run, and the changes that the agent did not push are lost/,
+        ),
+      ).toBeInTheDocument();
+      expect(moved).not.toHaveBeenCalled();
+    });
+
+    it('moves the task once the person confirms', async () => {
+      const user = userEvent.setup();
+      renderAt('task_1');
+
+      await complete(user);
+      await user.click(
+        await screen.findByRole('button', { name: 'Stop run and move' }),
+      );
+
+      expect(moved).toHaveBeenCalledWith({
+        teamId: 'team_1',
+        lineId: 'line_1',
+        taskId: 'task_1',
+        revision: 2,
+        stationId: 'station_3',
+        afterTaskId: null,
+      });
+    });
+
+    it('keeps the task running when the person declines', async () => {
+      const user = userEvent.setup();
+      renderAt('task_1');
+
+      await complete(user);
+      await user.click(
+        await screen.findByRole('button', { name: 'Keep it running' }),
+      );
+
+      expect(moved).not.toHaveBeenCalled();
+    });
+
+    it('asks nothing for a task that no run works', async () => {
+      const user = userEvent.setup();
+      listed.mockReturnValue([task]);
+      renderAt('task_1');
+
+      await complete(user);
+
+      expect(moved).toHaveBeenCalledWith(
+        expect.objectContaining({ stationId: 'station_3' }),
+      );
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
 
   it('confirms before taking a task away', async () => {
@@ -501,6 +616,61 @@ describe('Task', () => {
     await user.click(await screen.findByRole('button', { name: 'Keep it' }));
 
     expect(deleted).not.toHaveBeenCalled();
+  });
+
+  describe('deleting a task in progress', () => {
+    const removing = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(screen.getByRole('button', { name: 'Task options' }));
+      await screen.findByRole('menu');
+      await user.click(screen.getByRole('menuitem', { name: /Delete task/ }));
+    };
+
+    beforeEach(() => {
+      listed.mockReturnValue([{ ...task, progress: 'in-progress' }]);
+    });
+
+    it('says the run stops and unpushed changes are lost, and wraps a long title', async () => {
+      const user = userEvent.setup();
+      renderAt('task_1');
+
+      await removing(user);
+
+      expect(
+        await screen.findByRole('heading', { name: 'Delete "Fix the queue"?' }),
+      ).toHaveClass('wrap-anywhere');
+      expect(
+        screen.getByText(
+          /An agent is working on this task. Spotlight stops the run, and the changes that the agent did not push are lost./,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('deletes the task once the person confirms', async () => {
+      const user = userEvent.setup();
+      renderAt('task_1');
+
+      await removing(user);
+      await user.click(
+        await screen.findByRole('button', { name: 'Stop run and delete' }),
+      );
+
+      expect(deleted).toHaveBeenCalledWith(
+        { teamId: 'team_1', taskId: 'task_1' },
+        expect.anything(),
+      );
+    });
+
+    it('names no run for a task that no run works', async () => {
+      const user = userEvent.setup();
+      listed.mockReturnValue([task]);
+      renderAt('task_1');
+
+      await removing(user);
+
+      expect(
+        await screen.findByText(/deletes the station notes/),
+      ).not.toHaveTextContent(/agent is working/);
+    });
   });
 
   it('says so when there is no task at that address', () => {

@@ -406,6 +406,14 @@ export class Sandbox extends EventRecorder {
     return this.isWarm && this.takesRunOn(host, now);
   }
 
+  waitsForFollowUpOn(host: RunnerHost, now: Date): boolean {
+    return (
+      this.state.key !== null &&
+      this.takesRunOn(host, now) &&
+      !this.holdsAnEditorAt(now)
+    );
+  }
+
   warmFits(offer: RunnerOffer): boolean {
     return this.isRequested && (this.state.warm?.fits(offer) ?? false);
   }
@@ -710,7 +718,9 @@ export class Sandbox extends EventRecorder {
   }
 
   drainedForQueuedRun(host: RunnerHost, now: Date): Sandbox {
-    return this.takesFirstRunOn(host, now) ? this.drain() : this;
+    return this.takesFirstRunOn(host, now) || this.waitsForFollowUpOn(host, now)
+      ? this.drain()
+      : this;
   }
 
   drainedWhenPlaced(): Sandbox {

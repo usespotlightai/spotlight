@@ -170,6 +170,7 @@ const move = (
   teamId = 'team_1',
   revision = 0,
   seen = access(),
+  reason: string | null = null,
 ) =>
   new MoveTaskHandler(
     stored,
@@ -188,6 +189,7 @@ const move = (
       revision,
       null,
       'user_mover',
+      reason,
     ),
   );
 
@@ -278,6 +280,30 @@ describe('MoveTaskHandler', () => {
     });
     expect(saved).toBeUndefined();
     expect(dispatched).toEqual([]);
+  });
+
+  it('sends a finished task back to an earlier work station, and briefs its next run with the reason', async () => {
+    const finished = Task.rehydrate({
+      ...landedAt('station_4'),
+      finishedAt: new Date('2026-08-28T10:00:00.000Z'),
+    });
+
+    await move(
+      'station_2',
+      lines(),
+      tasks(finished),
+      'team_1',
+      0,
+      access(),
+      'The pull request conflicts with main. Rebase it.',
+    );
+
+    expect(saved?.stationId).toEqual(StationId.of('station_2'));
+    expect(saved?.finished).toBe(false);
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]?.brief).toContain(
+      'Moved to Triage. The person who moved it gave this reason:\n\nThe pull request conflicts with main. Rebase it.',
+    );
   });
 
   it('denies a person moving a completed task back out', async () => {

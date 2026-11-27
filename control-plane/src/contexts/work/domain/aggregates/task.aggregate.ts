@@ -92,9 +92,11 @@ import {
 } from '@work/domain/services/message-effect';
 import { Placement } from '@work/domain/services/placement';
 import { type Outcome, ReactionFor } from '@work/domain/services/reaction-for';
+import { SendBack } from '@work/domain/services/send-back';
 import { openSetupList } from '@work/domain/services/setup-list';
 import { takesUpRun } from '@work/domain/services/taking-up';
 import { anyUnread } from '@work/domain/services/unread';
+import type { ActionKind } from '@work/domain/value-objects/action-kind';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import type { ApprovalCheck } from '@work/domain/value-objects/approval-check';
 import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
@@ -658,7 +660,7 @@ export class Task extends EventRecorder {
         this.id,
         this.workspaceId,
         this.stationId,
-        into.isCompleted ? 'accepted' : into.isBacklog ? 'parked' : 'started',
+        this.actionOfMoveInto(line, into),
         handMove.mover,
         this.lastRun,
         newNote.at,
@@ -1157,6 +1159,32 @@ export class Task extends EventRecorder {
     return this.ownedPullRequest(url, at, line);
   }
 
+  recordBranchPullRequest(
+    pullRequest: { readonly url: PullRequestUrl; readonly open: boolean },
+    at: Date,
+    line: LineMap,
+  ): Task {
+    const { url } = pullRequest;
+    const repository = url.repository;
+
+    if (
+      !pullRequest.open ||
+      this.reviewing ||
+      !repository ||
+      !line.names(repository) ||
+      this.pullRequests.some((each) => each.equals(url))
+    ) {
+      return this;
+    }
+
+    return this.owning(url, at, line).addMessage({
+      line: null,
+      body: TaskNoteBody.branchPullRequest(url),
+      at,
+      voice: Voice.world(),
+    });
+  }
+
   private ownedPullRequest(url: PullRequestUrl, at: Date, line: LineMap): Task {
     if (
       url.repository
@@ -1166,6 +1194,10 @@ export class Task extends EventRecorder {
       return this;
     }
 
+    return this.owning(url, at, line);
+  }
+
+  private owning(url: PullRequestUrl, at: Date, line: LineMap): Task {
     const opened = this.markedBy(Mark.pullRequest(url), at).with({
       ownedPullRequests: [
         ...this.ownedPullRequests,
@@ -1384,10 +1416,12 @@ export class Task extends EventRecorder {
   }
 
   pullRequestIn(repository: Repository): PullRequestUrl | null {
+    const inRepository = this.ownedPullRequests.filter(
+      (each) => each.url.repository?.equals(repository) ?? false,
+    );
+
     return (
-      this.pullRequests.find(
-        (each) => each.repository?.equals(repository) ?? false,
-      ) ?? null
+      (inRepository.find((each) => each.open) ?? inRepository[0])?.url ?? null
     );
   }
 
@@ -1502,6 +1536,10 @@ export class Task extends EventRecorder {
   }
 
   get reopensOnMention(): boolean {
+    return this.finished;
+  }
+
+  get keepsNoLiveWorkingCopy(): boolean {
     return this.finished;
   }
 
@@ -1666,10 +1704,6 @@ export class Task extends EventRecorder {
 
   reopenableOn(line: LineMap): boolean {
     return MessageEffect.reopens(this.messagedOn(line), TO_THE_TASK);
-  }
-
-  keepsNoLiveWorkingCopyOn(line: LineMap | null): boolean {
-    return this.finished && (line === null || !this.reopenableOn(line));
   }
 
   reopensAt(line: LineMap, happening: Happening): StationId {
@@ -3234,11 +3268,27 @@ export class Task extends EventRecorder {
   private assertHandMoveAllowed(line: LineMap, to: StationId): void {
     const from = Task.stationOn(line, this.stationId);
     const into = Task.stationOn(line, to);
-    const denial = line.moveDenial(from, into);
+    const denial = this.sendsBackTo(line, into)
+      ? null
+      : line.moveDenial(from, into);
 
     if (denial) {
       throw new MoveDeniedError(denial, from.name.value, into.name.value);
     }
+  }
+
+  private actionOfMoveInto(line: LineMap, into: Station): ActionKind {
+    if (into.isCompleted) {
+      return 'accepted';
+    }
+    if (into.isBacklog) {
+      return 'parked';
+    }
+    return this.sendsBackTo(line, into) ? 'sent-back' : 'started';
+  }
+
+  private sendsBackTo(line: LineMap, into: Station): boolean {
+    return SendBack.allows(this, line, into);
   }
 
   private assertNotAtStation(stationId: StationId): void {

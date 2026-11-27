@@ -95,6 +95,14 @@ describe('CreateWorkspace', () => {
     expect(screen.getByLabelText('Workspace URL')).toHaveValue('acme-inc');
   });
 
+  it('shows the address on the host the app is served from', () => {
+    renderPage();
+
+    expect(screen.getByLabelText('Workspace URL')).toHaveAccessibleDescription(
+      `${window.location.host}/w/`,
+    );
+  });
+
   it('stops deriving the URL once it is edited by hand', async () => {
     const user = userEvent.setup();
     renderPage();

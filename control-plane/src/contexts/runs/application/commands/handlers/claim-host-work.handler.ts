@@ -502,7 +502,12 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
       return start === 'requeued' ? start : start === 'starts' ? run : null;
     }, until);
 
-    if (!found || found === 'requeued') {
+    if (!found) {
+      await this.drainedForWaitingRuns(runner, registered, host);
+      return null;
+    }
+
+    if (found === 'requeued') {
       return null;
     }
 
@@ -565,7 +570,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
     registered: RegisteredClaimant,
     host: string,
   ): Promise<void> {
-    await this.warmSlots.drainWarmOn(host, this.clock.now(), async () =>
+    await this.warmSlots.drainIdleOn(host, this.clock.now(), async () =>
       this.claims.waitsFor(
         claimantOf(
           runner,

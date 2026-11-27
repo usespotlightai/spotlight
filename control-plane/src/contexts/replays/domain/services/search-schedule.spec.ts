@@ -236,6 +236,7 @@ describe('setVerdict', () => {
         kind: 'skip',
         reason,
         checkAfter: ahead(DAY),
+        warning: over.warnings?.find((each) => each.kind === reason) ?? null,
       });
     }
   });
