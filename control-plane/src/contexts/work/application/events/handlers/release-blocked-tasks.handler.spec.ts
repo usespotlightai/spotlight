@@ -4,6 +4,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ReleaseBlockedTasks } from '@work/application/events/handlers/release-blocked-tasks.handler';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -12,8 +13,10 @@ import { TaskFinished } from '@work/domain/events/task-finished.event';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
@@ -38,7 +41,7 @@ const opened = (title: string, blockedBy: readonly Task[] = []) =>
     at: line.backlog.id,
     title: TaskTitle.of(title),
     rank: TaskRank.of('i'),
-    blockedBy,
+    blockedBy: blockedBy.map((each) => each.id),
     now: NOW,
     newId: fresh,
   });
@@ -128,6 +131,58 @@ describe('ReleaseBlockedTasks', () => {
     );
 
     expect(saved).toHaveLength(1);
+  });
+
+  it('starts nothing twice when the same completion comes again', async () => {
+    const first = opened('Web 1/4');
+    const second = opened('Web 2/4', [first]);
+    const stored = [first, second];
+    const { handler, saved } = releasing(stored);
+    const finished = new TaskFinished(
+      first.id,
+      WORKSPACE,
+      line.completed.id,
+      NOW,
+    );
+
+    await handler.onFinished(finished);
+    stored.splice(1, 1, ...saved);
+    await handler.onFinished(finished);
+
+    expect(saved).toHaveLength(1);
+  });
+
+  it('leaves alone a task that was completed meanwhile', async () => {
+    const first = opened('Web 1/4');
+    const second = opened('Web 2/4', [first]);
+    const done = second.moveTo(
+      line,
+      line.completed.id,
+      TaskRank.of('i'),
+      { line, body: TaskNoteBody.of('Done.'), at: NOW, voice: Voice.station() },
+      { mover: UserId.of('user_1') },
+    );
+    const { handler, saved } = releasing([first, done]);
+
+    await handler.onFinished(
+      new TaskFinished(first.id, WORKSPACE, line.completed.id, NOW),
+    );
+
+    expect(saved).toEqual([]);
+  });
+
+  it('releases the other tasks when one cannot be saved, then says which failed', async () => {
+    const first = opened('Web 1/4');
+    const second = opened('Web 2/4', [first]);
+    const third = opened('Web 3/4', [first]);
+    const { handler, saved } = releasing([first, second, third], 3);
+
+    await expect(
+      handler.onFinished(
+        new TaskFinished(first.id, WORKSPACE, line.completed.id, NOW),
+      ),
+    ).rejects.toThrow(AggregateError);
+    expect(saved.map((each) => each.id)).toEqual([third.id]);
   });
 
   it('stops a task waiting for a deleted one, and leaves it in Backlog', async () => {

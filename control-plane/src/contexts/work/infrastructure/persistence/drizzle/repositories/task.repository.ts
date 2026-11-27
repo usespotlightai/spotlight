@@ -31,7 +31,6 @@ import { ProposalAlreadyOpenedError } from '@work/domain/exceptions/proposal-alr
 import { TaskBranchTakenError } from '@work/domain/exceptions/task-branch-taken.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
@@ -830,6 +829,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(
         and(
           eq(task.workspaceId, workspaceId.value),
+          sql`cardinality(${task.blockedBy}) > 0`,
           arrayContains(task.blockedBy, [blocker.value]),
         ),
       )
@@ -838,23 +838,24 @@ export class DrizzleTaskRepository implements TaskRepository {
     return this.whole(found);
   }
 
-  async blockingIn(workspaceId: WorkspaceId): Promise<BlockingGraph> {
-    const rows = await this.context.db
-      .select({ id: task.id, blockedBy: task.blockedBy })
+  async blockersAmong(ids: readonly TaskId[]): Promise<readonly Task[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const found = await this.context.db
+      .select()
       .from(task)
       .where(
-        and(
-          eq(task.workspaceId, workspaceId.value),
-          sql`cardinality(${task.blockedBy}) > 0`,
+        inArray(
+          task.id,
+          ids.map((each) => each.value),
         ),
-      );
+      )
+      .orderBy(asc(task.id))
+      .for('share');
 
-    return BlockingGraph.of(
-      rows.map((row) => ({
-        task: TaskId.of(row.id),
-        blockedBy: row.blockedBy.map((each) => TaskId.of(each)),
-      })),
-    );
+    return this.whole(found);
   }
 
   async owningPullRequest(

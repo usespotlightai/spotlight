@@ -19,11 +19,7 @@ const task = (over: Partial<Task> = {}) =>
     ...over,
   });
 
-const BOARD = [
-  task({ id: 'task_1', title: 'Web 1/4' }),
-  task(),
-  task({ id: 'task_0', title: 'Shipped', finished: true }),
-];
+const BOARD = [task({ id: 'task_1', title: 'Web 1/4' }), task()];
 
 vi.mock('@/hooks/api/useTasks', () => ({
   useTasks: () => ({ data: BOARD }),
@@ -45,7 +41,7 @@ describe('BlockedByPicker', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Blocked by' }));
 
     expect(
-      screen.queryByRole('menuitemcheckbox', { name: 'Shipped' }),
+      screen.queryByRole('menuitemcheckbox', { name: 'Web 2/4' }),
     ).not.toBeInTheDocument();
 
     await userEvent.click(

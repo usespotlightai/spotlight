@@ -260,6 +260,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
           finishedAt === null
             ? { harness: notStartedHarness }
             : null,
+        blocked: blockedBy.length > 0,
         blockedBy: blockedBy.flatMap((id) => blockers.get(id) ?? []),
       }),
     );

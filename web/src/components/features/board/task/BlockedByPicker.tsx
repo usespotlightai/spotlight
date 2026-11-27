@@ -14,7 +14,12 @@ import {
 } from '@/components/ui/tooltip';
 import { useBlockTask } from '@/hooks/api/useBlockTask';
 import { useTasks } from '@/hooks/api/useTasks';
-import { blockerCandidates, blockersNamed, type Task } from '@/lib/task';
+import {
+  blockerCandidates,
+  blockersNamed,
+  blockerTitle,
+  type Task,
+} from '@/lib/task';
 import { cn } from '@/lib/utils';
 
 type BlockedByPickerProps = {
@@ -39,7 +44,7 @@ export function BlockedByPicker({ teamId, task }: BlockedByPickerProps) {
     ...candidates.map(({ id, title }) => ({ id, title, teamId })),
   ];
 
-  const toggle = (blocker: { id: string; title: string; teamId: string }) =>
+  const toggle = (blocker: Task['blockedBy'][number]) =>
     mutate({
       teamId,
       taskId: task.id,
@@ -103,7 +108,7 @@ export function BlockedByPicker({ teamId, task }: BlockedByPickerProps) {
               disabled={!task.blockable && !chosen.has(each.id)}
               onCheckedChange={() => toggle(each)}
             >
-              <span className="truncate">{each.title}</span>
+              <span className="truncate">{blockerTitle(each)}</span>
             </DropdownMenuCheckboxItem>
           ))}
         </DropdownMenuGroup>

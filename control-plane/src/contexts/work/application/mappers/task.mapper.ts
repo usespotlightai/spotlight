@@ -53,7 +53,12 @@ const blockableAt = (line: LineMap | null, summary: TaskSummary): boolean => {
 };
 
 export const TaskMapper = {
-  summaryToDto(summary: TaskSummary, reading: MessageReading): TaskDto {
+  // A blocking task on a team the viewer does not see keeps its title to that team.
+  summaryToDto(
+    summary: TaskSummary,
+    reading: MessageReading,
+    teamsSeen: ReadonlySet<string> = new Set(),
+  ): TaskDto {
     const { viewer } = reading;
 
     return {
@@ -82,7 +87,7 @@ export const TaskMapper = {
           hold: summary.hold && heldOf(summary.hold),
           awaiting: summary.awaitingReview,
           finished: summary.finished,
-          blocked: summary.blockedBy.length > 0,
+          blocked: summary.blocked,
         },
         reading.lineOf(summary.stationId),
         viewer,
@@ -92,7 +97,10 @@ export const TaskMapper = {
         skips: move.skips.map((each) => each.id.value),
         sendsBack: move.sendsBack,
       })),
-      blockedBy: summary.blockedBy,
+      blockedBy: summary.blockedBy.map((each) => ({
+        ...each,
+        title: teamsSeen.has(each.teamId) ? each.title : null,
+      })),
       blockable: blockableAt(reading.lineOf(summary.stationId), summary),
       note: summary.note
         ? {

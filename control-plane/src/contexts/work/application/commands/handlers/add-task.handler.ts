@@ -3,6 +3,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -14,6 +15,7 @@ import type { LineLoader } from '@work/application/services/line-loader.service'
 import { requestedBase } from '@work/application/services/requested-base';
 import type { SeenBlockers } from '@work/application/services/seen-blockers';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { Blocking } from '@work/domain/services/blocking';
 import { Placement } from '@work/domain/services/placement';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -35,6 +37,7 @@ export class AddTaskHandler implements CommandHandlerPort<
       'defaultBranchNameOf'
     >,
     private readonly blockers: SeenBlockers,
+    private readonly transaction: TransactionPort,
   ) {}
 
   async execute(command: AddTaskCommand): Promise<string> {
@@ -54,43 +57,47 @@ export class AddTaskHandler implements CommandHandlerPort<
       command.lineId,
       createdBy.value,
     );
-    const blockedBy = await this.blockers.named(command.blockedBy, createdBy);
-    const placed = await this.placements.placementsAt(
-      Task.opensAt(line, stationId, blockedBy),
-    );
-
     const attachments = await this.files.handedOver(
       line.workspaceId,
       command.attachments,
     );
-
-    const added = Task.add({
+    const base = await requestedBase(
+      this.settings,
       line,
-      at: stationId,
-      title: TaskTitle.of(command.title),
-      description: nonEmpty(command.description)
-        ? TaskDescription.of(command.description)
+      command.base !== null && command.base.trim() !== ''
+        ? Branch.of(command.base.trim())
         : null,
-      attachments,
-      rank: Placement.entering(
-        'opened',
-        placed.map((each) => each.rank),
-      ),
-      createdBy,
-      base: await requestedBase(
-        this.settings,
+    );
+
+    return this.transaction.inTransaction(async () => {
+      const blockedBy = Blocking.forNewTask(
+        line.workspaceId,
+        await this.blockers.named(command.blockedBy, createdBy),
+      );
+      const placed = await this.placements.placementsAt(
+        Task.opensAt(line, stationId, blockedBy),
+      );
+      const added = Task.add({
         line,
-        command.base !== null && command.base.trim() !== ''
-          ? Branch.of(command.base.trim())
+        at: stationId,
+        title: TaskTitle.of(command.title),
+        description: nonEmpty(command.description)
+          ? TaskDescription.of(command.description)
           : null,
-      ),
-      blockedBy,
-      now: this.clock.now(),
-      newId: () => this.ids.generate(),
+        attachments,
+        rank: Placement.entering(
+          'opened',
+          placed.map((each) => each.rank),
+        ),
+        createdBy,
+        base,
+        blockedBy,
+        now: this.clock.now(),
+        newId: () => this.ids.generate(),
+      });
+      const created = await this.createTask.create({ task: added, line });
+
+      return created.id.value;
     });
-
-    const created = await this.createTask.create({ task: added, line });
-
-    return created.id.value;
   }
 }

@@ -35,7 +35,6 @@ import { WorkRequesters } from '@work/application/services/work-requesters';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import { HandoverFor } from '@work/domain/services/handover-for';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
@@ -180,7 +179,7 @@ const tasks = (found: Task | null = task()) =>
     awaitingConnection: vi.fn(async () => []),
     startingFrom: vi.fn(async () => []),
     waitingFor: vi.fn(async () => []),
-    blockingIn: vi.fn(async () => BlockingGraph.empty()),
+    blockersAmong: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 

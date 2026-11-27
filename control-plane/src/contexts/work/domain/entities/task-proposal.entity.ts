@@ -17,6 +17,22 @@ export const PROPOSAL_STATES = [
 
 export type ProposalState = (typeof PROPOSAL_STATES)[number];
 
+// A proposal the person dismissed, or a newer one replaced, holds up no proposal that waits for it.
+export const proposalBlocks = (state: ProposalState): boolean =>
+  state !== 'dismissed' && state !== 'replaced';
+
+const assertEarlier = (
+  position: MessagePosition,
+  blockedBy: readonly MessagePosition[],
+): void => {
+  if (blockedBy.some((each) => each.value >= position.value)) {
+    throw new InconsistentStateError(
+      'task proposal',
+      'waits for a proposal that comes after it',
+    );
+  }
+};
+
 export class TaskProposal {
   private constructor(
     readonly position: MessagePosition,
@@ -38,6 +54,8 @@ export class TaskProposal {
     base: Branch | null;
     blockedBy?: readonly MessagePosition[];
   }): TaskProposal {
+    assertEarlier(input.position, input.blockedBy ?? []);
+
     return new TaskProposal(
       input.position,
       input.placement,
@@ -71,12 +89,7 @@ export class TaskProposal {
 
     const blockedBy = input.blockedBy ?? [];
 
-    if (blockedBy.some((each) => each.value >= input.position.value)) {
-      throw new InconsistentStateError(
-        'task proposal',
-        'waits for a proposal that comes after it',
-      );
-    }
+    assertEarlier(input.position, blockedBy);
 
     return new TaskProposal(
       input.position,
@@ -93,6 +106,10 @@ export class TaskProposal {
 
   get isOpen(): boolean {
     return this.state === 'open';
+  }
+
+  get blocks(): boolean {
+    return proposalBlocks(this.state);
   }
 
   get becameTask(): boolean {

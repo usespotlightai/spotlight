@@ -6,26 +6,10 @@ import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
-const foundBlockers = async (
-  tasks: Pick<TaskRepository, 'find'>,
-  ids: readonly string[],
-): Promise<readonly Task[]> =>
-  Promise.all(
-    [...new Set(ids)].map(async (id) => {
-      const found = await tasks.find(TaskId.of(id));
-
-      if (!found) {
-        throw new UnknownTaskError(id);
-      }
-
-      return found;
-    }),
-  );
-
-// The tasks a person names as blockers, each on a team they see.
+// The tasks a person names as blockers, each on a team they see. Call it in the transaction that saves the blocked task.
 export class SeenBlockers {
   constructor(
-    private readonly tasks: Pick<TaskRepository, 'find'>,
+    private readonly tasks: Pick<TaskRepository, 'blockersAmong'>,
     private readonly lines: Pick<LineMapsPort, 'findByStation'>,
     private readonly access: Pick<WorkAccess, 'seesTeam'>,
   ) {}
@@ -34,7 +18,9 @@ export class SeenBlockers {
     ids: readonly string[],
     viewer: UserId,
   ): Promise<readonly Task[]> {
-    const blockers = await foundBlockers(this.tasks, ids);
+    const blockers = await this.tasks.blockersAmong(
+      ids.map((each) => TaskId.of(each)),
+    );
 
     for (const blocker of blockers) {
       const line = await this.lines.findByStation(blocker.stationId);

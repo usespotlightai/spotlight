@@ -55,6 +55,7 @@ import { AssignedToAnotherPersonError } from '@work/domain/exceptions/assigned-t
 import { DraftAlreadySentError } from '@work/domain/exceptions/draft-already-sent.error';
 import { HeldForAgentChatError } from '@work/domain/exceptions/held-for-agent-chat.error';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
+import { InvalidTaskBlockerError } from '@work/domain/exceptions/invalid-task-blocker.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
@@ -67,13 +68,11 @@ import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
 import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { TaskBlockedError } from '@work/domain/exceptions/task-blocked.error';
-import { TaskBlockingCycleError } from '@work/domain/exceptions/task-blocking-cycle.error';
 import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
 import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
-import type { BlockingGraph } from '@work/domain/services/blocking-graph';
 import {
   type Conversant,
   ConversationAudience,
@@ -279,19 +278,15 @@ export class Task extends EventRecorder {
     proposedIn?: ProposalOrigin | null;
     branch?: Branch | null;
     base?: RequestedBase | null;
-    blockedBy?: readonly Task[];
+    blockedBy?: readonly TaskId[];
     now: Date;
     newId: () => string;
   }): Task {
     const id = TaskId.of(input.newId());
-    const blockers = Task.openBlockersOf(
-      id,
-      input.line.workspaceId,
-      input.blockedBy ?? [],
-    );
+    const blockers = Task.distinct(input.blockedBy ?? []);
     const station = Task.stationOn(
       input.line,
-      Task.opensAt(input.line, input.at, input.blockedBy ?? []),
+      Task.opensAt(input.line, input.at, blockers),
     );
     const branch = input.branch ?? Branch.for(id, input.title);
     const base = input.base?.taskBase ?? null;
@@ -425,13 +420,18 @@ export class Task extends EventRecorder {
     });
   }
 
-  // A task that waits for open tasks waits in Backlog, wherever it was asked for.
+  // A task that waits for other tasks waits in Backlog, wherever it was asked for.
   static opensAt(
     line: LineMap,
     at: StationId,
-    blockedBy: readonly Task[],
+    blockedBy: readonly TaskId[],
   ): StationId {
-    return blockedBy.some((each) => !each.finished) ? line.backlog.id : at;
+    return blockedBy.length > 0 ? line.backlog.id : at;
+  }
+
+  // Where a task goes once nothing blocks it: the first station where an agent works.
+  static releasesTo(line: LineMap): Station | null {
+    return line.entry;
   }
 
   static revisionsOfLatestRunHere(
@@ -3618,37 +3618,38 @@ export class Task extends EventRecorder {
     return blockedMoveTo(this, Task.stationOn(line, to));
   }
 
+  // `blockedBy` comes from Blocking, which checks the rules across tasks.
   blockBy(
     line: LineMap,
-    blockers: readonly Task[],
-    graph: BlockingGraph,
+    blockedBy: readonly TaskId[],
+    by: UserId,
+    newNote: NewNote,
   ): Task {
-    const open = Task.openBlockersOf(this.id, this.workspaceId, blockers);
+    const blockers = Task.distinct(blockedBy);
 
-    if (open.length > 0 && !mayWaitAt(Task.stationOn(line, this.stationId))) {
+    if (blockers.some((each) => each.equals(this.id))) {
+      throw new InvalidTaskBlockerError('A task cannot wait for itself.');
+    }
+
+    if (
+      blockers.length > 0 &&
+      !mayWaitAt(Task.stationOn(line, this.stationId))
+    ) {
       throw new TaskBlockedError(
         this.id,
         'has left Backlog. Only a task that has not started can wait for other tasks.',
       );
     }
 
-    const cycle = blockers.find(
-      (each) =>
-        open.some((id) => id.equals(each.id)) &&
-        graph.waitsFor(each.id, this.id),
-    );
+    const blocked = this.blockedOnlyBy(blockers, by);
 
-    if (cycle) {
-      throw new TaskBlockingCycleError(cycle.title.value);
-    }
-
-    return this.blockedOnlyBy(open);
+    return blocked === this ? this : blocked.noted(newNote, 'message');
   }
 
   blockerFinished(
     blocker: TaskId,
     line: LineMap,
-    rank: TaskRank,
+    ranksAtRelease: readonly TaskRank[],
     at: Date,
   ): Task {
     if (!this.waitsFor(blocker)) {
@@ -3657,8 +3658,9 @@ export class Task extends EventRecorder {
 
     const unblocked = this.blockedOnlyBy(
       this.blockedBy.filter((each) => !each.equals(blocker)),
+      null,
     );
-    const entry = line.entry;
+    const entry = Task.releasesTo(line);
 
     if (
       unblocked.blocked ||
@@ -3672,7 +3674,7 @@ export class Task extends EventRecorder {
     return unblocked.relocated(
       line,
       entry.id,
-      rank,
+      Placement.entering('passed-on', ranksAtRelease),
       {
         line,
         body: TaskNoteBody.unblocked(entry.name),
@@ -3690,6 +3692,7 @@ export class Task extends EventRecorder {
 
     const unblocked = this.blockedOnlyBy(
       this.blockedBy.filter((each) => !each.equals(blocker)),
+      null,
     );
 
     return unblocked.noted(
@@ -3703,7 +3706,7 @@ export class Task extends EventRecorder {
     );
   }
 
-  private blockedOnlyBy(blockers: readonly TaskId[]): Task {
+  private blockedOnlyBy(blockers: readonly TaskId[], by: UserId | null): Task {
     const same =
       blockers.length === this.blockedBy.length &&
       blockers.every((each) => this.waitsFor(each));
@@ -3715,35 +3718,16 @@ export class Task extends EventRecorder {
     const changed = this.with({ blockedBy: blockers });
 
     changed.record(
-      new TaskBlockersChanged(this.id, this.workspaceId, blockers),
+      new TaskBlockersChanged(this.id, this.workspaceId, blockers, by),
     );
 
     return changed;
   }
 
-  // The tasks that `task` waits for: a completed task blocks nothing.
-  private static openBlockersOf(
-    task: TaskId,
-    workspaceId: WorkspaceId,
-    blockers: readonly Task[],
-  ): readonly TaskId[] {
-    const open: TaskId[] = [];
-
-    for (const blocker of blockers) {
-      if (!blocker.workspaceId.equals(workspaceId)) {
-        throw new UnknownTaskError(blocker.id.value);
-      }
-
-      if (blocker.id.equals(task)) {
-        throw new TaskBlockedError(task, 'cannot wait for itself.');
-      }
-
-      if (!blocker.finished && !open.some((each) => each.equals(blocker.id))) {
-        open.push(blocker.id);
-      }
-    }
-
-    return open;
+  private static distinct(ids: readonly TaskId[]): readonly TaskId[] {
+    return ids.filter(
+      (each, at) => ids.findIndex((other) => other.equals(each)) === at,
+    );
   }
 
   deleted(): Task {

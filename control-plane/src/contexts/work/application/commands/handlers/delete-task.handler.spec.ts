@@ -19,7 +19,6 @@ import { workAccessSeeing } from '@work/application/services/work-access.fake-sp
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import {
   lineMapOf,
   stationOf,
@@ -85,7 +84,7 @@ const tasks = (found: Task | null = existing()) =>
     awaitingConnection: vi.fn(async () => []),
     startingFrom: vi.fn(async () => []),
     waitingFor: vi.fn(async () => []),
-    blockingIn: vi.fn(async () => BlockingGraph.empty()),
+    blockersAmong: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 

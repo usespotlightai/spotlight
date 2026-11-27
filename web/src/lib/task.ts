@@ -99,11 +99,18 @@ export const handMoveDenial = (task: {
   return first && denials.every(Boolean) ? DENIALS[first] : null;
 };
 
+type Blocker = Task['blockedBy'][number];
+
+export const blockerTitle = (blocker: Pick<Blocker, 'title'>): string =>
+  blocker.title ?? 'A task on another team';
+
 export const blockersNamed = (
   task: Pick<Task, 'blockedBy'>,
   prefix: string,
 ): string | null => {
-  const titles = task.blockedBy.map((each) => each.title);
+  const titles = task.blockedBy.map((each) =>
+    each.title === null ? 'a task on another team' : each.title,
+  );
 
   if (titles.length === 0) {
     return null;
@@ -117,10 +124,11 @@ export const blockersNamed = (
 export const waitingFor = (task: Pick<Task, 'blockedBy'>): string | null =>
   blockersNamed(task, 'Waiting for');
 
+// The board lists the open tasks of the team: any of them but the task itself.
 export const blockerCandidates = (
   task: Pick<Task, 'id'>,
-  tasks: readonly Task[],
-): Task[] => tasks.filter((each) => each.id !== task.id && !each.finished);
+  board: readonly Task[],
+): Task[] => board.filter((each) => each.id !== task.id);
 
 export const stopsRun = (
   stations: readonly Placed[],

@@ -5,6 +5,7 @@ import { InvalidTaskNoteError } from '@work/domain/exceptions/invalid-task-note.
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
+import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 
 const resumeWord = (
   option: HandoverOption,
@@ -240,6 +241,14 @@ export class TaskNoteBody {
       nonEmpty(why)
         ? `${moved} The person who moved it gave this reason:\n\n${why}`
         : moved,
+    );
+  }
+
+  static blockedBy(titles: readonly TaskTitle[]): TaskNoteBody {
+    return TaskNoteBody.of(
+      titles.length > 0
+        ? `Blocked by ${new Intl.ListFormat('en', { type: 'conjunction' }).format(titles.map((each) => each.value))}. It waits in Backlog and starts when they are completed.`
+        : 'No longer blocked by other tasks.',
     );
   }
 

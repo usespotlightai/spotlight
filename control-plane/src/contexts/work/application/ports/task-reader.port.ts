@@ -57,6 +57,7 @@ export interface TaskSummary {
   readonly source: string | null;
   readonly hold: TaskHoldSummary | null;
   readonly runNotStarted: TaskRunNotStartedSummary | null;
+  readonly blocked: boolean;
   readonly blockedBy: readonly TaskBlockerSummary[];
 }
 

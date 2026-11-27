@@ -380,6 +380,7 @@ import {
 } from '@work/application/ports/station-run-reader.port';
 import { STATION_RUNS } from '@work/application/ports/station-runs.port';
 import { STATION_TRIALS } from '@work/application/ports/station-trials.port';
+import { TASK_BLOCKING } from '@work/application/ports/task-blocking.port';
 import {
   TASK_DECISIONS,
   type TaskDecisionsPort,
@@ -655,6 +656,7 @@ import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzl
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
 import { DrizzleStationRunReader } from '@work/infrastructure/persistence/drizzle/readers/station-run.reader';
+import { DrizzleTaskBlocking } from '@work/infrastructure/persistence/drizzle/readers/task-blocking.reader';
 import { DrizzleTaskLookupReader } from '@work/infrastructure/persistence/drizzle/readers/task-lookup.reader';
 import { DrizzleTaskPlacements } from '@work/infrastructure/persistence/drizzle/readers/task-placements.reader';
 import { DrizzleTaskWorkspaces } from '@work/infrastructure/persistence/drizzle/readers/task-workspaces.reader';
@@ -1266,6 +1268,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   { provide: TASK_PLACEMENTS, useClass: DrizzleTaskPlacements },
 
+  { provide: TASK_BLOCKING, useClass: DrizzleTaskBlocking },
+
   { provide: WORK_STATIONS, useClass: DrizzleWorkStations },
 
   { provide: STATION_DELETION_GUARD, useClass: DrizzleStationDeletionGuard },
@@ -1592,6 +1596,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       CLOCK,
       REPOSITORY_SETTINGS,
       TASK_REPOSITORY,
+      TRANSACTION,
     ],
     useFactory: (
       chats: ChatRepository,
@@ -1603,6 +1608,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       settings: RepositorySettingsPort,
       tasks: TaskRepository,
+      transaction: TransactionPort,
     ) =>
       new CreateTaskFromProposal(
         chats,
@@ -1614,6 +1620,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         clock,
         settings,
         tasks,
+        transaction,
       ),
   },
 
@@ -2261,6 +2268,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     FilesLoader,
     REPOSITORY_SETTINGS,
     SeenBlockers,
+    TRANSACTION,
   ]),
 
   ...bindCommandHandler(
@@ -2684,5 +2692,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TRANSACTION,
     LINE_MAPS,
     SeenBlockers,
+    TASK_BLOCKING,
+    CLOCK,
   ]),
 ];

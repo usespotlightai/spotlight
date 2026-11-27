@@ -12,6 +12,7 @@ import type {
   ListTasksQuery,
   ReadTaskQuery,
 } from '@work/application/queries/list-tasks.query';
+import { blockerTeamsSeen } from '@work/application/services/blocker-teams';
 import { messageReadingOf } from '@work/application/services/message-reading';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { TaskSearch } from '@work/domain/value-objects/task-search.vo';
@@ -58,7 +59,16 @@ export class ListTasksHandler implements QueryHandlerPort<
         lines,
       );
 
-      return mapPage(found, (each) => TaskMapper.summaryToDto(each, reading));
+      const teamsSeen = await blockerTeamsSeen(
+        this.access,
+        teamId,
+        viewer,
+        found.items,
+      );
+
+      return mapPage(found, (each) =>
+        TaskMapper.summaryToDto(each, reading, teamsSeen),
+      );
     } catch (error) {
       rethrowAsApplicationError(error);
     }
@@ -89,6 +99,7 @@ export class ReadTaskHandler implements QueryHandlerPort<
         ? TaskMapper.summaryToDto(
             found,
             messageReadingOf({ person: viewer, team: standing }, lines),
+            await blockerTeamsSeen(this.access, teamId, viewer, [found]),
           )
         : null;
     } catch (error) {

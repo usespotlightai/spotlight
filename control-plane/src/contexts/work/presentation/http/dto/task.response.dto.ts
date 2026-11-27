@@ -166,8 +166,13 @@ export class TaskBlockerResponseDto {
   @ApiProperty({ example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13' })
   readonly id: string;
 
-  @ApiProperty({ example: 'Web 1/4: add the timeline API' })
-  readonly title: string;
+  @ApiProperty({
+    example: 'Web 1/4: add the timeline API',
+    nullable: true,
+    type: String,
+    description: 'Null for a task on a team the caller does not see',
+  })
+  readonly title: string | null;
 
   @ApiProperty({
     example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84',
@@ -175,7 +180,7 @@ export class TaskBlockerResponseDto {
   })
   readonly teamId: string;
 
-  constructor(id: string, title: string, teamId: string) {
+  constructor(id: string, title: string | null, teamId: string) {
     this.id = id;
     this.title = title;
     this.teamId = teamId;

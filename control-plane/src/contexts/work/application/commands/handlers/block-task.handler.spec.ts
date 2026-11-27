@@ -1,4 +1,5 @@
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -70,12 +71,16 @@ const opened = (id: string, line: LineMap) =>
     newId: () => id,
   });
 
-const blocking = (stored: readonly Task[]) => {
+const blocking = (stored: readonly Task[], graph = BlockingGraph.empty()) => {
   const saved: Task[] = [];
+  const steps: string[] = [];
   const tasks = partial<TaskRepository>({
     find: async (id: TaskId) =>
       stored.find((each) => each.id.equals(id)) ?? null,
-    blockingIn: async () => BlockingGraph.empty(),
+    blockersAmong: async (ids: readonly TaskId[]) => {
+      steps.push('blockers');
+      return stored.filter((each) => ids.some((id) => id.equals(each.id)));
+    },
     save: async (each: Task) => {
       saved.push(each);
     },
@@ -88,27 +93,55 @@ const blocking = (stored: readonly Task[]) => {
 
   return {
     saved,
+    steps,
     handler: new BlockTaskHandler(
       tasks,
       access,
       transaction,
       partial<LineMapsPort>(lines),
       new SeenBlockers(tasks, lines, access),
+      {
+        lockIn: async () => {
+          steps.push('lock');
+        },
+        graphIn: async () => {
+          steps.push('graph');
+          return graph;
+        },
+      },
+      partial<ClockPort>({ now: () => NOW }),
     ),
   };
 };
 
 describe('BlockTaskHandler', () => {
-  it('saves the tasks a task waits for', async () => {
+  it('saves the tasks a task waits for, reading them under the lock on what blocks what', async () => {
     const first = opened('task_1', OURS);
     const second = opened('task_2', OURS);
-    const { handler, saved } = blocking([first, second]);
+    const { handler, saved, steps } = blocking([first, second]);
 
     await handler.execute(
       new BlockTaskCommand('team_1', 'task_2', ['task_1'], 'user_1'),
     );
 
     expect(saved.map((each) => each.blockedBy)).toEqual([[first.id]]);
+    expect(steps).toEqual(['lock', 'blockers', 'graph']);
+  });
+
+  it('refuses a task that already waits for this one', async () => {
+    const first = opened('task_1', OURS);
+    const second = opened('task_2', OURS);
+    const { handler, saved } = blocking(
+      [first, second],
+      BlockingGraph.of([{ task: first.id, blockedBy: [second.id] }]),
+    );
+
+    await expect(
+      handler.execute(
+        new BlockTaskCommand('team_1', 'task_2', ['task_1'], 'user_1'),
+      ),
+    ).rejects.toThrow('already waits for this task');
+    expect(saved).toEqual([]);
   });
 
   it('does not let a task wait for one on a team the person does not see', async () => {
@@ -124,13 +157,13 @@ describe('BlockTaskHandler', () => {
     expect(saved).toEqual([]);
   });
 
-  it('does not know a blocking task that does not exist', async () => {
-    const { handler } = blocking([opened('task_2', OURS)]);
+  it('is not blocked by a task deleted meanwhile', async () => {
+    const { handler, saved } = blocking([opened('task_2', OURS)]);
 
-    await expect(
-      handler.execute(
-        new BlockTaskCommand('team_1', 'task_2', ['task_gone'], 'user_1'),
-      ),
-    ).rejects.toThrow('Task task_gone not found.');
+    await handler.execute(
+      new BlockTaskCommand('team_1', 'task_2', ['task_gone'], 'user_1'),
+    );
+
+    expect(saved).toEqual([]);
   });
 });

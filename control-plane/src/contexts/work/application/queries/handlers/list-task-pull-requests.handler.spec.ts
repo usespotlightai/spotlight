@@ -36,6 +36,7 @@ const task: TaskSummary = {
   source: null,
   hold: null,
   runNotStarted: null,
+  blocked: false,
   blockedBy: [],
 };
 

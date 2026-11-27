@@ -41,7 +41,6 @@ import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskNotedForChat } from '@work/domain/events/task-noted-for-chat.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
@@ -215,7 +214,7 @@ const tasks = (found: Task | null) =>
     awaitingConnection: vi.fn(async () => []),
     startingFrom: vi.fn(async () => []),
     waitingFor: vi.fn(async () => []),
-    blockingIn: vi.fn(async () => BlockingGraph.empty()),
+    blockersAmong: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1293,7 +1292,7 @@ describe('ReactToHappenings', () => {
       awaitingConnection: vi.fn(async () => []),
       startingFrom: vi.fn(async () => []),
       waitingFor: vi.fn(async () => []),
-      blockingIn: vi.fn(async () => BlockingGraph.empty()),
+      blockersAmong: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1381,7 +1380,7 @@ describe('ReactToHappenings', () => {
       awaitingConnection: vi.fn(async () => []),
       startingFrom: vi.fn(async () => []),
       waitingFor: vi.fn(async () => []),
-      blockingIn: vi.fn(async () => BlockingGraph.empty()),
+      blockersAmong: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1468,7 +1467,7 @@ describe('ReactToHappenings', () => {
       awaitingConnection: vi.fn(async () => []),
       startingFrom: vi.fn(async () => []),
       waitingFor: vi.fn(async () => []),
-      blockingIn: vi.fn(async () => BlockingGraph.empty()),
+      blockersAmong: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1555,7 +1554,7 @@ describe('ReactToHappenings', () => {
       awaitingConnection: vi.fn(async () => []),
       startingFrom: vi.fn(async () => []),
       waitingFor: vi.fn(async () => []),
-      blockingIn: vi.fn(async () => BlockingGraph.empty()),
+      blockersAmong: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1643,7 +1642,7 @@ describe('ReactToHappenings', () => {
       awaitingConnection: vi.fn(async () => []),
       startingFrom: vi.fn(async () => []),
       waitingFor: vi.fn(async () => []),
-      blockingIn: vi.fn(async () => BlockingGraph.empty()),
+      blockersAmong: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1734,7 +1733,7 @@ describe('ReactToHappenings assigning a task it opens', () => {
       awaitingConnection: vi.fn(async () => []),
       startingFrom: vi.fn(async () => []),
       waitingFor: vi.fn(async () => []),
-      blockingIn: vi.fn(async () => BlockingGraph.empty()),
+      blockersAmong: vi.fn(async () => []),
       onBranch: vi.fn(async () => null),
     } satisfies TaskRepository & TaskPlacementsPort;
 

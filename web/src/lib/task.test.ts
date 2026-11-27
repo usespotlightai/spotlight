@@ -297,15 +297,20 @@ describe('a task blocked by others', () => {
     );
   });
 
-  it('offers as blockers the other open tasks only', () => {
-    const done = { ...task('e', 'completed'), finished: true };
-
+  it('offers as blockers the other tasks of the board', () => {
     expect(
       blockerCandidates(task('a', 'backlog'), [
         task('a', 'backlog'),
         task('b', 'triage'),
-        done,
       ]).map((each) => each.id),
     ).toEqual(['b']);
+  });
+
+  it('keeps the title of a task on a team the person does not see to that team', () => {
+    expect(
+      waitingFor({
+        blockedBy: [{ id: 'x', title: null, teamId: 'team_2' }],
+      }),
+    ).toBe('Waiting for a task on another team');
   });
 });

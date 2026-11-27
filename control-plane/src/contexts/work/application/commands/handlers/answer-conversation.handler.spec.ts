@@ -31,7 +31,6 @@ import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import { UnknownCoAuthorError } from '@work/domain/exceptions/unknown-co-author.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -221,7 +220,7 @@ const tasks = (found: Task) =>
     awaitingConnection: vi.fn(async () => []),
     startingFrom: vi.fn(async () => []),
     waitingFor: vi.fn(async () => []),
-    blockingIn: vi.fn(async () => BlockingGraph.empty()),
+    blockersAmong: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 

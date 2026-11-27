@@ -15,7 +15,7 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import { nonEmpty } from '@/lib/non-empty';
-import { stopsRun, type Task, taskPath } from '@/lib/task';
+import { blockerTitle, stopsRun, type Task, taskPath } from '@/lib/task';
 
 type TaskPropertiesProps = {
   slug?: string;
@@ -121,15 +121,24 @@ export function TaskProperties({
         {nonEmpty(teamId) && <BlockedByPicker teamId={teamId} task={task} />}
 
         {linked &&
-          task.blockedBy.map((blocker) => (
-            <TrailLink
-              key={blocker.id}
-              to={taskPath(linked.slug, blocker.teamId, blocker.id)}
-              className="flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md py-0 pr-2 pl-8 text-left text-muted-foreground text-sm outline-none transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <span className="truncate">{blocker.title}</span>
-            </TrailLink>
-          ))}
+          task.blockedBy.map((blocker) =>
+            blocker.title === null ? (
+              <p
+                key={blocker.id}
+                className="flex h-7 pointer-coarse:h-10 w-full items-center pr-2 pl-8 text-muted-foreground text-sm"
+              >
+                <span className="truncate">{blockerTitle(blocker)}</span>
+              </p>
+            ) : (
+              <TrailLink
+                key={blocker.id}
+                to={taskPath(linked.slug, blocker.teamId, blocker.id)}
+                className="flex h-7 pointer-coarse:h-10 w-full items-center gap-2 rounded-md py-0 pr-2 pl-8 text-left text-muted-foreground text-sm outline-none transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <span className="truncate">{blocker.title}</span>
+              </TrailLink>
+            ),
+          )}
 
         {linked && (
           <TaskSourceLink

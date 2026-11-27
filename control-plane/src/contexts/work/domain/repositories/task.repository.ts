@@ -4,7 +4,6 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import type { BlockingGraph } from '@work/domain/services/blocking-graph';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import type { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
@@ -40,7 +39,8 @@ export interface TaskRepository {
     blocker: TaskId,
   ): Promise<readonly Task[]>;
 
-  blockingIn(workspaceId: WorkspaceId): Promise<BlockingGraph>;
+  // Locks the tasks against change until the transaction ends, so none completes or goes unseen meanwhile.
+  blockersAmong(ids: readonly TaskId[]): Promise<readonly Task[]>;
 
   startingFrom(
     workspaceId: WorkspaceId,

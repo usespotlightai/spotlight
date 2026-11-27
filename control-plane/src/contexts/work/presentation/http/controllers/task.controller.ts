@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
+  ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
@@ -94,6 +95,7 @@ import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment
 import { draftGenerationInput } from '@work/presentation/http/mappers/draft-generation-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { NoteHttpMapper } from '@work/presentation/http/mappers/note.http.mapper';
+import { requiredIdsInput } from '@work/presentation/http/mappers/required-ids-input';
 import { TaskRunHttpMapper } from '@work/presentation/http/mappers/task-run.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
 import { TaskHttpMapper } from '@work/presentation/http/mappers/task.http.mapper';
@@ -650,7 +652,12 @@ export class TaskController {
   })
   @ApiOkResponse({ type: TaskResponseDto })
   @ApiNotFoundResponse({
-    description: 'No such task, or no such blocking task, for this caller',
+    description:
+      'No such task for this caller, or a blocking task on a team the caller does not see',
+  })
+  @ApiBadRequestResponse({ description: 'blockedBy is not a list of ids' })
+  @ApiUnprocessableEntityResponse({
+    description: 'The task would wait for itself',
   })
   @ApiConflictResponse({
     description:
@@ -668,7 +675,12 @@ export class TaskController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TaskResponseDto> {
     await this.commandBus.execute<BlockTaskCommand, void>(
-      new BlockTaskCommand(teamId, taskId, idsInput(body.blockedBy), user.id),
+      new BlockTaskCommand(
+        teamId,
+        taskId,
+        requiredIdsInput(body.blockedBy, 'blockedBy'),
+        user.id,
+      ),
     );
 
     return this.readBack(teamId, taskId, user);

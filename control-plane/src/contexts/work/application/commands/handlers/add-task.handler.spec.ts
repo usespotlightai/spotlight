@@ -27,7 +27,6 @@ import { workAccessSeeing } from '@work/application/services/work-access.fake-sp
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import {
@@ -128,7 +127,7 @@ const tasks = () =>
     awaitingConnection: vi.fn(async () => []),
     startingFrom: vi.fn(async () => []),
     waitingFor: vi.fn(async () => []),
-    blockingIn: vi.fn(async () => BlockingGraph.empty()),
+    blockersAmong: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
@@ -183,6 +182,7 @@ const addTask = (
     files,
     { defaultBranchNameOf: async () => 'main' },
     new SeenBlockers(tasks(), board, seen),
+    transaction,
   ).execute(command);
 
 beforeEach(() => {

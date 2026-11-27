@@ -29,6 +29,7 @@ import type {
 } from '@work/application/ports/chat-reader.port';
 import { chatPullRequestState } from '@work/application/read-models/chat-pull-request-state';
 import { inboxSectionOf } from '@work/application/read-models/inbox-section';
+import { proposalBlocks } from '@work/domain/entities/task-proposal.entity';
 import {
   chatInboxStanding,
   chatProgress,
@@ -320,7 +321,13 @@ export class DrizzleChatReader implements ChatReaderPort {
             description: proposal.description,
             state: proposal.state,
             taskId: proposal.taskId,
-            blockedBy: proposal.blockedBy ?? [],
+            blockedBy: (proposal.blockedBy ?? []).filter((position) => {
+              const earlier = messages.find(
+                (each) => each.position === position,
+              )?.proposal;
+
+              return earlier ? proposalBlocks(earlier.state) : false;
+            }),
           },
           pullRequest: pullRequest && {
             taskId: pullRequest.taskId,

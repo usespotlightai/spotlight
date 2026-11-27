@@ -14751,6 +14751,9 @@
               }
             }
           },
+          "400": {
+            "description": "blockedBy is not a list of ids"
+          },
           "401": {
             "description": "No valid session"
           },
@@ -14758,10 +14761,13 @@
             "description": "The caller is not a member of the team, nor a workspace admin"
           },
           "404": {
-            "description": "No such task, or no such blocking task, for this caller"
+            "description": "No such task for this caller, or a blocking task on a team the caller does not see"
           },
           "409": {
             "description": "The task has left Backlog, or a blocking task already waits for it"
+          },
+          "422": {
+            "description": "The task would wait for itself"
           }
         },
         "summary": "Set the tasks a task waits for, or clear them",
@@ -32940,7 +32946,9 @@
           },
           "title": {
             "type": "string",
-            "example": "Web 1/4: add the timeline API"
+            "example": "Web 1/4: add the timeline API",
+            "nullable": true,
+            "description": "Null for a task on a team the caller does not see"
           },
           "teamId": {
             "type": "string",

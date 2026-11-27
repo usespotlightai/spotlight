@@ -6,12 +6,11 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { handedToRun } from '@work/application/services/handed-to-run';
-import type { Task } from '@work/domain/aggregates/task.aggregate';
+import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import type { TaskFinished } from '@work/domain/events/task-finished.event';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { Placement } from '@work/domain/services/placement';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 const SAVE_ATTEMPTS = 3;
@@ -34,22 +33,22 @@ export class ReleaseBlockedTasks {
       event.workspaceId,
       event.taskId,
       async (task, line) => {
-        const entry = line.entry;
-        const ranks = entry
-          ? (await this.placements.placementsAt(entry.id)).map(
+        const release = Task.releasesTo(line);
+        const ranks = release
+          ? (await this.placements.placementsAt(release.id)).map(
               (each) => each.rank,
             )
           : [];
+
         const next = task.blockerFinished(
           event.taskId,
           line,
-          Placement.entering('passed-on', ranks),
+          ranks,
           this.clock.now(),
         );
 
-        return next.stationId.equals(task.stationId)
-          ? next
-          : handedToRun(this.dispatch, next, line);
+        // A task that did not wait for it is left alone, also when the event comes again.
+        return next === task ? task : handedToRun(this.dispatch, next, line);
       },
     );
   }

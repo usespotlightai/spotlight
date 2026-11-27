@@ -858,12 +858,12 @@ export class Chat extends EventRecorder {
     blockedBy?: readonly number[];
     at: Date;
   }): Chat {
+    const replaced = this.replacedBy(input.replaces ?? [], input.at);
     const message = ChatMessage.propose({
       ...input,
       position: this.proposalPositionFor(input.runId),
-      blockedBy: this.proposalPositionsOf(input.blockedBy ?? []),
+      blockedBy: replaced.chat.proposalPositionsOf(input.blockedBy ?? []),
     });
-    const replaced = this.replacedBy(input.replaces ?? [], input.at);
     const proposed = replaced.chat.with({
       messages: [...replaced.chat.messages, message],
       resolvedAt: null,
@@ -932,6 +932,12 @@ export class Chat extends EventRecorder {
         );
       }
 
+      if (!found.proposal.blocks) {
+        throw new InvalidChatTransitionError(
+          `Proposal ${number} is ${found.proposal.state}. A proposal cannot wait for it.`,
+        );
+      }
+
       return found.proposal.position;
     });
   }
@@ -945,7 +951,7 @@ export class Chat extends EventRecorder {
         return [earlier.taskId];
       }
 
-      if (earlier.isOpen || earlier.state === 'accepted') {
+      if (earlier.blocks) {
         const number =
           this.proposals.find((each) => each.proposal.equals(earlier))
             ?.number ?? position.value;

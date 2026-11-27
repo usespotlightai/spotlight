@@ -3,7 +3,7 @@ import { Link2 } from 'lucide-react';
 import { Pill } from '@/components/shared/Pill';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { nonEmpty } from '@/lib/non-empty';
-import { type Task, waitingFor } from '@/lib/task';
+import { blockerTitle, type Task, waitingFor } from '@/lib/task';
 
 const NAMES = new Intl.ListFormat('en', { type: 'conjunction' });
 
@@ -20,7 +20,7 @@ export function WaitingForPill({ task }: WaitingForPillProps) {
 
   return (
     <WithTooltip
-      tooltip={`Starts when ${NAMES.format(task.blockedBy.map((each) => each.title))} ${task.blockedBy.length === 1 ? 'is' : 'are'} completed`}
+      tooltip={`Starts when ${NAMES.format(task.blockedBy.map((each) => blockerTitle(each)))} ${task.blockedBy.length === 1 ? 'is' : 'are'} completed`}
     >
       <span className="flex min-w-0">
         <Pill

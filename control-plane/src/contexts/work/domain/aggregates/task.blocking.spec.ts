@@ -1,8 +1,10 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { itemAt } from '@shared-kernel/domain/item-at';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -13,9 +15,11 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskBlockersChanged } from '@work/domain/events/task-blockers-changed.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
+import { InvalidTaskBlockerError } from '@work/domain/exceptions/invalid-task-blocker.error';
 import { TaskBlockedError } from '@work/domain/exceptions/task-blocked.error';
 import { TaskBlockingCycleError } from '@work/domain/exceptions/task-blocking-cycle.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
+import { Blocking } from '@work/domain/services/blocking';
 import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import { ReactionFor } from '@work/domain/services/reaction-for';
 import {
@@ -68,6 +72,18 @@ const LINE = lineMapOf({
   ],
 });
 
+const lineIn = (workspaceId: string | undefined) =>
+  workspaceId === undefined
+    ? LINE
+    : lineMapOf({
+        id: LineId.of('line_2'),
+        workspaceId: WorkspaceId.of(workspaceId),
+        teamId: TeamId.of('team_2'),
+        key: LineKey.of('other'),
+        name: LineName.of('Other'),
+        stations: LINE.stations,
+      });
+
 const opened = (
   id: string,
   input: {
@@ -75,27 +91,20 @@ const opened = (
     blockedBy?: readonly Task[];
     workspaceId?: string;
   } = {},
-) =>
-  Task.add({
-    line:
-      input.workspaceId === undefined
-        ? LINE
-        : lineMapOf({
-            id: LineId.of('line_2'),
-            workspaceId: WorkspaceId.of(input.workspaceId),
-            teamId: TeamId.of('team_2'),
-            key: LineKey.of('other'),
-            name: LineName.of('Other'),
-            stations: LINE.stations,
-          }),
+) => {
+  const line = lineIn(input.workspaceId);
+
+  return Task.add({
+    line,
     at: input.at ?? BACKLOG,
     title: TaskTitle.of(`Web ${id}`),
     rank: TaskRank.of('i'),
     createdBy: LEON,
-    blockedBy: input.blockedBy,
+    blockedBy: Blocking.forNewTask(line.workspaceId, input.blockedBy ?? []),
     now: NOW,
     newId: () => id,
   });
+};
 
 const completed = (task: Task) =>
   task.moveTo(
@@ -109,6 +118,25 @@ const completed = (task: Task) =>
       voice: Voice.station(),
     },
     { mover: LEON },
+  );
+
+const noteOf = (titles: readonly Task[]) => ({
+  line: LINE,
+  body: TaskNoteBody.blockedBy(titles.map((each) => each.title)),
+  at: NOW,
+  voice: Voice.station(),
+});
+
+const blockedBy = (
+  task: Task,
+  blockers: readonly Task[],
+  graph = BlockingGraph.empty(),
+) =>
+  task.blockBy(
+    LINE,
+    Blocking.forTask(task, blockers, graph),
+    LEON,
+    noteOf(blockers),
   );
 
 const graphOf = (...tasks: Task[]) =>
@@ -129,7 +157,8 @@ describe('Task blocked by other tasks', () => {
     expect(first.stationId).toEqual(TRIAGE);
     expect(second.stationId).toEqual(BACKLOG);
     expect(ids(second)).toEqual(['task_1']);
-    expect(Task.opensAt(LINE, TRIAGE, [first])).toEqual(BACKLOG);
+    expect(Task.opensAt(LINE, TRIAGE, [first.id])).toEqual(BACKLOG);
+    expect(Task.opensAt(LINE, TRIAGE, [])).toEqual(TRIAGE);
   });
 
   it('is not blocked by a completed task', () => {
@@ -148,29 +177,34 @@ describe('Task blocked by other tasks', () => {
     );
   });
 
-  it('sets and clears its blockers while in Backlog, and says so', () => {
+  it('sets and clears its blockers while in Backlog, says so in its trail, and names who did', () => {
     const first = opened('task_1');
     const second = opened('task_2');
     second.pullEvents();
 
-    const blocked = second.blockBy(LINE, [first], BlockingGraph.empty());
+    const blocked = blockedBy(second, [first]);
 
     expect(ids(blocked)).toEqual(['task_1']);
+    expect(lastNote(blocked)).toBe(
+      'Blocked by Web task_1. It waits in Backlog and starts when they are completed.',
+    );
     expect(blocked.pullEvents()).toContainEqual(
-      new TaskBlockersChanged(second.id, second.workspaceId, [first.id]),
+      new TaskBlockersChanged(second.id, second.workspaceId, [first.id], LEON),
     );
 
-    const cleared = blocked.blockBy(LINE, [], BlockingGraph.empty());
+    const cleared = blockedBy(blocked, []);
 
     expect(cleared.blocked).toBe(false);
-    expect(cleared.blockBy(LINE, [], BlockingGraph.empty())).toBe(cleared);
+    expect(lastNote(cleared)).toBe('No longer blocked by other tasks.');
+    expect(blockedBy(cleared, [])).toBe(cleared);
   });
 
   it('refuses to wait for itself', () => {
     const task = opened('task_1');
 
-    expect(() => task.blockBy(LINE, [task], BlockingGraph.empty())).toThrow(
-      TaskBlockedError,
+    expect(() => blockedBy(task, [task])).toThrow(InvalidTaskBlockerError);
+    expect(() => task.blockBy(LINE, [task.id], LEON, noteOf([task]))).toThrow(
+      InvalidTaskBlockerError,
     );
   });
 
@@ -180,10 +214,10 @@ describe('Task blocked by other tasks', () => {
     const third = opened('task_3', { blockedBy: [second] });
 
     expect(() =>
-      first.blockBy(LINE, [third], graphOf(first, second, third)),
+      blockedBy(first, [third], graphOf(first, second, third)),
     ).toThrow(TaskBlockingCycleError);
     expect(() =>
-      first.blockBy(LINE, [second], graphOf(first, second, third)),
+      blockedBy(first, [second], graphOf(first, second, third)),
     ).toThrow(TaskBlockingCycleError);
   });
 
@@ -191,10 +225,8 @@ describe('Task blocked by other tasks', () => {
     const first = opened('task_1');
     const started = opened('task_2', { at: TRIAGE });
 
-    expect(() => started.blockBy(LINE, [first], BlockingGraph.empty())).toThrow(
-      TaskBlockedError,
-    );
-    expect(started.blockBy(LINE, [], BlockingGraph.empty())).toBe(started);
+    expect(() => blockedBy(started, [first])).toThrow(TaskBlockedError);
+    expect(blockedBy(started, [])).toBe(started);
   });
 
   it('cannot be started by hand, but can still be completed', () => {
@@ -241,12 +273,7 @@ describe('Task blocked by other tasks', () => {
     const other = opened('task_3');
     const second = opened('task_2', { blockedBy: [first, other] });
 
-    const halfway = second.blockerFinished(
-      first.id,
-      LINE,
-      TaskRank.of('m'),
-      NOW,
-    );
+    const halfway = second.blockerFinished(first.id, LINE, [], NOW);
 
     expect(halfway.stationId).toEqual(BACKLOG);
     expect(ids(halfway)).toEqual(['task_3']);
@@ -255,11 +282,13 @@ describe('Task blocked by other tasks', () => {
     const started = halfway.blockerFinished(
       other.id,
       LINE,
-      TaskRank.of('m'),
+      [TaskRank.of('m')],
       NOW,
     );
 
+    expect(Task.releasesTo(LINE)?.id).toEqual(TRIAGE);
     expect(started.stationId).toEqual(TRIAGE);
+    expect(started.rank.value > 'm').toBe(true);
     expect(started.blocked).toBe(false);
     expect(started.wantsRun(LINE)).toBe(true);
     expect(lastNote(started)).toBe(
@@ -270,12 +299,30 @@ describe('Task blocked by other tasks', () => {
     );
   });
 
+  it('stays where it is when its line has no station where an agent works', () => {
+    const bare = lineMapOf({
+      id: LineId.of('line_bare'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      key: LineKey.of('bare'),
+      name: LineName.of('Bare'),
+      stations: LINE.stations.filter((each) => !each.isAgentStation),
+    });
+    const first = opened('task_1');
+    const second = opened('task_2', { blockedBy: [first] });
+
+    const released = second.blockerFinished(first.id, bare, [], NOW);
+
+    expect(released.blocked).toBe(false);
+    expect(released.stationId).toEqual(BACKLOG);
+  });
+
   it('ignores a completed task it does not wait for', () => {
     const second = opened('task_2');
 
-    expect(
-      second.blockerFinished(TaskId.of('task_1'), LINE, TaskRank.of('m'), NOW),
-    ).toBe(second);
+    expect(second.blockerFinished(TaskId.of('task_1'), LINE, [], NOW)).toBe(
+      second,
+    );
   });
 
   it('stops waiting for a deleted task, and stays in Backlog for a person to move on', () => {
@@ -288,6 +335,30 @@ describe('Task blocked by other tasks', () => {
     expect(released.stationId).toEqual(BACKLOG);
     expect(lastNote(released)).toContain('A task it waited for was deleted.');
     expect(released.blockerDeleted(first.id, LINE, NOW)).toBe(released);
+  });
+
+  it('is never stored waiting for itself, twice for one task, or while it runs or is finished', () => {
+    const first = opened('task_1');
+    const second = opened('task_2', { blockedBy: [first] });
+    const stored = {
+      ...second,
+      revision: second.revision,
+      version: second.version,
+      finishedAt: null,
+    };
+
+    expect(() => Task.rehydrate({ ...stored, blockedBy: [second.id] })).toThrow(
+      InconsistentStateError,
+    );
+    expect(() =>
+      Task.rehydrate({ ...stored, blockedBy: [first.id, first.id] }),
+    ).toThrow(InconsistentStateError);
+    expect(() => Task.rehydrate({ ...stored, finishedAt: NOW })).toThrow(
+      InconsistentStateError,
+    );
+    expect(() =>
+      Task.rehydrate({ ...stored, currentRunId: RunId.of('run_1') }),
+    ).toThrow(InconsistentStateError);
   });
 });
 

@@ -142,10 +142,11 @@ const creating = (line: LineMap | null, stored: readonly Task[] = []) => {
     partial<ClockPort>({ now: () => NOW }),
     { defaultBranchNameOf: async () => 'main' },
     {
-      find: vi.fn(
-        async (id: TaskId) => stored.find((each) => each.id.equals(id)) ?? null,
+      blockersAmong: vi.fn(async (ids: readonly TaskId[]) =>
+        stored.filter((each) => ids.some((id) => id.equals(each.id))),
       ),
     },
+    { inTransaction: (work) => work() },
   );
 
   return { handler, save, create, copy };

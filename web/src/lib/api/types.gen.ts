@@ -3810,7 +3810,10 @@ export type TaskHandMoveResponseDto = {
 
 export type TaskBlockerResponseDto = {
   id: string;
-  title: string;
+  /**
+   * Null for a task on a team the caller does not see
+   */
+  title: string | null;
   /**
    * The team whose line the blocking task is on
    */
@@ -17973,6 +17976,10 @@ export type BlockTaskData = {
 
 export type BlockTaskErrors = {
   /**
+   * blockedBy is not a list of ids
+   */
+  400: unknown;
+  /**
    * No valid session
    */
   401: unknown;
@@ -17981,13 +17988,17 @@ export type BlockTaskErrors = {
    */
   403: unknown;
   /**
-   * No such task, or no such blocking task, for this caller
+   * No such task for this caller, or a blocking task on a team the caller does not see
    */
   404: unknown;
   /**
    * The task has left Backlog, or a blocking task already waits for it
    */
   409: unknown;
+  /**
+   * The task would wait for itself
+   */
+  422: unknown;
 };
 
 export type BlockTaskResponses = {

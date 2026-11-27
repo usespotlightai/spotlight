@@ -38,7 +38,6 @@ import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { trialOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
@@ -272,7 +271,7 @@ const carrying = (
     find: vi.fn(async () => existing),
     startingFrom: vi.fn(async () => []),
     waitingFor: vi.fn(async () => []),
-    blockingIn: vi.fn(async () => BlockingGraph.empty()),
+    blockersAmong: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
     save: vi.fn(async (_task: Task) => {}),
   };

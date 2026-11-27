@@ -1025,8 +1025,30 @@ describe('Chat', () => {
       expect(accepted?.blockedBy).toEqual([TaskId.of('task_1')]);
     });
 
-    it('does not wait for a proposal the person dismissed', () => {
-      const accepted = waiting(proposing().dismiss(SECOND, LEON, LATER), [1])
+    it('cannot wait for a proposal the person dismissed, nor for one it replaces', () => {
+      expect(() =>
+        waiting(proposing().dismiss(SECOND, LEON, LATER), [1]),
+      ).toThrow('Proposal 1 is dismissed. A proposal cannot wait for it.');
+      expect(() =>
+        proposing().propose({
+          runId: RunId.of('run_1'),
+          placement: ProposalPlacement.of({
+            lineId: LineId.of('line_1'),
+            stationId: StationId.of('station_1'),
+          }),
+          title: TaskTitle.of('Back off with jitter'),
+          description: null,
+          base: null,
+          replaces: [1],
+          blockedBy: [1],
+          at: LATER,
+        }),
+      ).toThrow('Proposal 1 is replaced. A proposal cannot wait for it.');
+    });
+
+    it('stops waiting for a proposal the person dismisses later', () => {
+      const accepted = waiting(proposing(), [1])
+        .dismiss(SECOND, LEON, LATER)
         .accept(THIRD, LEON, LATER)
         .pullEvents()
         .find((each) => each instanceof ProposalAccepted);

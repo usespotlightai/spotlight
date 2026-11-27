@@ -69,7 +69,7 @@ export interface TaskDto {
 
 interface TaskBlockerDto {
   readonly id: string;
-  readonly title: string;
+  readonly title: string | null;
   readonly teamId: string;
 }
 

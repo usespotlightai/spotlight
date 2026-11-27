@@ -45,6 +45,7 @@ const summaries: TaskSummary[] = [
     source: null,
     hold: null,
     runNotStarted: null,
+    blocked: false,
     blockedBy: [],
   },
   {
@@ -66,11 +67,16 @@ const summaries: TaskSummary[] = [
     source: null,
     hold: null,
     runNotStarted: null,
+    blocked: false,
     blockedBy: [],
   },
 ];
 
-const asDto = ({ running: _running, ...summary }: TaskSummary) => ({
+const asDto = ({
+  running: _running,
+  blocked: _blocked,
+  ...summary
+}: TaskSummary) => ({
   ...summary,
   handMoves: [],
   createdAt: summary.createdAt.toISOString(),
