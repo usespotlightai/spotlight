@@ -70,7 +70,10 @@ const searchedFor = (search: TaskSearch | null): SQL | undefined =>
         ...search.words.map((word) => {
           const pattern = `%${word.replace(LIKE_SPECIAL, '\\$&')}%`;
 
-          return or(ilike(task.title, pattern), ilike(task.description, pattern));
+          return or(
+            ilike(task.title, pattern),
+            ilike(task.description, pattern),
+          );
         }),
       )
     : undefined;
