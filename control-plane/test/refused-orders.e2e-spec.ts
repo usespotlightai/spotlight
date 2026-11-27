@@ -22,8 +22,7 @@ import { createTeam } from './support/team';
 
 const DELIVERY = randomUUID();
 const BUILD = randomUUID();
-const DENIED =
-  'catalog_item_unknown: Catalog has no item catalog.web-search@1.1.0.';
+const DENIED = 'Catalog has no item catalog.web-search@1.1.0.';
 
 let app: INestApplication;
 let db: DrizzleDatabase;
@@ -159,7 +158,7 @@ describe('a task run whose order the catalog refuses (e2e)', () => {
       expect.objectContaining({
         runId,
         body: expect.stringContaining(
-          'Catalog has no item catalog.web-search@1.1.0.',
+          'Build didn’t start. Catalog has no item catalog.web-search@1.1.0. Then answer here to start it again.',
         ) as unknown,
       }),
     ]);

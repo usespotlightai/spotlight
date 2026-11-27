@@ -38,7 +38,7 @@ const profileAt = (
 
   return {
     profile,
-    refusals: profile ? [] : [ProfileMissing.at(station.name, named)],
+    refusals: profile ? [] : [ProfileMissing.of(named)],
   };
 };
 

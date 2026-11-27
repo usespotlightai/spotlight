@@ -26,6 +26,11 @@ export class RunResult {
     return this.failure !== null;
   }
 
+  // Spotlight refused to start the run: nothing ran.
+  get refused(): boolean {
+    return this.failure?.code === 'refused';
+  }
+
   get handsOver(): boolean {
     return !this.failed && !this.stopped;
   }

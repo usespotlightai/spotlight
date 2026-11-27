@@ -22,6 +22,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
 import { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import type { LineSource } from '@work/domain/value-objects/line-source.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import {
   ReviewIntake,
@@ -144,6 +145,7 @@ export const lineMapOf = (input: {
   repositories?: readonly RepositorySpec[];
   reviews?: ReviewIntake | null;
   placement?: RunnerPlacement;
+  source?: LineSource | null;
   version?: number;
 }): LineMap =>
   LineMap.of({

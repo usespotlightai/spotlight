@@ -18,13 +18,15 @@ import {
   lineMapOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import { LineSource } from '@work/domain/value-objects/line-source.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import { describe, expect, it } from 'vitest';
 
 const TRIAGE = StationId.of('station_1');
 
-const LINE = lineMapOf({
+const LINE_PARTS = {
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
@@ -57,7 +59,9 @@ const LINE = lineMapOf({
       kind: 'completed',
     }),
   ],
-});
+};
+
+const LINE = lineMapOf(LINE_PARTS);
 
 const known = (
   name: string,
@@ -80,6 +84,7 @@ const orderWith = (
   boundSecrets: readonly BoundSecret[],
   sandboxEnv: ReadyProfile['sandboxEnv'] = [],
   at: { checkouts?: readonly TaskCheckout[]; needsCheckout?: boolean } = {},
+  line: LineMap = LINE,
 ) =>
   orderAt({
     at: {
@@ -88,7 +93,7 @@ const orderWith = (
       checkouts: at.checkouts ?? [],
       needsCheckout: at.needsCheckout,
     },
-    line: LINE,
+    line,
     harnesses: HarnessCatalogue.of([HarnessId.of('dev')]),
     ready: [],
     profiles: [
@@ -117,7 +122,7 @@ const refusalsWith = (
 describe('orderAt', () => {
   it('refuses the run where a secret the profile injects has no value', () => {
     expect(refusalsWith([known('LINEAR_API_KEY', true)])).toEqual([
-      'secret_awaiting_value: Secret LINEAR_API_KEY has no value. Station: Triage',
+      'Secret LINEAR_API_KEY has no value yet. Set it on the Secrets settings page.',
     ]);
   });
 
@@ -130,27 +135,59 @@ describe('orderAt', () => {
     ];
 
     expect(refusalsWith([known('DEV_GITHUB_APP_KEY', false)], appKey)).toEqual([
-      'secret_sandbox_not_allowed: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
+      'Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret.',
     ]);
     expect(
       refusalsWith([known('DEV_GITHUB_APP_KEY', false, [], true)], appKey),
     ).toEqual([]);
     expect(refusalsWith([known('DEV_GITHUB_APP_KEY', true)], appKey)).toEqual([
-      'secret_sandbox_not_allowed: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
-      'secret_awaiting_value: Secret DEV_GITHUB_APP_KEY has no value. Station: Triage',
+      'Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret.',
+      'Secret DEV_GITHUB_APP_KEY has no value yet. Set it on the Secrets settings page.',
     ]);
   });
 
   describe('a run that needs a checkout', () => {
-    const refusalsAt = (at: {
-      checkouts?: readonly TaskCheckout[];
-      needsCheckout?: boolean;
-    }) => orderWith([], [], at)?.refusals.map((each) => each.description);
+    const refusalsAt = (
+      at: {
+        checkouts?: readonly TaskCheckout[];
+        needsCheckout?: boolean;
+      },
+      line: LineMap = LINE,
+    ) => orderWith([], [], at, line)?.refusals.map((each) => each.description);
 
-    it('refuses the run where the line has no repository to check out', () => {
+    it('refuses the run where the line has no repository to check out, and says where to add one', () => {
       expect(refusalsAt({ needsCheckout: true })).toEqual([
-        'line_has_no_repositories: This line has no repositories. Add one in the line’s configuration. Station: Triage',
+        'The Delivery line has no repository yet. Add a `repository` block to the line’s `spotlight_line` in your team’s configuration. If the team has no configuration as code yet, start with “Set up configuration as code” on the setup checklist.',
       ]);
+    });
+
+    it('names the Terraform file that defines the line, where the team’s configuration says which', () => {
+      const configured = lineMapOf({
+        ...LINE_PARTS,
+        source: LineSource.of({
+          repository: Repository.of('acme/infra'),
+          path: 'teams/core/delivery.tf',
+        }),
+      });
+
+      expect(refusalsAt({ needsCheckout: true }, configured)).toEqual([
+        'The Delivery line has no repository yet. Add a `repository` block to the line’s `spotlight_line` in `teams/core/delivery.tf` in acme/infra.',
+      ]);
+    });
+
+    it('keeps the machine code of each refusal out of its words', () => {
+      const refusals =
+        orderWith([known('LINEAR_API_KEY', true)], [], { needsCheckout: true })
+          ?.refusals ?? [];
+
+      expect(refusals.map((each) => each.code)).toEqual([
+        'line_has_no_repositories',
+        'secret_awaiting_value',
+      ]);
+      for (const each of refusals) {
+        expect(each.description).not.toContain(each.code);
+        expect(each.description).not.toContain('Station:');
+      }
     });
 
     it('does not refuse the run where it checks out a repository', () => {

@@ -22,7 +22,11 @@ export class DeniedCatalogItem implements RefusalReason {
     return new DeniedCatalogItem(input.id, input.reason, input.because);
   }
 
+  get code(): string {
+    return CODES[this.reason];
+  }
+
   get description(): string {
-    return `${CODES[this.reason]}: ${this.because}`;
+    return this.because;
   }
 }

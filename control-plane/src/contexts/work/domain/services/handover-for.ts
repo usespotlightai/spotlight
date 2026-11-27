@@ -1,6 +1,7 @@
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { PassDenial } from '@work/domain/value-objects/line-denial';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -17,6 +18,21 @@ const ownWords = (handover: Handover): TaskNoteBody | null =>
 
 const UNROUTED =
   'The run finished without saying where the task should go next.';
+
+// Spotlight refused to start the run. Say so in plain words, then why, and that an answer starts it again.
+const refusedNote = (
+  station: StationName | null,
+  because: string | null,
+): TaskNoteBody => {
+  const didNotStart = `${station?.value ?? 'The run'} didn’t start.`;
+  const why = because?.trim() ?? '';
+
+  return TaskNoteBody.of(
+    why === ''
+      ? `${didNotStart} Answer here to start it again.`
+      : `${didNotStart} ${why} Then answer here to start it again.`,
+  );
+};
 
 const DENIALS: Record<PassDenial, (key: string) => string> = {
   'already-there': (key) =>
@@ -47,7 +63,11 @@ export const HandoverFor = {
       );
     }
 
-    return HandoverFor.outcome(input.outcome, input.lastWords ?? null);
+    return HandoverFor.outcome(
+      input.outcome,
+      input.lastWords ?? null,
+      input.line?.stationAt(input.currentStation)?.name ?? null,
+    );
   },
 
   resolve(
@@ -116,6 +136,7 @@ export const HandoverFor = {
   outcome(
     outcome: RunResult | null,
     lastWords: string | null = null,
+    station: StationName | null = null,
   ): ResolvedHandover {
     if (!outcome) {
       const unreported = TaskNoteBody.of(
@@ -123,6 +144,13 @@ export const HandoverFor = {
       );
 
       return ResolvedHandover.review(unreported, unreported);
+    }
+
+    if (outcome.refused) {
+      return ResolvedHandover.failed(
+        refusedNote(station, outcome.message),
+        TaskFailure.fromRun('refused'),
+      );
     }
 
     if (outcome.failure) {

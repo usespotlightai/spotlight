@@ -418,7 +418,9 @@ describe('a catalog call (e2e)', () => {
     const stored = await runs.findById(id);
 
     expect(stored?.state).toBe('failed');
-    expect(stored?.outcome?.detail).toMatch(/^catalog_item_unknown: /);
+    expect(stored?.outcome?.detail).toBe(
+      'Catalog has no item catalog.web-search@1.1.0.',
+    );
     expect(stored?.spec.value.catalog).toEqual(['catalog.web-search@1.1.0']);
 
     await db.delete(schema.run).where(eq(schema.run.id, id.value));

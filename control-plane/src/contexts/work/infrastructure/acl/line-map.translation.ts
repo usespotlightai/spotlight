@@ -25,6 +25,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
 import { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import { LineSource } from '@work/domain/value-objects/line-source.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
 import { Station } from '@work/domain/value-objects/station.vo';
@@ -86,4 +87,10 @@ export const lineMapOf = (view: LineView): LineMap =>
     reviews: view.reviews && ReviewIntake.of(view.reviews),
     placement: RunnerPlacement.of(view.runners),
     defaultAssignee: view.defaultAssignee,
+    source:
+      view.source &&
+      LineSource.of({
+        repository: Repository.of(view.source.repository),
+        path: view.source.path,
+      }),
   });

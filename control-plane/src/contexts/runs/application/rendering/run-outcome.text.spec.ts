@@ -20,7 +20,13 @@ describe('runOutcomeText', () => {
     ],
     [RunOutcome.stopped(ExitCode.clean()), 'A person stopped the run.'],
     [RunOutcome.cancelled('The task moved on.'), 'The task moved on.'],
-    [RunOutcome.refused([{ description: 'a' }, { description: 'b' }]), 'a; b'],
+    [
+      RunOutcome.refused([
+        { description: 'The line has no repository yet.' },
+        { description: 'Secret A has no value yet.' },
+      ]),
+      'The line has no repository yet. Secret A has no value yet.',
+    ],
     [
       RunOutcome.of({
         exitCode: ExitCode.of(1),
