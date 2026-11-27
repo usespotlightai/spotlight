@@ -1,19 +1,27 @@
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type {
   EndedRunRow,
   StationRunReaderPort,
   UnfinishedRunRow,
 } from '@work/application/ports/station-run-reader.port';
+import type { EndedStationRun } from '@work/application/ports/station-runs.port';
 import { StationRuns } from '@work/application/services/station-runs.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
+import {
+  deliveryLineOf,
+  repositoryOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -47,10 +55,45 @@ const NO_DISPATCHES: DispatchRepository = {
   find: async () => null,
 };
 
+const API = Repository.of('acme/api');
+const WEB = Repository.of('acme/web');
+
+let ids = 0;
+
+const LINE = deliveryLineOf({
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
+  newId: () => `id_${(ids += 1)}`,
+  repositories: [repositoryOf(API), repositoryOf(WEB)],
+});
+
+const LINES = partial<LineMapsPort>({ find: async () => LINE });
+
+const NO_LINES = partial<LineMapsPort>({ find: async () => null });
+
 const readingOnly = (found: EndedRunRow): StationRunReaderPort =>
   partial<StationRunReaderPort>({
     endedRun: async () => found,
   });
+
+const configured = (
+  repositories: StationConfigParts['repositories'],
+): StationConfigParts => ({
+  prompt: null,
+  harness: 'claude-code',
+  model: null,
+  effort: null,
+  profile: null,
+  image: null,
+  repositories,
+  skills: [],
+  tools: [],
+  decisions: false,
+  memories: false,
+});
+
+const names = (run: EndedStationRun | null) =>
+  run?.repositories.map((each) => each.value);
 
 describe('StationRuns.ended', () => {
   it('names the harness, model, effort, profile, repositories and skills the run was configured with', async () => {
@@ -65,8 +108,8 @@ describe('StationRuns.ended', () => {
             profile: { key: 'careful', settings: {} },
             image: null,
             repositories: [
-              { name: 'acme/api', setup: null },
-              { name: 'acme/web', setup: 'npm ci' },
+              { name: 'api', setup: null },
+              { name: 'web', setup: 'npm ci' },
             ],
             skills: [
               { key: 'grafana', hash: 'd'.repeat(64) },
@@ -79,6 +122,7 @@ describe('StationRuns.ended', () => {
         }),
       ),
       NO_DISPATCHES,
+      LINES,
     );
 
     expect(await stations.ended('run_1')).toEqual({
@@ -94,7 +138,7 @@ describe('StationRuns.ended', () => {
       model: 'gpt-5',
       effort: 'high',
       profileKey: 'careful',
-      repositories: ['acme/api', 'acme/web'],
+      repositories: [API, WEB],
       skills: ['grafana', 'our-migrations'],
       queuedAt: QUEUED,
       startedAt: STARTED,
@@ -105,7 +149,7 @@ describe('StationRuns.ended', () => {
   });
 
   it('falls back on the harness the run ran on when it recorded no config', async () => {
-    const stations = new StationRuns(readingOnly(row()), NO_DISPATCHES);
+    const stations = new StationRuns(readingOnly(row()), NO_DISPATCHES, LINES);
 
     expect(await stations.ended('run_1')).toMatchObject({
       harness: 'claude-code',
@@ -117,46 +161,113 @@ describe('StationRuns.ended', () => {
     });
   });
 
+  it('names each repository a task run worked on by its owner and name, though its config names it by name alone', async () => {
+    const stations = new StationRuns(
+      readingOnly(
+        row({
+          config: configured([
+            { name: 'api', setup: null },
+            { name: 'web', setup: null },
+          ]),
+        }),
+      ),
+      NO_DISPATCHES,
+      LINES,
+    );
+
+    expect(names(await stations.ended('run_1'))).toEqual([
+      'acme/api',
+      'acme/web',
+    ]);
+  });
+
+  it('names a repository the same way for a run that reviewed it and a run that worked on it', async () => {
+    const working = new StationRuns(
+      readingOnly(row({ config: configured([{ name: 'api', setup: null }]) })),
+      NO_DISPATCHES,
+      LINES,
+    );
+    const reviewing = new StationRuns(
+      readingOnly(
+        row({
+          reviewing: 'acme/api',
+          config: configured([{ name: 'api', setup: null }]),
+        }),
+      ),
+      NO_DISPATCHES,
+      LINES,
+    );
+
+    expect(names(await working.ended('run_1'))).toEqual(['acme/api']);
+    expect(names(await reviewing.ended('run_1'))).toEqual(['acme/api']);
+  });
+
+  it('spells a repository as its line does, whatever case the run named it in', async () => {
+    const stations = new StationRuns(
+      readingOnly(
+        row({
+          reviewing: 'Acme/API',
+          config: configured([{ name: 'acme/api', setup: null }]),
+        }),
+      ),
+      NO_DISPATCHES,
+      LINES,
+    );
+    const configuredInFull = new StationRuns(
+      readingOnly(
+        row({ config: configured([{ name: 'ACME/web', setup: null }]) }),
+      ),
+      NO_DISPATCHES,
+      LINES,
+    );
+
+    expect(names(await stations.ended('run_1'))).toEqual(['acme/api']);
+    expect(names(await configuredInFull.ended('run_1'))).toEqual(['acme/web']);
+  });
+
+  it('names no repository the line no longer has, as it cannot tell its owner', async () => {
+    const stations = new StationRuns(
+      readingOnly(
+        row({
+          config: configured([
+            { name: 'api', setup: null },
+            { name: 'gone', setup: null },
+          ]),
+        }),
+      ),
+      NO_DISPATCHES,
+      LINES,
+    );
+
+    expect(names(await stations.ended('run_1'))).toEqual(['acme/api']);
+  });
+
   it('names only the repository under review when the run reviewed a pull request', async () => {
     const stations = new StationRuns(
       readingOnly(
         row({
           reviewing: 'acme/web',
-          config: {
-            prompt: null,
-            harness: 'claude-code',
-            model: null,
-            effort: null,
-            profile: null,
-            image: null,
-            repositories: [
-              { name: 'acme/api', setup: null },
-              { name: 'acme/web', setup: null },
-            ],
-            skills: [],
-            tools: [],
-            decisions: false,
-            memories: false,
-          },
+          config: configured([
+            { name: 'api', setup: null },
+            { name: 'web', setup: null },
+          ]),
         }),
       ),
       NO_DISPATCHES,
+      LINES,
     );
 
-    expect(await stations.ended('run_1')).toMatchObject({
-      repositories: ['acme/web'],
-    });
+    expect(names(await stations.ended('run_1'))).toEqual(['acme/web']);
   });
 
   it('names the repository under review on a line that declares none', async () => {
     const stations = new StationRuns(
       readingOnly(row({ reviewing: 'acme/web' })),
       NO_DISPATCHES,
+      NO_LINES,
     );
 
-    expect(await stations.ended('run_1')).toMatchObject({
-      repositories: ['acme/web'],
-    });
+    expect(names(await stations.ended('run_1'))).toEqual(['acme/web']);
   });
 });
 
@@ -205,6 +316,7 @@ describe('StationRuns.unfinished', () => {
         ],
       }),
       NO_DISPATCHES,
+      NO_LINES,
     );
 
     expect(
@@ -257,6 +369,7 @@ describe('StationRuns.traced', () => {
         }),
       }),
       NO_DISPATCHES,
+      NO_LINES,
     );
 
     const traced = await stations.traced({
@@ -309,6 +422,7 @@ describe('StationRuns.taskRunOf', () => {
         stationId: StationId.of('station_1'),
         driver: 'line' as const,
       }),
+      NO_LINES,
     );
 
     expect(await stations.taskRunOf('run_1')).toEqual({
@@ -323,8 +437,13 @@ describe('StationRuns.taskRunOf', () => {
     const chat = new StationRuns(
       readingOnly(row()),
       dispatched({ kind: 'chat', chatId: ChatId.of('chat_1') }),
+      NO_LINES,
     );
-    const unordered = new StationRuns(readingOnly(row()), NO_DISPATCHES);
+    const unordered = new StationRuns(
+      readingOnly(row()),
+      NO_DISPATCHES,
+      NO_LINES,
+    );
 
     expect(await chat.taskRunOf('run_1')).toBeNull();
     expect(await unordered.taskRunOf('run_1')).toBeNull();

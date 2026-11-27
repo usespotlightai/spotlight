@@ -13,6 +13,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import {
   checkoutsOf,
   repositoriesForTask,
+  repositoriesRanIn,
   repositoryForTaskNamed,
 } from '@work/domain/services/task-checkouts';
 import {
@@ -180,5 +181,39 @@ describe('the repositories a task works on', () => {
     expect(
       repositoryForTaskNamed(RepositoryName.of('web'), null, LINE),
     ).toEqual(WEB);
+  });
+});
+
+describe('the repositories a run ran in', () => {
+  it('are named by owner and name, though the station config names each by name alone', () => {
+    expect(names(repositoriesRanIn(null, ['api', 'web'], LINE))).toEqual([
+      'acme/api',
+      'acme/web',
+    ]);
+  });
+
+  it('are only the reviewed repository, named as a run that worked on it names it', () => {
+    expect(names(repositoriesRanIn(API, ['api', 'web'], LINE))).toEqual(
+      names(repositoriesRanIn(null, ['api'], LINE)),
+    );
+  });
+
+  it('are spelled as the line spells them', () => {
+    expect(
+      names(repositoriesRanIn(Repository.of('ACME/Api'), [], LINE)),
+    ).toEqual(['acme/api']);
+    expect(names(repositoriesRanIn(null, ['WEB', 'Acme/Api'], LINE))).toEqual([
+      'acme/web',
+      'acme/api',
+    ]);
+  });
+
+  it('leave out a configured repository the line no longer has, and keep a reviewed one', () => {
+    expect(names(repositoriesRanIn(null, ['api', 'gone'], LINE))).toEqual([
+      'acme/api',
+    ]);
+    expect(
+      names(repositoriesRanIn(Repository.of('acme/other'), [], null)),
+    ).toEqual(['acme/other']);
   });
 });

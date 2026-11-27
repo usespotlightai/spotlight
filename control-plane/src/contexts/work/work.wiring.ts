@@ -1138,11 +1138,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: STATION_RUNS,
-    inject: [STATION_RUN_READER, DISPATCH_REPOSITORY],
+    inject: [STATION_RUN_READER, DISPATCH_REPOSITORY, LINE_MAPS],
     useFactory: (
       reader: StationRunReaderPort,
       dispatches: DispatchRepository,
-    ) => new StationRuns(reader, dispatches),
+      lines: LineMapsPort,
+    ) => new StationRuns(reader, dispatches, lines),
   },
 
   {

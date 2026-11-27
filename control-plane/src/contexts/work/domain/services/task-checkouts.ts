@@ -1,8 +1,8 @@
-import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import type { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
+import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 
 type CheckoutDiff = 'worktree' | 'commits';
 
@@ -15,7 +15,7 @@ export interface TaskCheckout {
   readonly setup: string | null;
 }
 
-export const reviewedOrAll = <T extends object | string>(
+const reviewedOrAll = <T extends object | string>(
   reviewing: T | null,
   all: readonly T[],
 ): readonly T[] => (reviewing !== null && reviewing !== '' ? [reviewing] : all);
@@ -24,6 +24,37 @@ export const repositoriesReviewedOrAll = (
   reviewing: Repository | null,
   line: LineMap,
 ): readonly Repository[] => reviewedOrAll(reviewing, line.repositories.all);
+
+const asTheLineSpellsIt = (
+  repository: Repository,
+  line: Pick<LineMap, 'repositories'> | null,
+): Repository =>
+  line?.repositories.all.find((each) => each.equals(repository)) ?? repository;
+
+const configuredRepository = (
+  configured: string,
+  line: Pick<LineMap, 'repositories'> | null,
+): Repository | null => {
+  const short = RepositoryName.parsed(configured);
+
+  return short
+    ? (line?.repositories.named(short) ?? null)
+    : asTheLineSpellsIt(Repository.of(configured), line);
+};
+
+// A run names each repository it ran in by its full owner/name, as its line spells it: the one it reviewed, or each one its station was configured with. A station config names a repository by its short name, so a repository the line no longer has goes unnamed.
+export const repositoriesRanIn = (
+  reviewing: Repository | null,
+  configured: readonly string[],
+  line: Pick<LineMap, 'repositories'> | null,
+): readonly Repository[] =>
+  reviewing
+    ? [asTheLineSpellsIt(reviewing, line)]
+    : configured.flatMap((each) => {
+        const repository = configuredRepository(each, line);
+
+        return repository ? [repository] : [];
+      });
 
 export const repositoriesForTask = (
   task: Task | null,

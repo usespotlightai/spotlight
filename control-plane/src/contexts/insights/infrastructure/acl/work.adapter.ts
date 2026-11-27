@@ -75,7 +75,7 @@ export class Work implements WorkPort {
       model: run.model,
       effort: run.effort,
       profileKey: run.profileKey,
-      repositories: run.repositories,
+      repositories: run.repositories.map((each) => each.value),
       skills: run.skills,
       queuedAt: run.queuedAt,
       startedAt: run.startedAt,
