@@ -47,6 +47,7 @@ export interface MemoryLinkDto {
 export interface TeamMemoryDetailDto extends TeamMemoryDto {
   readonly superseded: MemoryLinkDto | null;
   readonly successor: MemoryLinkDto | null;
+  readonly restorable: boolean;
 }
 
 export interface RunProposalDto extends ProposedMemoryDto {

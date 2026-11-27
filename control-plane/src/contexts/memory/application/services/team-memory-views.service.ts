@@ -41,7 +41,12 @@ export class TeamMemoryViews {
       this.linkTo(memory.retirement?.supersededBy ?? null),
     ]);
 
-    return { ...summary, superseded, successor };
+    return {
+      ...summary,
+      superseded,
+      successor,
+      restorable: memory.restorable,
+    };
   }
 
   private async summaryOf(
