@@ -139,8 +139,38 @@ describe('the built-in Delivery line', () => {
     const prompt = opening('code-review')?.agentPrompt?.value;
 
     expect(prompt).toMatch(/put back any file the run wrote/);
-    expect(prompt).toMatch(/fails the same way without the change/);
+    expect(prompt).toMatch(/fails the same way without the\s+change/);
     expect(prompt).toMatch(/nothing that deploys,\s+publishes/);
+  });
+});
+
+describe('the built-in Delivery line, when the app runs', () => {
+  const delivery = BUILT_IN_LINES.find((line) => line.key.value === 'delivery');
+  const opening = (key: string) =>
+    delivery?.stations.find((each) => each.key.value === key);
+
+  it('has the code review judge allow files that running the app writes and puts back', () => {
+    const claims = opening('code-review')?.judge?.claims;
+
+    expect(claims).not.toContain(
+      'The run did not change, commit or push any file.',
+    );
+    expect(claims).toContain('The run committed and pushed nothing.');
+    expect(claims).toContain(
+      'The run left `git status` showing what it showed before the run.',
+    );
+  });
+
+  it('tells code review how to check that the app fails the same way without the change', () => {
+    expect(opening('code-review')?.agentPrompt?.value).toContain(
+      'git worktree add /tmp/base refs/spotlight/base',
+    );
+  });
+
+  it('does not hold implementation back for a service the workspace does not have', () => {
+    expect(opening('implementation')?.agentPrompt?.value).toMatch(
+      /needs a service the workspace does not have is not a fault of\s+the change/,
+    );
   });
 });
 

@@ -197,7 +197,9 @@ a check, run it before you hand over.
 ${RUNNING_THE_APP}
 
 An app that does not start, or a page or script that fails to load, is a
-change that is not done: fix it before you hand over.
+change that is not done: fix it before you hand over. An app that cannot start
+only because it needs a service the workspace does not have is not a fault of
+the change: say so in your note, as above, and hand over.
 
 Commit your work and push it. The workspace is already on the branch this
 task belongs to, so push that branch and nothing else:
@@ -307,8 +309,15 @@ Then put back any file the run wrote, so \`git status\` shows what it showed
 before.
 
 An app that the change stops from starting, or a page or script that it
-breaks, is a high finding. If the app fails the same way without the change,
-say so in your note rather than count it against the change.
+breaks, is a high finding. To see whether it fails the same way without the
+change, run it the same way from a throwaway worktree of the branch it started
+from, and remove that worktree afterwards:
+
+    git worktree add /tmp/base refs/spotlight/base
+    git worktree remove --force /tmp/base
+
+If it fails the same way there, say so in your note rather than count it
+against the change.
 
 Check that the branch still merges into the branch it started from:
 
@@ -398,7 +407,8 @@ const CODE_REVIEW_CLAIMS = [
   'The note says what the review checked against the spec and the notes.',
   'The note lists each finding with its severity, its file and line, what goes wrong and what would fix it, or says plainly that it found nothing.',
   'No finding is false, and no severity is overstated.',
-  'The run did not change, commit or push any file.',
+  'The run committed and pushed nothing.',
+  'The run left `git status` showing what it showed before the run.',
   'The note has a line that says whether the app runs, with what it loaded or why not.',
   'The note has a line that names each run instruction the change adds or changes and what it did, or says it changes none.',
   'The note ends with a line that says whether the branch merges cleanly.',
