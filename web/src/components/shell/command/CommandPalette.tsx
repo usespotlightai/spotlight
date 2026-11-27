@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { ShortcutKeys } from '@/components/shared/shortcut/ShortcutKeys';
@@ -51,7 +52,13 @@ export function CommandPalette({
 }: CommandPaletteProps) {
   const section = pick?.section;
   const navigate = useNavigate();
-  const sections = useCommandSections(slug, workspace, open);
+  const [search, setSearch] = useState('');
+  const [shownOpen, setShownOpen] = useState(open);
+  if (open !== shownOpen) {
+    setShownOpen(open);
+    setSearch('');
+  }
+  const sections = useCommandSections(slug, workspace, open, search);
   const commands = useActiveCommands();
   const actions = section ? [] : paletteActions(commands);
   const doing = actions.filter((action) => !action.navigates);
@@ -71,6 +78,8 @@ export function CommandPalette({
     >
       <Command filter={commandMatch}>
         <CommandInput
+          value={search}
+          onValueChange={setSearch}
           placeholder={
             pick?.creating
               ? 'Create a task on a line…'

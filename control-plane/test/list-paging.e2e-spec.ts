@@ -16,6 +16,7 @@ import type {
 } from '@work/application/ports/inbox-reader.port';
 import { conversationsOf } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
+import { TaskSearch } from '@work/domain/value-objects/task-search.vo';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
@@ -88,6 +89,8 @@ const aLine = async () => {
 
   const addTask = async (input: {
     stationId: string;
+    title?: string;
+    description?: string;
     rank?: string;
     finishedAt?: Date | null;
     running?: boolean;
@@ -100,7 +103,8 @@ const aLine = async () => {
       openedFrom: 'person',
       workspaceId,
       stationId: input.stationId,
-      title: `Task ${taskId}`,
+      title: input.title ?? `Task ${taskId}`,
+      description: input.description ?? null,
       rank: input.rank ?? 'i',
       assigneeId: viewer,
       finishedAt: input.finishedAt ?? null,
@@ -618,15 +622,18 @@ describe('the board, open and completed', () => {
 
     const open = await board.listForTeamMember(team, viewer, {
       state: 'board',
+      search: null,
     });
     const first = await board.listForTeamMember(team, viewer, {
       state: 'completed-station',
       lineId: null,
+      search: null,
       page: pageAfter(null, 2),
     });
     const second = await board.listForTeamMember(team, viewer, {
       state: 'completed-station',
       lineId: null,
+      search: null,
       page: pageAfter(first.next ?? null, 2),
     });
 
@@ -635,6 +642,48 @@ describe('the board, open and completed', () => {
     expect(first.items.map((each) => each.id)).toEqual(done.slice(0, 2));
     expect(second.items.map((each) => each.id)).toEqual(done.slice(2));
     expect(second.next).toBeNull();
+  });
+
+  it('finds the open and the completed tasks whose title or description holds each word', async () => {
+    const line = await aLine();
+    const scaffold = await line.addTask({
+      stationId: line.completed,
+      title: 'Scaffold the API',
+      description: 'Store rows with better-sqlite3.',
+    });
+    const incidents = await line.addTask({
+      stationId: line.work,
+      title: 'List incidents',
+      description: 'Read them with BETTER-SQLITE3.',
+    });
+    await line.addTask({
+      stationId: line.completed,
+      title: 'Scaffold the web',
+    });
+    await line.addTask({ stationId: line.work, title: '100% done_ish' });
+
+    const board = boardOf(line.workspaceId);
+    const team = TeamId.of(line.teamId);
+    const viewer = UserId.of(line.viewer);
+
+    const completed = await board.listForTeamMember(team, viewer, {
+      state: 'completed-station',
+      lineId: null,
+      search: TaskSearch.of('scaffold SQLITE'),
+      page: pageAfter(null, 10),
+    });
+    const open = await board.listForTeamMember(team, viewer, {
+      state: 'board',
+      search: TaskSearch.of('better-sqlite3'),
+    });
+    const literal = await board.listForTeamMember(team, viewer, {
+      state: 'board',
+      search: TaskSearch.of('0%_'),
+    });
+
+    expect(completed.items.map((each) => each.id)).toEqual([scaffold]);
+    expect(open.items.map((each) => each.id)).toEqual([incidents]);
+    expect(literal.items).toEqual([]);
   });
 });
 

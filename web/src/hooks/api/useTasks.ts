@@ -16,6 +16,8 @@ export const taskKeys = {
   forTeam: (teamId?: string) => ['tasks', teamId ?? null] as const,
   completed: (teamId?: string, lineId?: string) =>
     ['tasks', teamId ?? null, 'completed', lineId ?? null] as const,
+  searchedCompleted: (teamId: string, search: string) =>
+    ['tasks', teamId, 'completed', 'search', search] as const,
   one: (teamId?: string, taskId?: string) =>
     ['tasks', teamId ?? null, 'task', taskId ?? null] as const,
 };
@@ -39,6 +41,34 @@ export const tasksQuery = (teamId: string | undefined): TasksQuery =>
     queryFn: async () => {
       const { data } = await listTasks({
         path: { teamId: required(teamId) },
+        throwOnError: true,
+      });
+      return data.items;
+    },
+  });
+
+const SEARCHED_AT_MOST = 10;
+
+type SearchedTasksKey = ReturnType<typeof taskKeys.searchedCompleted>;
+
+type SearchedTasksQuery = UnusedSkipTokenOptions<
+  TaskResponseDto[],
+  Error,
+  TaskResponseDto[],
+  SearchedTasksKey
+> &
+  QueryKeyWithDataTag<SearchedTasksKey, TaskResponseDto[]>;
+
+export const searchedCompletedTasksQuery = (
+  teamId: string,
+  search: string,
+): SearchedTasksQuery =>
+  queryOptions({
+    queryKey: taskKeys.searchedCompleted(teamId, search),
+    queryFn: async () => {
+      const { data } = await listTasks({
+        path: { teamId },
+        query: { state: 'completed-station', search, limit: SEARCHED_AT_MOST },
         throwOnError: true,
       });
       return data.items;

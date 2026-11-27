@@ -5,12 +5,15 @@ import {
   type CommandTarget,
   commandKeywords,
   commandMatch,
+  completedTaskTargets,
   lineTargets,
   navigationTargets,
   settingsTargets,
   stationTargets,
   taskTargets,
 } from '@/lib/commands/targets';
+import { nonEmpty } from '@/lib/non-empty';
+import { required } from '@/lib/required';
 import { world } from '@/mocks/world';
 import { PLATFORM_ID } from '@/mocks/world/platform';
 
@@ -85,6 +88,32 @@ describe('taskTargets', () => {
       taskTargets('acme', team, tasks, lines).map((each) => each.id),
     ).not.toContain(`task:${done[0]?.id}`);
   });
+
+  it('matches a task on its description too', () => {
+    const described = tasks.find(
+      (task) => !completed.has(task.stationId) && nonEmpty(task.description),
+    );
+    const target = taskTargets('acme', team, tasks, lines).find(
+      (each) => each.id === `task:${described?.id}`,
+    );
+
+    expect(target?.keywords).toEqual([described?.description]);
+  });
+});
+
+describe('completedTaskTargets', () => {
+  it('opens each completed task found, with the team as context', () => {
+    const task = required(tasks[0]);
+
+    expect(completedTaskTargets('acme', team, [task])).toMatchObject([
+      {
+        id: `task:${task.id}`,
+        label: task.title,
+        context: 'Platform',
+        to: `/w/acme/team/${PLATFORM_ID}/tasks/${task.id}`,
+      },
+    ]);
+  });
 });
 
 describe('settingsTargets', () => {
@@ -109,6 +138,21 @@ describe('commandKeywords', () => {
     };
 
     expect(commandKeywords(target)).toEqual(['Review', 'Backend']);
+  });
+
+  it('adds the other words the target names', () => {
+    const target: CommandTarget = {
+      id: 'task:t_1',
+      label: 'Scaffold the API',
+      keywords: ['Use better-sqlite3.'],
+      icon: Package,
+      to: '/',
+    };
+
+    expect(commandKeywords(target)).toEqual([
+      'Scaffold the API',
+      'Use better-sqlite3.',
+    ]);
   });
 });
 

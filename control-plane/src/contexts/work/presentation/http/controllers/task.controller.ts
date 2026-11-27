@@ -130,6 +130,13 @@ export class TaskController {
     type: String,
     description: 'Only the tasks on this line',
   })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description:
+      'Only the tasks whose title or description holds each word, in any case. At most 200 characters',
+  })
   @ApiPageQuery()
   @ApiOkResponse({ type: TaskPageResponseDto })
   @ApiNotFoundResponse({ description: 'No such team for this caller' })
@@ -138,6 +145,7 @@ export class TaskController {
     @Query('state', new ParseEnumPipe(TASK_LIST_STATES, { optional: true }))
     state: TaskListState | undefined,
     @Query('lineId') lineId: string | undefined,
+    @Query('search') search: string | undefined,
     @Query('before') before: string | undefined,
     @Query('limit') limit: string | undefined,
     @CurrentUser() user: AuthenticatedUser,
@@ -152,6 +160,7 @@ export class TaskController {
         state ?? 'board',
         lineId ?? null,
         pageRequestOf(before, limit),
+        search ?? null,
       ),
     );
 

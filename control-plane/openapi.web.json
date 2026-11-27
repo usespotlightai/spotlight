@@ -2642,6 +2642,15 @@
             }
           },
           {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Only the tasks whose title or description holds each word, in any case. At most 200 characters",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "lineId",
             "required": false,
             "in": "query",

@@ -25,6 +25,7 @@ import type {
   TaskHoldSummary,
 } from '@work/application/ports/task-reader.port';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
+import type { TaskSearch } from '@work/domain/value-objects/task-search.vo';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
 import {
   attachmentsFor,
@@ -38,7 +39,18 @@ import {
   taskHold,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
-import { and, asc, desc, eq, inArray, isNull, ne, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  ne,
+  or,
+  type SQL,
+} from 'drizzle-orm';
 
 interface OpenHoldRow {
   readonly heldBy: string;
@@ -49,6 +61,19 @@ interface OpenHoldRow {
 }
 
 type HoldPerson = TaskHoldSummary['by'];
+
+const LIKE_SPECIAL = /[\\%_]/g;
+
+const searchedFor = (search: TaskSearch | null): SQL | undefined =>
+  search
+    ? and(
+        ...search.words.map((word) => {
+          const pattern = `%${word.replace(LIKE_SPECIAL, '\\$&')}%`;
+
+          return or(ilike(task.title, pattern), ilike(task.description, pattern));
+        }),
+      )
+    : undefined;
 
 const holdOf = (
   row: OpenHoldRow | null,
@@ -76,11 +101,17 @@ export class DrizzleTaskReader implements TaskReaderPort {
     teamId: TeamId,
     listing: TaskListing,
   ): Promise<Page<TaskSummary>> {
+    const searched = searchedFor(listing.search);
+
     if (listing.state === 'board') {
       return {
         items: await this.summariesIn(
           teamId,
-          and(ne(workStation.kind, 'completed'), eq(task.isSetup, false)),
+          and(
+            ne(workStation.kind, 'completed'),
+            eq(task.isSetup, false),
+            searched,
+          ),
           null,
         ),
         next: null,
@@ -97,6 +128,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         nonEmpty(listing.lineId)
           ? eq(workStation.lineId, listing.lineId)
           : undefined,
+        searched,
         before ? after(task.rank, task.id, before) : undefined,
       ),
       page.limit + 1,

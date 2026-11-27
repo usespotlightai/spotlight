@@ -61,9 +61,17 @@ export const shellHandlers = [
     const query = new URL(request.url).searchParams;
     const lineId = query.get('lineId');
     const completed = completedStationsOf(teamId, lineId);
-    const tasks = (world().tasks[teamId] ?? []).map((task) =>
-      withHandMoves(teamId, task),
-    );
+    const words = (query.get('search') ?? '')
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    const tasks = (world().tasks[teamId] ?? [])
+      .filter((task) => {
+        const text = `${task.title}\n${task.description ?? ''}`.toLowerCase();
+
+        return words.every((word) => text.includes(word));
+      })
+      .map((task) => withHandMoves(teamId, task));
 
     return json(
       query.get('state') === 'completed-station'
