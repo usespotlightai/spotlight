@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeamSkills } from '@/routes/TeamSkills';
 
 const skills = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useTeamSkills', () => ({

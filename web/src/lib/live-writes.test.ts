@@ -4,10 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLive } from '@/lib/live';
 import { LIVE_SEQUENCES_HEADER, liveSequences } from '@/lib/live-sequences';
 import { refreshAfterWrite, WRITE_WAIT_MS } from '@/lib/live-writes';
+import { nonEmpty } from '@/lib/non-empty';
 
 const responded = (header?: string) =>
   new Response(null, {
-    headers: header ? { [LIVE_SEQUENCES_HEADER]: header } : {},
+    headers: nonEmpty(header) ? { [LIVE_SEQUENCES_HEADER]: header } : {},
   });
 
 const cached = () => {

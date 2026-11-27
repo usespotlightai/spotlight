@@ -1,9 +1,13 @@
 import { GitHubPullRequestReviews } from '@github/infrastructure/github/github-pull-request-reviews';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+
+const JSON_OBJECT = z.record(z.string(), z.unknown());
 
 interface SentRequest {
   readonly url: string;
@@ -29,13 +33,14 @@ const answering = (
       const request: SentRequest = {
         url,
         method: init.method ?? 'GET',
-        token: (init.headers as Record<string, string>).authorization.replace(
+        token: (new Headers(init.headers).get('authorization') ?? '').replace(
           'Bearer ',
           '',
         ),
-        body: init.body
-          ? (JSON.parse(init.body as string) as Record<string, unknown>)
-          : null,
+        body:
+          typeof init.body === 'string'
+            ? JSON_OBJECT.parse(JSON.parse(init.body))
+            : null,
       };
       requests.push(request);
       const { status, body } = reply(request);
@@ -201,7 +206,9 @@ describe('GitHubPullRequestReviews', () => {
       if (method === 'GET') {
         return { status: 200, body: { head: { sha: 'abc123' } } };
       }
-      return ((body?.comments ?? []) as unknown[]).length > 0
+      const comments = body?.comments;
+
+      return Array.isArray(comments) && comments.length > 0
         ? { status: 422, body: { message: 'Line could not be resolved' } }
         : { status: 200, body: { id: 901, html_url: 'r' } };
     });
@@ -214,7 +221,7 @@ describe('GitHubPullRequestReviews', () => {
       onFiles: [],
     });
 
-    const [, , , folded] = requests;
+    const folded = itemAt(requests, 3);
     expect(folded?.body?.comments).toEqual([]);
     expect(folded?.body?.body).toContain('`src/a.ts` lines 1–3');
     expect(folded?.body?.body).toContain('`src/b.ts` line 8');

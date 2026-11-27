@@ -1,9 +1,15 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { gitHubKeys } from '@/hooks/api/useGitHub';
 import { connectGitHub } from '@/lib/api';
 
-export function useConnectGitHubInstallation(slug: string) {
+export function useConnectGitHubInstallation(
+  slug: string,
+): UseMutationResult<void, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({

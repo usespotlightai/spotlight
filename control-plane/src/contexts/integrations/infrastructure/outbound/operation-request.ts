@@ -57,6 +57,9 @@ const queried = (
   return [[parameter.name, textOf(value)]];
 };
 
+const inputAt = (inputs: ToolCallInputs, name: string): JsonValue | undefined =>
+  inputs[name];
+
 const httpRequest = (
   call: Extract<SpecOperation['call'], { kind: 'http' }>,
   inputs: ToolCallInputs,
@@ -126,8 +129,11 @@ export const operationRequest = (
       query: call.document,
       variables: Object.fromEntries(
         call.variables
-          .filter((name) => inputs[name] !== undefined)
-          .map((name) => [name, inputs[name]]),
+          .map((name): [string, JsonValue | undefined] => [
+            name,
+            inputAt(inputs, name),
+          ])
+          .filter(([, given]) => given !== undefined),
       ),
     }),
   };

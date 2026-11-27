@@ -2,6 +2,7 @@ import {
   countsOf,
   type OriginalOutcome,
 } from '@replays/domain/services/composition';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 const SUGGESTED_FIRST: readonly OriginalOutcome[] = [
   'accepted',
@@ -42,14 +43,16 @@ export const balancingPicks = <T extends Suggestible>(
 
   while (picks.length < max) {
     const ceiling = Math.max(...counts.values());
-    const [short] = SUGGESTED_FIRST.filter(
-      (outcome) =>
-        countOf(outcome) < ceiling &&
-        left.some((each) => each.outcome === outcome),
-    ).sort(
-      (one, other) =>
-        countOf(one) - countOf(other) ||
-        SUGGESTED_FIRST.indexOf(one) - SUGGESTED_FIRST.indexOf(other),
+    const short = firstOf(
+      SUGGESTED_FIRST.filter(
+        (outcome) =>
+          countOf(outcome) < ceiling &&
+          left.some((each) => each.outcome === outcome),
+      ).sort(
+        (one, other) =>
+          countOf(one) - countOf(other) ||
+          SUGGESTED_FIRST.indexOf(one) - SUGGESTED_FIRST.indexOf(other),
+      ),
     );
 
     if (!short) {

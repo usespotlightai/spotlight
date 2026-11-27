@@ -3,6 +3,7 @@ import { WarmSandboxKeeping } from '@runs/application/services/warm-sandbox-keep
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { warmLineOf } from '@runs/domain/value-objects/warm-line.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-11-08T12:00:00.000Z');
@@ -27,11 +28,11 @@ const keepingWith = (over: { requestFails?: boolean } = {}) => {
     }),
     retire: vi.fn(async () => {}),
   } satisfies WarmSandboxKeepingPort;
-  const logger = {
+  const logger = partial<LoggerPort>({
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-  } as unknown as LoggerPort;
+  });
   const keeping = new WarmSandboxKeeping(
     { keepingWarmSandboxes: async () => [line] },
     sandboxes,

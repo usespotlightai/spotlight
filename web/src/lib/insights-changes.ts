@@ -15,6 +15,7 @@ import {
   shownDeltaOf,
 } from '@/lib/insights';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
+import { nonEmpty } from '@/lib/non-empty';
 import type { ComparedRow } from '@/lib/tally-comparison';
 
 export type InsightsChanges = InsightsChangesResponseDto;
@@ -108,8 +109,10 @@ export const formatAgentConfigWithin = (
 ): string =>
   [
     formatModel(agentConfig.model),
-    agentConfig.effort ? `${agentConfig.effort} effort` : null,
-    agentConfig.profileKey ? `${agentConfig.profileKey} profile` : null,
+    nonEmpty(agentConfig.effort) ? `${agentConfig.effort} effort` : null,
+    nonEmpty(agentConfig.profileKey)
+      ? `${agentConfig.profileKey} profile`
+      : null,
   ]
     .filter(Boolean)
     .join(', ');
@@ -143,7 +146,9 @@ export const harnessGroupsOf = (
   }));
 };
 
-export const shownMeasures = (judged: boolean) =>
+export const shownMeasures = (
+  judged: boolean,
+): (typeof OUTCOME_MEASURES)[number][] =>
   OUTCOME_MEASURES.filter((each) => each.id !== 'judge' || judged);
 
 export const agentConfigHeadings = (

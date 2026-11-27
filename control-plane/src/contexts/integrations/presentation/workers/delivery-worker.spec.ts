@@ -2,6 +2,7 @@ import type { DeliveryWorkPort } from '@integrations/application/ports/delivery-
 import type { InboundDeliveryRetention } from '@integrations/application/services/inbound-delivery-retention.service';
 import { DeliveryWorker } from '@integrations/presentation/workers/delivery-worker';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const gate = () => {
@@ -14,12 +15,12 @@ const gate = () => {
 };
 
 const ticking = (processDue: () => Promise<number>) => {
-  const logger = { error: vi.fn() } as unknown as LoggerPort;
-  const work = { processDue: vi.fn(processDue) } as unknown as DeliveryWorkPort;
+  const logger = partial<LoggerPort>({ error: vi.fn() });
+  const work = partial<DeliveryWorkPort>({ processDue: vi.fn(processDue) });
 
-  const retention = {
+  const retention = partial<InboundDeliveryRetention>({
     purgeFinished: vi.fn(async () => 0),
-  } as unknown as InboundDeliveryRetention;
+  });
 
   return { worker: new DeliveryWorker(work, retention, logger), work, logger };
 };

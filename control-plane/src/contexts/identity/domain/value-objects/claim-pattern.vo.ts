@@ -64,7 +64,7 @@ export class ClaimPattern {
   }
 
   equals(other: ClaimPattern): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof ClaimPattern && this.value === other.value;
   }
 
   toString(): string {

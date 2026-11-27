@@ -115,7 +115,7 @@ export function CreateWorkspace() {
         <p className="text-right text-sm leading-5">
           <span className="block text-muted-foreground">Logged in as:</span>
           <span className="font-[450] text-foreground">
-            {session?.user?.email}
+            {session?.user.email}
           </span>
         </p>
       </header>

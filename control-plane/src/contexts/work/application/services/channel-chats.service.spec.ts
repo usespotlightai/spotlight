@@ -1,7 +1,13 @@
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
-import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import type {
+  HarnessCatalogueEntry,
+  HarnessLaunchPort,
+} from '@runs/application/ports/harness-launch.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -28,6 +34,8 @@ import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -40,6 +48,16 @@ const ADA = UserId.of('user_ada');
 const GRACE = UserId.of('user_grace');
 
 const THREAD = Mark.of('slack.thread', 'C1:1700.1');
+
+const threadKeys = (): CorrelationKeys => {
+  const keys = CorrelationKeys.of({ marks: [THREAD] });
+
+  if (!keys) {
+    throw new Error('expected correlation keys for the thread');
+  }
+
+  return keys;
+};
 const CHANNEL = Mark.of('slack.channel', 'C1');
 const MARKS = [ChatMark.finding(THREAD), ChatMark.ambient(CHANNEL)];
 
@@ -53,7 +71,7 @@ const mentioned = (
     answers: false,
     state: 'raised',
   },
-  correlationKeys: CorrelationKeys.of({ marks: [THREAD] }) as CorrelationKeys,
+  correlationKeys: threadKeys(),
   anchor: said ? Anchor.of({ body: said }) : null,
   authorEmail: null,
   ourOwn: false,
@@ -110,7 +128,7 @@ const channels = ({
   const notify = vi.fn(async () => undefined);
   const warn = vi.fn();
   const service = new ChannelChats(
-    {
+    partial<ChatRepository>({
       findByCorrelation: vi.fn(async () => existing),
       add: vi.fn(async (chat: Chat) => {
         added.push(chat);
@@ -118,17 +136,21 @@ const channels = ({
       save: vi.fn(async (chat: Chat) => {
         saved.push(chat);
       }),
-    } as unknown as ChatRepository,
-    {
+    }),
+    partial<LineMapsPort>({
       ofTeam: vi.fn(async () =>
-        images.map((image) => ({
-          repositories: { all: [Repository.of('acme/api')] },
-          names: () => true,
-          image: image ? RunnerImage.of(image) : null,
-          runsIn: RunnerPlacement.anywhere(),
-        })),
+        images.map((image) =>
+          partial<LineMap>({
+            repositories: partial<LineRepositories>({
+              all: [Repository.of('acme/api')],
+            }),
+            names: () => true,
+            image: nonEmpty(image) ? RunnerImage.of(image) : null,
+            runsIn: RunnerPlacement.anywhere(),
+          }),
+        ),
       ),
-    } as unknown as LineMapsPort,
+    }),
     {
       byEmail: vi.fn(async (_, email: string) =>
         email === 'ada@example.com'
@@ -139,17 +161,20 @@ const channels = ({
       ),
     } satisfies MemberDirectoryPort,
     { seesTeam: vi.fn(async () => member) },
-    {
-      catalogue: () => [{ id: 'claude-code' }, { id: 'codex' }],
-    } as unknown as HarnessLaunchPort,
+    partial<HarnessLaunchPort>({
+      catalogue: () => [
+        partial<HarnessCatalogueEntry>({ id: 'claude-code' }),
+        partial<HarnessCatalogueEntry>({ id: 'codex' }),
+      ],
+    }),
     HarnessId.of('claude-code'),
     {
       takenUp: vi.fn(async (chat: Chat) => chat),
     },
     { notify } satisfies ChannelNoticesPort,
-    { now: () => NOW } as ClockPort,
+    partial<ClockPort>({ now: () => NOW }),
     { generate: () => 'chat_1' },
-    { info: vi.fn(), warn } as unknown as LoggerPort,
+    partial<LoggerPort>({ info: vi.fn(), warn }),
   );
 
   return { service, added, saved, notify, warn };
@@ -170,7 +195,7 @@ describe('ChannelChats', () => {
       ),
     ).toBeNull();
 
-    const [chat] = added;
+    const chat = firstOf(added);
     expect(chat?.startedBy).toEqual(ADA);
     expect(chat?.teamId).toEqual(TEAM);
     expect(chat?.harness).toEqual(HarnessId.of('claude-code'));

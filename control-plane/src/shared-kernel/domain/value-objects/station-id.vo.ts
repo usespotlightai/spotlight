@@ -13,7 +13,7 @@ export class StationId {
   }
 
   equals(other: StationId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof StationId && this.value === other.value;
   }
 
   toString(): string {

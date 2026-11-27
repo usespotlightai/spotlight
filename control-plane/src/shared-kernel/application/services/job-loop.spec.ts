@@ -64,7 +64,12 @@ const looping = (
   };
   const report = vi.fn();
   const error = vi.fn();
-  const logger = { error, warn: vi.fn() } as unknown as LoggerPort;
+  const logger: LoggerPort = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    error,
+    warn: vi.fn(),
+  };
   const telemetry = telemetryInMemory();
 
   const loop = new JobLoop<Item, string>(
@@ -83,7 +88,7 @@ const looping = (
       stale: () => false,
     },
     { inTransaction: <T>(work: () => Promise<T>) => work() },
-    { now: () => new Date(0), sleep: async () => undefined },
+    { now: () => new Date(0), sleep: async () => {} },
     logger,
     { report },
     telemetry,

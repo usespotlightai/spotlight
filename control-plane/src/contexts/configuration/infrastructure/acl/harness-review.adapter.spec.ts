@@ -35,8 +35,8 @@ describe('what Runs says of a harness profile, in Configuration’s fields', () 
       },
     ]);
 
-    expect(noted?.at.segments).toEqual(['permissions', 'allow', 1]);
-    expect(noted?.reason).toBe('Cursor matches a command by its first word');
+    expect(noted.at.segments).toEqual(['permissions', 'allow', 1]);
+    expect(noted.reason).toBe('Cursor matches a command by its first word');
   });
 
   it('addresses native settings and MCP servers under their own fields', () => {

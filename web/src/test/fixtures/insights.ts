@@ -328,27 +328,24 @@ const teamTrendOf = (
     }),
   }));
 
-const COUNTED = [
-  'failed',
-  'stopped',
-  'checksPassed',
-  'checksFailed',
-  'accepted',
-  'sentBack',
-  'passed',
-  'merged',
-  'cancelled',
-] as const;
-
 const countedOf = (
   reports: readonly InsightsStations['stations'][number][],
-): InsightsStations['teamCounted'] =>
-  Object.fromEntries(
-    COUNTED.map((key) => [
-      key,
-      reports.some((each) => tallyCountOf(each.tally, key) > 0),
-    ]),
-  ) as InsightsStations['teamCounted'];
+): InsightsStations['teamCounted'] => {
+  const counted = (key: keyof InsightsStations['teamCounted']): boolean =>
+    reports.some((each) => tallyCountOf(each.tally, key) > 0);
+
+  return {
+    failed: counted('failed'),
+    stopped: counted('stopped'),
+    checksPassed: counted('checksPassed'),
+    checksFailed: counted('checksFailed'),
+    accepted: counted('accepted'),
+    sentBack: counted('sentBack'),
+    passed: counted('passed'),
+    merged: counted('merged'),
+    cancelled: counted('cancelled'),
+  };
+};
 
 const STATIONS: InsightsStations = {
   period: PERIOD,

@@ -33,6 +33,9 @@ import { seenOf } from '@insights/pull-requests.fake-spec';
 import type { Env } from '@platform/config/env.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -192,8 +195,8 @@ const released = async (
   }
 };
 
-const pullRequestOf = (pullRequest = PULL) =>
-  pullRequests.at(WORKSPACE, pullRequest) as Promise<PullRequestRecord>;
+const pullRequestOf = async (pullRequest = PULL): Promise<PullRequestRecord> =>
+  present(await pullRequests.at(WORKSPACE, pullRequest));
 
 const whileLocked = async (
   lock: (first: ReturnType<typeof elsewhere>) => Promise<void>,
@@ -216,10 +219,9 @@ const whileLocked = async (
 };
 
 const factOf = async (runId: string) => {
-  const [row] = await database.db
-    .select()
-    .from(runFact)
-    .where(eq(runFact.runId, runId));
+  const row = firstOf(
+    await database.db.select().from(runFact).where(eq(runFact.runId, runId)),
+  );
 
   return row ?? null;
 };
@@ -239,7 +241,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 beforeEach(async () => {
@@ -274,7 +276,7 @@ describe('run facts', () => {
 
     const recorded = await records.of(RunId.of('run_1'));
     await records.save(
-      withUsageRecorded(recorded as RunRecord).recordAction(
+      withUsageRecorded(present(recorded)).recordAction(
         PersonAction.of('accepted', at(0.5), UserId.of('user_actor')),
       ),
     );
@@ -304,16 +306,16 @@ describe('run facts', () => {
 
     expect(await factOf('run_briefed')).toBeNull();
 
-    const briefed = (await records.of(runId)) as RunRecord;
+    const briefed = present(await records.of(runId));
     await records.save(
-      briefed.recordEnd(ended('run_briefed', 'task_b').end as RunEnd),
+      briefed.recordEnd(present(ended('run_briefed', 'task_b').end)),
     );
 
     expect(await factOf('run_briefed')).toMatchObject({
       memories: { briefed: ['mem_1'], recalled: [] },
     });
 
-    const finished = (await records.of(runId)) as RunRecord;
+    const finished = present(await records.of(runId));
     await records.save(
       finished.recordMemories('recalled', [MemoryReference.of('mem_2')]),
     );
@@ -389,9 +391,7 @@ describe('run facts', () => {
     await whileLocked(
       async (first) =>
         first.records.save(
-          withUsageRecorded(
-            (await first.records.of(RunId.of('run_1'))) as RunRecord,
-          ),
+          withUsageRecorded(present(await first.records.of(RunId.of('run_1')))),
         ),
       () => second.pullRequests.save(mergedOnGitHub(pullRequestOfTask)),
     );
@@ -576,10 +576,10 @@ describe('run facts', () => {
     await records.add(
       RunRecord.empty(RunId.of('run_2'), WORKSPACE).recordEnd(
         RunEnd.of({
-          ...(ended('run_2', 'task_2').end as RunEnd),
-          location: (ended('run_2', 'task_2').end as RunEnd).location,
+          ...present(ended('run_2', 'task_2').end),
+          location: present(ended('run_2', 'task_2').end).location,
           fingerprint: 'a'.repeat(64),
-          agentConfig: (ended('run_2', 'task_2').end as RunEnd).agentConfig,
+          agentConfig: present(ended('run_2', 'task_2').end).agentConfig,
           startedAt: null,
           queuedMs: 0,
           runningMs: 0,
@@ -618,12 +618,12 @@ describe('run facts', () => {
 
     await pullRequests.save(mergedOnGitHub(await pullRequestOf()));
     await records.save(
-      ((await records.of(RunId.of('run_2'))) as RunRecord).passTo(
+      present(await records.of(RunId.of('run_2'))).passTo(
         StationPass.of(StationId.of('station_2'), at(0.4)),
       ),
     );
     await records.save(
-      ((await records.of(RunId.of('run_3'))) as RunRecord).recordAction(
+      present(await records.of(RunId.of('run_3'))).recordAction(
         PersonAction.of('sent-back', at(0.4), UserId.of('user_actor')),
       ),
     );
@@ -635,7 +635,7 @@ describe('run facts', () => {
 
   it('follows a superseding, a pass and a dismissal received after the run ended', async () => {
     await records.add(ended('run_1', 'task_1'));
-    const recorded = (await records.of(RunId.of('run_1'))) as RunRecord;
+    const recorded = present(await records.of(RunId.of('run_1')));
 
     await records.save(
       recorded
@@ -813,10 +813,10 @@ describe('run facts', () => {
     const failed = (runId: string, taskId: string) =>
       RunRecord.empty(RunId.of(runId), WORKSPACE).recordEnd(
         RunEnd.of({
-          ...(ended(runId, taskId).end as RunEnd),
-          location: (ended(runId, taskId).end as RunEnd).location,
+          ...present(ended(runId, taskId).end),
+          location: present(ended(runId, taskId).end).location,
           fingerprint: 'a'.repeat(64),
-          agentConfig: (ended(runId, taskId).end as RunEnd).agentConfig,
+          agentConfig: present(ended(runId, taskId).end).agentConfig,
           queuedMs: 15 * 60_000,
           runningMs: 10 * 60_000,
           ending: 'failed',
@@ -827,9 +827,12 @@ describe('run facts', () => {
       failed('run_superseded', 'task_2').supersededByItsTask(at(0.5)),
     );
     const reader = new DrizzleInsightsReader(
-      new DrizzleReading(database.db, {
-        DATABASE_READ_TIMEOUT_MS: 15_000,
-      } as Env),
+      new DrizzleReading(
+        database.db,
+        partial<Env>({
+          DATABASE_READ_TIMEOUT_MS: 15_000,
+        }),
+      ),
     );
     const window = { from: at(24), to: at(0) };
     const listed = (outcome: string) =>
@@ -891,9 +894,12 @@ describe('run facts', () => {
         .recordAction(PersonAction.of('started', at(0.5), person)),
     );
     const reader = new DrizzleInsightsReader(
-      new DrizzleReading(database.db, {
-        DATABASE_READ_TIMEOUT_MS: 15_000,
-      } as Env),
+      new DrizzleReading(
+        database.db,
+        partial<Env>({
+          DATABASE_READ_TIMEOUT_MS: 15_000,
+        }),
+      ),
     );
     const window = { from: at(24), to: at(0) };
     const listed = async (humanAction: string) =>

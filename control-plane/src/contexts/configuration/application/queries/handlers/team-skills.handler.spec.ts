@@ -4,7 +4,11 @@ import { TeamSkillsQuery } from '@configuration/application/queries/team-skills.
 import type { TeamSkillReading } from '@configuration/application/services/team-skill-reading.service';
 import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { Skill } from '@configuration/domain/value-objects/skill.vo';
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type {
+  TeamWorkspaceMembership,
+  WorkspaceAccessPort,
+} from '@identity/application/ports/workspace-access.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -27,14 +31,19 @@ const GRAFANA: ReadSkillFolder = {
 
 const listing = (teamId = 'team_1') =>
   new TeamSkillsHandler(
-    {
+    partial<WorkspaceAccessPort>({
       inWorkspaceOfTeam: vi.fn(async (id: TeamId) =>
         id.value === 'team_1'
-          ? { teamId: TeamId.of('team_1'), workspaceId: WorkspaceId.of('ws_1') }
+          ? partial<TeamWorkspaceMembership>({
+              teamId: TeamId.of('team_1'),
+              workspaceId: WorkspaceId.of('ws_1'),
+            })
           : null,
       ),
-    } as unknown as WorkspaceAccessPort,
-    { of: vi.fn(async () => [GRAFANA]) } as unknown as TeamSkillReading,
+    }),
+    partial<TeamSkillReading>({
+      of: vi.fn(async () => [GRAFANA]),
+    }),
   ).execute(new TeamSkillsQuery(teamId, 'user_1'));
 
 describe('TeamSkillsHandler', () => {

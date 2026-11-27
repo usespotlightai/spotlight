@@ -17,6 +17,7 @@ import {
 } from '@insights/domain/services/run-tally';
 import type { StationLocation } from '@insights/domain/services/station-ranking';
 import { type InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export interface DayTally {
   readonly day: string;
@@ -95,7 +96,7 @@ export const stationReportsFrom = (
   for (const each of counts.failing) {
     const stationId = each.occurrence.stationId.value;
 
-    if (!places.has(stationId) && each.lineId) {
+    if (!places.has(stationId) && nonEmpty(each.lineId)) {
       places.set(stationId, {
         lineId: each.lineId,
         stationId,

@@ -13,6 +13,8 @@ import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -81,18 +83,18 @@ const joining = (
     teams[saved.id.value] = saved;
   });
   const memberships = new InviteMemberships(
-    {
+    partial<WorkspaceRepository>({
       find: async () => workspace,
       save: savedWorkspace,
-    } as unknown as WorkspaceRepository,
-    {
+    }),
+    partial<TeamRepository>({
       find: async (id: TeamId) => teams[id.value] ?? null,
       save: savedTeam,
-    } as unknown as TeamRepository,
-    {
+    }),
+    partial<PersonReaderPort>({
       find: async (id: UserId) =>
         over.adaLeft ? null : { id, name: 'Ada', image: null },
-    } as unknown as PersonReaderPort,
+    }),
   );
 
   return { memberships, savedWorkspace, savedTeam };
@@ -112,7 +114,7 @@ describe('InviteMemberships', () => {
 
     await memberships.joinWorkspace(accepted());
 
-    const saved = savedWorkspace.mock.calls[0]?.[0];
+    const saved = firstOf(savedWorkspace.mock.calls)?.[0];
     expect(saved?.roleOf(ADA)).toBe(WorkspaceRole.admin);
     expect(saved?.pullEvents().map((each) => each.kind)).toEqual([
       'workspace.member-joined',
@@ -132,7 +134,7 @@ describe('InviteMemberships', () => {
       await both(memberships, accepted(invited));
 
       expect(savedWorkspace).not.toHaveBeenCalled();
-      expect(savedTeam.mock.calls[0]?.[0].hasMember(ADA)).toBe(true);
+      expect(firstOf(savedTeam.mock.calls)?.[0].hasMember(ADA)).toBe(true);
     }
   });
 
@@ -143,8 +145,8 @@ describe('InviteMemberships', () => {
 
     expect(savedWorkspace).toHaveBeenCalledTimes(1);
     expect(savedTeam).toHaveBeenCalledTimes(1);
-    expect(savedTeam.mock.calls[0]?.[0].id.value).toBe('team_1');
-    expect(savedTeam.mock.calls[0]?.[0].hasMember(ADA)).toBe(true);
+    expect(firstOf(savedTeam.mock.calls)?.[0].id.value).toBe('team_1');
+    expect(firstOf(savedTeam.mock.calls)?.[0].hasMember(ADA)).toBe(true);
   });
 
   it('takes nobody onto a team before they are in the workspace, so the delivery is tried again', async () => {

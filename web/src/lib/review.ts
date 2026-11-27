@@ -53,7 +53,7 @@ export const VERDICTS: readonly {
 ];
 
 const onLines = (comment: ReviewComment): comment is LineComment =>
-  comment.side !== null && comment.line !== null;
+  comment.line !== null;
 
 export const threadsOf = (comments: readonly ReviewComment[]): ReviewThread[] =>
   comments
@@ -116,7 +116,11 @@ export const sideOf = (selection: SelectionSide | undefined): ReviewSide =>
 export const selectionSideOf = (side: ReviewSide): SelectionSide =>
   side === 'old' ? 'deletions' : 'additions';
 
-export const within = (hunk: DiffHunk, side: ReviewSide, line: number) => {
+export const within = (
+  hunk: DiffHunk,
+  side: ReviewSide,
+  line: number,
+): boolean => {
   const start = side === 'old' ? hunk.oldStart : hunk.newStart;
   const count = side === 'old' ? hunk.oldLines : hunk.newLines;
 
@@ -161,7 +165,10 @@ export const linesOf = (spot: ReviewSpot): string =>
     ? `line ${spot.line}`
     : `lines ${spot.startLine}–${spot.line}`;
 
-export const samePlace = (spot: ReviewSpot | null, other: ReviewSpot) =>
+export const samePlace = (
+  spot: ReviewSpot | null,
+  other: ReviewSpot,
+): boolean =>
   spot !== null &&
   spot.path === other.path &&
   spot.side === other.side &&

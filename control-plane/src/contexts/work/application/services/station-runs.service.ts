@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { FingerprintedConfig } from '@work/application/contracts/station-config.contract';
@@ -20,7 +21,7 @@ const PREVIEW_LIMIT = 300;
 
 const shortened = (text: string | null | undefined): string | null => {
   const trimmed = text?.trim();
-  return trimmed ? trimmed.slice(0, PREVIEW_LIMIT) : null;
+  return nonEmpty(trimmed) ? trimmed.slice(0, PREVIEW_LIMIT) : null;
 };
 
 export class StationRuns implements StationRunsPort {
@@ -113,7 +114,7 @@ export class StationRuns implements StationRunsPort {
       outputs: new Map(
         [...rows.notes].flatMap(([taskId, body]) => {
           const output = shortened(body);
-          return output ? [[taskId, output] as const] : [];
+          return nonEmpty(output) ? [[taskId, output] as const] : [];
         }),
       ),
     };

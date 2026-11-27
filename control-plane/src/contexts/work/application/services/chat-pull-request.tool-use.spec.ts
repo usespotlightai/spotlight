@@ -1,7 +1,12 @@
-import type { PullRequestPort } from '@github/application/ports/pull-request.port';
+import type {
+  OpenedPullRequestDto,
+  PullRequestPort,
+} from '@github/application/ports/pull-request.port';
 import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -43,6 +48,13 @@ import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+
+const opened = (url: string): OpenedPullRequestDto =>
+  partial<OpenedPullRequestDto>({ url });
+
+const taskAnswerOf = (answer: unknown) =>
+  z.object({ task: z.string() }).parse(answer);
 
 const NOW = new Date('2026-11-19T09:00:00.000Z');
 const URL = 'https://github.com/acme/web/pull/7';
@@ -114,7 +126,7 @@ const using = (
   const tasks = new Map<string, Task>(
     (held ?? []).map((each) => [each.id.value, each]),
   );
-  const open = vi.fn(async () => ({ url: URL }));
+  const open = vi.fn(async () => opened(URL));
   const changedOn = vi.fn(async (): Promise<readonly string[]> => [
     'web/src/icons.ts',
   ]);
@@ -122,13 +134,13 @@ const using = (
   const allows = vi.fn(async () => {});
   const allowsNew = vi.fn(async () => {});
   const tool = new ChatPullRequestToolUse(
-    {
+    partial<ChatRepository>({
       find: async () => chat,
       save: async (saved: Chat) => {
         chat = saved;
       },
-    } as unknown as ChatRepository,
-    {
+    }),
+    partial<TaskRepository>({
       find: async (id: TaskId) => tasks.get(id.value) ?? null,
       save: async (saved: Task) => {
         tasks.set(saved.id.value, saved);
@@ -138,11 +150,13 @@ const using = (
       },
       onBranch: async (_: WorkspaceId, branch: Branch) =>
         [...tasks.values()].find((each) => each.branch.equals(branch)) ?? null,
-    } as unknown as TaskRepository,
-    { ofTeam: async () => lines } as unknown as LineMapsPort,
+    }),
+    partial<LineMapsPort>({ ofTeam: async () => lines }),
     { placementsAt: async () => [] },
-    { membersOf: async () => TeamMembers.of([LEON]) } as unknown as WorkAccess,
-    {
+    partial<WorkAccess>({
+      membersOf: async () => TeamMembers.of([LEON]),
+    }),
+    partial<CreateTask>({
       create: async ({ task }: { task: Task }) => {
         const first = racing.shift();
 
@@ -155,15 +169,15 @@ const using = (
         tasks.set(task.id.value, task);
         return task;
       },
-    } as unknown as CreateTask,
-    { open, changedOn } as unknown as PullRequestPort,
-    { allows, allowsNew } as unknown as PullRequestOpeningHook,
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
-    { defaultBranchNameOf } as unknown as RepositorySettingsPort,
+    }),
+    partial<PullRequestPort>({ open, changedOn }),
+    partial<PullRequestOpeningHook>({ allows, allowsNew }),
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
+    partial<RepositorySettingsPort>({ defaultBranchNameOf }),
     { generate: () => `id_${++next}` },
-    { now: () => NOW } as ClockPort,
+    partial<ClockPort>({ now: () => NOW }),
   );
   const context: ChatToolContext = {
     kind: 'chat',
@@ -217,8 +231,8 @@ describe('ChatPullRequestToolUse', () => {
   it('puts a task on hold for the chat at the station that opens pull requests, and keeps it on the chat', async () => {
     const { tool, context, created, stored, current } = using();
 
-    const answer = (await tool.call(context, INPUTS)) as { task: string };
-    const task = created[0];
+    const answer = taskAnswerOf(await tool.call(context, INPUTS));
+    const task = firstOf(created);
 
     expect(task?.stationId.equals(SHIP)).toBe(true);
     expect(task?.openHold?.chat?.value).toBe('chat_1');
@@ -278,8 +292,8 @@ describe('ChatPullRequestToolUse', () => {
       [both],
     );
     open
-      .mockResolvedValueOnce({ url: URL })
-      .mockResolvedValueOnce({ url: 'https://github.com/acme/api/pull/3' });
+      .mockResolvedValueOnce(opened(URL))
+      .mockResolvedValueOnce(opened('https://github.com/acme/api/pull/3'));
 
     await tool.call(
       context,
@@ -342,7 +356,7 @@ describe('ChatPullRequestToolUse', () => {
 
   it('keeps the chat’s pull request when GitHub names the repository in other letter case', async () => {
     const { tool, context, open, current } = using();
-    open.mockResolvedValueOnce({ url: 'https://github.com/Acme/Web/pull/7' });
+    open.mockResolvedValueOnce(opened('https://github.com/Acme/Web/pull/7'));
 
     await tool.call(context, INPUTS);
 
@@ -375,10 +389,12 @@ describe('ChatPullRequestToolUse', () => {
         turnHeads: [],
         at: NOW,
       });
-    const first = (await tool.call(
-      context,
-      ToolInputs.of({ ...INPUT_VALUES, repository: 'acme/web' }),
-    )) as { task: string };
+    const first = taskAnswerOf(
+      await tool.call(
+        context,
+        ToolInputs.of({ ...INPUT_VALUES, repository: 'acme/web' }),
+      ),
+    );
     open.mockImplementationOnce(async () => {
       const task = stored(first.task);
 
@@ -386,7 +402,7 @@ describe('ChatPullRequestToolUse', () => {
         put(handedOver(task));
       }
 
-      return { url: 'https://github.com/acme/api/pull/3' };
+      return opened('https://github.com/acme/api/pull/3');
     });
 
     await tool.call(
@@ -415,8 +431,8 @@ describe('ChatPullRequestToolUse', () => {
       [both],
     );
     open
-      .mockResolvedValueOnce({ url: URL })
-      .mockResolvedValueOnce({ url: 'https://github.com/acme/api/pull/3' });
+      .mockResolvedValueOnce(opened(URL))
+      .mockResolvedValueOnce(opened('https://github.com/acme/api/pull/3'));
 
     await tool.call(
       context,
@@ -446,7 +462,12 @@ describe('ChatPullRequestToolUse', () => {
       context,
       ToolInputs.of({ ...INPUT_VALUES, repository: 'acme/web' }),
     );
-    const task = stored(created[0]?.id.value ?? '') as Task;
+    const task = stored(created[0]?.id.value ?? '');
+
+    if (!task) {
+      throw new Error('expected a stored task');
+    }
+
     put(
       task.resumeLine({
         by: LEON,
@@ -490,7 +511,7 @@ describe('ChatPullRequestToolUse', () => {
     await expect(tool.call(context, INPUTS)).rejects.toThrow('GitHub is down.');
     expect(created).toEqual([]);
 
-    const answer = (await tool.call(context, INPUTS)) as { task: string };
+    const answer = taskAnswerOf(await tool.call(context, INPUTS));
 
     expect(open).toHaveBeenCalledTimes(2);
     expect(created).toHaveLength(1);
@@ -518,7 +539,7 @@ describe('ChatPullRequestToolUse', () => {
     });
     raceWith(first);
 
-    const answer = (await tool.call(context, INPUTS)) as { task: string };
+    const answer = taskAnswerOf(await tool.call(context, INPUTS));
 
     expect(answer.task).toBe('task_first');
     expect(created).toEqual([]);
@@ -531,7 +552,12 @@ describe('ChatPullRequestToolUse', () => {
     const { tool, context, created, stored, put } = using();
 
     await tool.call(context, INPUTS);
-    const task = stored(created[0]?.id.value ?? '') as Task;
+    const task = stored(created[0]?.id.value ?? '');
+
+    if (!task) {
+      throw new Error('expected a stored task');
+    }
+
     put(
       task.resumeLine({
         by: LEON,

@@ -7,6 +7,7 @@ import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { MarkdownCommentBodies } from '@change-review/infrastructure/rendering/markdown-comment-bodies';
 import type { StickyComment } from '@github/application/ports/pull-request-comments.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -89,7 +90,8 @@ const posting = (
     over.pullRequest === undefined
       ? 'https://github.com/acme/widgets/pull/66'
       : over.pullRequest;
-  const pullRequests = over.pullRequests ?? (pullRequest ? [pullRequest] : []);
+  const pullRequests =
+    over.pullRequests ?? (nonEmpty(pullRequest) ? [pullRequest] : []);
 
   const poster = new PostChangeStackComment(
     {
@@ -173,12 +175,12 @@ const posting = (
         }
         upserted.push(comment);
       },
-      delete: async () => undefined,
+      delete: async () => {},
     },
-    { now: () => NOW, sleep: async () => undefined },
+    { now: () => NOW, sleep: async () => {} },
     {
       changeStackOf: ({ taskId, repository }) =>
-        `https://app.example/tasks/${taskId.value}/changes${repository ? `?repository=${repository}` : ''}`,
+        `https://app.example/tasks/${taskId.value}/changes${nonEmpty(repository) ? `?repository=${repository}` : ''}`,
       decisionsOf: ({ taskId }) =>
         `https://app.example/tasks/${taskId.value}#decisions`,
     },

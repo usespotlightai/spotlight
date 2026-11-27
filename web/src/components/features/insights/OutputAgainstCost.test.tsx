@@ -7,29 +7,30 @@ import {
   OutputAgainstCost,
   TipContent,
 } from '@/components/features/insights/OutputAgainstCost';
-import type { LineResponseDto } from '@/lib/api';
+import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import { BeforeAfterActionsContext } from '@/lib/before-after-panel';
 import { type DayOutput, stationNamesOf } from '@/lib/insights';
+import { partial } from '@/test/partial';
 
 const NAMES = stationNamesOf([
-  {
+  partial<LineResponseDto>({
     id: 'line_1',
     key: 'delivery',
     name: 'Delivery',
     reactions: [],
     repositories: [],
     stations: [
-      {
+      partial<StationResponseDto>({
         id: 'station_build',
         key: 'build',
         name: 'Implementation',
         position: 1,
         color: '#5c66d9',
         kind: 'work',
-      },
+      }),
     ],
-  },
-] as unknown as LineResponseDto[]);
+  }),
+]);
 
 const DAYS: DayOutput[] = [
   {

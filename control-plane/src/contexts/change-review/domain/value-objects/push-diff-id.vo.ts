@@ -13,7 +13,7 @@ export class PushDiffId {
   }
 
   equals(other: PushDiffId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof PushDiffId && this.value === other.value;
   }
 
   toString(): string {

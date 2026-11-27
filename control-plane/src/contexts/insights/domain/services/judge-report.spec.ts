@@ -11,6 +11,7 @@ import {
   rubricOf,
 } from '@insights/judging.fake-spec';
 import { endedRecord, factsWith } from '@insights/runs.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -54,7 +55,7 @@ const CURRENT = {
 describe('judgeReportOf', () => {
   it('pairs each judge verdict with what people did on the run', () => {
     const report = reportOf(12, 12);
-    const [version] = report.versions;
+    const version = firstOf(report.versions);
 
     expect(version?.agreement.pairs).toBe(12);
     expect(version?.agreement.kappa).toBe(1);

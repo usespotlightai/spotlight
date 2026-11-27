@@ -87,7 +87,7 @@ export class MemoryScope {
       (this.paths.length === 0 ||
         runContext.touched.some(
           (touched) =>
-            repository?.equals(touched.repository) &&
+            repository?.equals(touched.repository) === true &&
             this.paths.some((path) => path.covers(touched.path)),
         ))
     );

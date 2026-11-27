@@ -14,6 +14,7 @@ import {
   sending,
 } from '@github/infrastructure/github/github.rest';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -67,7 +68,7 @@ const decoded = (base64: string): string =>
   Buffer.from(base64, 'base64').toString('utf8');
 
 const shaOf = (answer: Sha, operation: string): string => {
-  if (!answer.sha) {
+  if (!nonEmpty(answer.sha)) {
     throw new UpstreamError(operation, 'GitHub answered without a sha');
   }
 
@@ -112,10 +113,13 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       `GitHub would not return ${path} in ${repository.value}`,
     );
 
-    if (found.type === 'symlink' || (found.path && found.path !== path)) {
+    if (
+      found.type === 'symlink' ||
+      (nonEmpty(found.path) && found.path !== path)
+    ) {
       throw new RepositoryFileUnwritableError(path);
     }
-    if (found.type !== 'file' || !found.sha) {
+    if (found.type !== 'file' || !nonEmpty(found.sha)) {
       return null;
     }
 
@@ -150,15 +154,15 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
     const prefix = directory ? `${directory}/` : '';
 
     return Promise.all(
-      (found.tree ?? []).flatMap((each) =>
-        each.type === 'blob' &&
-        each.mode === FILE_MODE &&
-        each.path?.startsWith(prefix) &&
-        each.sha
+      (found.tree ?? []).flatMap(({ type, mode, path, sha }) =>
+        type === 'blob' &&
+        mode === FILE_MODE &&
+        path?.startsWith(prefix) &&
+        nonEmpty(sha)
           ? [
               (async () => ({
-                path: each.path as string,
-                content: await this.blob(repository, each.sha as string, token),
+                path,
+                content: await this.blob(repository, sha, token),
               }))(),
             ]
           : [],
@@ -188,7 +192,9 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
 
     return found.truncated
       ? null
-      : (found.tree ?? []).flatMap((each) => (each.path ? [each.path] : []));
+      : (found.tree ?? []).flatMap((each) =>
+          nonEmpty(each.path) ? [each.path] : [],
+        );
   }
 
   async committed(
@@ -277,7 +283,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       );
       const entry = (listed.tree ?? []).find((each) => each.path === step);
 
-      if (!entry?.sha) {
+      if (!nonEmpty(entry?.sha)) {
         return null;
       }
       if (at === steps.length - 1) {

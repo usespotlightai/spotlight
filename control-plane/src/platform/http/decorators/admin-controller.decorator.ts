@@ -8,7 +8,9 @@ import { AdminOnly } from '@platform/http/decorators/admin-only.decorator';
 import { ADMIN } from '@platform/http/routes';
 
 // A controller of the admin API, under /api/admin, for the admin token only.
-export const AdminController = (path: string) =>
+export const AdminController = (
+  path: string,
+): ReturnType<typeof applyDecorators> =>
   applyDecorators(
     ApiTags('admin'),
     ApiBearerAuth(),

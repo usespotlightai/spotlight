@@ -9,6 +9,7 @@ import { SignInToContinue } from '@/components/shell/auth/SignInToContinue';
 import { useDeviceCode } from '@/hooks/api/useDeviceCode';
 import { useSession } from '@/hooks/api/useSession';
 import { DEVICE_PATH, devicePath, TOO_MANY_ATTEMPTS } from '@/lib/device';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 
 const WIDTH = 'w-80';
@@ -22,11 +23,11 @@ export function AuthorizeDevice() {
   const signedIn = Boolean(session?.user);
   const device = useDeviceCode(userCode, signedIn);
 
-  if (reading || (signedIn && userCode && loading(device))) {
+  if (reading || (signedIn && nonEmpty(userCode) && loading(device))) {
     return null;
   }
 
-  if (!userCode) {
+  if (!nonEmpty(userCode)) {
     return (
       <AuthScreen className={WIDTH}>
         <AuthTitle title={TITLE}>

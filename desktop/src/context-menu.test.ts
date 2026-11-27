@@ -1,29 +1,37 @@
-import type { ContextMenuParams, WebContents } from 'electron';
 import { describe, expect, it } from 'vitest';
 
-import { contextMenuOf } from './context-menu';
+import {
+  contextMenuOf,
+  type MenuContents,
+  type MenuParams,
+} from './context-menu';
 
-const params = (change: Partial<ContextMenuParams>): ContextMenuParams =>
-  ({
-    misspelledWord: '',
-    dictionarySuggestions: [],
-    linkURL: '',
-    mediaType: 'none',
-    isEditable: false,
-    selectionText: '',
-    x: 0,
-    y: 0,
-    editFlags: {
-      canCut: true,
-      canCopy: true,
-      canPaste: true,
-      canSelectAll: true,
-    },
-    ...change,
-  }) as ContextMenuParams;
+const params = (change: Partial<MenuParams>): MenuParams => ({
+  misspelledWord: '',
+  dictionarySuggestions: [],
+  linkURL: '',
+  mediaType: 'none',
+  isEditable: false,
+  selectionText: '',
+  x: 0,
+  y: 0,
+  editFlags: {
+    canCut: true,
+    canCopy: true,
+    canPaste: true,
+    canSelectAll: true,
+  },
+  ...change,
+});
 
-const labels = (change: Partial<ContextMenuParams>) =>
-  contextMenuOf(params(change), {} as WebContents).map(
+const contents: MenuContents = {
+  replaceMisspelling: () => undefined,
+  copyImageAt: () => undefined,
+  session: { addWordToSpellCheckerDictionary: () => true },
+};
+
+const labels = (change: Partial<MenuParams>) =>
+  contextMenuOf(params(change), contents).map(
     (each) => each.label ?? each.role ?? each.type,
   );
 

@@ -54,13 +54,18 @@ const SPLIT_CAP =
 
 const SPLIT_ROOM = 'calc(100% - var(--pane-gap))';
 
+const PANE_SPACING: CSSProperties & Record<`--${string}`, string> = {
+  '--pane-min': `${SPLIT_PANE.min}px`,
+  '--pane-gap': `${PANE_GAP_PX}px`,
+};
+
 const PANE_SECTION =
   '@container/pane relative flex min-h-0 flex-1 flex-col overflow-clip rounded-lg border-[0.5px] border-border bg-surface shadow-pane outline-none transition-opacity data-collapsing:opacity-40 md:data-focused:border-foreground/25';
 
 const capOf = (row: HTMLElement | null) => {
   const room = row?.clientWidth;
 
-  return room
+  return room !== undefined && room !== 0
     ? Math.max(room - PANE_MIN_PX - PANE_GAP_PX, (room - PANE_GAP_PX) / 2)
     : Infinity;
 };
@@ -96,6 +101,14 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   const collapsed = useSidebarCollapsedSetting();
   const desktop = framesWindow();
+  const shellSpacing: CSSProperties & Record<`--${string}`, string> = {
+    '--spring-duration': `${SPRING_MS}ms`,
+    '--sidebar-toggle-left': desktop ? '5.75rem' : '0.5rem',
+    '--sidebar-toggle-size': '1.75rem',
+    '--sidebar-toggle-end':
+      'calc(var(--sidebar-toggle-left) + var(--sidebar-toggle-size) + 0.375rem)',
+    '--sidebar-floor': desktop ? 'var(--sidebar-toggle-end)' : '0.5rem',
+  };
   const shown = panes ?? [{ key: 'main', content: children }];
   const [mainKey, setMainKey] = useState(shown[0].key);
   const steady = mainKey === shown[0].key;
@@ -138,9 +151,11 @@ export function DashboardLayout({
       styleOf(
         splitRef.current,
         'maxWidth',
-        shown && `min(${SPLIT_ROOM}, max(${SPLIT_CAP}, ${shown}))`,
+        shown === null
+          ? null
+          : `min(${SPLIT_ROOM}, max(${SPLIT_CAP}, ${shown}))`,
       );
-      if (shown) {
+      if (shown !== null) {
         styleOf(splitRef.current, 'width', shown);
       }
     },
@@ -157,16 +172,7 @@ export function DashboardLayout({
 
   return (
     <div
-      style={
-        {
-          '--spring-duration': `${SPRING_MS}ms`,
-          '--sidebar-toggle-left': desktop ? '5.75rem' : '0.5rem',
-          '--sidebar-toggle-size': '1.75rem',
-          '--sidebar-toggle-end':
-            'calc(var(--sidebar-toggle-left) + var(--sidebar-toggle-size) + 0.375rem)',
-          '--sidebar-floor': desktop ? 'var(--sidebar-toggle-end)' : '0.5rem',
-        } as CSSProperties
-      }
+      style={shellSpacing}
       className={cn(
         'flex h-svh overflow-clip bg-background',
         desktop && 'bg-background/40',
@@ -188,12 +194,7 @@ export function DashboardLayout({
 
         <div
           ref={paneRef}
-          style={
-            {
-              '--pane-min': `${SPLIT_PANE.min}px`,
-              '--pane-gap': `${PANE_GAP_PX}px`,
-            } as CSSProperties
-          }
+          style={PANE_SPACING}
           className="relative flex min-h-0 flex-1 gap-(--pane-gap)"
         >
           {columns.map((column, index) => {

@@ -21,11 +21,14 @@ const reacting = (
   answer: (request: SentRequest) => { status: number; body?: unknown },
 ) => {
   const requests: SentRequest[] = [];
-  const fetch = (async (url: string, init: RequestInit = {}) => {
+  const fetch = async (url: string, init: RequestInit = {}) => {
     const request = {
       url,
       method: init.method ?? 'GET',
-      body: init.body ? (JSON.parse(init.body as string) as unknown) : null,
+      body:
+        typeof init.body === 'string'
+          ? (JSON.parse(init.body) as unknown)
+          : null,
     };
     requests.push(request);
     const { status, body } = answer(request);
@@ -33,7 +36,7 @@ const reacting = (
     return new Response(body === undefined ? null : JSON.stringify(body), {
       status,
     });
-  }) as typeof globalThis.fetch;
+  };
 
   const reactions = new GitHubPullRequestReactions(
     {

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export function useTimedFlag(ms: number) {
+type TimedFlagResult = { on: boolean; raise: () => void };
+
+export function useTimedFlag(ms: number): TimedFlagResult {
   const [on, setOn] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 

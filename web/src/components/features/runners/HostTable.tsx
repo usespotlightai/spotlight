@@ -20,6 +20,14 @@ type HostTableProps = {
 
 export function HostTable({ label, children }: HostTableProps) {
   const columns = useColumnWidths(HOST_HEADINGS.length);
+  const hostColumns: CSSProperties & Record<`--${string}`, string> = {
+    '--host-columns': columnTemplate(HOST_HEADINGS, columns.widths, false),
+    '--host-columns-narrow': columnTemplate(
+      NARROW_HEADINGS,
+      narrowOf(columns.widths),
+      false,
+    ),
+  };
 
   return (
     <ScrollArea
@@ -29,20 +37,7 @@ export function HostTable({ label, children }: HostTableProps) {
     >
       <section
         aria-label={label}
-        style={
-          {
-            '--host-columns': columnTemplate(
-              HOST_HEADINGS,
-              columns.widths,
-              false,
-            ),
-            '--host-columns-narrow': columnTemplate(
-              NARROW_HEADINGS,
-              narrowOf(columns.widths),
-              false,
-            ),
-          } as CSSProperties
-        }
+        style={hostColumns}
         className="min-h-full px-1.5 pb-1.5 @5xl/pane:min-w-[68rem]"
       >
         <HostHead

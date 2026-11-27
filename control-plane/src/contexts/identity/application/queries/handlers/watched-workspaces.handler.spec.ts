@@ -2,23 +2,38 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { WatchedWorkspacesHandler } from '@identity/application/queries/handlers/watched-workspaces.handler';
 import { WatchedWorkspacesQuery } from '@identity/application/queries/watched-workspaces.query';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('WatchedWorkspacesHandler', () => {
   it('watches only the workspaces the person may view, checked in one lookup', async () => {
-    const workspaces = {
+    const workspaces = partial<WorkspaceReaderPort>({
       listForMember: async () => [
-        { id: 'ws_1', name: 'Acme', slug: 'acme', role: 'member' },
-        { id: 'ws_2', name: 'Gone', slug: 'gone', role: 'member' },
+        {
+          id: 'ws_1',
+          name: 'Acme',
+          slug: 'acme',
+          avatarDigest: null,
+          role: 'member',
+        },
+        {
+          id: 'ws_2',
+          name: 'Gone',
+          slug: 'gone',
+          avatarDigest: null,
+          role: 'member',
+        },
       ],
-    } as unknown as WorkspaceReaderPort;
+    });
     const asked: string[][] = [];
-    const access = {
-      viewableOf: async (_viewer: unknown, ids: { value: string }[]) => {
+    const access = partial<WorkspaceAccessPort>({
+      viewableOf: async (_viewer: UserId, ids: readonly WorkspaceId[]) => {
         asked.push(ids.map((each) => each.value));
         return ids.filter((each) => each.value === 'ws_1');
       },
-    } as unknown as WorkspaceAccessPort;
+    });
 
     expect(
       await new WatchedWorkspacesHandler(workspaces, access).execute(

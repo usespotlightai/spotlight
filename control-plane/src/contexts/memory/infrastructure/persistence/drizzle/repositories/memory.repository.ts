@@ -20,6 +20,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -35,7 +37,7 @@ type Row = typeof memory.$inferSelect;
 const provenanceOf = (row: Row): MemoryProvenance | null => {
   const { taskId, runId, steps, notes } = row;
 
-  if (taskId && runId && steps && notes) {
+  if (nonEmpty(taskId) && nonEmpty(runId) && steps && notes) {
     return MemoryProvenance.of({
       taskId: TaskId.of(taskId),
       runId: RunId.of(runId),
@@ -44,7 +46,7 @@ const provenanceOf = (row: Row): MemoryProvenance | null => {
     });
   }
 
-  if (taskId || runId || steps || notes) {
+  if (nonEmpty(taskId) || nonEmpty(runId) || steps || notes) {
     throw new InconsistentStateError(
       'memory',
       'has part of its provenance, but not all of it',
@@ -72,12 +74,14 @@ const toMemory = (row: Row): Memory => {
       teamId: TeamId.of(row.teamId),
       lineId: row.lineId === null ? null : LineId.of(row.lineId),
       stationId: row.stationId === null ? null : StationId.of(row.stationId),
-      repository: row.repository ? Repository.of(row.repository) : null,
+      repository: nonEmpty(row.repository)
+        ? Repository.of(row.repository)
+        : null,
       paths: row.paths.map(MemoryPath.of),
     }),
     provenance: provenanceOf(row),
     source: row.source,
-    supersedes: row.supersedes ? MemoryId.of(row.supersedes) : null,
+    supersedes: nonEmpty(row.supersedes) ? MemoryId.of(row.supersedes) : null,
     approval: MemoryDecision.of({
       by: UserId.of(row.approvedById),
       at: row.approvedAt,
@@ -85,9 +89,11 @@ const toMemory = (row: Row): Memory => {
     retirement: row.retiredAt
       ? MemoryRetirement.rehydrate({
           at: row.retiredAt,
-          by: row.retiredById ? UserId.of(row.retiredById) : null,
+          by: nonEmpty(row.retiredById) ? UserId.of(row.retiredById) : null,
           reason: row.retireReason,
-          supersededBy: row.supersededBy ? MemoryId.of(row.supersededBy) : null,
+          supersededBy: nonEmpty(row.supersededBy)
+            ? MemoryId.of(row.supersededBy)
+            : null,
         })
       : null,
     version: row.version,
@@ -202,7 +208,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
       sql`select nextval('memory_handle_seq') as next`,
     );
 
-    const [row] = result.rows;
+    const row = firstOf(result.rows);
 
     if (!row) {
       throw new Error('The memory handle sequence returned no number');
@@ -277,13 +283,18 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     teamId: TeamId,
     handle: MemoryHandle,
   ): Promise<Memory | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(memory)
-      .where(
-        and(eq(memory.teamId, teamId.value), eq(memory.handle, handle.number)),
-      )
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(memory)
+        .where(
+          and(
+            eq(memory.teamId, teamId.value),
+            eq(memory.handle, handle.number),
+          ),
+        )
+        .limit(1),
+    );
 
     return row ? toMemory(row) : null;
   }
@@ -366,11 +377,13 @@ export class DrizzleMemoryRepository implements MemoryRepository {
   }
 
   async find(id: MemoryId): Promise<Memory | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(memory)
-      .where(eq(memory.id, id.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(memory)
+        .where(eq(memory.id, id.value))
+        .limit(1),
+    );
 
     return row ? toMemory(row) : null;
   }

@@ -7,6 +7,7 @@ import {
 import type { TaskChangeShapeRepository } from '@insights/domain/repositories/task-change-shape.repository';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface ChangeShaped {
@@ -25,7 +26,7 @@ export class RecordChangeShape {
   ) {}
 
   async shaped(shaped: ChangeShaped): Promise<void> {
-    const run = shaped.taskId
+    const run = nonEmpty(shaped.taskId)
       ? await this.work.taskRunOf(RunId.of(shaped.runId))
       : null;
 

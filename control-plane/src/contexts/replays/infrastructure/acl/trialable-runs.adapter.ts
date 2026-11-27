@@ -5,6 +5,7 @@ import type {
   TrialableRunsPort,
 } from '@replays/application/ports/trialable-runs.port';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -36,7 +37,7 @@ export const UNTRIALABLE: Readonly<
 
 const replayabilityOf = (each: Trialability): RunReplayability => ({
   runId: RunId.of(each.runId),
-  taskId: each.taskId ? TaskId.of(each.taskId) : null,
+  taskId: nonEmpty(each.taskId) ? TaskId.of(each.taskId) : null,
   stationId: each.stationId === null ? null : StationId.of(each.stationId),
   unreplayableReason:
     each.untrialableReason && UNTRIALABLE[each.untrialableReason],

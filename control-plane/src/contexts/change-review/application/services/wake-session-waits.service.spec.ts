@@ -18,6 +18,7 @@ import {
   QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -95,7 +96,7 @@ const waking = (
   let stack = waitingStack();
   let answer = waitingAnswer();
   const rounds: AssistRoundsPort = { roundOf: () => round };
-  const stacks = {
+  const stacks = partial<ChangeStackRepository>({
     find: async () => stack,
     save: async (saved: ChangeStack) => {
       if (over.conflict) {
@@ -103,13 +104,13 @@ const waking = (
       }
       stack = saved;
     },
-  } as unknown as ChangeStackRepository;
-  const answers = {
+  });
+  const answers = partial<QuestionAnswerRepository>({
     find: async () => answer,
     save: async (saved: QuestionAnswer) => {
       answer = saved;
     },
-  } as unknown as QuestionAnswerRepository;
+  });
 
   return {
     service: new WakeSessionWaits(
@@ -117,7 +118,7 @@ const waking = (
       stacks,
       answers,
       { inTransaction: (work) => work() },
-      { now: () => SETTLED, sleep: async () => undefined },
+      { now: () => SETTLED, sleep: async () => {} },
     ),
     stack: () => stack,
     answer: () => answer,

@@ -8,6 +8,16 @@ interface ScopedColumns {
   readonly taskId?: PgColumn;
 }
 
+const allOf = (...conditions: readonly SQL[]): SQL => {
+  const joined = and(...conditions);
+
+  if (joined === undefined) {
+    throw new Error('A scope needs at least one condition');
+  }
+
+  return joined;
+};
+
 export const inScope = (columns: ScopedColumns, scope: DeletionScope): SQL => {
   switch (scope.kind) {
     case 'task':
@@ -15,15 +25,15 @@ export const inScope = (columns: ScopedColumns, scope: DeletionScope): SQL => {
         throw new Error('This table keeps nothing of a single task');
       }
 
-      return and(
+      return allOf(
         eq(columns.workspaceId, scope.workspaceId.value),
         eq(columns.taskId, scope.taskId.value),
-      ) as SQL;
+      );
     case 'team':
-      return and(
+      return allOf(
         eq(columns.workspaceId, scope.workspaceId.value),
         eq(columns.teamId, scope.teamId.value),
-      ) as SQL;
+      );
     case 'workspace':
       return eq(columns.workspaceId, scope.workspaceId.value);
   }

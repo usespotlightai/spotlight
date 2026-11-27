@@ -38,7 +38,9 @@ describe('TaskHttpMapper', () => {
     const response = TaskHttpMapper.toResponse(dto);
 
     expect(Object.keys(response).sort()).toEqual(Object.keys(dto).sort());
-    for (const key of Object.keys(dto) as (keyof TaskDto)[]) {
+    for (const key of Object.keys(dto).filter(
+      (each): each is keyof TaskDto => each in dto,
+    )) {
       expect(
         response[key],
         `${key} was dropped crossing to the response`,

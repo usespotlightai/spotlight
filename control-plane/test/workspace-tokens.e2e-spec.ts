@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -15,6 +16,7 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -177,10 +179,12 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
   const teams = () => `/api/v1/resources/workspaces/${seat.workspaceId}/teams`;
 
   const revoke = async (token: string) => {
-    const [issued] = await db
-      .select({ id: schema.workspaceToken.id })
-      .from(schema.workspaceToken)
-      .where(eq(schema.workspaceToken.tokenHash, sha(token)));
+    const issued = firstOf(
+      await db
+        .select({ id: schema.workspaceToken.id })
+        .from(schema.workspaceToken)
+        .where(eq(schema.workspaceToken.tokenHash, sha(token))),
+    );
 
     return http()
       .delete(`/api/v1/resources/tokens/${issued?.id}`)
@@ -224,14 +228,16 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
   it('answers the token once, on its create, and stores only its hash', async () => {
     const answer = await issue(['plan'], 'survey');
     const token = answer.headers[TOKEN_HEADER];
-    const issued = answer.body as Made;
+    const issued = bodyOf<Made>(answer);
     const read = await http()
       .get(`/api/v1/resources/tokens/${issued.id}`)
       .set(TEST_USER_HEADER, seat.owner);
-    const [stored] = await db
-      .select({ hash: schema.workspaceToken.tokenHash })
-      .from(schema.workspaceToken)
-      .where(eq(schema.workspaceToken.id, issued.id));
+    const stored = firstOf(
+      await db
+        .select({ hash: schema.workspaceToken.tokenHash })
+        .from(schema.workspaceToken)
+        .where(eq(schema.workspaceToken.id, issued.id)),
+    );
 
     expect(token).toMatch(/^[\w-]{43}$/);
     expect(JSON.stringify(answer.body)).not.toContain(token);
@@ -271,16 +277,16 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
       expression: 'body.type == "Issue"',
       definition: LINEAR,
     });
-    const team = (
+    const team = bodyOf<Made>(
       await http()
         .post(teams())
         .set(TEST_USER_HEADER, seat.owner)
         .set('Idempotency-Key', randomUUID())
-        .send({ key: 'core', name: 'Core' })
-    ).body as Made;
+        .send({ key: 'core', name: 'Core' }),
+    );
 
     expect(checked.status).toBe(200);
-    expect((checked.body as { type: string }).type).toBe('bool');
+    expect(bodyOf<{ type: string }>(checked).type).toBe('bool');
     expect((await plan.get(`/api/v1/resources/teams/${team.id}`)).status).toBe(
       200,
     );
@@ -310,7 +316,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
   it('lets a configure token change configuration as an admin would, each change recorded as the token through its client', async () => {
     const configure = as(tokens.configure);
     const team = await configure.post(teams(), { key: 'ops', name: 'Ops' });
-    const made = team.body as Made;
+    const made = bodyOf<Made>(team);
     const renamed = await configure.put(
       `/api/v1/resources/teams/${made.id}`,
       made.version,
@@ -321,25 +327,29 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
       GRAFANA,
     );
     const removed = await configure.delete(
-      `/api/v1/resources/skills/${(skill.body as Made).id}`,
-      (skill.body as Made).version,
+      `/api/v1/resources/skills/${bodyOf<Made>(skill).id}`,
+      bodyOf<Made>(skill).version,
     );
-    const [issued] = await db
-      .select({ id: schema.workspaceToken.id })
-      .from(schema.workspaceToken)
-      .where(eq(schema.workspaceToken.tokenHash, sha(tokens.configure)));
+    const issued = firstOf(
+      await db
+        .select({ id: schema.workspaceToken.id })
+        .from(schema.workspaceToken)
+        .where(eq(schema.workspaceToken.tokenHash, sha(tokens.configure))),
+    );
 
     expect([team.status, renamed.status, skill.status, removed.status]).toEqual(
       [201, 200, 201, 204],
     );
 
-    const changes = (await audit(seat.owner)).body as {
-      resource: string;
-      action: string;
-      key: string;
-      by: { kind: string; tokenId: string | null; userId: string | null };
-      client: string | null;
-    }[];
+    const changes = bodyOf<
+      {
+        resource: string;
+        action: string;
+        key: string;
+        by: { kind: string; tokenId: string | null; userId: string | null };
+        client: string | null;
+      }[]
+    >(await audit(seat.owner));
     const byToken = changes.filter((each) => each.by.kind === 'token');
 
     expect(
@@ -372,12 +382,14 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
       .set('Idempotency-Key', randomUUID())
       .send({ key: 'bare', name: 'Bare' });
 
-    const changes = (await audit(seat.owner)).body as {
-      resource: string;
-      key: string;
-      by: { kind: string; userId: string };
-      client: string;
-    }[];
+    const changes = bodyOf<
+      {
+        resource: string;
+        key: string;
+        by: { kind: string; userId: string };
+        client: string;
+      }[]
+    >(await audit(seat.owner));
 
     expect(
       changes
@@ -412,7 +424,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     });
 
     const created = await as(tokens.secrets).post(secrets, linear);
-    const made = created.body as Made;
+    const made = bodyOf<Made>(created);
     const item = `/api/v1/resources/secrets/${made.id}`;
 
     expect(created.status).toBe(201);
@@ -432,16 +444,18 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
 
     expect(rotated.status).toBe(200);
     expect(
-      (await as(tokens.secrets).delete(item, (rotated.body as Made).version))
+      (await as(tokens.secrets).delete(item, bodyOf<Made>(rotated).version))
         .status,
     ).toBe(204);
 
-    const changes = (await audit(seat.owner)).body as {
-      resource: string;
-      action: string;
-      by: { kind: string };
-      details: object;
-    }[];
+    const changes = bodyOf<
+      {
+        resource: string;
+        action: string;
+        by: { kind: string };
+        details: object;
+      }[]
+    >(await audit(seat.owner));
 
     expect(
       changes
@@ -476,7 +490,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
       .send({ name: 'vault', scopes: ['secrets'] });
 
     expect(rejected.status).toBe(422);
-    expect((rejected.body as { errors: unknown[] }).errors).toEqual([
+    expect(bodyOf<{ errors: unknown[] }>(rejected).errors).toEqual([
       expect.objectContaining({
         path: 'scopes',
         message: expect.stringContaining('need one of them') as unknown,
@@ -548,7 +562,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
 
       expect(listed.status).toBe(200);
       expect(
-        (listed.body as { items: { id: string }[] }).items.map(
+        bodyOf<{ items: { id: string }[] }>(listed).items.map(
           (each) => each.id,
         ),
       ).toEqual([seat.workspaceId]);
@@ -570,10 +584,12 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
 
   it('allows nobody once revoked or expired', async () => {
     const workspace = `/api/v1/resources/workspaces/${seat.workspaceId}`;
-    const [plan] = await db
-      .select({ id: schema.workspaceToken.id })
-      .from(schema.workspaceToken)
-      .where(eq(schema.workspaceToken.tokenHash, sha(tokens.plan)));
+    const plan = firstOf(
+      await db
+        .select({ id: schema.workspaceToken.id })
+        .from(schema.workspaceToken)
+        .where(eq(schema.workspaceToken.tokenHash, sha(tokens.plan))),
+    );
 
     expect((await as(tokens.plan).get(workspace)).status).toBe(200);
 
@@ -608,7 +624,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     const rejected = await deleteWorkspace();
 
     expect(rejected.status).toBe(409);
-    expect((rejected.body as { detail: string }).detail).toContain(
+    expect(bodyOf<{ detail: string }>(rejected).detail).toContain(
       'token configure, token configure-secrets, token plan, token read',
     );
 

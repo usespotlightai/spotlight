@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 const SEPARATOR = '/';
 
 export interface ChangedPaths {
@@ -28,5 +29,5 @@ export const workingCopyPath = (
 export const workingCopyPathsIn = (changed: ChangedPaths): string[] =>
   changed.paths.flatMap((path) => {
     const within = workingCopyPath(path, changed.checkouts);
-    return within ? [within] : [];
+    return nonEmpty(within) ? [within] : [];
   });

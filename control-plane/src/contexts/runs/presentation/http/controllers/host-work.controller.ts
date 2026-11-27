@@ -25,6 +25,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import { bearerIn, TRUST_HEADER } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
@@ -76,6 +77,7 @@ import { SnapshotRemovalsResponseDto } from '@runs/presentation/http/dto/snapsho
 import { ClaimedWorkHttpMapper } from '@runs/presentation/http/mappers/claimed-work.http.mapper';
 import { EgressSecretsHttpMapper } from '@runs/presentation/http/mappers/egress-secrets.http.mapper';
 import { HostCallResponseHttpMapper } from '@runs/presentation/http/mappers/host-call-response.http.mapper';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 interface Answerable {
   status(code: number): unknown;
@@ -153,10 +155,11 @@ export class HostWorkController {
   @ApiUnprocessableEntityResponse({
     description: 'The recipient is not an X25519 public key',
   })
+  @ApiBody({ type: HarnessKeysRequestDto })
   async harnessKeys(
     @Headers('authorization') authorization: string | undefined,
     @Headers(TRUST_HEADER) trust: string | undefined,
-    @Body() body: HarnessKeysRequestDto,
+    @Body() body: HarnessKeysRequestDto | undefined,
   ): Promise<HarnessKeysResponseDto> {
     const fetched = await this.queryBus.execute<
       HarnessKeysQuery,
@@ -253,10 +256,11 @@ export class HostWorkController {
     description:
       'Nothing waits for this pool or trust yet, or the pool is at maxRuns',
   })
+  @ApiBody({ type: ClaimHostWorkRequestDto })
   async claim(
     @Headers('authorization') authorization: string | undefined,
     @Headers(TRUST_HEADER) trust: string | undefined,
-    @Body() body: ClaimHostWorkRequestDto,
+    @Body() body: ClaimHostWorkRequestDto | undefined,
     @Res({ passthrough: true }) response: Answerable,
   ): Promise<HostClaimResponseDto | undefined> {
     const claimed = await this.commandBus.execute<
@@ -267,7 +271,7 @@ export class HostWorkController {
         { bearer: bearerIn(authorization), trust },
         body?.host ?? '',
         body?.image ?? '',
-        body?.sandbox || null,
+        nonEmpty(body?.sandbox) ? body.sandbox : null,
       ),
     );
 
@@ -357,10 +361,11 @@ export class HostWorkController {
     description:
       'The host has not reported through this pool or trust (`host-unreported`)',
   })
+  @ApiBody({ type: ClaimHostCallRequestDto })
   async claimCall(
     @Headers('authorization') authorization: string | undefined,
     @Headers(TRUST_HEADER) trust: string | undefined,
-    @Body() body: ClaimHostCallRequestDto,
+    @Body() body: ClaimHostCallRequestDto | undefined,
     @Res({ passthrough: true }) response: Answerable,
   ): Promise<HostCallResponseDto | undefined> {
     const claimed = await this.commandBus.execute<

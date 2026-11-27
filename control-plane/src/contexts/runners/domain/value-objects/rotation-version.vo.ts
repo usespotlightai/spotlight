@@ -21,6 +21,6 @@ export class RotationVersion {
   }
 
   equals(other: RotationVersion): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof RotationVersion && this.value === other.value;
   }
 }

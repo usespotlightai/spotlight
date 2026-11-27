@@ -1,9 +1,17 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { usePagedList } from '@/hooks/api/usePagedList';
-import { listInbox, readInboxItem, readInboxNotice } from '@/lib/api';
-import { entryKey } from '@/lib/inbox';
+import { usePagedList, type PagedList } from '@/hooks/api/usePagedList';
+import {
+  listInbox,
+  readInboxItem,
+  readInboxNotice,
+  type InboxItemViewResponseDto,
+  type InboxNoticeResponseDto,
+} from '@/lib/api';
+import { entryKey, type InboxEntry } from '@/lib/inbox';
 import { liveStaleTime, useLivePoll } from '@/lib/live';
+import { nonEmpty } from '@/lib/non-empty';
+import { required } from '@/lib/required';
 
 export const inboxKeys = {
   all: ['inbox'] as const,
@@ -18,7 +26,9 @@ export const inboxKeys = {
 
 const POLL_MS = 10_000;
 
-export function useInbox(slug: string | undefined) {
+export function useInbox(
+  slug: string | undefined,
+): UseQueryResult<InboxEntry[]> {
   const livePollMs = useLivePoll(POLL_MS);
 
   return useQuery({
@@ -28,7 +38,7 @@ export function useInbox(slug: string | undefined) {
     staleTime: liveStaleTime,
     queryFn: async () => {
       const { data } = await listInbox({
-        path: { slug: slug as string },
+        path: { slug: required(slug) },
         throwOnError: true,
       });
       return data.items;
@@ -36,14 +46,16 @@ export function useInbox(slug: string | undefined) {
   });
 }
 
-export function useResolvedInbox(slug: string | undefined) {
+export function useResolvedInbox(
+  slug: string | undefined,
+): PagedList<InboxEntry> {
   return usePagedList({
     queryKey: inboxKeys.resolved(slug),
     enabled: Boolean(slug),
     keyOf: entryKey,
     fetchPage: async (before?: string) => {
       const { data } = await listInbox({
-        path: { slug: slug as string },
+        path: { slug: required(slug) },
         query: { state: 'resolved', before },
         throwOnError: true,
       });
@@ -55,17 +67,17 @@ export function useResolvedInbox(slug: string | undefined) {
 export function useInboxItem(
   slug: string | undefined,
   itemId: string | undefined,
-) {
+): UseQueryResult<InboxItemViewResponseDto> {
   const livePollMs = useLivePoll(POLL_MS);
 
   return useQuery({
     queryKey: inboxKeys.item(slug, itemId),
-    enabled: Boolean(slug && itemId),
+    enabled: nonEmpty(slug) && nonEmpty(itemId),
     refetchInterval: livePollMs,
     staleTime: liveStaleTime,
     queryFn: async () => {
       const { data } = await readInboxItem({
-        path: { slug: slug as string, itemId: itemId as string },
+        path: { slug: required(slug), itemId: required(itemId) },
         throwOnError: true,
       });
       return data;
@@ -76,13 +88,13 @@ export function useInboxItem(
 export function useInboxNotice(
   slug: string | undefined,
   noticeId: string | undefined,
-) {
+): UseQueryResult<InboxNoticeResponseDto> {
   return useQuery({
     queryKey: inboxKeys.notice(slug, noticeId),
-    enabled: Boolean(slug && noticeId),
+    enabled: nonEmpty(slug) && nonEmpty(noticeId),
     queryFn: async () => {
       const { data } = await readInboxNotice({
-        path: { slug: slug as string, noticeId: noticeId as string },
+        path: { slug: required(slug), noticeId: required(noticeId) },
         throwOnError: true,
       });
       return data;

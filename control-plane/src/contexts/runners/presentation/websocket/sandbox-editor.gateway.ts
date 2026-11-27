@@ -31,6 +31,7 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { WebSocketServer } from 'ws';
 
 const CONNECT_PATH = `/${API_PREFIX}/sandboxes/connect`;
@@ -191,7 +192,7 @@ export class SandboxEditorGateway
     );
 
     try {
-      return bearer
+      return nonEmpty(bearer)
         ? await this.people.readBearer(bearer)
         : await this.people.read(request.headers);
     } catch (error) {

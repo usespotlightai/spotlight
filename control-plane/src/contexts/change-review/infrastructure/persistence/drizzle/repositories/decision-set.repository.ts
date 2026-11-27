@@ -1,6 +1,6 @@
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
-import { Decision } from '@change-review/domain/entities/decision.entity';
 import { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
+import { Decision } from '@change-review/domain/entities/decision.entity';
 import { DecisionSetVersionConflictError } from '@change-review/domain/exceptions/decision-set-version-conflict.error';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
@@ -29,6 +29,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -236,11 +237,13 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
   }
 
   async forTask(taskId: TaskId): Promise<DecisionSet | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(decisionSet)
-      .where(eq(decisionSet.taskId, taskId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(decisionSet)
+        .where(eq(decisionSet.taskId, taskId.value))
+        .limit(1),
+    );
 
     return row ? this.withDecisions(row) : null;
   }

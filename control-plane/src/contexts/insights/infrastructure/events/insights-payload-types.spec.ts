@@ -25,12 +25,15 @@ describe('INSIGHTS_PAYLOAD_TYPES', () => {
       for (const file of readdirSync(within).filter(
         (each) => each.endsWith('.ts') && !each.endsWith('.spec.ts'),
       )) {
-        const loaded = (await import(join(within, file))) as Record<
-          string,
-          unknown
-        >;
+        const loaded: unknown = await import(join(within, file));
 
-        for (const [name, value] of Object.entries(loaded)) {
+        if (typeof loaded !== 'object' || loaded === null) {
+          continue;
+        }
+
+        for (const name of Object.keys(loaded)) {
+          const value: unknown = Reflect.get(loaded, name);
+
           if (
             typeof value === 'function' &&
             /^class\s/.test(value.toString()) &&

@@ -6,6 +6,7 @@ import type { Line } from '@lines/domain/aggregates/line.aggregate';
 import type { LineRepository } from '@lines/domain/repositories/line.repository';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -26,10 +27,10 @@ const created: SeededTeam = {
 const seeding = (existing: Line[] = []) => {
   const seeded: Line[] = [...existing];
   const seeder = new SeedLines(
-    {
+    partial<LineRepository>({
       add: vi.fn(async (line: Line) => void seeded.push(line)),
       ofTeam: vi.fn(async () => [...seeded]),
-    } as unknown as LineRepository,
+    }),
     ids(),
     HarnessId.of('claude-code'),
   );
@@ -98,7 +99,9 @@ describe('SeedLines', () => {
 
     await seeder.seed(created);
 
-    const review = seeded.find((line) => line.role?.equals(LineRole.REVIEW));
+    const review = seeded.find(
+      (line) => line.role?.equals(LineRole.REVIEW) === true,
+    );
 
     expect(review?.name.value).toBe('Review');
     expect(review?.reviews?.start).toBe('mentioned');

@@ -101,7 +101,7 @@ export const queryCacheOwner = (): string | null => {
   }
 };
 
-export const onQueryCacheOwnerChange = (listener: () => void) => {
+export const onQueryCacheOwnerChange = (listener: () => void): (() => void) => {
   ownerListeners.add(listener);
   return () => {
     ownerListeners.delete(listener);

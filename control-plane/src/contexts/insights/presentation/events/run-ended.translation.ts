@@ -12,12 +12,15 @@ const ENDING_OF: Readonly<Record<RunEndedOutcome, RunEnding>> = {
   cancelled: 'cancelled',
 };
 
+const endingFor = (outcome: RunEndedOutcome): RunEnding | undefined =>
+  ENDING_OF[outcome];
+
 export const endingOf = (
   event: Pick<DispatchEndedIntegrationEvent, 'outcome' | 'stopped' | 'failure'>,
 ): RunEnding | null => {
-  const outcome: RunEnding | undefined = ENDING_OF[event.outcome];
+  const outcome = endingFor(event.outcome);
 
-  if (!outcome) {
+  if (outcome === undefined) {
     return null;
   }
   if (event.failure === 'superseded' && outcome !== 'cancelled') {

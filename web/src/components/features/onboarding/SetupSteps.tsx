@@ -23,6 +23,7 @@ import type {
   SetupStepResponseDto,
 } from '@/lib/api/types.gen';
 import { chatPath } from '@/lib/chat';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { runnersPath } from '@/lib/runner';
 import { cn } from '@/lib/utils';
@@ -105,7 +106,7 @@ function Step({ step, action, disabled }: StepProps) {
           heading
         )}
 
-        {action && (
+        {Boolean(action) && (
           <div
             className={cn(
               'grid w-full transition-all duration-200 ease-out',
@@ -140,11 +141,11 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const onboarding = query.data;
   const github = useGitHub(slug);
 
-  if (slug && (loading(query) || loading(github))) {
+  if (nonEmpty(slug) && (loading(query) || loading(github))) {
     return <SetupStepsSkeleton about={about} />;
   }
 
-  if (slug && failed(query)) {
+  if (nonEmpty(slug) && failed(query)) {
     return (
       <div className="flex flex-col gap-6">
         {about && (
@@ -161,7 +162,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
     );
   }
 
-  if (!onboarding || !slug) {
+  if (!onboarding || !nonEmpty(slug)) {
     return (
       <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-6">
         {body}
@@ -172,7 +173,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const configuring = (): ReactNode => {
     const chat = onboarding.setupChat;
 
-    if (chat?.pullRequest) {
+    if (nonEmpty(chat?.pullRequest)) {
       return (
         <a
           href={chat.pullRequest}
@@ -185,7 +186,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       );
     }
 
-    if (chat?.id) {
+    if (nonEmpty(chat?.id)) {
       return (
         <Link to={chatPath(slug, teamId, chat.id)} className={setupLinkClass}>
           Open setup chat

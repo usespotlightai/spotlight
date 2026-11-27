@@ -228,6 +228,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
     let compiled: ListeningHook;
 
     if (read.ok) {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       const handle = Object.freeze({}) as CompiledHook;
 
       this.irs.set(handle, read.ir);

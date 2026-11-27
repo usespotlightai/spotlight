@@ -13,7 +13,7 @@ export class InboxRequestId {
   }
 
   equals(other: InboxRequestId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof InboxRequestId && this.value === other.value;
   }
 
   toString(): string {

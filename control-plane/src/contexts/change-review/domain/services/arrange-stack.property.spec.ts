@@ -15,6 +15,7 @@ import {
   proposedStack,
 } from '@change-review/domain/services/proposed-stack.fake-spec';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import fc from 'fast-check';
 import { describe, it } from 'vitest';
 
@@ -91,7 +92,7 @@ describe('arranged under any proposal and any incidental hunks', () => {
       fc.property(proposedStack, (stack) => {
         const cohorts = arrangedOf(stack);
         const incidental = incidentalIn(stack.facts);
-        const [last] = cohorts.slice(-1);
+        const [last] = optionalItems(cohorts.slice(-1));
         const rest = incidental.length > 0 ? cohorts.slice(0, -1) : cohorts;
 
         return (
@@ -168,7 +169,7 @@ describe('arranged under any proposal and any incidental hunks', () => {
         const files = [...stack.files, added];
         const diff = diffOf(files);
         const facts = factsOf(diff, files);
-        const [file] = diff.files.slice(-1);
+        const [file] = optionalItems(diff.files.slice(-1));
         const hunks = file?.hunks.map((hunk) => ({ hunk: hunk.id })) ?? [];
         const own: ProposedCohort = {
           kind: 'change',

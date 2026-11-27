@@ -16,6 +16,7 @@ import {
   type RequestHeaders,
   SUPPORTED_API_VERSIONS,
 } from '@platform/http/resources/resource-headers';
+import { fieldOf } from '@platform/json/field-of';
 import { type Observable, tap } from 'rxjs';
 
 interface HeaderedResponse {
@@ -23,7 +24,7 @@ interface HeaderedResponse {
 }
 
 const versionOf = (body: unknown): number | undefined => {
-  const version = (body as { version?: unknown } | null)?.version;
+  const version = fieldOf(body, 'version');
 
   return typeof version === 'number' ? version : undefined;
 };

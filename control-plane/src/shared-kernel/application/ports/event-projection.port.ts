@@ -15,5 +15,6 @@ export const projecting = <E extends DomainEvent>(
 ): EventProjection => ({
   name,
   matches,
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   project: (event) => project(event as E),
 });

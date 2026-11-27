@@ -1,4 +1,7 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type {
+  WorkspaceAccessPort,
+  WorkspaceMembership,
+} from '@identity/application/ports/workspace-access.port';
 import type { LineImagesPort } from '@lines/application/ports/line-images.port';
 import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
 import type {
@@ -16,11 +19,12 @@ import {
 import { HostRequirementsQuery } from '@runs/application/queries/host.queries';
 import { ListHarnessesQuery } from '@runs/application/queries/list-harnesses.query';
 import { HeldHarnessKeys } from '@runs/application/services/held-harness-keys.service';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const launch = {
+const launch = partial<HarnessLaunchPort>({
   catalogue: () => [
     {
       id: 'claude-code',
@@ -32,14 +36,16 @@ const launch = {
       harnessKeys: ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'],
     },
   ],
-} as unknown as HarnessLaunchPort;
+});
 
 const handler = (member: boolean) => {
   const supportedModels = vi.fn(
     async () => new Map([['claude-code', ['claude-sonnet-5']]]),
   );
   const inWorkspace = vi.fn(async () =>
-    member ? { workspaceId: WorkspaceId.of('ws_1') } : null,
+    member
+      ? partial<WorkspaceMembership>({ workspaceId: WorkspaceId.of('ws_1') })
+      : null,
   );
 
   return {
@@ -47,8 +53,8 @@ const handler = (member: boolean) => {
     inWorkspace,
     subject: new ListHarnessesHandler(
       launch,
-      { inWorkspace } as unknown as WorkspaceAccessPort,
-      { supportedModels } as unknown as RunnerReaderPort,
+      partial<WorkspaceAccessPort>({ inWorkspace }),
+      partial<RunnerReaderPort>({ supportedModels }),
     ),
   };
 };

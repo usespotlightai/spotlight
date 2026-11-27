@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
-import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq, inArray } from 'drizzle-orm';
@@ -21,6 +22,7 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -62,10 +64,12 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
       });
     },
     close: async () => {
-      const [made] = await db
-        .select({ id: schema.workspace.id })
-        .from(schema.workspace)
-        .where(eq(schema.workspace.slug, slug));
+      const made = firstOf(
+        await db
+          .select({ id: schema.workspace.id })
+          .from(schema.workspace)
+          .where(eq(schema.workspace.slug, slug)),
+      );
 
       if (made) {
         await db
@@ -132,8 +136,9 @@ describe('a workspace, created through the resource API (e2e)', () => {
   });
 
   it('is owned by whoever created it, and has no team yet', async () => {
-    const made = (await as(fixture.admin).create(fixture.valid))
-      .body as WorkspaceBody;
+    const made = bodyOf<WorkspaceBody>(
+      await as(fixture.admin).create(fixture.valid),
+    );
     const db = app.get<DrizzleDatabase>(DRIZZLE);
 
     expect(
@@ -154,15 +159,16 @@ describe('a workspace, created through the resource API (e2e)', () => {
   });
 
   it('keeps the slug it was created with', async () => {
-    const made = (await as(fixture.admin).create(fixture.valid))
-      .body as WorkspaceBody;
+    const made = bodyOf<WorkspaceBody>(
+      await as(fixture.admin).create(fixture.valid),
+    );
     const moved = await as(fixture.admin).put(made.id, made.version, {
       name: 'Acme',
       slug: `${fixture.address}-elsewhere`,
     });
 
     expect(moved.status).toBe(422);
-    expect((moved.body as Rejection).errors).toEqual([
+    expect(bodyOf<Rejection>(moved).errors).toEqual([
       expect.objectContaining({ path: 'slug' }),
     ]);
   });
@@ -172,7 +178,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
       ...fixture.valid,
       outboundHosts: ['API.example.com', '*.acme.io'],
     });
-    const made = created.body as WorkspaceBody;
+    const made = bodyOf<WorkspaceBody>(created);
 
     expect(created.status).toBe(201);
     expect(made.outboundHosts).toEqual(['*.acme.io', 'api.example.com']);
@@ -181,7 +187,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
       .get(fixture.item(made.id))
       .set(TEST_USER_HEADER, fixture.admin);
 
-    expect((read.body as WorkspaceBody).outboundHosts).toEqual([
+    expect(bodyOf<WorkspaceBody>(read).outboundHosts).toEqual([
       '*.acme.io',
       'api.example.com',
     ]);
@@ -199,14 +205,14 @@ describe('a workspace, created through the resource API (e2e)', () => {
 
     const relisted = await as(fixture.admin).put(
       made.id,
-      (cleared.body as WorkspaceBody).version,
+      bodyOf<WorkspaceBody>(cleared).version,
       { ...fixture.valid, outboundHosts: ['hooks.example.com'] },
     );
     const imported = await served(app)
       .get(fixture.importing(fixture.address))
       .set(TEST_USER_HEADER, fixture.admin);
 
-    expect((relisted.body as WorkspaceBody).outboundHosts).toEqual([
+    expect(bodyOf<WorkspaceBody>(relisted).outboundHosts).toEqual([
       'hooks.example.com',
     ]);
     expect(imported.body).toMatchObject({
@@ -216,8 +222,9 @@ describe('a workspace, created through the resource API (e2e)', () => {
   });
 
   it('starts with no outbound hosts of its own', async () => {
-    const made = (await as(fixture.admin).create(fixture.valid))
-      .body as WorkspaceBody;
+    const made = bodyOf<WorkspaceBody>(
+      await as(fixture.admin).create(fixture.valid),
+    );
 
     expect(made.outboundHosts).toEqual([]);
   });
@@ -229,14 +236,15 @@ describe('a workspace, created through the resource API (e2e)', () => {
     });
 
     expect(rejected.status).toBe(422);
-    expect((rejected.body as Rejection).errors).toEqual([
+    expect(bodyOf<Rejection>(rejected).errors).toEqual([
       expect.objectContaining({ path: 'outboundHosts[1]' }),
     ]);
   });
 
   it('will not be deleted while it has a team', async () => {
-    const made = (await as(fixture.admin).create(fixture.valid))
-      .body as WorkspaceBody;
+    const made = bodyOf<WorkspaceBody>(
+      await as(fixture.admin).create(fixture.valid),
+    );
 
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const teamId = randomUUID();
@@ -262,8 +270,9 @@ describe('a workspace, created through the resource API (e2e)', () => {
   });
 
   it('will not be deleted under a team even past the check before writing', async () => {
-    const made = (await as(fixture.admin).create(fixture.valid))
-      .body as WorkspaceBody;
+    const made = bodyOf<WorkspaceBody>(
+      await as(fixture.admin).create(fixture.valid),
+    );
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const workspaces = app.get(DrizzleWorkspaceRepository);
     const teamId = randomUUID();
@@ -279,10 +288,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
 
     await expect(
       workspaces.save(
-        existing?.delete(
-          Dependents.none(),
-          changeActorIn(made.id),
-        ) as Workspace,
+        present(existing?.delete(Dependents.none(), changeActorIn(made.id))),
       ),
     ).rejects.toThrow(WorkspaceInUseError);
   });

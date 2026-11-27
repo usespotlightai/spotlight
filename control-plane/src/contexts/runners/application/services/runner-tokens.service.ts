@@ -2,6 +2,7 @@ import type { RunnerIdentityPort } from '@runners/application/ports/runner-ident
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
@@ -13,7 +14,7 @@ export class RunnerTokens implements RunnerIdentityPort {
   ) {}
 
   async authenticate(token: string | undefined): Promise<RunnerId | null> {
-    if (!token) {
+    if (!nonEmpty(token)) {
       return null;
     }
 

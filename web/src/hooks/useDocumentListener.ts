@@ -4,7 +4,7 @@ export function useDocumentListener<Type extends keyof DocumentEventMap>(
   type: Type,
   listener: (event: DocumentEventMap[Type]) => void,
   active = true,
-) {
+): void {
   const listen = useEffectEvent(listener);
 
   useEffect(() => {

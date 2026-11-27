@@ -1,12 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { gitHubKeys } from '@/hooks/api/useGitHub';
 import { connectGitHub } from '@/lib/api';
+import { required } from '@/lib/required';
 
 export function useConnectGitHub(
   slug: string | undefined,
   installationId: string | null,
-) {
+): UseQueryResult<boolean> {
   return useQuery({
     queryKey: gitHubKeys.connection(slug, installationId),
     enabled: Boolean(slug) && Boolean(installationId),
@@ -16,8 +17,8 @@ export function useConnectGitHub(
     meta: { persist: false },
     queryFn: async () => {
       await connectGitHub({
-        path: { slug: slug as string },
-        body: { installationId: installationId as string },
+        path: { slug: required(slug) },
+        body: { installationId: required(installationId) },
         throwOnError: true,
       });
 

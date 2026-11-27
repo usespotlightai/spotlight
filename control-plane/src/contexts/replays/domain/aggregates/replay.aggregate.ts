@@ -67,6 +67,7 @@ import type { StationFingerprint } from '@replays/domain/value-objects/station-f
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -763,7 +764,7 @@ export class Replay extends EventRecorder {
         (measures.cost !== null ||
           Object.values(measures.tokens).some((each) => each !== null));
       const unpricedRun =
-        called && !measures?.cost?.sameCurrencyAs(ceiling) ? 1 : 0;
+        called && !measures.cost?.sameCurrencyAs(ceiling) ? 1 : 0;
 
       return count + unpricedRun + this.unpricedIn(entry.generationSpent);
     }, 0);
@@ -1012,24 +1013,15 @@ export class Replay extends EventRecorder {
       return this;
     }
 
-    const wanted: ReplayEntry[] = [];
-    let concluded = false;
-    const entries = this.state.entries.map((each) => {
-      if (!each.ranAs(run)) {
-        return each;
-      }
-
-      const result = this.entryChange(each, change(each));
-
-      if (result.newly) {
-        concluded = true;
-      }
-      if (result.wanted) {
-        wanted.push(result.entry);
-      }
-
-      return result.entry;
-    });
+    const results = this.state.entries.map((each) => ({
+      each,
+      result: each.ranAs(run) ? this.entryChange(each, change(each)) : null,
+    }));
+    const entries = results.map(({ each, result }) => result?.entry ?? each);
+    const concluded = results.some(({ result }) => result?.newly === true);
+    const wanted = results.flatMap(({ result }) =>
+      result?.wanted ? [result.entry] : [],
+    );
 
     if (entries.every((each, place) => each === this.state.entries[place])) {
       return this;
@@ -1136,7 +1128,7 @@ export class Replay extends EventRecorder {
     const requested = this.with({ entries });
 
     for (const [place, entry] of this.state.entries.entries()) {
-      const now = entries[place];
+      const now = itemAt(entries, place);
       const run = entry.run;
 
       if (!run || !now) {

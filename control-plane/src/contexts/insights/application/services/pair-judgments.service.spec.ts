@@ -77,13 +77,27 @@ const judging = async (
     orders: ORDERS,
   });
 
-  return { requests, answered: judgment, judgment: judgment as PairJudgment };
+  return {
+    requests,
+    answered: judgment,
+    get judgment() {
+      return settled(judgment);
+    },
+  };
 };
 
 const fastSide = (request: SideBySideJudgeRequest): 'A' | 'B' =>
   request.a.hunks.some((each) => each.lines.includes('+drainFast()'))
     ? 'A'
     : 'B';
+
+const settled = (answer: PairJudgment | SessionWaiting): PairJudgment => {
+  if ('status' in answer) {
+    throw new Error('expected a settled judgment');
+  }
+
+  return answer;
+};
 
 describe('PairJudgments', () => {
   it('shows the judge both changes labelled A and B beside the accepted one, in the orders asked, and names the winner by its run', async () => {

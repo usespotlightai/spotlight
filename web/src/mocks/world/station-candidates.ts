@@ -2320,7 +2320,7 @@ export const replayedCandidates = (
 ): ReplayedCandidatesResponseDto => ({
   period: {
     name: period,
-    from: daysAgo(PERIOD_DAYS[period] ?? 30),
+    from: daysAgo(PERIOD_DAYS[period]),
     to: hoursAgo(0),
   },
   truncated: false,

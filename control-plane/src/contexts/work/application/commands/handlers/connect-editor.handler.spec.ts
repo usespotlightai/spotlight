@@ -1,5 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { EditorLeasesPort } from '@runners/application/ports/editor-leases.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -40,7 +41,7 @@ const setUp = () => {
     now: NOW,
     newId: () => 'chat_1',
   });
-  const workspaces = {
+  const workspaces = partial<WorkspaceAccessPort>({
     mayView: vi.fn(
       async (viewer: UserId, workspaceId: WorkspaceId) =>
         viewer.value !== OUTSIDER && workspaceId.equals(WORKSPACE),
@@ -57,7 +58,7 @@ const setUp = () => {
             }
           : null,
     ),
-  } as unknown as WorkspaceAccessPort;
+  });
   const tasks = {
     workspaceOf: vi.fn(async (taskId: { value: string }) =>
       taskId.value === 'task_1' ? WORKSPACE : null,
@@ -66,15 +67,15 @@ const setUp = () => {
       taskId.value === 'task_1' ? TeamId.of('team_1') : null,
     ),
   };
-  const chats = {
+  const chats = partial<ChatRepository>({
     find: vi.fn(async (id: { value: string }) =>
       id.value === 'chat_1' ? chat : null,
     ),
-  } as unknown as ChatRepository;
+  });
   const leases = {
     hold: vi.fn(async () => ({ sandboxId: 'sandbox_1', holder: 'conn_1' })),
   } satisfies Pick<EditorLeasesPort, 'hold'>;
-  const access = {
+  const access = partial<WorkAccess>({
     ...workAccessSeeing((_, viewer) => viewer.value !== OUTSIDER, {
       onTeam: (_, viewer) => viewer.value !== CAL,
     }),
@@ -82,10 +83,10 @@ const setUp = () => {
       workspaces.mayView(viewer, workspaceId),
     memberWorkspaceAt: async (slug: string, viewer: UserId) =>
       (await workspaces.inWorkspace(slug, viewer))?.workspaceId ?? null,
-  } as unknown as WorkAccess;
+  });
   const handler = new ConnectEditorHandler(
     new EditorTargets(tasks, chats, access),
-    leases as unknown as EditorLeasesPort,
+    partial<EditorLeasesPort>(leases),
   );
 
   return {

@@ -13,6 +13,7 @@ import { AccessToken } from '@integrations/domain/value-objects/access-token.vo'
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
+import type { RequestIR } from '@integrations/infrastructure/integrations/integration.compile';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { WebInboxLinks } from '@integrations/infrastructure/links/web-inbox-links';
@@ -30,12 +31,15 @@ import {
   callingNoServer,
   discoveringNothing,
 } from '@integrations/integrations.mcp.fake-spec';
+import { callAt, valueAt } from '@integrations/integrations.requests.fake-spec';
 import {
   callAuthFor,
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -62,15 +66,15 @@ const taskNotices = (...args: ConstructorParameters<typeof NotifyTask>) =>
 const expressions = new CelExpressionEngine();
 
 const runtimeWith = (
-  outbound: unknown,
-  exchange: unknown = {},
+  outbound: Partial<HttpOutbound>,
+  exchange: Partial<OAuth2Exchange> = {},
   clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsContaining()),
-    outbound as HttpOutbound,
+    partial<HttpOutbound>(outbound),
     clients,
-    exchange as OAuth2Exchange,
+    partial<OAuth2Exchange>(exchange),
     discoveringNothing(),
     callingNoServer(),
     unlimited,
@@ -164,13 +168,15 @@ const notifying = (
   );
 
   const notifier = taskNotices(
-    {
+    partial<DefinedIntegrationsPort>({
       ofTeam: vi.fn(async () => [defined(file)]),
-    } as unknown as DefinedIntegrationsPort,
+    }),
     runtimeWith({ run }),
     callAuthFor(injection),
     new WebInboxLinks(
-      { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
+      partial<WorkspaceReaderPort>({
+        slugOf: vi.fn(async () => 'acme'),
+      }),
       taskLinks,
     ),
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -185,14 +191,11 @@ describe('TaskNotices', () => {
 
     await notifier.notify(asked(), 'task.asked');
 
-    const action = run.mock.calls[0]?.[1] as {
-      ask: { body: string; link: string };
-      target: { channel?: string; thread?: string };
-    };
-    expect(action.target.channel).toBe('C0DELIVERY');
-    expect(action.target.thread).toBeUndefined();
-    expect(action.ask.body).toBe('Which queue should I drain?');
-    expect(action.ask.link).toContain('/w/acme/inbox/task_1:');
+    const action = run.mock.calls[0]?.[1];
+    expect(valueAt(action, 'target', 'channel')).toBe('C0DELIVERY');
+    expect(valueAt(action, 'target', 'thread')).toBeUndefined();
+    expect(valueAt(action, 'ask', 'body')).toBe('Which queue should I drain?');
+    expect(valueAt(action, 'ask', 'link')).toContain('/w/acme/inbox/task_1:');
   });
 
   it('gives the action the task’s title, address and pull requests', async () => {
@@ -209,12 +212,10 @@ describe('TaskNotices', () => {
       'task.asked',
     );
 
-    const action = run.mock.calls[0]?.[1] as {
-      task: { title: string; url: string | null; pullRequests: string[] };
-    };
-    expect(action.task.title).toBe('Drain the queue');
-    expect(action.task.url).toContain('/tasks/task_1');
-    expect(action.task.pullRequests).toEqual([
+    const action = run.mock.calls[0]?.[1];
+    expect(valueAt(action, 'task', 'title')).toBe('Drain the queue');
+    expect(valueAt(action, 'task', 'url')).toContain('/tasks/task_1');
+    expect(valueAt(action, 'task', 'pullRequests')).toEqual([
       'https://github.com/acme/api/pull/9',
       'https://github.com/acme/docs/pull/3',
     ]);
@@ -225,8 +226,8 @@ describe('TaskNotices', () => {
 
     await notifier.notify(asked({}, true), 'task.asked');
 
-    const action = run.mock.calls[0]?.[1] as { ask: { body: string } };
-    expect(action.ask.body).toBe(
+    const action = run.mock.calls[0]?.[1];
+    expect(valueAt(action, 'ask', 'body')).toBe(
       'Which queue should I drain?\n\nApprove or reject it in Spotlight: https://app.example/w/acme/inbox/task_1:1',
     );
   });
@@ -239,11 +240,9 @@ describe('TaskNotices', () => {
       'task.asked',
     );
 
-    const action = run.mock.calls[0]?.[1] as {
-      target: { channel?: string; thread?: string };
-    };
-    expect(action.target.channel).toBe('C0REQ');
-    expect(action.target.thread).toBe('170.1');
+    const action = run.mock.calls[0]?.[1];
+    expect(valueAt(action, 'target', 'channel')).toBe('C0REQ');
+    expect(valueAt(action, 'target', 'thread')).toBe('170.1');
   });
 
   it('hands back the thread it captured, for the caller to record', async () => {
@@ -279,7 +278,7 @@ describe('TaskNotices', () => {
 
     await notifier.notify(asked({ 'slack.thread': '170.1' }), 'task.asked');
 
-    const credentials = run.mock.calls[0]?.[2] as Credentials;
+    const credentials = present(callAt(run)[2]);
     await credentials.injectedFor('https://slack.com/api/chat.postMessage', [
       SecretName.of('SLACK_BOT_TOKEN'),
     ]);
@@ -387,11 +386,11 @@ const SECOND_SHOT = { ...SHOT, id: 'file_3', name: 'second.png' };
 
 const readied = (
   run: ReturnType<typeof uploading>['run'],
-): { file: string; prepared: unknown }[] =>
+): { file: unknown; prepared: unknown }[] =>
   run.mock.calls
     .filter(([action]) => 'attempts' in action)
     .map(([, against]) => ({
-      file: (against.file as { name: string }).name,
+      file: valueAt(against, 'file', 'name'),
       prepared: against.prepared,
     }));
 
@@ -411,10 +410,11 @@ const uploading = (
   });
   const run = vi.fn(
     async (
-      action: object,
+      action: RequestIR,
       against: Record<string, unknown>,
     ): Promise<OutboundResult> => {
-      const file = against.file as { name: string } | undefined;
+      const name = valueAt(against, 'file', 'name');
+      const file = typeof name === 'string' ? { name } : undefined;
 
       if ('attempts' in action && file) {
         const check = (checks.get(file.name) ?? 0) + 1;
@@ -454,7 +454,8 @@ const uploading = (
         );
       }
 
-      const shown = (against.uploaded as readonly unknown[] | undefined) ?? [];
+      const uploaded = against.uploaded;
+      const shown: readonly unknown[] = Array.isArray(uploaded) ? uploaded : [];
 
       if (!('uploads' in action) || images === 'shown' || shown.length === 0) {
         return answered({ ok: true });
@@ -481,7 +482,12 @@ const uploading = (
     ): Promise<OutboundResult> => {
       const status = against.connection === 'at-old' ? 401 : sendStatus;
 
-      return { ok: status === 200, status, response: 'OK', capture: {} };
+      return {
+        ok: status === 200,
+        status,
+        response: 'OK',
+        capture: {},
+      };
     },
   );
   const open = vi.fn(async () => new Uint8Array([1, 2, 3]));
@@ -489,14 +495,14 @@ const uploading = (
   const warn = vi.fn();
 
   const notifier = taskNotices(
-    {
+    partial<DefinedIntegrationsPort>({
       ofTeam: vi.fn(async () => [defined(file)]),
-    } as unknown as DefinedIntegrationsPort,
+    }),
     new CompiledIntegrationRuntime(
       new IntegrationReader(expressions, operationsContaining()),
-      { run, upload } as unknown as HttpOutbound,
+      partial<HttpOutbound>({ run, upload }),
       clientsFrom(),
-      {} as OAuth2Exchange,
+      partial<OAuth2Exchange>({}),
       discoveringNothing(),
       callingNoServer(),
       unlimited,
@@ -507,7 +513,9 @@ const uploading = (
     ),
     callAuth,
     new WebInboxLinks(
-      { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
+      partial<WorkspaceReaderPort>({
+        slugOf: vi.fn(async () => 'acme'),
+      }),
       taskLinks,
     ),
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -534,13 +542,11 @@ describe('TaskNotices uploads', () => {
       type: 'image/png',
     });
 
-    const posted = run.mock.calls[run.mock.calls.length - 1]?.[1] as {
-      uploaded: { name: string; prepared: { id: string } }[];
-    };
+    const posted = run.mock.calls[run.mock.calls.length - 1]?.[1];
     expect(run).toHaveBeenCalledTimes(3);
-    expect(
-      posted.uploaded.map((each) => `${each.name}:${each.prepared.id}`),
-    ).toEqual(['shot.png:F_shot.png']);
+    expect(valueAt(posted, 'uploaded')).toMatchObject([
+      { name: 'shot.png', prepared: { id: 'F_shot.png' } },
+    ]);
   });
 
   it('posts with nothing uploaded where the ask has no files', async () => {
@@ -590,9 +596,11 @@ describe('TaskNotices uploads', () => {
     const posts = run.mock.calls
       .filter(([action]) => 'uploads' in action)
       .map(([, against]) => against);
-    expect(posts.map((each) => (each.uploaded as unknown[]).length)).toEqual([
-      1, 0,
-    ]);
+    expect(
+      posts.map(({ uploaded }) =>
+        Array.isArray(uploaded) ? uploaded.length : -1,
+      ),
+    ).toEqual([1, 0]);
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({
         error: expect.objectContaining({
@@ -663,7 +671,7 @@ connection:
 `,
       ),
       'shown',
-      { of: async () => connected } as unknown as CallAuthResolver,
+      partial<CallAuthResolver>({ of: async () => connected }),
     );
 
     await notifier.notify(withFiles([SHOT]), 'task.asked');
@@ -802,10 +810,10 @@ connection:
 
     await notifier.notify(withFiles([SHOT]), 'task.asked');
 
-    const [prepare, against] = run.mock.calls[0] ?? [];
-    const rendered = new HttpOutbound({} as OutboundPolicy).rendered(
-      prepare as Parameters<HttpOutbound['rendered']>[0],
-      against ?? {},
+    const [prepare, against] = callAt(run);
+    const rendered = new HttpOutbound(partial<OutboundPolicy>({})).rendered(
+      prepare,
+      against,
     );
     expect(rendered?.url).toBe(
       'https://slack.com/api/files.getUploadURLExternal?filename=shot.png&length=3',

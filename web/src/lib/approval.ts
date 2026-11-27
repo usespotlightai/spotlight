@@ -3,6 +3,7 @@ import type {
   InboxApprovalResponseDto,
 } from '@/lib/api';
 import { WAITING_FOR_APPROVAL } from '@/lib/approval-status';
+import { nonEmpty } from '@/lib/non-empty';
 
 export type Approval = InboxApprovalResponseDto;
 
@@ -49,12 +50,18 @@ export const approvedOnlyBy = (
 export const editable = (approval: Approval): boolean =>
   approval.kind === 'tool-call' && approval.inputs.length > 0;
 
-export const readsAsCode = (approval: Approval, input: ApprovalInput) =>
+export const readsAsCode = (
+  approval: Approval,
+  input: ApprovalInput,
+): boolean =>
   approval.kind === 'harness-permission'
     ? input.name !== HARNESS_TITLE || approval.name.endsWith(' execute')
     : CODE_INPUTS.has(input.name.toLowerCase()) || isStructured(input.value);
 
-export const labelOf = (approval: Approval, input: ApprovalInput) =>
+export const labelOf = (
+  approval: Approval,
+  input: ApprovalInput,
+): string | null =>
   approval.kind === 'harness-permission' && input.name === HARNESS_TITLE
     ? null
     : input.name;
@@ -112,7 +119,7 @@ export const askedFor = (approval: Approval): string => {
     return `Spotlight asked to ${wanted}. You edited its inputs.`;
   }
 
-  return approval.intent
+  return nonEmpty(approval.intent)
     ? sentence(`Spotlight would like to ${approval.intent}`)
     : `Spotlight would like to use ${approval.name}. ${approval.because}`;
 };

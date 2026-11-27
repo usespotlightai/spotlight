@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { StationSummary } from '@/components/features/stations/activity/StationSummary';
 import type { StationRunOutcomes, StationTally } from '@/lib/station-insights';
+import { partial } from '@/test/partial';
 
 const inForce = vi.fn<() => StationRunOutcomes['inForce']>();
 
@@ -15,7 +16,7 @@ vi.mock('@/hooks/api/useStationInsights', () => ({
   }),
 }));
 
-const TALLY = {
+const TALLY = partial<StationTally>({
   runs: 42,
   failed: 0,
   stopped: 0,
@@ -37,7 +38,7 @@ const TALLY = {
   p90Ms: null,
   unpriced: 0,
   mixedCurrencies: false,
-} as StationTally;
+});
 
 const showing = () =>
   render(

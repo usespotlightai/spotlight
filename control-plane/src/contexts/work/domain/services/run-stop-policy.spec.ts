@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { RunStopPolicy } from '@work/domain/services/run-stop-policy';
@@ -7,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 const task = (id: string) => ({ id: TaskId.of(id) });
 
 const run = (taskId: string | null, atStation = true) => ({
-  taskId: taskId ? TaskId.of(taskId) : null,
+  taskId: nonEmpty(taskId) ? TaskId.of(taskId) : null,
   stationId: atStation ? StationId.of('station_1') : null,
 });
 

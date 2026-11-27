@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -116,7 +117,9 @@ const dispatch: TaskDispatching = {
   runIdFor: async () => RunId.of(randomUUID()),
 };
 
-const placements: TaskPlacementsPort = { placementsAt: async () => [] };
+const placements: TaskPlacementsPort = {
+  placementsAt: async () => [],
+};
 
 const unused = async (): Promise<never> => {
   throw new Error('a happening without files touches no attachment');
@@ -162,10 +165,10 @@ const reactions = (): ReactToHappenings =>
     files,
     processedEventsInMemory(),
     silent,
-    {
+    partial<ChannelChats>({
       reached: async () => null,
       answer: async () => {},
-    } as unknown as ChannelChats,
+    }),
     { of: async () => [] },
     { membersOf: async () => TeamMembers.of([owner]) },
   );
@@ -223,7 +226,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const asking = (task: Task, run: RunId, how: Waiting): Task => {

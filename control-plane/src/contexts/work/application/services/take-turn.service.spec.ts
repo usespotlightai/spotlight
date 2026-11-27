@@ -1,5 +1,7 @@
 import type { TurnFacts } from '@runs/application/ports/run-turns.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -67,7 +69,7 @@ const MEMBER = TeamStanding.of({
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
 
-const TASK_VIEW = { taskId: 'task_1', runId: 'run_1' } as TaskViewDto;
+const TASK_VIEW = partial<TaskViewDto>({ taskId: 'task_1', runId: 'run_1' });
 
 const line = () =>
   lineMapOf({
@@ -128,7 +130,12 @@ const attaching = () => {
   const asked: [string, readonly string[]][] = [];
   const taken: [string, readonly string[]][] = [];
 
-  return {
+  return partial<
+    FilesLoader & {
+      asked: [string, readonly string[]][];
+      taken: [string, readonly string[]][];
+    }
+  >({
     asked,
     taken,
     uploadedBy: async (
@@ -148,10 +155,7 @@ const attaching = () => {
     },
     takenIn: async (workspaceId: WorkspaceId, files: readonly Attachment[]) =>
       void taken.push([workspaceId.value, files.map((each) => each.id.value)]),
-  } as unknown as FilesLoader & {
-    asked: [string, readonly string[]][];
-    taken: [string, readonly string[]][];
-  };
+  });
 };
 
 const RUN = RunId.of('run_1');
@@ -218,18 +222,18 @@ const turning = (over: Turning = {}) => {
   const clock = { now: () => NOW, sleep: async () => {} };
   const files =
     over.files ??
-    ({
+    partial<FilesLoader>({
       uploadedBy: async () => [],
       takenIn: async () => {},
-    } as unknown as FilesLoader);
+    });
   const taskOf = () =>
     typeof over.task === 'function' ? over.task() : (over.task ?? null);
-  const taskStore = {
+  const taskStore = partial<TaskRepository>({
     find: async () => tasks[tasks.length - 1] ?? taskOf(),
     save: async (each: Task) => {
       tasks.push(each);
     },
-  } as unknown as TaskRepository;
+  });
   const dispatches: DispatchRepository = {
     find: async () => dispatched(),
     add: async () => undefined,
@@ -240,11 +244,11 @@ const turning = (over: Turning = {}) => {
     held.runs,
     dispatches,
     taskStore,
-    { findByStation: async () => line() } as unknown as LineMapsPort,
-    {
+    partial<LineMapsPort>({ findByStation: async () => line() }),
+    partial<RunJournalReaderPort>({
       attemptsOfRun: async () => [],
-    } as unknown as RunJournalReaderPort,
-    { of: async () => TASK_VIEW } as unknown as TaskViewsPort,
+    }),
+    partial<TaskViewsPort>({ of: async () => TASK_VIEW }),
     {
       listens: async () => true,
       before: async (_task, event) => {
@@ -301,7 +305,7 @@ describe('TakeTurn', () => {
 
       await turn.take(reviewing);
 
-      const task = turn.tasks[0];
+      const task = firstOf(turn.tasks);
       expect(turn.runs.keep).toHaveBeenCalledWith(RUN, 1);
       expect(task?.awaitingReview).toBe(true);
       expect(task?.hasCurrentRun(RUN)).toBe(true);
@@ -326,7 +330,7 @@ describe('TakeTurn', () => {
         }),
       );
 
-      const note = turn.tasks[0]?.notes[0];
+      const note = firstOf(firstOf(turn.tasks)?.notes ?? []);
       expect(note?.kind).toBe('asked');
       expect(note?.suggestsClosing).toBe(true);
     });
@@ -460,7 +464,7 @@ describe('TakeTurn', () => {
 
       await turn.take(handingOver('build', 'Cards are flat.'));
 
-      const resumed = turn.tasks[0];
+      const resumed = firstOf(turn.tasks);
 
       expect(turn.runs.finish).toHaveBeenCalledWith(RUN, 1);
       expect(resumed?.onHold).toBe(false);

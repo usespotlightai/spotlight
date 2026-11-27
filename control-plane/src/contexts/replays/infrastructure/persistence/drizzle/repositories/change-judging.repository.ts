@@ -13,6 +13,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { JudgingFailure } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
@@ -57,7 +59,9 @@ const toChangeJudging = (row: Row): ChangeJudging =>
       claims: row.claims,
       passThreshold: row.passThreshold,
     }),
-    reference: row.referenceRunId ? RunId.of(row.referenceRunId) : null,
+    reference: nonEmpty(row.referenceRunId)
+      ? RunId.of(row.referenceRunId)
+      : null,
     queuedAt: row.queuedAt,
     job: row.pending
       ? PendingJob.rehydrate({
@@ -150,16 +154,18 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
     runId: RunId,
     attempt: JudgingAttempt,
   ): Promise<ChangeJudging | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(changeJudging)
-      .where(
-        and(
-          eq(changeJudging.runId, runId.value),
-          eq(changeJudging.attempt, attempt),
-        ),
-      )
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(changeJudging)
+        .where(
+          and(
+            eq(changeJudging.runId, runId.value),
+            eq(changeJudging.attempt, attempt),
+          ),
+        )
+        .limit(1),
+    );
 
     return row ? toChangeJudging(row) : null;
   }
@@ -174,18 +180,23 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
   }
 
   async nextDueJob(now: Date): Promise<ChangeJudging | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(changeJudging)
-      .where(
-        and(
-          eq(changeJudging.pending, true),
-          or(isNull(changeJudging.jobDueAt), lte(changeJudging.jobDueAt, now)),
-        ),
-      )
-      .orderBy(asc(changeJudging.queuedAt))
-      .limit(1)
-      .for('update', { skipLocked: true });
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(changeJudging)
+        .where(
+          and(
+            eq(changeJudging.pending, true),
+            or(
+              isNull(changeJudging.jobDueAt),
+              lte(changeJudging.jobDueAt, now),
+            ),
+          ),
+        )
+        .orderBy(asc(changeJudging.queuedAt))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
     return row ? toChangeJudging(row) : null;
   }

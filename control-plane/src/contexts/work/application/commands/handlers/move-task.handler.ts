@@ -2,6 +2,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -71,11 +72,11 @@ export class MoveTaskHandler implements CommandHandlerPort<
         (each) => !each.id.equals(task.id),
       );
 
-      const after = command.afterTaskId
+      const after = nonEmpty(command.afterTaskId)
         ? others.find((each) => each.id.value === command.afterTaskId)
         : null;
 
-      if (command.afterTaskId && !after) {
+      if (nonEmpty(command.afterTaskId) && !after) {
         throw new UnknownTaskError(command.afterTaskId);
       }
 

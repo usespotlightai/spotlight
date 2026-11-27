@@ -18,6 +18,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -84,19 +85,19 @@ const reacting = (
 
   return {
     reactions: new MemoryReactions(
-      reviews as unknown as ReviewsPort,
-      {
+      partial<ReviewsPort>(reviews),
+      partial<MemoryProposalSetRepository>({
         forTaskLocked: async () =>
-          ({
+          partial<MemoryProposalSet>({
             awaitsReviewIn: (runId: RunId) =>
               awaiting.some((each) => each.equals(runId)),
-          }) as unknown as MemoryProposalSet,
+          }),
         forTask: async () => sets[sets.length - 1] ?? null,
         save: async (saved: MemoryProposalSet) => {
           sets.push(saved);
         },
-      } as unknown as MemoryProposalSetRepository,
-      memories as unknown as MemoryRepository,
+      }),
+      partial<MemoryRepository>(memories),
       { inTransaction: <T>(work: () => Promise<T>) => work() },
       { now: () => NOW, sleep: async () => undefined },
     ),

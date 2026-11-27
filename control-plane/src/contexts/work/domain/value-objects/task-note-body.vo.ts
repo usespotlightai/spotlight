@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { InvalidTaskNoteError } from '@work/domain/exceptions/invalid-task-note.error';
@@ -182,7 +183,9 @@ export class TaskNoteBody {
       [
         `The line resumed at ${input.at.value}. ${TaskNoteBody.resumedInto(input.into)}`,
         TaskNoteBody.heldMoveOnResume(input.into, input.held),
-        input.summary ? `About the changes:\n\n${input.summary}` : null,
+        nonEmpty(input.summary)
+          ? `About the changes:\n\n${input.summary}`
+          : null,
         changed.length > 0
           ? [
               "The changes from the person's turns are committed in the workspace. Read them with:",
@@ -234,7 +237,7 @@ export class TaskNoteBody {
     const why = reason?.trim();
 
     return TaskNoteBody.of(
-      why
+      nonEmpty(why)
         ? `${moved} The person who moved it gave this reason:\n\n${why}`
         : moved,
     );

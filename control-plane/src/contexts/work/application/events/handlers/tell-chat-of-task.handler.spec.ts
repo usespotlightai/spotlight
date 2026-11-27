@@ -1,4 +1,5 @@
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -51,16 +52,16 @@ const using = (chat: Chat | null) => {
     each.assignRun(RunId.of('run_2'), NOW),
   );
   const handler = new TellChatOfTask(
-    {
+    partial<ChatRepository>({
       find: async () => chat,
       save: async (each: Chat) => {
         saved.push(each);
       },
-    } as unknown as ChatRepository,
+    }),
     { takenUp },
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
   );
 
   return { handler, saved, takenUp };

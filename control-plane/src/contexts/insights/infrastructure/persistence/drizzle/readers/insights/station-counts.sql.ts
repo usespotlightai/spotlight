@@ -202,22 +202,20 @@ export const stationCountsIn = async (
 
   return {
     team: teamTallies.counts(),
-    stations: stations.map(
-      (station): StationCounts => ({
-        lineId: station.line_id,
-        stationId: station.station_id,
-        ...(
-          stationTallies.get(station.station_id) ?? new WindowTallies()
-        ).counts(),
-        runFailures: runFailures
-          .filter((each) => each.station_id === station.station_id)
-          .map((each) => ({
-            failure: each.failure,
-            runs: each.run_ids.length,
-            runIds: each.run_ids,
-          })),
-      }),
-    ),
+    stations: stations.map((station): StationCounts => ({
+      lineId: station.line_id,
+      stationId: station.station_id,
+      ...(
+        stationTallies.get(station.station_id) ?? new WindowTallies()
+      ).counts(),
+      runFailures: runFailures
+        .filter((each) => each.station_id === station.station_id)
+        .map((each) => ({
+          failure: each.failure,
+          runs: each.run_ids.length,
+          runIds: each.run_ids,
+        })),
+    })),
     failing,
   };
 };

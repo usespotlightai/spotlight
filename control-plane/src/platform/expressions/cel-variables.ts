@@ -39,7 +39,8 @@ export const sanitizedForCel = (value: unknown): unknown => {
       return node.map((each) => walk(each, depth + 1));
     }
 
-    const plain = Object.create(null) as Record<string, unknown>;
+    const plain: Record<string, unknown> = {};
+    Object.setPrototypeOf(plain, null);
 
     for (const [key, each] of Object.entries(node).slice(0, MAX_KEYS)) {
       if (!RESERVED.has(key)) {

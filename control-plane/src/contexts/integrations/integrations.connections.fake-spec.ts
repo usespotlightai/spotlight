@@ -145,7 +145,7 @@ export class InMemoryIntegrationConnections implements IntegrationConnectionRepo
     return [...this.#stored.values()].filter(
       (each) =>
         each.workspaceId.equals(workspaceId) &&
-        each.owner.personId?.equals(person),
+        each.owner.personId?.equals(person) === true,
     );
   }
 }

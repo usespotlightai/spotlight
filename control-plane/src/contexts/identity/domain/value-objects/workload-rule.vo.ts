@@ -94,7 +94,7 @@ export class WorkloadRule {
 
   equals(other: WorkloadRule): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof WorkloadRule &&
       this.issuer.equals(other.issuer) &&
       this.audience.equals(other.audience) &&
       this.subject.equals(other.subject) &&

@@ -4,10 +4,13 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CandidatesTab } from '@/components/features/insights/candidates/CandidatesTab';
+import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 import { stationNamesOf } from '@/lib/insights';
 import type { InsightsCandidates } from '@/lib/insights-candidates';
+import { htmlElement } from '@/test/elements';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
+import { partial } from '@/test/partial';
 
 type Queried = {
   data: unknown;
@@ -26,36 +29,36 @@ const queried = (data: unknown, errorUpdateCount = 0): Queried => ({
 });
 
 const LINES = [
-  {
+  partial<LineResponseDto>({
     id: 'line_delivery',
     key: 'delivery',
     name: 'Delivery',
     repositories: [],
     reactions: [],
     stations: [
-      {
+      partial<StationResponseDto>({
         id: 'station_implementation',
         key: 'implementation',
         name: 'Implementation',
         kind: 'work',
         color: '#000',
         position: 0,
-      },
-      {
+      }),
+      partial<StationResponseDto>({
         id: 'station_review',
         key: 'review',
         name: 'Code Review',
         kind: 'work',
         color: '#000',
         position: 1,
-      },
+      }),
     ],
-  },
+  }),
 ];
 
 const answer: {
   candidates: Queried;
-  lines: unknown;
+  lines: LineResponseDto[] | undefined;
   requested: unknown[];
 } = {
   candidates: queried(undefined),
@@ -81,17 +84,15 @@ const showing = (period: InsightsPeriod = '30d') =>
         slug="acme"
         teamId="team_1"
         period={period}
-        names={stationNamesOf(
-          (answer.lines ?? []) as Parameters<typeof stationNamesOf>[0],
-        )}
+        names={stationNamesOf(answer.lines ?? [])}
       />
     </MemoryRouter>,
   );
 
 const row = (name: string) =>
-  screen
-    .getByText(name)
-    .closest('[data-slot="replayed-candidate"]') as HTMLElement;
+  htmlElement(
+    screen.getByText(name).closest('[data-slot="replayed-candidate"]'),
+  );
 
 const withPrompt = (
   name: string,
@@ -288,7 +289,7 @@ describe('the Candidates tab', () => {
       stations: [
         {
           ...station,
-          sets: station?.sets.map((set) => ({
+          sets: station.sets.map((set) => ({
             ...set,
             candidates: set.candidates.map((each) => ({
               ...each,
@@ -352,9 +353,9 @@ describe('the Candidates tab', () => {
     );
     showing();
 
-    const detail = row('sonnet-terse-prompt').querySelector(
-      '[data-slot="row-detail"]',
-    ) as HTMLElement;
+    const detail = htmlElement(
+      row('sonnet-terse-prompt').querySelector('[data-slot="row-detail"]'),
+    );
     expect(within(detail).queryByText('Be thorough.')).toBeNull();
     expect(
       row('opus-with-migrations-skill').querySelector(

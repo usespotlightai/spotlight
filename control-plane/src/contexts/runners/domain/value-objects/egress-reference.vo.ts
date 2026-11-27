@@ -38,7 +38,7 @@ export class EgressReference {
   }
 
   equals(other: EgressReference): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof EgressReference && this.value === other.value;
   }
 
   toString(): string {

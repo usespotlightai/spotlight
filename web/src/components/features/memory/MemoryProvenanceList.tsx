@@ -10,6 +10,7 @@ import {
   type MemoryProvenance,
   type MemoryProvenanceNote,
 } from '@/lib/memory';
+import { nonEmpty } from '@/lib/non-empty';
 
 const noteAvatar = (note: MemoryProvenanceNote) => {
   if (note.author) {
@@ -48,7 +49,7 @@ export function MemoryProvenanceList({
       name: agent ?? 'The agent',
       avatar: (
         <IconAvatar>
-          {provenance.harness ? (
+          {nonEmpty(provenance.harness) ? (
             <HarnessLogo harness={provenance.harness} />
           ) : (
             <Bot aria-hidden />

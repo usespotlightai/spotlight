@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const COPIED_MS = 2000;
 
-export function useCopied() {
+type CopiedResult = { copied: boolean; copy: (text: string) => Promise<void> };
+
+export function useCopied(): CopiedResult {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 

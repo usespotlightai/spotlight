@@ -1,4 +1,5 @@
 import { InvalidRunnerImageError } from '@shared-kernel/domain/exceptions/invalid-runner-image.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const MAX_LENGTH = 255;
 const DIGEST = /@sha256:[0-9a-f]{64}$/;
@@ -23,7 +24,7 @@ export class RunnerImage {
   static of(raw: string): RunnerImage {
     const problem = problemOf(raw);
 
-    if (problem) {
+    if (nonEmpty(problem)) {
       throw new InvalidRunnerImageError(problem);
     }
 

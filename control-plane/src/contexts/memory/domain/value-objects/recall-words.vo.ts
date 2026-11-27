@@ -20,7 +20,7 @@ export class RecallWords {
   }
 
   equals(other: RecallWords): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof RecallWords && this.value === other.value;
   }
 
   toString(): string {

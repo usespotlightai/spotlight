@@ -5,7 +5,35 @@ import { SANDBOX_VALUE_MIN_LENGTH } from '@secrets/domain/value-objects/secret-s
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { describe, expect, it } from 'vitest';
 
-const shared = JSON.parse(
+interface Shared {
+  readonly minLength: number;
+  readonly values: readonly { value: string; fits: boolean }[];
+}
+
+const isSample = (each: unknown): each is { value: string; fits: boolean } =>
+  typeof each === 'object' &&
+  each !== null &&
+  'value' in each &&
+  typeof each.value === 'string' &&
+  'fits' in each &&
+  typeof each.fits === 'boolean';
+
+const isShared = (value: unknown): value is Shared => {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const values: unknown = 'values' in value ? value.values : undefined;
+
+  return (
+    'minLength' in value &&
+    typeof value.minLength === 'number' &&
+    Array.isArray(values) &&
+    values.every((each: unknown) => isSample(each))
+  );
+};
+
+const written: unknown = JSON.parse(
   readFileSync(
     join(
       __dirname,
@@ -13,10 +41,13 @@ const shared = JSON.parse(
     ),
     'utf8',
   ),
-) as {
-  minLength: number;
-  values: readonly { value: string; fits: boolean }[];
-};
+);
+
+if (!isShared(written)) {
+  throw new Error('expected the shared sandbox-env samples');
+}
+
+const shared = written;
 
 describe('a value a run gets in its sandbox', () => {
   it('is as long as the runner asks', () => {

@@ -1,9 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 
+const isFields = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
 const fieldsOf = (value: unknown): Record<string, unknown> =>
-  typeof value === 'object' && value !== null
-    ? (value as Record<string, unknown>)
-    : {};
+  isFields(value) ? value : {};
 
 export const pushDiffInput = (
   value: unknown,

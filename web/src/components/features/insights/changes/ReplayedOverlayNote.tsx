@@ -6,6 +6,7 @@ import {
   type ReplayedPoint,
   replayedNote,
 } from '@/lib/insights-candidates';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 
 type ReplayedOverlayNoteProps = {
@@ -27,7 +28,7 @@ export function ReplayedOverlayNote({
   hiddenFor,
   candidates,
 }: ReplayedOverlayNoteProps) {
-  if (!stationId) {
+  if (!nonEmpty(stationId)) {
     return null;
   }
 
@@ -46,7 +47,7 @@ export function ReplayedOverlayNote({
     return null;
   }
 
-  if (hiddenFor) {
+  if (nonEmpty(hiddenFor)) {
     return (
       <p data-slot="replayed-note" className={NOTE}>
         Replayed points show success only. They’re hidden while the chart shows{' '}

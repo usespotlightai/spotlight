@@ -1,3 +1,5 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
+
 interface ChangeHunk {
   readonly id: string;
   readonly path: string;
@@ -67,8 +69,8 @@ const middleEdits = (
     edits.push({ sign, text, old: from + old, now: from + now });
 
   while (old < before.length || now < after.length) {
-    const previous = before[old];
-    const added = after[now];
+    const previous = itemAt(before, old);
+    const added = itemAt(after, now);
 
     if (
       lengths &&
@@ -87,9 +89,11 @@ const middleEdits = (
     ) {
       push('-', previous);
       old += 1;
-    } else {
+    } else if (added !== undefined) {
       push('+', added);
       now += 1;
+    } else {
+      break;
     }
   }
 
@@ -161,7 +165,7 @@ export const hunksOf = (
   for (const at of changed) {
     const from = Math.max(0, at - CONTEXT);
     const to = Math.min(edits.length, at + CONTEXT + 1);
-    const last = groups[groups.length - 1];
+    const last = itemAt(groups, groups.length - 1);
 
     if (last && from <= last.to) {
       last.to = Math.max(last.to, to);

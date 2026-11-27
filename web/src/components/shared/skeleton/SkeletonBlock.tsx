@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type SkeletonBlockProps = {
@@ -24,7 +25,7 @@ export function SkeletonBlock({
     </>
   );
 
-  return label ? (
+  return nonEmpty(label) ? (
     <div role="status" aria-label={label} className={classes}>
       {block}
     </div>

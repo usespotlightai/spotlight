@@ -22,8 +22,9 @@ import type {
   VerifyingRequest,
 } from '@secrets/application/ports/secret-injection.port';
 import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { vi } from 'vitest';
+import { type Mock, vi } from 'vitest';
 
 interface Bound {
   readonly host: string;
@@ -39,82 +40,102 @@ class SecretDenied extends DomainError {
 
 const denied = (message: string) => new SecretDenied(message);
 
-export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
+type Port = SecretInjectionPort;
+
+interface Injecting {
+  readonly injection: Port;
+  readonly grant: Mock<Port['grant']>;
+  readonly forRun: Mock<Port['forRun']>;
+  readonly forSpotlight: Mock<Port['forSpotlight']>;
+  readonly standInsFor: Mock<Port['standInsFor']>;
+  readonly standInsForRun: Mock<Port['standInsForRun']>;
+  readonly forVerifying: Mock<Port['forVerifying']>;
+}
+
+export const injecting = (
+  bound: Readonly<Partial<Record<string, Bound>>> = {},
+): Injecting => {
   const granted = new Set<string>();
 
   const injected = (
     request: SpotlightRequest,
     run: string | null,
     standIns = false,
-  ) =>
-    injectedSecretsOf(
-      request.secrets.map((name) => {
-        const secret = bound[name];
-        const host = new URL(request.url).hostname;
+  ): Promise<ReturnType<typeof injectedSecretsOf>> =>
+    new Promise((resolve) => {
+      resolve(
+        injectedSecretsOf(
+          request.secrets.map((name) => {
+            const secret = bound[name];
+            const host = new URL(request.url).hostname;
 
-        if (!secret) {
-          throw Object.assign(
-            new Error(`Secret ${name} not found. Please create it first.`),
-            { kind: 'conflict' as const },
-          );
-        }
+            if (secret === undefined) {
+              throw Object.assign(
+                new Error(`Secret ${name} not found. Please create it first.`),
+                { kind: 'conflict' as const },
+              );
+            }
 
-        if (secret.host !== host) {
-          throw denied(`The ${name} secret is not bound to ${host}`);
-        }
+            if (secret.host !== host) {
+              throw denied(`The ${name} secret is not bound to ${host}`);
+            }
 
-        if (run !== null && !granted.has(`${run}:${name}`)) {
-          throw denied(`This run was not granted the ${name} secret`);
-        }
+            if (run !== null && !granted.has(`${run}:${name}`)) {
+              throw denied(`This run was not granted the ${name} secret`);
+            }
 
-        const bare = standIns ? `spotlight-egress:${name}` : secret.value;
+            const bare = standIns ? `spotlight-egress:${name}` : secret.value;
 
-        return {
-          location: secret.location ?? 'header',
-          name: secret.name ?? 'authorization',
-          value: `${secret.prefix ?? ''}${bare}`,
-          bare,
-        };
-      }),
-    );
+            return {
+              location: secret.location ?? 'header',
+              name: secret.name ?? 'authorization',
+              value: `${secret.prefix ?? ''}${bare}`,
+              bare,
+            };
+          }),
+        ),
+      );
+    });
 
-  const grant = vi.fn(async (runGrant: RunGrant) => {
+  const grant = vi.fn<Port['grant']>(async (runGrant: RunGrant) => {
     for (const name of runGrant.secrets) {
-      if (!bound[name]) {
+      if (bound[name] === undefined) {
         throw new Error(`Secret ${name} not found. Please create it first.`);
       }
 
       granted.add(`${runGrant.runId}:${name}`);
     }
   });
-  const forRun = vi.fn(async (request: RunRequest) =>
+  const forRun = vi.fn<Port['forRun']>((request: RunRequest) =>
     injected(request, request.runId),
   );
-  const forSpotlight = vi.fn(async (request: SpotlightRequest) =>
-    injected(request, null),
+  const forSpotlight = vi.fn<Port['forSpotlight']>(
+    (request: SpotlightRequest) => injected(request, null),
   );
 
-  const standInsFor = vi.fn(async (request: SpotlightRequest) =>
+  const standInsFor = vi.fn<Port['standInsFor']>((request: SpotlightRequest) =>
     injected(request, null, true),
   );
-  const standInsForRun = vi.fn(async (request: RunRequest) =>
+  const standInsForRun = vi.fn<Port['standInsForRun']>((request: RunRequest) =>
     injected(request, request.runId, true),
   );
 
-  const forVerifying = vi.fn(async (request: VerifyingRequest) => {
-    const secret = bound[request.secret];
+  const forVerifying = vi.fn<Port['forVerifying']>(
+    async (request: VerifyingRequest) => {
+      const secret = bound[request.secret];
 
-    if (!secret) {
-      throw Object.assign(
-        new Error(
-          `Secret ${request.secret} not found. Please create it first.`,
-        ),
-        { kind: 'conflict' as const },
-      );
-    }
+      if (secret === undefined) {
+        throw Object.assign(
+          new Error(
+            `Secret ${request.secret} not found. Please create it first.`,
+          ),
+          { kind: 'conflict' as const },
+        );
+      }
 
-    return VerifyingSecret.of(secret.value);
-  });
+      return VerifyingSecret.of(secret.value);
+    },
+  );
 
   const injection: SecretInjectionPort = {
     grant,
@@ -137,7 +158,7 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
 };
 
 export const credentialsFor = (
-  bound: Readonly<Record<string, Bound>> = {},
+  bound: Readonly<Partial<Record<string, Bound>>> = {},
 ): Credentials =>
   new SpotlightCredentials(injecting(bound).injection, async () =>
     WorkspaceId.of('ws_1'),
@@ -162,7 +183,9 @@ export const callAuthFor = (
   injection: SecretInjectionPort = injecting().injection,
 ): CallAuthResolver =>
   new CallAuthResolver(
-    { of: async () => null } as unknown as IntegrationConnectionRepository,
+    partial<IntegrationConnectionRepository>({
+      of: async () => null,
+    }),
     {
       find: async (id) => ({
         id,
@@ -173,8 +196,12 @@ export const callAuthFor = (
       }),
       inWorkspace: async () => [],
     } satisfies TeamDirectoryPort,
-    { inWorkspaceOfTeam: async () => null } as unknown as WorkspaceAccessPort,
+    partial<WorkspaceAccessPort>({
+      inWorkspaceOfTeam: async () => null,
+    }),
     injection,
     new InjectedCallCredentials(injection),
-    { afterUnauthorized: async () => null } as unknown as ConnectionRefresh,
+    partial<ConnectionRefresh>({
+      afterUnauthorized: async () => null,
+    }),
   );

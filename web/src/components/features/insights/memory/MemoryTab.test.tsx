@@ -4,7 +4,14 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MemoryTab } from '@/components/features/insights/memory/MemoryTab';
+import type {
+  InsightsPeriodResponseDto,
+  MeasureVerdictResponseDto,
+  RunTallyResponseDto,
+} from '@/lib/api';
 import type { InsightsMemory } from '@/lib/insights-memory';
+import { htmlElement } from '@/test/elements';
+import { partial } from '@/test/partial';
 
 type Queried = {
   data: unknown;
@@ -34,27 +41,26 @@ vi.mock('@/hooks/api/useInsightsMemory', () => ({
   },
 }));
 
-const tally = (over: Record<string, unknown> = {}) => ({
-  runs: 10,
-  cancelled: 0,
-  failed: 0,
-  stopped: 0,
-  checksPassed: 0,
-  checksFailed: 0,
-  accepted: 5,
-  sentBack: 1,
-  passed: 0,
-  merged: 0,
-  cost: null,
-  unpriced: 0,
-  mixedCurrencies: false,
-  medianMs: null,
-  p90Ms: null,
-  ...over,
-});
+const tally = (over: Partial<RunTallyResponseDto> = {}): RunTallyResponseDto =>
+  partial<RunTallyResponseDto>({
+    runs: 10,
+    cancelled: 0,
+    failed: 0,
+    stopped: 0,
+    checksPassed: 0,
+    checksFailed: 0,
+    passed: 0,
+    merged: 0,
+    cost: null,
+    unpriced: 0,
+    mixedCurrencies: false,
+    medianMs: null,
+    p90Ms: null,
+    ...over,
+  });
 
-const MEMORY = {
-  period: { name: '30d' },
+const MEMORY = partial<InsightsMemory>({
+  period: partial<InsightsPeriodResponseDto>({ name: '30d' }),
   activeCount: 12,
   memoriesBriefed: 7,
   memoriesRead: 2,
@@ -85,10 +91,10 @@ const MEMORY = {
       at: '2026-09-28T10:00:00.000Z',
     },
   ],
-  withMemories: tally({ accepted: 8 }),
+  withMemories: tally(),
   withoutMemories: tally(),
   verdicts: [
-    {
+    partial<MeasureVerdictResponseDto>({
       measure: 'accepted_rate',
       before: 0.5,
       after: 0.8,
@@ -96,9 +102,9 @@ const MEMORY = {
       measuredAfter: 10,
       currency: null,
       verdict: 'insufficient',
-    },
+    }),
   ],
-} as unknown as InsightsMemory;
+});
 
 const showing = () =>
   render(
@@ -161,9 +167,11 @@ describe('memory in Insights', () => {
     showing();
 
     const tiles = screen.getByLabelText('Memory use');
-    const active = within(tiles)
-      .getByText('Active memories')
-      .closest('[data-slot="insights-tile"]') as HTMLElement;
+    const active = htmlElement(
+      within(tiles)
+        .getByText('Active memories')
+        .closest('[data-slot="insights-tile"]'),
+    );
     expect(active).toHaveTextContent('12');
     expect(
       within(tiles).getByText('In the briefs of 30 runs'),

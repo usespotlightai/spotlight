@@ -23,7 +23,7 @@ const toastFailure = (thrown: unknown) => {
   });
 };
 
-export const failuresToasted = () =>
+export const failuresToasted = (): MutationCache =>
   new MutationCache({
     onError: (thrown, _variables, _context, mutation) => {
       if (!mutation.meta?.quiet) {

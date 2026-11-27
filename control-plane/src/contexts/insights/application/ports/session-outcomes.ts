@@ -36,7 +36,10 @@ const isWaiting = <T extends { readonly status: string }>(
  */
 export const allSettled = <T extends { readonly status: string }>(
   answers: readonly (T | SessionWaiting)[],
-): readonly Exclude<T, SessionWaiting>[] | SessionWaiting =>
-  answers.some(isWaiting)
-    ? SESSION_WAITING
-    : (answers as readonly Exclude<T, SessionWaiting>[]);
+): readonly Exclude<T, SessionWaiting>[] | SessionWaiting => {
+  const settled = answers.filter(
+    (each): each is Exclude<T, SessionWaiting> => !isWaiting(each),
+  );
+
+  return settled.length === answers.length ? settled : SESSION_WAITING;
+};

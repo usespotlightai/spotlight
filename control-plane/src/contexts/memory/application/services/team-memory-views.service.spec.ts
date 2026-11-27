@@ -8,6 +8,7 @@ import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo'
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -30,11 +31,11 @@ const active = () =>
 
 const views = () =>
   new TeamMemoryViews(
-    { find: async () => null } as unknown as MemoryRepository,
-    {
+    partial<MemoryRepository>({ find: async () => null }),
+    partial<PeoplePort>({
       find: async () => ({ name: 'Ada', image: null }),
-    } as unknown as PeoplePort,
-    { runsUsing: async () => new Map() } as unknown as MemoryUsesPort,
+    }),
+    partial<MemoryUsesPort>({ runsUsing: async () => new Map() }),
   );
 
 describe('TeamMemoryViews', () => {

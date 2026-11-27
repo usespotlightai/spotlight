@@ -7,6 +7,7 @@ import type {
 } from '@/lib/api';
 import { chatPath } from '@/lib/chat';
 import type { Note } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
 import type { Task } from '@/lib/task';
@@ -50,9 +51,9 @@ export const holdPathOf = (
   teamId: string,
   hold: TaskHoldResponseDto,
 ): string | undefined =>
-  hold.chatId
+  nonEmpty(hold.chatId)
     ? chatPath(slug, teamId, hold.chatId)
-    : hold.runId
+    : nonEmpty(hold.runId)
       ? runPath(slug, teamId, hold.runId)
       : undefined;
 
@@ -60,7 +61,7 @@ export const heldUntilResumed = (
   hold: TaskHoldResponseDto,
   viewerId: string | undefined,
 ): string =>
-  hold.chatId
+  nonEmpty(hold.chatId)
     ? hold.by.id === viewerId
       ? `Your agent chat opened the pull request of this task ${since(hold.startedAt)}. The line continues when you hand the task to the line.`
       : `The agent chat of ${hold.by.name} opened the pull request of this task ${since(hold.startedAt)}. The line continues when they hand the task to the line.`

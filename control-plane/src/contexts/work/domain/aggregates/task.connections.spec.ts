@@ -1,3 +1,4 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -100,7 +101,7 @@ const asked = () => {
 describe('Task connection asks', () => {
   it('puts the ask to the person whose connection is wanted, and waits on them', () => {
     const { task, asked: put } = working().askToConnect(RUN, asking, ask());
-    const note = task.notes[task.notes.length - 1];
+    const note = itemAt(task.notes, task.notes.length - 1);
 
     expect(note?.form).toBe('connection');
     expect(note?.connectionAsk?.personId).toEqual(ALICE);

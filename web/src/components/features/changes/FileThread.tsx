@@ -3,6 +3,7 @@ import { ReviewCommentItem } from '@/components/features/review/ReviewCommentIte
 import { ThreadEntry } from '@/components/features/review/ThreadEntry';
 import { Logo } from '@/components/shared/icons';
 import { useDraftReviewComment } from '@/hooks/api/useDraftReviewComment';
+import { nonEmpty } from '@/lib/non-empty';
 import { fileCommentsOf } from '@/lib/review';
 import { useReviewing } from '@/lib/review-context';
 
@@ -23,7 +24,7 @@ export function FileThread({
   const draft = useDraftReviewComment();
   const comments = fileCommentsOf(reviewing?.review?.comments ?? [], path);
 
-  if (!note && comments.length === 0 && !replying) {
+  if (!nonEmpty(note) && comments.length === 0 && !replying) {
     return null;
   }
 
@@ -33,9 +34,9 @@ export function FileThread({
         aria-label={`Comments on ${path}`}
         className="flex flex-col gap-3 rounded-lg border-[0.5px] border-border bg-card p-3 font-sans shadow-xs"
       >
-        {(note || comments.length > 0) && (
+        {(nonEmpty(note) || comments.length > 0) && (
           <ol className="flex flex-col">
-            {note && (
+            {nonEmpty(note) && (
               <ThreadEntry
                 avatar={<Logo className="size-5 rounded" aria-hidden />}
                 author="Spotlight"
@@ -50,7 +51,7 @@ export function FileThread({
               <ReviewCommentItem
                 key={comment.id}
                 comment={comment}
-                first={!note && place === 0}
+                first={!nonEmpty(note) && place === 0}
               />
             ))}
           </ol>
@@ -58,7 +59,9 @@ export function FileThread({
 
         {reviewing && (
           <ReplyBox
-            label={note ? 'Reply to the summary' : `Comment on ${path}`}
+            label={
+              nonEmpty(note) ? 'Reply to the summary' : `Comment on ${path}`
+            }
             open={replying}
             onOpenChange={onReplying}
             pending={draft.isPending}

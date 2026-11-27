@@ -20,6 +20,7 @@ import {
   NOBODY_ELSE,
   WORKSPACE,
 } from '@insights/runs.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -212,7 +213,7 @@ describe('answering a judge disagreement', () => {
 
   it('says why Spotlight withdrew the question, and takes no answer after', async () => {
     const run = await disagreeing();
-    const [open] = [...run.disagreements.stored.values()];
+    const open = firstOf([...run.disagreements.stored.values()]);
     if (open) {
       await run.disagreements.save(open.withdraw(ANSWERED_AT, 'label-gone'));
     }

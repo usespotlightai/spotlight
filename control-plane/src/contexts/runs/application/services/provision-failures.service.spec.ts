@@ -10,6 +10,7 @@ import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
@@ -52,8 +53,8 @@ const failing = (stored: Run, conflicts = 0) => {
   );
   const publish = vi.fn();
   const marks = new ProvisionFailureMarks(
-    { appendControlPlaneEntry: append } as unknown as RunJournalPort,
-    { publish } as unknown as RunStreamPort,
+    partial<RunJournalPort>({ appendControlPlaneEntry: append }),
+    partial<RunStreamPort>({ publish }),
   );
   const runs = {
     findById: vi.fn(async () => current),
@@ -76,7 +77,7 @@ const failing = (stored: Run, conflicts = 0) => {
     append,
     publish,
     current: () => current,
-    failures: new ProvisionFailures(runs as unknown as RunRepository),
+    failures: new ProvisionFailures(partial<RunRepository>(runs)),
   };
 };
 

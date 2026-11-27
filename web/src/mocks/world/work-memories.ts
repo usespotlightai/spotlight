@@ -3,6 +3,7 @@ import type {
   RunProposalResponseDto,
   TeamMemoryResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { hoursAgo } from '@/mocks/clock';
 import { taskOfRun, teamOfTask, world } from '@/mocks/world';
 import type { HistoryRun } from '@/mocks/world/insights-history';
@@ -129,18 +130,19 @@ const matches = (memory: TeamMemoryResponseDto, run: RunContext): boolean =>
 
 const contextOfRun = (runId: string): RunContext | undefined => {
   const past = historyRunOf(runId);
-  if (past?.startedAt) {
+  if (past !== undefined && past.startedAt !== null && past.startedAt !== '') {
     return { ...past, startedAt: past.startedAt };
   }
   const taskId = taskOfRun(runId);
-  const teamId = taskId ? teamOfTask(taskId) : undefined;
-  const run = taskId
+  const knownTask = nonEmpty(taskId);
+  const teamId = knownTask ? teamOfTask(taskId) : undefined;
+  const run = knownTask
     ? world().runs[taskId]?.find((each) => each.id === runId)
     : undefined;
   const stationId = run?.station?.id ?? '';
   const lineId = lineOfStation(stationId)?.id;
 
-  return teamId && run && lineId
+  return nonEmpty(teamId) && run && nonEmpty(lineId)
     ? { teamId, lineId, stationId, repositories: [], startedAt: run.startedAt }
     : undefined;
 };

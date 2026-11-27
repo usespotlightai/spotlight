@@ -1,8 +1,11 @@
+import { EventEmitter } from 'node:events';
 import { type IncomingMessage, STATUS_CODES } from 'node:http';
 import { connect } from 'node:net';
 import type { Duplex } from 'node:stream';
 
 import type { HttpAdapterHost } from '@nestjs/core';
+import { httpServerOf } from '@platform/http/http-server-of';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export type UpgradeListener = (
   request: IncomingMessage,
@@ -14,17 +17,22 @@ export const listenForUpgrades = (
   adapters: HttpAdapterHost,
   listener: UpgradeListener,
 ): void => {
-  const server = adapters.httpAdapter?.getHttpServer() as
-    | { on(event: 'upgrade', listener: UpgradeListener): void }
-    | undefined;
+  const server = httpServerOf(adapters);
 
-  server?.on('upgrade', (request, socket, head) => {
-    try {
-      listener(request, socket, head);
-    } catch {
-      refuseUpgrade(socket, 400, 'The request address is not valid.');
-    }
-  });
+  if (!(server instanceof EventEmitter)) {
+    return;
+  }
+
+  server.on(
+    'upgrade',
+    (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+      try {
+        listener(request, socket, head);
+      } catch {
+        refuseUpgrade(socket, 400, 'The request address is not valid.');
+      }
+    },
+  );
 };
 
 export const upgradeUrl = (request: IncomingMessage): URL =>
@@ -34,7 +42,7 @@ export const upgradeUrl = (request: IncomingMessage): URL =>
 export const sameOrigin = (request: IncomingMessage): boolean => {
   const origin = request.headers.origin;
 
-  if (!origin) {
+  if (!nonEmpty(origin)) {
     return true;
   }
 

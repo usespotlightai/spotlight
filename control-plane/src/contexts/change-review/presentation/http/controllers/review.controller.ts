@@ -17,6 +17,7 @@ import {
   ReviewResponseDto,
 } from '@change-review/presentation/http/dto/review.response.dto';
 import { deliveryFailureText } from '@change-review/presentation/http/mappers/delivery-failure.text';
+import { sentFields } from '@change-review/presentation/http/mappers/sent-fields';
 import {
   Body,
   Controller,
@@ -114,14 +115,20 @@ export class ReviewController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CreatedIdResponseDto> {
     const id = await this.commandBus.execute<DraftReviewCommentCommand, string>(
-      new DraftReviewCommentCommand(teamId, taskId, user.id, body.body ?? '', {
-        replyTo: body.replyTo ?? null,
-        repository: body.repository ?? null,
-        path: body.path ?? '',
-        side: body.side ?? null,
-        line: body.line ?? null,
-        startLine: body.startLine ?? null,
-      }),
+      new DraftReviewCommentCommand(
+        teamId,
+        taskId,
+        user.id,
+        sentFields(body).body ?? '',
+        {
+          replyTo: body.replyTo ?? null,
+          repository: body.repository ?? null,
+          path: body.path ?? '',
+          side: body.side ?? null,
+          line: body.line ?? null,
+          startLine: body.startLine ?? null,
+        },
+      ),
     );
 
     return new CreatedIdResponseDto(id);
@@ -152,7 +159,7 @@ export class ReviewController {
         taskId,
         user.id,
         commentId,
-        body.body ?? '',
+        sentFields(body).body ?? '',
       ),
     );
   }
@@ -205,8 +212,8 @@ export class ReviewController {
         teamId,
         taskId,
         user.id,
-        body.verdict ?? '',
-        body.body ?? '',
+        sentFields(body).verdict ?? '',
+        sentFields(body).body ?? '',
         body.repository ?? null,
       ),
     );

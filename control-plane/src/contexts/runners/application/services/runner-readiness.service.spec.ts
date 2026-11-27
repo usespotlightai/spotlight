@@ -9,6 +9,7 @@ import {
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -24,12 +25,12 @@ const readiness = (
     platformPoolSet?: boolean;
   } = {},
 ) => {
-  const pools = {
+  const pools = partial<RunnerPoolRepository>({
     inWorkspace: vi.fn(async () => input.pools ?? []),
-  } as unknown as RunnerPoolRepository;
-  const hosts = {
+  });
+  const hosts = partial<RunnerHostRepository>({
     inWorkspace: vi.fn(async () => input.hosts ?? []),
-  } as unknown as RunnerHostRepository;
+  });
 
   return {
     pools,

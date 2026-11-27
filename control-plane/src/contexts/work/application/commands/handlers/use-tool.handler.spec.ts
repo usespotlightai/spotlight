@@ -7,6 +7,8 @@ import type {
   RunRequesterContract,
 } from '@runs/application/contracts/run-order.contract';
 import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -268,11 +270,11 @@ const claimed = (
     pins: over.catalog ?? [],
   });
 
-const LINE = {
-  id: 'line_1',
+const LINE = partial<LineMap>({
+  id: LineId.of('line_1'),
   teamId: TeamId.of('team_1'),
   stationAt: () => null,
-} as unknown as LineMap;
+});
 
 const TASK_VIEW: TaskViewDto = {
   taskId: 'task_1',
@@ -365,7 +367,7 @@ const using = (
 
       called.push({
         tool: request.id,
-        context: { kind: 'task' } as TaskToolContext,
+        context: partial<TaskToolContext>({ kind: 'task' }),
         inputs: ToolInputs.of(request.inputs),
       });
 
@@ -377,7 +379,7 @@ const using = (
     },
   });
   let current = over.task ?? task();
-  const tasks = {
+  const tasks = partial<TaskRepository>({
     find: async () => current,
     save: async (saved: Task) => {
       if (over.changedWhileCalling && saved.version !== current.version) {
@@ -387,7 +389,7 @@ const using = (
         ? Task.rehydrate({ ...saved, version: saved.version + 1 })
         : saved;
     },
-  } as unknown as TaskRepository;
+  });
   const linear =
     over.approval || over.readOnly
       ? DeclaredTool.of({
@@ -428,9 +430,11 @@ const using = (
         call: async () => null,
       })),
     ],
-    new ChatToolExtensions({
-      find: async () => chat(),
-    } as unknown as ChatRepository),
+    new ChatToolExtensions(
+      partial<ChatRepository>({
+        find: async () => chat(),
+      }),
+    ),
   );
 
   const integrationTools: IntegrationToolResolver = {
@@ -526,12 +530,12 @@ const using = (
         () => (found.length > 1 ? found.shift() : found[0]) ?? null,
       ),
       tasks,
-      { find: async () => chat() } as unknown as ChatRepository,
-      {
+      partial<ChatRepository>({ find: async () => chat() }),
+      partial<LineMapsPort>({
         findByStation: async (stationId: StationId) =>
           stationId.value === lineAt ? LINE : null,
         ofTeam: async () => [LINE],
-      } as unknown as LineMapsPort,
+      }),
       dispatches,
       { now: () => NOW, sleep: async () => {} },
     ),
@@ -653,7 +657,12 @@ describe('UseToolHandler', () => {
     });
     expect(called).toHaveLength(1);
     expect(called[0]?.inputs.values).toEqual({ title: 'Fix the queue' });
-    const context = called[0]?.context as TaskToolContext;
+    const context = firstOf(called)?.context;
+
+    if (context?.kind !== 'task') {
+      throw new Error('expected a task tool context');
+    }
+
     expect(context.taskId.value).toBe('task_1');
     expect(context.stationId.value).toBe('station_1');
   });
@@ -797,7 +806,7 @@ describe('UseToolHandler', () => {
     ).rejects.toMatchObject({ kind: 'conflict' });
     expect(called).toEqual([]);
 
-    const asked = current().notes[current().notes.length - 1];
+    const asked = itemAt(current().notes, current().notes.length - 1);
     expect(asked?.kind).toBe('asked');
     expect(asked?.form).toBe('approval');
     expect(asked?.approval?.subject.kind).toBe('tool-call');
@@ -1303,9 +1312,9 @@ describe('UseToolHandler', () => {
       useTool('linear.comment', { body: 'Fixed.' }),
     ).rejects.toMatchObject({ kind: 'conflict' });
     expect(called).toEqual([]);
-    expect(current().notes.filter((note) => note.approval?.open)).toHaveLength(
-      2,
-    );
+    expect(
+      current().notes.filter((note) => note.approval?.open === true),
+    ).toHaveLength(2);
     expect(current().awaitingReview).toBe(true);
   });
 
@@ -1681,7 +1690,7 @@ describe('UseToolHandler', () => {
         message: expect.stringContaining("haven't connected Linear") as unknown,
       });
 
-      const asked = current().notes[current().notes.length - 1];
+      const asked = itemAt(current().notes, current().notes.length - 1);
       expect(called).toEqual([]);
       expect(recorded).toEqual([]);
       expect(asked?.form).toBe('connection');
@@ -1790,7 +1799,7 @@ describe('UseToolHandler', () => {
         },
       });
 
-      const [used] = recorded;
+      const used = firstOf(recorded);
       expect(used?.actingAs?.personId?.value).toBe('user_1');
       expect(used?.actingAs?.linkedAccount).toBe('@alice');
     });

@@ -1,5 +1,6 @@
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface ReusedOutcome {
@@ -14,7 +15,7 @@ export const checkedOutcomeOf = (
   own: ReplayOutcome | null,
   reused: readonly ReusedOutcome[],
 ): ReplayOutcome | null => {
-  const [first] = reused;
+  const first = firstOf(reused);
   const base = own ?? first?.outcome;
 
   if (!base || reused.length === 0) {

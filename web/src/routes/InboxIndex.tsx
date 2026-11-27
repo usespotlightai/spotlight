@@ -4,13 +4,14 @@ import { InboxEmpty } from '@/components/features/inbox/InboxEmpty';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { useInbox } from '@/hooks/api/useInbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed } from '@/lib/query';
 
 export function InboxIndex() {
   const { slug } = useParams();
   const inbox = useInbox(slug);
 
-  if (!slug) {
+  if (!nonEmpty(slug)) {
     return null;
   }
 

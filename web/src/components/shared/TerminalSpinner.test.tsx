@@ -2,6 +2,7 @@ import { render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TerminalSpinner } from '@/components/shared/TerminalSpinner';
+import { partial } from '@/test/partial';
 
 const preferringStill = (still: boolean) =>
   vi.stubGlobal(
@@ -10,8 +11,10 @@ const preferringStill = (still: boolean) =>
   );
 
 const animating = () => {
-  const animate = vi.fn(() => ({ cancel: vi.fn() }));
-  HTMLElement.prototype.animate = animate as never;
+  const animate = vi.fn<HTMLElement['animate']>(() =>
+    partial<Animation>({ cancel: vi.fn() }),
+  );
+  HTMLElement.prototype.animate = animate;
   return animate;
 };
 

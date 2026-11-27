@@ -1,6 +1,7 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -108,27 +109,30 @@ const world = (task: Task, at: LineMap = line) => {
       members: [OWNER, BOB],
     },
   );
-  const tasks = {
+  const tasks = partial<TaskRepository>({
     find: vi.fn(async () => task),
     save: vi.fn(async (each: Task) => {
       saved = each;
     }),
-  } as unknown as TaskRepository;
-  const lines = {
+  });
+  const lines = partial<LineMapsPort>({
     findByStation: vi.fn(async () => at),
-  } as unknown as LineMapsPort;
+  });
   const dispatch: TaskDispatching = { runIdFor: async () => starts };
   const transaction = {
     inTransaction: (work) => work(),
   } satisfies TransactionPort;
-  const files = {
+  const files = partial<FilesLoader>({
     handedOver: async () => [],
     takenIn: async () => undefined,
-  } as unknown as FilesLoader;
+  });
   const drafts = new DraftSending(
     access,
-    { writers: async () => [], sent: async () => undefined },
-    { warn: () => undefined } as unknown as LoggerPort,
+    {
+      writers: async () => [],
+      sent: async () => undefined,
+    },
+    partial<LoggerPort>({ warn: () => undefined }),
   );
   const loader = new LineLoader(access, lines);
 
@@ -144,7 +148,7 @@ const world = (task: Task, at: LineMap = line) => {
           tasks,
           lines,
           dispatch,
-          { now: () => NOW } as ClockPort,
+          partial<ClockPort>({ now: () => NOW }),
           files,
           access,
           drafts,

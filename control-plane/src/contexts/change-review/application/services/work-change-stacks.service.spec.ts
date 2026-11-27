@@ -3,16 +3,19 @@ import type {
   ChangeStackGeneratorPort,
   GeneratedChangeStack,
 } from '@change-review/application/ports/change-stack-generator.port';
+import type { DiffReaderPort } from '@change-review/application/ports/diff-reader.port';
 import {
   SESSION_WAITING,
   type SessionWaiting,
 } from '@change-review/application/ports/session-waiting';
+import type { SymbolIndexerPort } from '@change-review/application/ports/symbol-indexer.port';
 import { GenerateChangeStack } from '@change-review/application/services/generate-change-stack.service';
 import { RedraftChangeStack } from '@change-review/application/services/redraft-change-stack.service';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
+import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
@@ -25,8 +28,10 @@ import type { ProposedCohort } from '@change-review/domain/value-objects/stack-c
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import {
   JOB_LEASE_MS,
   MAX_JOB_ATTEMPTS,
@@ -130,7 +135,7 @@ const working = (
   let now = NOW;
   const generate = vi.fn(answer);
 
-  const stacks = {
+  const stacks = partial<ChangeStackRepository>({
     find: async () => stored,
     ofTask: async () => [stored],
     save: async (stack: ChangeStack) => {
@@ -138,14 +143,14 @@ const working = (
     },
     nextDueJob: async (at: Date) =>
       stored.hasPendingJob && stored.job.isDue(at) ? stored : null,
-  } as unknown as ChangeStackRepository;
+  });
   const generator: ChangeStackGeneratorPort = { generate };
-  const clock = { now: () => now, sleep: async () => undefined };
+  const clock = { now: () => now, sleep: async () => {} };
 
-  const checks = {
+  const checks = partial<StackCheckRepository>({
     find: async () => null,
-    save: async () => undefined,
-  } as unknown as StackCheckRepository;
+    save: async () => {},
+  });
 
   const service = new WorkChangeStacks(
     stacks,
@@ -154,9 +159,9 @@ const working = (
     new GenerateChangeStack(
       stacks,
       generator,
-      {} as never,
-      {} as never,
-      {} as never,
+      partial<DiffReaderPort>({}),
+      partial<CodeReading>({}),
+      partial<SymbolIndexerPort>({}),
       { stackingFor: <T>(_: unknown, work: () => Promise<T>) => work() },
       { generate: () => 'stack-1' },
       clock,
@@ -288,7 +293,9 @@ describe('WorkChangeStacks', () => {
 
     await worked.tick(new Date(NOW.getTime() + DAY));
 
-    const [, again] = worked.generate.mock.calls.map(([request]) => request);
+    const [, again] = optionalItems(
+      worked.generate.mock.calls.map(([request]) => request),
+    );
     expect(again?.round.attempt).toBe(2);
     expect(again?.problems.map((each) => each.message)).toEqual([
       'leaves h2 out',

@@ -41,7 +41,7 @@ const setUp = async (managesSecrets = true) => {
   const secrets = new InMemorySecrets(store);
   const as = { managesSecrets: true };
   const access = accessFor(() => as.managesSecrets);
-  const clock = { now: () => NOW, sleep: async () => undefined };
+  const clock = { now: () => NOW, sleep: async () => {} };
   let next = 0;
   const creating = new CreateSecretHandler(
     access,
@@ -162,7 +162,7 @@ describe('SetSecretValueHandler', () => {
         inWorkspace: (workspaceId) => secrets.inWorkspace(workspaceId),
         save: (secret) => secrets.save(secret),
       },
-      { now: () => NOW, sleep: async () => undefined },
+      { now: () => NOW, sleep: async () => {} },
       transaction,
     );
 

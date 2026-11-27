@@ -13,7 +13,7 @@ export class MemoryProposalSetId {
   }
 
   equals(other: MemoryProposalSetId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof MemoryProposalSetId && this.value === other.value;
   }
 
   toString(): string {

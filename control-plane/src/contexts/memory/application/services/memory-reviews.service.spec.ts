@@ -1,3 +1,4 @@
+import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import type { DuplicateCheck } from '@memory/domain/aggregates/duplicate-check.aggregate';
@@ -18,6 +19,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -105,18 +107,18 @@ const reviewing = (input: {
     ),
   );
   const reviews = new MemoryReviews(
-    {
+    partial<WorkPort>({
       reasoning: async () => [],
       notesOf: async () => [],
       harnessOf: async () => 'claude-code',
-    } as unknown as WorkPort,
-    {
-      find: async () => ({ id: ADA, name: 'Ada', email: 'ada@example.com' }),
-    } as never,
-    { findAll } as unknown as MemoryRepository,
-    {
+    }),
+    partial<PeoplePort>({
+      find: async () => ({ name: 'Ada', image: null }),
+    }),
+    partial<MemoryRepository>({ findAll }),
+    partial<DuplicateCheckRepository>({
       of: async () => input.check ?? null,
-    } as unknown as DuplicateCheckRepository,
+    }),
   );
 
   return {

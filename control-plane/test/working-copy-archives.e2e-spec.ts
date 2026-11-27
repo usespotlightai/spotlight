@@ -25,6 +25,8 @@ import { DrizzleArchiveReferenceLocks } from '@runs/infrastructure/persistence/d
 import { DrizzleSnapshotRemovals } from '@runs/infrastructure/persistence/drizzle/ledgers/snapshot-removals.ledger';
 import { DrizzleArchiveReferences } from '@runs/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import {
   SnapshotName,
@@ -36,6 +38,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
+import { overriding } from './support/overriding';
 import { aRunOf } from './support/run-ended';
 import { requestedByTask } from './support/runs';
 import * as schema from './support/schema';
@@ -102,7 +105,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const aTask = async (
@@ -145,7 +148,7 @@ const aChat = async (
     title: 'Planning',
     harness: 'dev',
     sessionId,
-    workingCopyReleasedAt: sessionId ? null : updatedAt,
+    workingCopyReleasedAt: nonEmpty(sessionId) ? null : updatedAt,
     createdAt: updatedAt,
     updatedAt,
   });
@@ -170,7 +173,7 @@ const archived = async (
     workingCopyKey: key,
     held: true,
     grantee: ArchiveGrantee.run(RunId.of(grantee)),
-    location: times.store
+    location: nonEmpty(times.store)
       ? StoreSnapshot.of(
           WorkingCopyStoreName.of(times.store),
           SnapshotName.of('base-v1'),
@@ -187,7 +190,7 @@ const archived = async (
 
   await archives.save(granted.complete(STORED, times.completedAt));
 
-  return (await archives.find(granted.id)) as WorkingCopyArchive;
+  return present(await archives.find(granted.id));
 };
 
 const factsNow = async () => {
@@ -261,7 +264,7 @@ describe('storing working copy archives', () => {
       WorkingCopyArchiveVersionConflictError,
     );
 
-    const completed = (await archives.find(granted.id)) as WorkingCopyArchive;
+    const completed = present(await archives.find(granted.id));
     await archives.save(
       completed.remove(NOW, {
         holder: null,
@@ -359,7 +362,7 @@ describe('storing working copy archives', () => {
       ofADeletedChat,
       neverCompleted,
     ]) {
-      const archive = (await archives.find(id.id)) as WorkingCopyArchive;
+      const archive = present(await archives.find(id.id));
       const facts = due.get(id.id.value);
 
       expect(facts && archive.removableAt(NOW, facts)).toBe(true);
@@ -429,7 +432,7 @@ describe('storing working copy archives', () => {
     });
 
     for (const archive of [startedLongAgo, ofADeletedTask]) {
-      const found = (await archives.find(archive.id)) as WorkingCopyArchive;
+      const found = present(await archives.find(archive.id));
       const facts = due.get(archive.id.value);
 
       expect(facts && found.removableAt(NOW, facts)).toBe(true);
@@ -597,14 +600,11 @@ describe('storing working copy archives', () => {
 
     it('queues nothing when the archive cannot be removed, as both are written in one transaction', async () => {
       const finished = await finishedSnapshot();
-      const conflicting = Object.assign(
-        Object.create(archives) as typeof archives,
-        {
-          save: async () => {
-            throw new WorkingCopyArchiveVersionConflictError(finished.id.value);
-          },
+      const conflicting = overriding(archives, {
+        save: async () => {
+          throw new WorkingCopyArchiveVersionConflictError(finished.id.value);
         },
-      );
+      });
 
       await removalWith(ledger, conflicting).processDue();
 

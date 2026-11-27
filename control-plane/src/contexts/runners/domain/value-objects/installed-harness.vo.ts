@@ -11,7 +11,7 @@ const nameable = (raw: string): HarnessModel | null => {
 };
 
 export class InstalledHarness {
-  private readonly kind = 'installed-harness' as const;
+  private readonly kind = 'installed-harness';
 
   private constructor(
     readonly id: HarnessId,
@@ -49,7 +49,7 @@ export class InstalledHarness {
 
   equals(other: InstalledHarness): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof InstalledHarness &&
       this.id.equals(other.id) &&
       this.models.length === other.models.length &&
       this.models.every((model, at) => model.equals(other.models[at])) &&

@@ -7,18 +7,32 @@ import type { CommandBus } from '@nestjs/cqrs';
 import { SetPlatformPoolCommand } from '@runners/application/commands/platform-pool.commands';
 import type { PlatformPoolChangeDto } from '@runners/application/dto/platform-pool.dto';
 import { AdminPlatformPoolController } from '@runners/presentation/http/controllers/admin-platform-pool.controller';
+import type { SetWorkspacePlatformPoolRequestDto } from '@runners/presentation/http/dto/platform-pool.request.dto';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const NONE = { allowsSecrets: false, allowsReviewWork: false } as const;
 
+const bodyWith = (
+  field: string,
+  value: unknown,
+): SetWorkspacePlatformPoolRequestDto => {
+  const body: SetWorkspacePlatformPoolRequestDto = {};
+  Reflect.set(body, field, value);
+
+  return body;
+};
+
 const answering = (answer: PlatformPoolChangeDto | null) => {
   const sent: unknown[] = [];
-  const controller = new AdminPlatformPoolController({
-    execute: async (command: unknown) => {
-      sent.push(command);
-      return answer;
-    },
-  } as unknown as CommandBus);
+  const controller = new AdminPlatformPoolController(
+    partial<CommandBus>({
+      execute: async (command: unknown) => {
+        sent.push(command);
+        return answer;
+      },
+    }),
+  );
 
   return { controller, sent };
 };
@@ -68,17 +82,13 @@ describe('AdminPlatformPoolController', () => {
     const { controller, sent } = answering({ outcome: 'enabled', ...NONE });
 
     await expect(
-      controller.setPlatformPool('ws_1', {
-        enabled: 'yes',
-      } as unknown as { enabled: boolean }),
+      controller.setPlatformPool('ws_1', bodyWith('enabled', 'yes')),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
       controller.setPlatformPool('ws_1', undefined),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      controller.setPlatformPool('ws_1', {
-        allowsSecrets: 1,
-      } as unknown as { allowsSecrets: boolean }),
+      controller.setPlatformPool('ws_1', bodyWith('allowsSecrets', 1)),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(sent).toEqual([]);
   });

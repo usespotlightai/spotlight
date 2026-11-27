@@ -17,6 +17,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type RefObject,
 } from 'react';
 
 import { $spacedReferences } from '@/components/shared/chat-input/ReferenceNode';
@@ -30,6 +31,7 @@ import {
   type PendingAttachment,
   pasteFiles,
   uploadedImage,
+  type ImageAttachment,
 } from '@/lib/attachment';
 import { restoredAttachments } from '@/lib/chat-draft';
 import {
@@ -42,9 +44,10 @@ import {
 
 // Keeps the first paragraph and empties it, so writers who clear at the same time delete the same nodes and add none.
 const $clearDraft = () => {
-  const [first, ...rest] = $getRoot().getChildren();
+  const children = $getRoot().getChildren();
+  const first = children.at(0);
 
-  for (const each of rest) {
+  for (const each of children.slice(1)) {
     each.remove();
   }
 
@@ -56,13 +59,36 @@ const $clearDraft = () => {
   }
 };
 
+type ChatMessageResult = {
+  editor: RefObject<LexicalEditor | null>;
+  seed: Written;
+  written: Written;
+  setWritten: (next: Written) => void;
+  outgoing: Outgoing;
+  blank: boolean;
+  uploading: boolean;
+  images: ImageAttachment[];
+  states: Map<string, PendingAttachment>;
+  attach: (picked: readonly File[]) => void;
+  clear: () => void;
+  clearSent: (body: string) => void;
+  release: () => void;
+  restore: () => void;
+  remove: (key: string) => void;
+  handlers: {
+    onDragOver: (event: DragEvent) => void;
+    onDropCapture: (event: DragEvent) => void;
+    onPasteCapture: (event: ClipboardEvent) => void;
+  };
+};
+
 export function useChatMessage(
   slug: string,
   initialReferences: readonly Reference[],
   initialText = '',
   shared: SharedDraft | null = null,
   persisted: DraftHandle | null = null,
-) {
+): ChatMessageResult {
   const draft = shared ? null : persisted;
   const [handedOver, setHandedOver] = useState<ReadonlySet<string>>(
     () => new Set(),

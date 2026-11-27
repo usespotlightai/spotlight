@@ -23,7 +23,7 @@ export function SettingsPage({
         <div className="flex flex-col gap-3">
           <PageTitle>{title}</PageTitle>
 
-          {description && (
+          {Boolean(description) && (
             <p className="text-muted-foreground text-sm leading-6">
               {description}
             </p>

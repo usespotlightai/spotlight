@@ -1,3 +1,4 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import {
   ANSWERS_A_QUESTION,
@@ -42,9 +43,9 @@ const stretchesOf = <T extends VisitedNote>(
       return stretches;
     }
 
-    const previous = visit[at - 1];
+    const previous = itemAt(visit, at - 1);
 
-    if (previous && !shown.has(previous.position)) {
+    if (previous !== undefined && !shown.has(previous.position)) {
       lastOf(stretches)?.push(note);
     } else {
       stretches.push([note]);

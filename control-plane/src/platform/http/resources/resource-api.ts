@@ -19,6 +19,7 @@ import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import { resourceListOf } from '@platform/http/dto/resource-list.response.dto';
 import type { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 import {
+  type ApiDecorator,
   ApiProblemResponse,
   ConventionalApiController,
   operationIdOf,
@@ -66,7 +67,20 @@ const IF_MATCH = ApiHeader({
   schema: { type: 'string', example: '"3"' },
 });
 
-export const resourceApi = (resource: ResourceKind) => {
+type RouteDecorator = (path: string, summary: string) => ApiDecorator;
+
+export interface ResourceApi {
+  readonly Controller: () => ApiDecorator;
+  readonly Create: RouteDecorator;
+  readonly Read: RouteDecorator;
+  readonly Update: RouteDecorator;
+  readonly Delete: RouteDecorator;
+  readonly Import: RouteDecorator;
+  readonly List: RouteDecorator;
+  readonly ListVisible: RouteDecorator;
+}
+
+export const resourceApi = (resource: ResourceKind): ResourceApi => {
   const operation = (name: ResourceOperation, summary: string) =>
     applyDecorators(
       ApiOperation({

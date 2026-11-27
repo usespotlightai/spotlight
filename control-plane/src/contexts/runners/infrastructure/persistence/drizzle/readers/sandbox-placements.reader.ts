@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { isIdleSandbox } from '@runners/infrastructure/persistence/drizzle/idle-sandboxes';
 import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
 import { LIVE_SANDBOX_STATES } from '@runners/domain/aggregates/sandbox.aggregate';
+import { isIdleSandbox } from '@runners/infrastructure/persistence/drizzle/idle-sandboxes';
 import {
   runnerHost,
   sandbox,
@@ -19,9 +19,7 @@ export class DrizzleSandboxPlacements implements SandboxPlacementsPort {
     const rows = await this.context.db
       .select({ id: sandbox.id })
       .from(sandbox)
-      .where(
-        and(eq(sandbox.poolId, poolId.value), isIdleSandbox()),
-      );
+      .where(and(eq(sandbox.poolId, poolId.value), isIdleSandbox()));
 
     return rows.map((row) => SandboxId.of(row.id));
   }

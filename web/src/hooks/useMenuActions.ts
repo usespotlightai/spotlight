@@ -2,7 +2,11 @@ import { use, useEffect, useId, useRef } from 'react';
 
 import { type MenuAction, MenuActionsContext } from '@/lib/context-menu';
 
-export function useMenuActions(actions: readonly MenuAction[]) {
+type MenuActionsResult = { 'data-menu-actions'?: string };
+
+export function useMenuActions(
+  actions: readonly MenuAction[],
+): MenuActionsResult {
   const registry = use(MenuActionsContext);
   const id = useId();
   const latest = useRef(actions);

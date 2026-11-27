@@ -14,6 +14,7 @@ import {
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -147,7 +148,7 @@ export class SearchRunDispatch implements SearchRunDispatching {
   }
 
   private async alreadyQueued(order: SearchRunOrder): Promise<boolean> {
-    const [known] = await this.runs.statuses([order.run]);
+    const known = firstOf(await this.runs.statuses([order.run]));
 
     if (!known) {
       return false;

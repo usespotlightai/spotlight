@@ -1,6 +1,7 @@
 import type { CatalogRequest } from '@catalog/application/contracts/catalog.contract';
 import type { CatalogPort } from '@catalog/application/ports/catalog.port';
 import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
@@ -74,9 +75,9 @@ export class RunCatalog {
       tools: [pinned.value],
       skills: [],
     });
-    const [denied] = resolved.denied;
+    const denied = firstOf(resolved.denied);
 
-    if (denied) {
+    if (denied !== undefined) {
       throw new CatalogItemDeniedError(CatalogItemMapper.toDenied(denied));
     }
 

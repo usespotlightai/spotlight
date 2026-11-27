@@ -8,6 +8,7 @@ import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -60,12 +61,12 @@ const administering = (
   return {
     workspaces,
     administration: new TeamAdministration(
-      {
+      partial<TeamRepository>({
         find: vi.fn(async () =>
           over.team === undefined ? platform : over.team,
         ),
-      } as unknown as TeamRepository,
-      workspaces as unknown as WorkspaceRepository,
+      }),
+      partial<WorkspaceRepository>(workspaces),
     ),
   };
 };

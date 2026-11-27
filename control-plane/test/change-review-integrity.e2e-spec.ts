@@ -41,6 +41,9 @@ import { DrizzleRunChangeChecksReader } from '@change-review/infrastructure/pers
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -62,9 +65,9 @@ const RUNNER = RunnerId.of('runner_1');
 const ADA = UserId.of('user_ada');
 const TEAM = TeamId.of('team_integrity');
 
-const EVENTS = {
+const EVENTS = partial<DomainEventDispatcher>({
   dispatch: async () => {},
-} as unknown as DomainEventDispatcher;
+});
 
 const CLOCK = { now: () => LATER, sleep: async () => {} };
 
@@ -156,23 +159,25 @@ const checkedOnce = async (stack: ChangeStack): Promise<StackCheck> => {
   const claimed = begun.claimedFor(RUNNER, RunnerOffer.none(), NOW);
   await checks.save(claimed);
   const stored = await checks.find(claimed.id);
-  const checked = (stored as StackCheck).recordResult(
+  const checked = present(stored).recordResult(
     RUNNER,
-    (stored as StackCheck).plannedFrom(stack),
+    present(stored).plannedFrom(stack),
     [{ step: WHOLE_STEP, passed: true, output: '', durationMs: 10 }],
     NOW,
   );
   await checks.save(checked);
 
-  return (await checks.find(checked.id)) as StackCheck;
+  return present(await checks.find(checked.id));
 };
 
 const countOf = async (table: string, where: string): Promise<number> => {
-  const [row] = (
-    await database.db.execute<{ n: number }>(
-      sql.raw(`select count(*)::int as n from ${table} where ${where}`),
-    )
-  ).rows;
+  const row = firstOf(
+    (
+      await database.db.execute<{ n: number }>(
+        sql.raw(`select count(*)::int as n from ${table} where ${where}`),
+      )
+    ).rows,
+  );
 
   return row?.n ?? -1;
 };
@@ -193,7 +198,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 describe('reading a trial’s change that was checked again', () => {
@@ -240,7 +245,7 @@ describe('deleting the change review of a task', () => {
       trial: false,
     });
     await stacks.add(stack);
-    await checks.add(StackCheck.beginFor(stack, NOW) as StackCheck);
+    await checks.add(present(StackCheck.beginFor(stack, NOW)));
     await answers.add(
       QuestionAnswer.given({
         id: QuestionAnswerId.of('answer_deleted'),
@@ -296,8 +301,8 @@ describe('deleting the change review of a task', () => {
           'https://github.com/acme/widgets/pull/7',
         ),
         push: {
-          head: CommitSha.parsed('b'.repeat(40)) as CommitSha,
-          baseTip: CommitSha.parsed('a'.repeat(40)) as CommitSha,
+          head: present(CommitSha.parsed('b'.repeat(40))),
+          baseTip: present(CommitSha.parsed('a'.repeat(40))),
           pushedBy: Pusher.of('octocat'),
           pushedAt: NOW,
         },
@@ -366,8 +371,8 @@ describe('recording a push to diff', () => {
         `https://github.com/acme/${repository}/pull/7`,
       ),
       push: {
-        head: CommitSha.parsed('c'.repeat(40)) as CommitSha,
-        baseTip: CommitSha.parsed('a'.repeat(40)) as CommitSha,
+        head: present(CommitSha.parsed('c'.repeat(40))),
+        baseTip: present(CommitSha.parsed('a'.repeat(40))),
         pushedBy: Pusher.of('octocat'),
         pushedAt: NOW,
       },
@@ -395,7 +400,7 @@ describe('deleting the team that owned a trial’s change', () => {
       trial: true,
     });
     await stacks.add(stack);
-    await checks.add(StackCheck.beginFor(stack, NOW) as StackCheck);
+    await checks.add(present(StackCheck.beginFor(stack, NOW)));
     await answers.add(
       QuestionAnswer.given({
         id: QuestionAnswerId.of('answer_of_team'),

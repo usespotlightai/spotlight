@@ -8,13 +8,14 @@ import type { PushDiffRepository } from '@change-review/domain/repositories/push
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { WAITING_LIMIT_MS } from '@change-review/domain/value-objects/runner-assignment.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -44,9 +45,9 @@ const waiting = (stack: string) =>
     now: BEGAN,
   });
 
-const NO_DIFFS = {
+const NO_DIFFS = partial<PushDiffRepository>({
   waiting: async () => [],
-} as unknown as PushDiffRepository;
+});
 
 const pushDiff = (id: string, at: Date) =>
   PushDiff.record({
@@ -55,8 +56,8 @@ const pushDiff = (id: string, at: Date) =>
     taskId: TaskId.of('task_1'),
     pullRequest: PullRequestUrl.of(`https://github.com/acme/${id}/pull/7`),
     push: {
-      head: CommitSha.parsed('b'.repeat(40)) as CommitSha,
-      baseTip: CommitSha.parsed('a'.repeat(40)) as CommitSha,
+      head: commitSha('b'),
+      baseTip: commitSha('a'),
       pushedBy: Pusher.of('octocat'),
       pushedAt: at,
     },
@@ -84,10 +85,10 @@ const expiring = (
     listed,
     logged,
     expire: new ExpireWaitingReviewWork(
-      { waiting: listed, save } as unknown as StackCheckRepository,
+      partial<StackCheckRepository>({ waiting: listed, save }),
       NO_DIFFS,
       { now: () => NOW, sleep: async () => {} },
-      { error: logged } as unknown as LoggerPort,
+      partial<LoggerPort>({ error: logged }),
     ),
   };
 };
@@ -183,7 +184,7 @@ describe('ExpireWaitingReviewWork', () => {
     const saved: string[] = [];
     const logged = vi.fn();
     const expire = new ExpireWaitingReviewWork(
-      {
+      partial<StackCheckRepository>({
         waiting: async () => [waiting('stack_1'), waiting('stack_2')],
         save: async (check: StackCheck) => {
           if (check.stackId.value === 'stack_1') {
@@ -191,10 +192,10 @@ describe('ExpireWaitingReviewWork', () => {
           }
           saved.push(check.stackId.value);
         },
-      } as unknown as StackCheckRepository,
+      }),
       NO_DIFFS,
       { now: () => NOW, sleep: async () => {} },
-      { error: logged } as unknown as LoggerPort,
+      partial<LoggerPort>({ error: logged }),
     );
 
     await expire.processDue();
@@ -208,15 +209,15 @@ describe('ExpireWaitingReviewWork', () => {
     const stale = pushDiff('diff_1', BEGAN);
     const fresh = pushDiff('diff_2', NOW);
     const expire = new ExpireWaitingReviewWork(
-      { waiting: async () => [] } as unknown as StackCheckRepository,
-      {
+      partial<StackCheckRepository>({ waiting: async () => [] }),
+      partial<PushDiffRepository>({
         waiting: async () => [stale, fresh],
         save: async (diff: PushDiff) => {
           saved.push(diff);
         },
-      } as unknown as PushDiffRepository,
+      }),
       { now: () => NOW, sleep: async () => {} },
-      { error: vi.fn() } as unknown as LoggerPort,
+      partial<LoggerPort>({ error: vi.fn() }),
     );
 
     await expire.processDue();
@@ -230,15 +231,15 @@ describe('ExpireWaitingReviewWork', () => {
   it('takes a push diff another writer changed first as handled', async () => {
     const logged = vi.fn();
     const expire = new ExpireWaitingReviewWork(
-      { waiting: async () => [] } as unknown as StackCheckRepository,
-      {
+      partial<StackCheckRepository>({ waiting: async () => [] }),
+      partial<PushDiffRepository>({
         waiting: async () => [pushDiff('diff_1', BEGAN)],
         save: async (diff: PushDiff) => {
           throw new PushDiffVersionConflictError(diff.id);
         },
-      } as unknown as PushDiffRepository,
+      }),
       { now: () => NOW, sleep: async () => {} },
-      { error: logged } as unknown as LoggerPort,
+      partial<LoggerPort>({ error: logged }),
     );
 
     await expire.processDue();

@@ -19,6 +19,7 @@ import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { OncePer } from '@shared-kernel/application/services/once-per';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 type Fetch = typeof globalThis.fetch;
@@ -70,7 +71,7 @@ export const ownClientOf = (
   endpoints.client
     ? {
         id: endpoints.client.id,
-        secret: endpoints.client.secret
+        secret: nonEmpty(endpoints.client.secret)
           ? SecretName.of(endpoints.client.secret)
           : null,
         token: endpoints.token,
@@ -190,7 +191,7 @@ export class OAuth2Discovery {
     this.policy.allow(discovered.issuer);
     this.policy.allow(discovered.token);
 
-    if (discovered.registration) {
+    if (nonEmpty(discovered.registration)) {
       this.policy.allow(discovered.registration);
     }
   }

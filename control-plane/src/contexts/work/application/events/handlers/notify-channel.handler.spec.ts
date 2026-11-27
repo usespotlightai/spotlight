@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -32,10 +33,12 @@ import { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -83,15 +86,20 @@ const notifying = (chat: Chat) => {
     async (_notice: ChannelNoticeDto, _event: BindableChatEvent) => undefined,
   );
   const handler = new NotifyChannel(
-    { find: vi.fn(async () => chat) } as unknown as ChatRepository,
-    {
-      find: vi.fn(async () => ({
-        name: LineName.of('Delivery'),
-        stationAt: () => ({ name: StationName.of('Implementation') }),
-      })),
-    } as unknown as LineMapsPort,
+    partial<ChatRepository>({ find: vi.fn(async () => chat) }),
+    partial<LineMapsPort>({
+      find: vi.fn(async () =>
+        partial<LineMap>({
+          name: LineName.of('Delivery'),
+          stationAt: () =>
+            partial<Station>({ name: StationName.of('Implementation') }),
+        }),
+      ),
+    }),
     { notify } satisfies ChannelNoticesPort,
-    { attemptsOfRun: async () => [] } as unknown as RunJournalReaderPort,
+    partial<RunJournalReaderPort>({
+      attemptsOfRun: async () => [],
+    }),
     runJournalReadings({ lastWordsIn: () => said }),
   );
 

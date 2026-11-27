@@ -5,7 +5,7 @@ import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TileSparkline } from '@/components/features/insights/TileSparkline';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { ShownDelta, TileDrill } from '@/lib/insights';
-import type { TooltipText } from '@/lib/tooltip-note';
+import { hasTooltip, type TooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 const AGAINST = 'Against the previous period';
@@ -47,7 +47,7 @@ export function InsightsTile({
         <span className="line-clamp-2" title={label}>
           {label}
         </span>
-        {tooltip && (
+        {hasTooltip(tooltip) && (
           <span className="flex h-5 shrink-0 items-center">
             <InfoTooltip tooltip={tooltip} />
           </span>
@@ -69,13 +69,13 @@ export function InsightsTile({
               <DeltaGlyph delta={delta} tooltip={AGAINST} />
             </span>
           )}
-          {detail && (
+          {Boolean(detail) && (
             <span className="text-muted-foreground text-sm leading-5">
               {detail}
             </span>
           )}
         </span>
-        {(sparkline || visual) && (
+        {(sparkline || Boolean(visual)) && (
           <span className="mt-auto pt-2">
             {visual ??
               (sparkline && (

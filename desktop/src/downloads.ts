@@ -25,7 +25,7 @@ export const freeName = (
   }
 };
 
-export const saveDownloadsToDownloads = (session: Session) => {
+export const saveDownloadsToDownloads = (session: Session): void => {
   session.on('will-download', (_event, item) => {
     const folder = app.getPath('downloads');
     const path = join(

@@ -20,6 +20,6 @@ export class MessagePosition {
   }
 
   equals(other: MessagePosition): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof MessagePosition && this.value === other.value;
   }
 }

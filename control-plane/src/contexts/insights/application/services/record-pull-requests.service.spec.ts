@@ -31,6 +31,7 @@ import {
   TEAM,
   WORKSPACE,
 } from '@insights/runs.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -84,7 +85,7 @@ const RUN: TaskRun = {
   taskId: TASK,
 };
 
-const work = { taskRunOf: async () => RUN } as unknown as WorkPort;
+const work = partial<WorkPort>({ taskRunOf: async () => RUN });
 
 const SHAPED = {
   runId: 'run_1',

@@ -3,6 +3,7 @@ import type {
   RunConfigChangeResponseDto,
   StationChangeResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { formatImage } from '@/lib/run';
 
 export type ConfigChange = RunConfigChangeResponseDto;
@@ -49,4 +50,5 @@ export const CHANGED_WITHIN: Partial<Record<ConfigChange['part'], string>> = {
 export const shownValue = (
   part: ConfigChange['part'],
   value: string | null,
-): string | null => (value && part === 'image' ? formatImage(value) : value);
+): string | null =>
+  nonEmpty(value) && part === 'image' ? formatImage(value) : value;

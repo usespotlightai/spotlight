@@ -13,6 +13,8 @@ import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -41,27 +43,29 @@ const reviewing = (
     pullRequests: [],
     openPullRequests: [],
     reviewedPullRequest:
-      pullRequest && reviewsIt ? PullRequestUrl.of(pullRequest) : null,
+      nonEmpty(pullRequest) && reviewsIt
+        ? PullRequestUrl.of(pullRequest)
+        : null,
     reviewing: pullRequest !== null && reviewsIt,
     currentRunId: null,
   };
 
-  const commentRepository = {
+  const commentRepository = partial<ReviewCommentRepository>({
     add: async (comment: ReviewComment) =>
       void comments.set(comment.id.value, comment),
     save: async (comment: ReviewComment) =>
       void comments.set(comment.id.value, comment),
     draftsOn: async () =>
       [...comments.values()].filter((each) => each.state === 'draft'),
-  } as unknown as ReviewCommentRepository;
+  });
   const agent = new AgentReviews(
-    { task: async () => task } as unknown as WorkPort,
+    partial<WorkPort>({ task: async () => task }),
     commentRepository,
     new SubmitReview(
       commentRepository,
-      {
+      partial<ReviewRepository>({
         add: async (review: Review) => void reviews.push(review),
-      } as unknown as ReviewRepository,
+      }),
       { inTransaction: (work) => work() },
       { generate: () => `id_${++ids}` },
       { now: () => NOW, sleep: async () => {} },

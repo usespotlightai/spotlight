@@ -46,6 +46,6 @@ export class EgressUrl {
   }
 
   equals(other: EgressUrl): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof EgressUrl && this.value === other.value;
   }
 }

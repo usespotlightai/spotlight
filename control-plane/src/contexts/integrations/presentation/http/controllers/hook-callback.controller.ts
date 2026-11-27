@@ -30,6 +30,7 @@ import {
 import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { InAudience } from '@platform/http/decorators/in-audience.decorator';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const UNAUTHORIZED =
   'The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token.';
@@ -81,11 +82,14 @@ export class HookCallbackController {
     description:
       'The same on every retry of one note, so a retried note is added once',
   })
+  @ApiBody({ type: CallbackNoteRequestDto })
   async note(
     @Headers('authorization') authorization: string | undefined,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
-    @Body() body: CallbackNoteRequestDto,
+    @Body() body: CallbackNoteRequestDto | undefined,
   ): Promise<void> {
+    const idempotency = idempotencyKey?.trim().slice(0, 255);
+
     const noted = await this.commandBus.execute<
       NoteByCallbackCommand,
       NotedByCallback
@@ -93,7 +97,7 @@ export class HookCallbackController {
       new NoteByCallbackCommand(
         bearerIn(authorization) ?? '',
         typeof body?.body === 'string' ? body.body : '',
-        idempotencyKey?.trim().slice(0, 255) || null,
+        !nonEmpty(idempotency) ? null : idempotency,
       ),
     );
 

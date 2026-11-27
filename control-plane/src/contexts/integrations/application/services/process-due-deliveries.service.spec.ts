@@ -11,6 +11,7 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
@@ -93,7 +94,7 @@ const working = (
         done.push(delivery.id.value);
       } else if (progress.kind === 'failed') {
         failed.push({ id: delivery.id.value, because: delivery.failure });
-      } else if (progress.kind === 'pending') {
+      } else {
         retried.push({
           id: delivery.id.value,
           because: delivery.failure,
@@ -103,16 +104,15 @@ const working = (
     }),
   } satisfies InboundDeliveryRepository;
 
-  const reacting = { execute: vi.fn(react) } as unknown as CommandHandlerPort<
-    ReadDeliveryCommand,
-    DeliveryFailure | null
-  >;
+  const reacting = partial<
+    CommandHandlerPort<ReadDeliveryCommand, DeliveryFailure | null>
+  >({ execute: vi.fn(react) });
 
   return {
     service: new ProcessDueDeliveries(
       deliveries,
       reacting,
-      { now: () => NOW } as ClockPort,
+      partial<ClockPort>({ now: () => NOW }),
       logger,
       telemetryInMemory(),
     ),

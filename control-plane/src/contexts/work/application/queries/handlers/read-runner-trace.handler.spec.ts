@@ -1,6 +1,12 @@
 import { connectionsInMemory } from '@runs/application/ports/run-connections.fake-spec';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type {
+  RunStationSummary,
+  TaskRunSummary,
+} from '@work/application/ports/run-reader.port';
 import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
 import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-runner-trace.handler';
@@ -18,18 +24,20 @@ const reading = (
   } = {},
 ) => {
   const runsForTask = vi.fn(async (taskId: TaskId) =>
-    (over.stations?.[taskId.value] ?? ['station_1']).map((station, at) => ({
-      id: `run_${taskId.value}_${at}`,
-      state: 'completed',
-      attempt: 1,
-      exitCode: 0,
-      startedAt: new Date('2026-09-30T10:00:00Z'),
-      updatedAt: new Date('2026-09-30T10:05:00Z'),
-      harness: 'claude-code',
-      image: null,
-      station: { id: station, name: station },
-      review: null,
-    })),
+    (over.stations?.[taskId.value] ?? ['station_1']).map((station, at) =>
+      partial<TaskRunSummary>({
+        id: `run_${taskId.value}_${at}`,
+        state: 'completed',
+        attempt: 1,
+        exitCode: 0,
+        startedAt: new Date('2026-09-30T10:00:00Z'),
+        updatedAt: new Date('2026-09-30T10:05:00Z'),
+        harness: 'claude-code',
+        image: null,
+        station: partial<RunStationSummary>({ id: station, name: station }),
+        review: null,
+      }),
+    ),
   );
   const journalsForTask = vi.fn().mockResolvedValue([]);
   const traced: string[][] = [];
@@ -40,10 +48,12 @@ const reading = (
     },
   });
 
-  const teams = over.teams ?? { task_theirs: 'team_1' };
+  const teams = new Map(
+    Object.entries(over.teams ?? { task_theirs: 'team_1' }),
+  );
   const teamOfTask = vi.fn(async (taskId: TaskId) => {
-    const id = teams[taskId.value];
-    return id ? TeamId.of(id) : null;
+    const id = teams.get(taskId.value);
+    return nonEmpty(id) ? TeamId.of(id) : null;
   });
 
   return {
@@ -67,11 +77,11 @@ const reading = (
                     },
             }),
       }),
-      {
+      partial<RunnerTraceReaderPort>({
         teamOfTask,
         runsForTask,
         journalsForTask,
-      } as unknown as RunnerTraceReaderPort,
+      }),
       connectionsInMemory(),
       readings,
     ),

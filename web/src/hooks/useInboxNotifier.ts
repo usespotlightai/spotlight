@@ -10,7 +10,7 @@ import {
   notificationsSupported,
 } from '@/lib/notifications';
 
-export function useInboxNotifier() {
+export function useInboxNotifier(): (notification: InboxNotification) => void {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const browser = useBrowserPush();

@@ -13,6 +13,7 @@ import {
   teamAvatarUrl,
   workspaceAvatarUrl,
 } from '@identity/presentation/http/mappers/avatar-url';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const teamsOf = (dto: WorkspaceDto): TeamResponseDto[] =>
   dto.teams.map((team) => new TeamResponseDto(team.id, team.name, null));
@@ -32,13 +33,17 @@ export const WorkspaceHttpMapper = {
       dto.id,
       dto.name,
       dto.slug,
-      dto.avatarDigest && workspaceAvatarUrl(dto.slug, dto.avatarDigest),
+      !nonEmpty(dto.avatarDigest)
+        ? dto.avatarDigest
+        : workspaceAvatarUrl(dto.slug, dto.avatarDigest),
       dto.teams.map(
         (team) =>
           new TeamResponseDto(
             team.id,
             team.name,
-            team.avatarDigest && teamAvatarUrl(team.id, team.avatarDigest),
+            !nonEmpty(team.avatarDigest)
+              ? team.avatarDigest
+              : teamAvatarUrl(team.id, team.avatarDigest),
           ),
       ),
       dto.role,
@@ -51,7 +56,9 @@ export const WorkspaceHttpMapper = {
       dto.id,
       dto.name,
       dto.slug,
-      dto.avatarDigest && workspaceAvatarUrl(dto.slug, dto.avatarDigest),
+      !nonEmpty(dto.avatarDigest)
+        ? dto.avatarDigest
+        : workspaceAvatarUrl(dto.slug, dto.avatarDigest),
       dto.role,
     );
   },

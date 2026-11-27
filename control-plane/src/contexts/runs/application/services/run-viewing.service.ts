@@ -6,6 +6,7 @@ import type {
   RunViewersPort,
   ViewedRun,
 } from '@runs/application/ports/run-viewers.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -30,7 +31,7 @@ export class RunViewing implements RunViewersPort {
   }
 
   async watchedBy(runId: RunId, viewer: UserId): Promise<WatchedRun | null> {
-    const [run] = await this.facts.of([runId]);
+    const run = firstOf(await this.facts.of([runId]));
 
     return run && (await this.readableAmong([run], viewer)).has(runId.value)
       ? run

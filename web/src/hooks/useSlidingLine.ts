@@ -6,7 +6,7 @@ export function useSlidingLine(
   line: RefObject<HTMLElement | null>,
   left: number,
   width: number,
-) {
+): void {
   useLayoutEffect(() => {
     const element = line.current;
     const strip = element?.offsetParent;
@@ -21,7 +21,7 @@ export function useSlidingLine(
       shown.left - box.left - strip.clientLeft + strip.scrollLeft;
     const placed = element.style.width !== '';
 
-    for (const running of element.getAnimations?.() ?? []) {
+    for (const running of element.getAnimations()) {
       running.cancel();
     }
     element.style.setProperty('left', `${left}px`);

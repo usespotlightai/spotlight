@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import type { Server } from 'node:http';
 
 import {
   HocuspocusProvider,
@@ -8,6 +7,8 @@ import {
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
   LIVE_TASK_DRAFTS,
@@ -21,6 +22,7 @@ import { Doc } from 'yjs';
 
 import { openApp, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { httpServerOf, addressOf } from './support/http-server';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -32,19 +34,19 @@ const opened: { destroy(): void }[] = [];
 const signedInAs = (userId: string | null, origin?: string) =>
   class extends WebSocket {
     constructor(url: string | URL, protocols?: string | string[]) {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       super(url, {
         protocols,
         headers: {
-          ...(userId ? { [TEST_USER_HEADER]: userId } : {}),
-          ...(origin ? { origin } : {}),
+          ...(nonEmpty(userId) ? { [TEST_USER_HEADER]: userId } : {}),
+          ...(nonEmpty(origin) ? { origin } : {}),
         },
       } as never);
     }
   };
 
 const join = (userId: string | null, options: { origin?: string } = {}) => {
-  const port = ((app.getHttpServer() as Server).address() as { port: number })
-    .port;
+  const port = addressOf(httpServerOf(app)).port;
   const document = new Doc();
   const seen = { synced: false, refused: false };
   const websocketProvider = new HocuspocusProviderWebsocket({
@@ -83,7 +85,7 @@ afterAll(async () => {
   for (const each of opened) {
     each.destroy();
   }
-  await app?.close();
+  await app.close();
 });
 
 describe('the shared draft of a task', () => {
@@ -149,10 +151,12 @@ describe('the shared draft of a task', () => {
 
     await expect(
       eventually(async () => {
-        const [row] = await db
-          .select()
-          .from(schema.taskDraftState)
-          .where(eq(schema.taskDraftState.taskId, team.list.id.value));
+        const row = firstOf(
+          await db
+            .select()
+            .from(schema.taskDraftState)
+            .where(eq(schema.taskDraftState.taskId, team.list.id.value)),
+        );
         return row !== undefined && row.state.byteLength > 0;
       }, 15_000),
     ).resolves.toBe(true);

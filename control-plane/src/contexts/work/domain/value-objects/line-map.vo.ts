@@ -1,4 +1,6 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -83,7 +85,7 @@ export class LineMap {
     );
     const problem = topologyProblemOf(stations);
 
-    if (problem) {
+    if (nonEmpty(problem)) {
       throw new InconsistentStateError('line', problem);
     }
 
@@ -179,7 +181,9 @@ export class LineMap {
         each.happening.equals(happening) && each.appliesAt(currentStation),
     );
 
-    return applies.find((each) => !each.isEverywhere) ?? applies[0] ?? null;
+    return (
+      applies.find((each) => !each.isEverywhere) ?? firstOf(applies) ?? null
+    );
   }
 
   optionsFrom(stationId: StationId): readonly HandoverOption[] {
@@ -187,7 +191,10 @@ export class LineMap {
 
     return [
       ...this.stations
-        .filter((station) => from && this.passDenial(from.id, station) === null)
+        .filter(
+          (station) =>
+            from !== null && this.passDenial(from.id, station) === null,
+        )
         .map((station) => HandoverOption.station(station.key, station.name)),
       HandoverOption.review(),
       ...(from?.ends ? [HandoverOption.done()] : []),
@@ -261,9 +268,12 @@ export class LineMap {
     const depth = new Map<string, number>([[this.backlog.id.value, 0]]);
     const queue: Station[] = [this.backlog];
 
-    while (queue.length > 0) {
-      const station = queue.shift() as Station;
-      const here = depth.get(station.id.value) as number;
+    for (
+      let station = queue.shift();
+      station !== undefined;
+      station = queue.shift()
+    ) {
+      const here = depth.get(station.id.value) ?? 0;
 
       for (const to of station.passesTo) {
         const next = byId.get(to.value);

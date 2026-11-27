@@ -13,6 +13,7 @@ import {
 import { RandomTokenIssuer } from '@platform/tokens/random-token-issuer.service';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentReservation } from '@shared-kernel/application/ports/idempotent-creates.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
@@ -41,13 +42,13 @@ const issuing = (
   const keys = creates();
 
   if (over.reservation) {
-    keys.reserve.mockResolvedValue(over.reservation as never);
+    keys.reserve.mockResolvedValue(over.reservation);
   }
 
   const handler = new CreateWorkspaceTokenHandler(
     access(over.isAdmin),
     new IdentityDefinitions(),
-    { add } as unknown as WorkspaceTokenRepository,
+    partial<WorkspaceTokenRepository>({ add }),
     keys,
     { generate: () => 'token_new' },
     issuer,

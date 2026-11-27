@@ -4,6 +4,7 @@ import {
 } from '@insights/domain/services/agreement-reading';
 import { rateOf } from '@insights/domain/services/measures';
 import { dayOf } from '@insights/domain/value-objects/insights-period.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 export interface VerdictPair {
   readonly judge: boolean;
@@ -62,7 +63,7 @@ const confusionOf = (
   const cells = values.map(() => values.map(() => 0));
 
   for (const pair of pairs) {
-    const row = cells[values.indexOf(pair.judge)];
+    const row = itemAt(cells, values.indexOf(pair.judge));
     const column = values.indexOf(pair.human);
 
     if (row && column >= 0) {

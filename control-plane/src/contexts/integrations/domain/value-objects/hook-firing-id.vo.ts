@@ -13,7 +13,7 @@ export class HookFiringId {
   }
 
   equals(other: HookFiringId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof HookFiringId && this.value === other.value;
   }
 
   toString(): string {

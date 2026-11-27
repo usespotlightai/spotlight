@@ -9,7 +9,7 @@ import {
   type SessionWaiting,
 } from '@insights/application/ports/session-outcomes';
 import { WorkJudgings } from '@insights/application/services/work-judgings.service';
-import type { RunJudged } from '@insights/domain/events/run-judged.event';
+import { RunJudged } from '@insights/domain/events/run-judged.event';
 import type { Verdict } from '@insights/domain/services/grounded-verdict';
 import { JudgingRound } from '@insights/domain/value-objects/judging-round.vo';
 import { AssistJudge } from '@insights/infrastructure/judging/assist-judge';
@@ -29,6 +29,8 @@ import {
 import { inTransaction } from '@insights/runs.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WAIT_MS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -172,9 +174,9 @@ describe('WorkJudgings', () => {
       'api/src/uploads.ts#1',
     ]);
     expect(judging?.hasPendingJob).toBe(false);
-    const [event] = judgings.events as RunJudged[];
-    expect(event?.kind).toBe('judging.judged');
-    expect(event?.model).toBe('some/model');
+    const event = instanceOf(RunJudged, firstOf(judgings.events));
+    expect(event.kind).toBe('judging.judged');
+    expect(event.model).toBe('some/model');
   });
 
   it('fails where the run’s evidence is gone', async () => {
@@ -265,7 +267,7 @@ describe('WorkJudgings', () => {
     await judgings.add(queuedJudging());
     await work.processDue();
     await work.idle();
-    const [order] = sessions.orders;
+    const order = firstOf(sessions.orders);
     const session = {
       workspaceId: 'ws_1',
       purpose: order?.purpose ?? '',

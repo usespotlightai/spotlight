@@ -1,4 +1,5 @@
 import type { JournalStep } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 
 const TOOL_VERBS = new Map<string | null, string>([
   ['read', 'Read'],
@@ -68,7 +69,9 @@ const withoutToolName = (step: JournalStep): string => {
     (name) => step.text === name || step.text.startsWith(`${name} `),
   );
 
-  return named ? step.text.slice(named.length).trimStart() : step.text;
+  return nonEmpty(named)
+    ? step.text.slice(named.length).trimStart()
+    : step.text;
 };
 
 const verbFor = (step: JournalStep): string =>
@@ -85,9 +88,9 @@ export interface ShownStep {
 
 const delegatedOf = (step: JournalStep): string | null =>
   [
-    step.input && `Asked: ${step.input}`,
+    nonEmpty(step.input) ? `Asked: ${step.input}` : null,
     step.detail,
-    step.output && `Answered: ${step.output}`,
+    nonEmpty(step.output) ? `Answered: ${step.output}` : null,
   ]
     .filter(Boolean)
     .join('\n\n') || null;
@@ -134,7 +137,7 @@ export const doingOf = (step: JournalStep): string => {
     return 'Thinking';
   }
   const hook = step.kind === 'hook' ? HOOK_DOING.get(step.text) : undefined;
-  if (hook) {
+  if (nonEmpty(hook)) {
     return hook;
   }
   const verb =
@@ -166,7 +169,7 @@ export const stretchesOf = (steps: readonly JournalStep[]): StepStretch[] => {
   const cut: StepStretch[] = [];
 
   steps.forEach((step, at) => {
-    const last = cut[cut.length - 1];
+    const last = cut.at(-1);
 
     if (step.kind === 'message') {
       cut.push({ kind: 'said', at, step });

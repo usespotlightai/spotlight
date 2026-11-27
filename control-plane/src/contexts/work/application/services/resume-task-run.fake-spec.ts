@@ -1,5 +1,6 @@
 import type { RunsPort } from '@runs/application/ports/runs.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { TeamIntegrationsPort } from '@work/application/ports/team-integrations.port';
 import { ResumeTaskRun } from '@work/application/services/resume-task-run.service';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
@@ -23,7 +24,7 @@ export const resumingWith = (
   },
 ): ResumeTaskRun =>
   new ResumeTaskRun(
-    runs as RunsPort,
+    partial<RunsPort>(runs),
     dispatches,
     new TeamIntegrations(integrations),
     { inTransaction: (work) => work() },

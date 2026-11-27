@@ -524,7 +524,7 @@ describe('ConfigPullRequestBody', () => {
     });
     const [line] = body.split('\n').filter((each) => each.startsWith('| Keep'));
 
-    expect(line?.split(' | ')).toHaveLength(4);
+    expect(line.split(' | ')).toHaveLength(4);
     expect(body).not.toContain('<!--');
     expect(body).not.toMatch(/(^|[^\\])<\/details> and/);
     expect(body).not.toMatch(/(^|[^\\])\]\(https:/);
@@ -537,9 +537,9 @@ describe('ConfigPullRequestBody', () => {
       ...FACTS,
       tasks: { heldOut: [row('x'.repeat(500))], searched: [] },
     });
-    const [line] = body.split('\n').filter((each) => each.startsWith('| xxx'));
+    const line = body.split('\n').find((each) => each.startsWith('| xxx'));
 
-    expect(line?.split(' | ')[0]?.length).toBeLessThanOrEqual(125);
+    expect(line?.split(' | ')[0].length).toBeLessThanOrEqual(125);
     expect(line).toContain('…');
   });
 });

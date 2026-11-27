@@ -14,6 +14,7 @@ import type { GitHubConnectionRepository } from '@github/domain/repositories/git
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -272,6 +273,8 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
   private installationIn(delivery: GitHubDelivery): GitHubInstallation | null {
     const installation = this.parser.parse(delivery).installation;
 
-    return installation ? GitHubInstallation.parsed(installation) : null;
+    return nonEmpty(installation)
+      ? GitHubInstallation.parsed(installation)
+      : null;
   }
 }

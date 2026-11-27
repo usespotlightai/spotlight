@@ -1,4 +1,6 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -102,10 +104,10 @@ const using = ({ proposed = false } = {}) => {
   });
   const copy = vi.fn(async () => undefined);
   const tool = new ProposeTaskToolUse(
-    { find: async () => chat, save } as unknown as ChatRepository,
-    { ofTeam: async () => [LINE] } as unknown as LineMapsPort,
-    new AttachmentCopies({ copy } as unknown as AttachmentStorePort),
-    { now: () => NOW } as ClockPort,
+    partial<ChatRepository>({ find: async () => chat, save }),
+    partial<LineMapsPort>({ ofTeam: async () => [LINE] }),
+    new AttachmentCopies(partial<AttachmentStorePort>({ copy })),
+    partial<ClockPort>({ now: () => NOW }),
   );
   const context: ChatToolContext = {
     kind: 'chat',
@@ -137,7 +139,9 @@ describe('ProposeTaskToolUse', () => {
       }),
     );
 
-    const proposal = save.mock.calls[0]?.[0].proposalAt(MessagePosition.of(1));
+    const proposal = firstOf(save.mock.calls)?.[0].proposalAt(
+      MessagePosition.of(1),
+    );
     expect(proposal?.placement.stationId.value).toBe('station_1');
     expect(proposal?.description?.value).toBe('Double the wait each time.');
     expect(answer).toEqual({
@@ -185,7 +189,7 @@ describe('ProposeTaskToolUse', () => {
       }),
     );
 
-    const saved = save.mock.calls[0]?.[0];
+    const saved = firstOf(save.mock.calls)?.[0];
     expect(saved?.proposalAt(MessagePosition.of(1)).state).toBe('replaced');
     expect(saved?.proposalAt(MessagePosition.of(2)).isOpen).toBe(true);
     expect(answer).toMatchObject({ number: 2, replaced: [1] });
@@ -221,7 +225,10 @@ describe('ProposeTaskToolUse', () => {
       }),
     );
 
-    const [given] = save.mock.calls[0]?.[0].messages[1]?.attachments ?? [];
+    const given = firstOf(
+      itemAt(firstOf(save.mock.calls)?.[0].messages ?? [], 1)?.attachments ??
+        [],
+    );
     expect(given?.id.value).toBe('chat_1-1-0');
     expect(given?.name).toBe('mockup.png');
     expect(copy).toHaveBeenCalledWith(WorkspaceId.of('ws_1'), MOCKUP, given);

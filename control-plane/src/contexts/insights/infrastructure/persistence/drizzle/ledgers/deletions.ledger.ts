@@ -9,6 +9,7 @@ import {
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -85,11 +86,13 @@ export class DrizzleDeletions implements DeletionsPort {
   }
 
   private async workspaceDeleted(workspaceId: WorkspaceId): Promise<boolean> {
-    const [found] = await this.context.db
-      .select({ workspaceId: deletedWorkspace.workspaceId })
-      .from(deletedWorkspace)
-      .where(eq(deletedWorkspace.workspaceId, workspaceId.value))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select({ workspaceId: deletedWorkspace.workspaceId })
+        .from(deletedWorkspace)
+        .where(eq(deletedWorkspace.workspaceId, workspaceId.value))
+        .limit(1),
+    );
 
     return found !== undefined;
   }
@@ -98,26 +101,30 @@ export class DrizzleDeletions implements DeletionsPort {
     workspaceId: WorkspaceId,
     teamId: TeamId,
   ): Promise<boolean> {
-    const [found] = await this.context.db
-      .select({ teamId: deletedTeam.teamId })
-      .from(deletedTeam)
-      .where(
-        and(
-          eq(deletedTeam.workspaceId, workspaceId.value),
-          eq(deletedTeam.teamId, teamId.value),
-        ),
-      )
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select({ teamId: deletedTeam.teamId })
+        .from(deletedTeam)
+        .where(
+          and(
+            eq(deletedTeam.workspaceId, workspaceId.value),
+            eq(deletedTeam.teamId, teamId.value),
+          ),
+        )
+        .limit(1),
+    );
 
     return found !== undefined;
   }
 
   private async taskDeleted(taskId: TaskId): Promise<boolean> {
-    const [found] = await this.context.db
-      .select({ taskId: deletedTask.taskId })
-      .from(deletedTask)
-      .where(eq(deletedTask.taskId, taskId.value))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select({ taskId: deletedTask.taskId })
+        .from(deletedTask)
+        .where(eq(deletedTask.taskId, taskId.value))
+        .limit(1),
+    );
 
     return found !== undefined;
   }

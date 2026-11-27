@@ -5,6 +5,7 @@ import type {
 import { PoolQueueHandler } from '@runs/application/queries/handlers/pool-queue.handler';
 import { PoolQueueQuery } from '@runs/application/queries/pool.queries';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -52,7 +53,7 @@ const queueOf = (
         isLeasedBy: vi.fn(async () => false),
         waitingPlacements: vi.fn(async () => checks),
       },
-      { now: () => NOW } as ClockPort,
+      partial<ClockPort>({ now: () => NOW }),
     ),
   };
 };

@@ -31,6 +31,6 @@ export class HookStepName {
   }
 
   equals(other: HookStepName): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof HookStepName && this.value === other.value;
   }
 }

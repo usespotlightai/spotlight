@@ -4,7 +4,7 @@ import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-ima
 import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 
 export class RunnerOffer {
-  private readonly kind = 'runner-offer' as const;
+  private readonly kind = 'runner-offer';
 
   private constructor(
     readonly values: readonly string[],
@@ -47,7 +47,7 @@ export class RunnerOffer {
 
   equals(other: RunnerOffer): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof RunnerOffer &&
       this.values.length === other.values.length &&
       this.values.every((each) => other.has(each)) &&
       sameOrBothNone(this.running, other.running)

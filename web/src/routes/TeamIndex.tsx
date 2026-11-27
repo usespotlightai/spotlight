@@ -4,6 +4,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useLines } from '@/hooks/api/useLines';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import {
   FALLBACK_TEAM_SECTION_ID,
@@ -15,7 +16,7 @@ export function TeamIndex() {
   const { slug, teamId } = useParams();
   const lines = useLines(teamId);
 
-  if (!slug || !teamId) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId)) {
     return null;
   }
 
@@ -43,7 +44,7 @@ export function TeamIndex() {
     );
   }
 
-  const [first] = lines.data ?? [];
+  const first = lines.data?.at(0);
 
   return (
     <Navigate

@@ -1,4 +1,5 @@
 import type {
+  TokenScopeName,
   WorkspaceAccessPort,
   WorkspacePermissions,
 } from '@identity/application/ports/workspace-access.port';
@@ -10,6 +11,7 @@ import {
   storedHosts,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -22,11 +24,21 @@ const forgetting = (
   const host = aHost();
   const { stored, hosts } = storedHosts(host);
   const handler = new DeleteHostHandler(
-    {
+    partial<WorkspaceAccessPort>({
       permissionsIn: vi.fn(async () =>
-        permissions ? { workspaceId: host.workspaceId, ...permissions } : null,
+        permissions === null
+          ? null
+          : {
+              workspaceId: host.workspaceId,
+              slug: '',
+              plans: false,
+              configures: false,
+              scopes: new Set<TokenScopeName>(),
+              isAdmin: false,
+              ...permissions,
+            },
       ),
-    } as unknown as WorkspaceAccessPort,
+    }),
     hosts,
   );
 

@@ -23,6 +23,7 @@ import type {
   LayerId,
 } from '@change-review/domain/value-objects/stack-ids';
 import type { ChangeStackState } from '@change-review/domain/value-objects/stack-progress.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export interface StackSnapshot {
@@ -167,7 +168,9 @@ const of = (
           summary: layer.summary,
           dependsOn: layer.dependsOn.flatMap((each) => {
             const at = positions.get(each.layer);
-            return at ? [{ layer: at, because: [...each.because] }] : [];
+            return at !== undefined && at !== 0
+              ? [{ layer: at, because: [...each.because] }]
+              : [];
           }),
           hunks,
           paths: [
@@ -324,7 +327,7 @@ const revised = (
     cohorts: cohorts.map((cohort, c) => ({
       ...cohort,
       layers: cohort.layers.map((layer, l) => {
-        const revision = revisions[c]?.[l];
+        const revision = itemAt(revisions[c] ?? [], l);
         const unchanged =
           revision?.status === 'unchanged'
             ? layers.get(revision.previous)

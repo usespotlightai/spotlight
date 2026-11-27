@@ -60,6 +60,8 @@ import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -157,7 +159,9 @@ export class StationChangeTests {
     station: StationView,
     policy: SearchPolicy,
   ): Promise<StationChangeTestOutcome> {
-    const [seed] = await this.candidates.findMany([active.seed.candidateId]);
+    const seed = firstOf(
+      await this.candidates.findMany([active.seed.candidateId]),
+    );
 
     if (!seed) {
       return this.refused('station-gone');
@@ -437,8 +441,9 @@ export class StationChangeTests {
         ? seed.overlaidWith(request.fields)
         : request.fields,
     );
-    const address =
-      teamKey && StationPath.of(teamKey, station.lineKey, station.key);
+    const address = nonEmpty(teamKey)
+      ? StationPath.of(teamKey, station.lineKey, station.key)
+      : null;
 
     if (!validated || !address) {
       return { ok: false, outcome: this.refused('station-gone') };

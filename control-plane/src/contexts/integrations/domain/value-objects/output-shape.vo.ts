@@ -39,6 +39,32 @@ const ID_LIKE = /\d{3,}|[0-9a-f]{8,}/i;
 
 const NOTHING: ShapeNode = { kind: 'nothing' };
 
+const jsonOf = (node: ShapeNode): JsonValue => {
+  switch (node.kind) {
+    case 'list':
+    case 'record':
+      return { kind: node.kind, of: jsonOf(node.of) };
+    case 'object':
+      return {
+        kind: 'object',
+        fields: node.fields.map((each) => ({
+          name: each.name,
+          shape: jsonOf(each.shape),
+          optional: each.optional,
+        })),
+      };
+    case 'oneOf':
+      return { kind: 'oneOf', shapes: node.shapes.map(jsonOf) };
+    case 'boolean':
+    case 'nothing':
+    case 'null':
+    case 'number':
+    case 'string':
+    case 'unknown':
+      return { kind: node.kind };
+  }
+};
+
 const UNKNOWN: ShapeNode = { kind: 'unknown' };
 
 const SCALARS = ['null', 'boolean', 'number', 'string', 'unknown'] as const;
@@ -361,6 +387,6 @@ export class OutputShape {
   }
 
   toJson(): JsonValue {
-    return this.node as unknown as JsonValue;
+    return jsonOf(this.node);
   }
 }

@@ -6,6 +6,7 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useMe } from '@/hooks/useMe';
 import type { TaskHoldResponseDto } from '@/lib/api';
 import { heldUntilResumed } from '@/lib/hold';
+import { nonEmpty } from '@/lib/non-empty';
 
 type OnHoldPillProps = {
   hold: TaskHoldResponseDto;
@@ -22,7 +23,7 @@ export function OnHoldPill({ hold, to }: OnHoldPillProps) {
 
   return (
     <WithTooltip tooltip={heldUntilResumed(hold, me?.id)}>
-      {to ? (
+      {nonEmpty(to) ? (
         <TrailLink to={to} className="outline-none">
           {pill}
         </TrailLink>

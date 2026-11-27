@@ -16,7 +16,7 @@ export class HostId {
   }
 
   equals(other: HostId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof HostId && this.value === other.value;
   }
 
   toString(): string {

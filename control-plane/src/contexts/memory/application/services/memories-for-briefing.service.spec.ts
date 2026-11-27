@@ -11,6 +11,7 @@ import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -50,19 +51,19 @@ const briefing = (
 ) => {
   const touched = vi.fn(async () => touching);
   const rank = vi.fn(async () => ranks);
-  const relevance = { rank } as unknown as MemoryRelevancePort;
+  const relevance = partial<MemoryRelevancePort>({ rank });
   const memories = new MemoriesForBriefing(
     new ApplicableMemories(
-      {
+      partial<MemoryRepository>({
         mayApplyAt: async () => stored,
         ofRepositories: async () => elsewhere,
         successorsOf: async () => [],
-      } as unknown as MemoryRepository,
+      }),
       relevance,
     ),
     relevance,
-    { runsUsing: async () => new Map() } as unknown as MemoryUsesPort,
-    { findAll: async () => stored } as unknown as MemoryRepository,
+    partial<MemoryUsesPort>({ runsUsing: async () => new Map() }),
+    partial<MemoryRepository>({ findAll: async () => stored }),
   );
 
   return {

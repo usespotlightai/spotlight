@@ -1,5 +1,5 @@
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
-import type { IntegrationConnected } from '@integrations/domain/events/integration-connected.event';
+import { IntegrationConnected } from '@integrations/domain/events/integration-connected.event';
 import { RefreshClaimedError } from '@integrations/domain/exceptions/refresh-claimed.error';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
@@ -10,6 +10,7 @@ import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client
 import { RefreshClaim } from '@integrations/domain/value-objects/refresh-claim.vo';
 import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -179,15 +180,19 @@ describe('IntegrationConnection', () => {
   });
 
   it('announces whose connection it is, and in which workspace', () => {
-    const [connected] = IntegrationConnection.connectFrom({
-      workspaceId: WorkspaceId.of('ws_1'),
-      teamId: TEAM,
-      integration: SLACK,
-      owner: ConnectionOwner.person(UserId.of('user_1')),
-      client: OAuth2ClientId.of('client_1'),
-      tokens: tokens(),
-      at: new Date('2026-09-01T00:00:00.000Z'),
-    }).pullEvents() as IntegrationConnected[];
+    const connected = firstOf(
+      IntegrationConnection.connectFrom({
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TEAM,
+        integration: SLACK,
+        owner: ConnectionOwner.person(UserId.of('user_1')),
+        client: OAuth2ClientId.of('client_1'),
+        tokens: tokens(),
+        at: new Date('2026-09-01T00:00:00.000Z'),
+      })
+        .pullEvents()
+        .filter((each) => each instanceof IntegrationConnected),
+    );
 
     expect(connected?.owner.personId?.value).toBe('user_1');
     expect(connected?.workspaceId.value).toBe('ws_1');

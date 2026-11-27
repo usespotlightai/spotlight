@@ -15,7 +15,10 @@ import type { LocatedFailure } from '@insights/domain/services/failure-summaries
 import type { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
+import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import type { ScoreFact } from '@insights/domain/value-objects/score-fact.vo';
+import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
+import { LIVE } from '@insights/domain/value-objects/score-origin';
 import { firingOf } from '@insights/infrastructure/persistence/drizzle/mappers/alert-firing.mapper';
 import { factOfRow } from '@insights/infrastructure/persistence/drizzle/mappers/run-fact.mapper';
 import { scoreFactOfRow } from '@insights/infrastructure/persistence/drizzle/mappers/score.mapper';
@@ -30,14 +33,12 @@ import { Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { inList } from '@platform/persistence/drizzle/in-list';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
-import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
-import { LIVE } from '@insights/domain/value-objects/score-origin';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, desc, eq, gte, type SQL, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -107,15 +108,17 @@ export class DrizzleStationFacts implements StationFactsPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async firedAlert(alertId: AlertId): Promise<FiredAlert | null> {
-    const [row] = await this.context.db
-      .select({ alert: stationAlert, station: stationAlertState })
-      .from(stationAlert)
-      .innerJoin(
-        stationAlertState,
-        eq(stationAlertState.stationId, stationAlert.stationId),
-      )
-      .where(eq(stationAlert.id, alertId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select({ alert: stationAlert, station: stationAlertState })
+        .from(stationAlert)
+        .innerJoin(
+          stationAlertState,
+          eq(stationAlertState.stationId, stationAlert.stationId),
+        )
+        .where(eq(stationAlert.id, alertId.value))
+        .limit(1),
+    );
 
     return row
       ? {
@@ -343,7 +346,10 @@ export class DrizzleStationFacts implements StationFactsPort {
       sql` union all `,
     );
     const rows = await this.read((db) =>
-      db.select().from(score).where(sql`${score.id} in (${picked})`),
+      db
+        .select()
+        .from(score)
+        .where(sql`${score.id} in (${picked})`),
     );
 
     return rows.map(scoreFactOfRow);

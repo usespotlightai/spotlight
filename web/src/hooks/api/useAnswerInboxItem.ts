@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { runNotesKeys } from '@/hooks/api/useRunNotes';
@@ -19,7 +23,11 @@ type AnswerInboxItemInput = {
   draftGeneration?: number;
 };
 
-export function useAnswerInboxItem() {
+export function useAnswerInboxItem(): UseMutationResult<
+  void,
+  Error,
+  AnswerInboxItemInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

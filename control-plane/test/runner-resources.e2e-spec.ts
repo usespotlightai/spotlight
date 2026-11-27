@@ -15,6 +15,7 @@ import {
 } from 'vitest';
 
 import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -458,16 +459,18 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
       })
       .expect(201);
 
-    const changes = (
+    const changes = bodyOf<
+      {
+        resource: string;
+        key: string;
+        action: string;
+        by: { kind: string };
+      }[]
+    >(
       await http()
         .get(`/api/workspaces/${workspaceId}/configuration-changes`)
-        .set(TEST_USER_HEADER, owner)
-    ).body as {
-      resource: string;
-      key: string;
-      action: string;
-      by: { kind: string };
-    }[];
+        .set(TEST_USER_HEADER, owner),
+    );
 
     expect(
       changes

@@ -8,6 +8,7 @@ import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
@@ -75,8 +76,10 @@ const waiting = (
       ],
     }),
     placement: RunnerPlacement.of(over.placement ?? []),
-    line: over.line ? LineId.of(over.line) : null,
-    restore: over.restore ? WorkingCopyArchiveId.of(over.restore) : null,
+    line: nonEmpty(over.line) ? LineId.of(over.line) : null,
+    restore: nonEmpty(over.restore)
+      ? WorkingCopyArchiveId.of(over.restore)
+      : null,
     now: new Date(
       over.queuedAt ?? over.createdAt ?? '2026-09-17T09:00:00.000Z',
     ),

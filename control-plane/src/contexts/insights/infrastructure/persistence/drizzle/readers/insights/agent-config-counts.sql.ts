@@ -153,24 +153,20 @@ export const agentConfigCountsIn = async (
       lineId: row.line_id,
       stationId: row.station_id,
     })),
-    agentConfigs: agentConfigs.map(
-      (row): AgentConfigCounts => ({
-        harness: row.harness,
-        model: row.model,
-        effort: row.effort,
-        profileKey: row.profile_key,
-        counts: groupCountsOfRow(row),
-        withHumanActionOrPass: row.with_human_action_or_pass,
-        rubrics: rubrics
-          .filter((each) => sameAgentConfig(each, row))
-          .map(
-            (each): RubricRates => ({
-              rubricVersion: each.rubric_version,
-              passed: each.passed,
-              judged: each.judged,
-            }),
-          ),
-      }),
-    ),
+    agentConfigs: agentConfigs.map((row): AgentConfigCounts => ({
+      harness: row.harness,
+      model: row.model,
+      effort: row.effort,
+      profileKey: row.profile_key,
+      counts: groupCountsOfRow(row),
+      withHumanActionOrPass: row.with_human_action_or_pass,
+      rubrics: rubrics
+        .filter((each) => sameAgentConfig(each, row))
+        .map((each): RubricRates => ({
+          rubricVersion: each.rubric_version,
+          passed: each.passed,
+          judged: each.judged,
+        })),
+    })),
   };
 };

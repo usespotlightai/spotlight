@@ -47,17 +47,18 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
-import type { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SEARCH_SKIP_REASONS } from '@replays/domain/value-objects/search-skip-reason';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -113,7 +114,7 @@ const picking = () =>
 const finishedWithNothing = (requestedBy?: string): Search =>
   aSearch({
     set: aSet(10),
-    ...(requestedBy ? { requestedBy } : {}),
+    ...(nonEmpty(requestedBy) ? { requestedBy } : {}),
   }).recordReplayEndState(
     ReplayId.of('replay_seed'),
     'ceiling-reached',
@@ -214,7 +215,7 @@ const judgedRuns = (
   const reserved = replay.reserving(slots(runs.length), runIds());
 
   return runs.reduce((built, each, at) => {
-    const run = reserved.entries[at]?.run as RunId;
+    const run = present(itemAt(reserved.entries, at)?.run);
 
     return built
       .confirm(run, FINGERPRINT, NOW)
@@ -558,7 +559,7 @@ describe('NoticeSearchResults', () => {
       new ConfigPullRequestFailed(
         failed.id,
         STATION.workspaceId,
-        failed.reason as ConfigPullRequestReason,
+        present(failed.reason),
       ),
     );
 
@@ -654,10 +655,7 @@ describe('SearchSchedules', () => {
         NOW,
       );
 
-    memory.schedules.set(
-      STATION.stationId.value,
-      rejected as StationSearchSchedule,
-    );
+    memory.schedules.set(STATION.stationId.value, present(rejected));
     await schedules().lineChanged(STATION.lineId);
 
     expect(memory.schedules.get(STATION.stationId.value)).toMatchObject({

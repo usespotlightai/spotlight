@@ -1,4 +1,4 @@
-import { type SubmitEvent, type KeyboardEvent, useState } from 'react';
+import { type KeyboardEvent, type SubmitEvent, useState } from 'react';
 
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { NOTE_BOX, PersonNote } from '@/components/features/memory/PersonNote';

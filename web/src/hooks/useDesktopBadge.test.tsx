@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useInbox } from '@/hooks/api/useInbox';
 import { useDesktopBadge } from '@/hooks/useDesktopBadge';
+import type { InboxEntry } from '@/lib/inbox';
+import { partial } from '@/test/partial';
 
 vi.mock('@/hooks/api/useInbox', () => ({ useInbox: vi.fn() }));
 
@@ -24,9 +26,15 @@ describe('useDesktopBadge', () => {
         authorize() {},
       },
     });
-    inbox.mockReturnValue({
-      data: [{ unread: true }, { unread: false }, { unread: true }],
-    } as ReturnType<typeof useInbox>);
+    inbox.mockReturnValue(
+      partial<ReturnType<typeof useInbox>>({
+        data: [
+          partial<InboxEntry>({ unread: true }),
+          partial<InboxEntry>({ unread: false }),
+          partial<InboxEntry>({ unread: true }),
+        ],
+      }),
+    );
 
     const { unmount } = renderHook(() => useDesktopBadge('acme'));
 
@@ -39,7 +47,9 @@ describe('useDesktopBadge', () => {
   });
 
   it('reads no inbox in a browser', () => {
-    inbox.mockReturnValue({ data: undefined } as ReturnType<typeof useInbox>);
+    inbox.mockReturnValue(
+      partial<ReturnType<typeof useInbox>>({ data: undefined }),
+    );
 
     renderHook(() => useDesktopBadge('acme'));
 

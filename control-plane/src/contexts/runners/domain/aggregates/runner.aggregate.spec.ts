@@ -259,9 +259,11 @@ describe('Runner', () => {
     expect(platform.isPlatform).toBe(true);
     expect(aRunner().isPlatform).toBe(false);
     expect(aRunner({ through: aTrust() }).isPlatform).toBe(false);
-    expect(
-      (platform.release(later(1)).pullEvents()[0] as RunnerEnded).platform,
-    ).toBe(true);
+    const [ended] = platform.release(later(1)).pullEvents();
+    if (!(ended instanceof RunnerEnded)) {
+      throw new Error('expected RunnerEnded');
+    }
+    expect(ended.platform).toBe(true);
   });
 
   it('is discarded when a reservation it never claimed is dropped, but keeps the work it claimed instead', () => {

@@ -343,9 +343,11 @@ describe('JournalBuilder', () => {
       tool({ id: 'g1', title: 'Grep', input, output: { matches: 3 } }),
     );
 
-    const step = builder.steps()[0];
-    expect(step?.input).toBe('{\n  "pattern": "queue",\n  "path": "src"\n}');
-    expect(step?.output).toBe('{\n  "matches": 3\n}');
+    const steps = builder.steps();
+    expect(steps[0]?.input).toBe(
+      '{\n  "pattern": "queue",\n  "path": "src"\n}',
+    );
+    expect(steps[0]?.output).toBe('{\n  "matches": 3\n}');
   });
 
   it('keeps a rewrite as what the file was and what it became', () => {
@@ -412,10 +414,10 @@ describe('JournalBuilder', () => {
       }),
     );
 
-    const step = builder.steps()[0];
-    expect(step?.kind).toBe('planned');
-    expect(step?.text).toBe('Planned 2 steps');
-    expect(step?.detail).toBe(
+    const steps = builder.steps();
+    expect(steps[0]?.kind).toBe('planned');
+    expect(steps[0]?.text).toBe('Planned 2 steps');
+    expect(steps[0]?.detail).toBe(
       '[completed] Reproduce it\n[pending] Cap the retries',
     );
   });
@@ -596,7 +598,8 @@ describe('JournalBuilder', () => {
       );
       builder.take({ ...said('agent', 'Working.'), at: clock(56) });
 
-      const [hook, message] = hooks(builder);
+      const seen = hooks(builder);
+      const hook = seen[0];
       expect(hook).toEqual({
         kind: 'hook',
         text: 'setup',
@@ -605,7 +608,7 @@ describe('JournalBuilder', () => {
         ms: 51_000,
         startedAt: clock(4),
       });
-      expect(message?.kind).toBe('message');
+      expect(seen[1]?.kind).toBe('message');
     });
 
     it('keeps the start and the end of a long output, where a failed hook prints its error', () => {
@@ -709,11 +712,11 @@ describe('JournalBuilder', () => {
         }),
       });
 
-      const [failed] = builder.steps();
-      expect(failed?.kind).toBe('hook');
-      expect(failed?.status).toBe('failed');
-      expect(failed?.text).toBe('Provisioning failed · unreachable');
-      expect(failed?.detail).toBe('connect ECONNREFUSED 10.0.0.4:443');
+      const steps = builder.steps();
+      expect(steps[0]?.kind).toBe('hook');
+      expect(steps[0]?.status).toBe('failed');
+      expect(steps[0]?.text).toBe('Provisioning failed · unreachable');
+      expect(steps[0]?.detail).toBe('connect ECONNREFUSED 10.0.0.4:443');
     });
 
     it('keeps apart each failure to provision a runner', () => {
@@ -793,9 +796,9 @@ describe('JournalBuilder', () => {
         }),
       });
 
-      const [called] = builder.steps();
-      expect(called?.status).toBe('failed');
-      expect(called?.output).toBe('Bad Gateway');
+      const steps = builder.steps();
+      expect(steps[0]?.status).toBe('failed');
+      expect(steps[0]?.output).toBe('Bad Gateway');
     });
 
     it('puts a hook call where it happened among what the agent did', () => {

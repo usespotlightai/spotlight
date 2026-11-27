@@ -5,6 +5,7 @@ import { specOperation } from '@integrations/infrastructure/persistence/drizzle/
 import { operationOf } from '@integrations/infrastructure/persistence/drizzle/spec-operation-rows';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { and, eq } from 'drizzle-orm';
 
 @Injectable()
@@ -15,13 +16,15 @@ export class DrizzleSpecOperations implements SpecOperationReader {
     hash: ContentHash,
     name: string,
   ): Promise<SpecOperation | null> {
-    const [found] = await this.context.db
-      .select({ operation: specOperation.operation })
-      .from(specOperation)
-      .where(
-        and(eq(specOperation.hash, hash.value), eq(specOperation.name, name)),
-      )
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select({ operation: specOperation.operation })
+        .from(specOperation)
+        .where(
+          and(eq(specOperation.hash, hash.value), eq(specOperation.name, name)),
+        )
+        .limit(1),
+    );
 
     return found ? operationOf(name, found.operation) : null;
   }

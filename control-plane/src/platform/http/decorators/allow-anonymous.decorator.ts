@@ -4,7 +4,9 @@ export const ALLOW_ANONYMOUS = Symbol('ALLOW_ANONYMOUS');
 
 export const READS_SESSION_IF_ANY = Symbol('READS_SESSION_IF_ANY');
 
-export const AllowAnonymous = (options: { readsSession?: boolean } = {}) =>
+export const AllowAnonymous = (
+  options: { readsSession?: boolean } = {},
+): MethodDecorator & ClassDecorator =>
   options.readsSession
     ? applyDecorators(
         SetMetadata(ALLOW_ANONYMOUS, true),

@@ -213,7 +213,15 @@ const mapped = (input: {
   const ids = new Map(
     input.stations.map((each) => [each.key, StationId.of(input.newId())]),
   );
-  const idOf = (key: string): StationId => ids.get(key) as StationId;
+  const idOf = (key: string): StationId => {
+    const id = ids.get(key);
+
+    if (id === undefined) {
+      throw new Error(`expected a station keyed ${key}`);
+    }
+
+    return id;
+  };
 
   return LineMap.of({
     id: LineId.of(input.newId()),

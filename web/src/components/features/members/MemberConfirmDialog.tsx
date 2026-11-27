@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { useDelayedValue } from '@/hooks/useDelayedValue';
 import type { MemberChange } from '@/lib/members';
+import { nonEmpty } from '@/lib/non-empty';
 
 const CLOSING_MS = 150;
 
@@ -76,7 +77,7 @@ export function MemberConfirmDialog({
           <DialogDescription>{wording?.description}</DialogDescription>
         </DialogHeader>
 
-        {error && (
+        {nonEmpty(error) && (
           <p role="alert" className="text-destructive text-sm">
             {error}
           </p>

@@ -1,3 +1,4 @@
+import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { HookRequestsPort } from '@integrations/application/ports/hook-requests.port';
 import type {
   HookEventInstance,
@@ -8,6 +9,8 @@ import type {
 } from '@integrations/application/ports/hook-runtime.port';
 import type {
   CallAttempt,
+  CallAuth,
+  Credentials,
   IntegrationRuntimePort,
   ResolvedTool,
 } from '@integrations/application/ports/integration-runtime.port';
@@ -39,6 +42,7 @@ import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.v
 import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -122,7 +126,7 @@ const resolvedTool = (
     actsAs = ActsAs.team(),
   }: { approval?: { because: string } | null; actsAs?: ActsAs } = {},
 ): ResolvedTool =>
-  ({
+  partial<ResolvedTool>({
     integration: Integration.of({
       key: IntegrationKey.of('slack'),
       apiSpecs: ['mcp'],
@@ -147,9 +151,8 @@ const resolvedTool = (
     }),
     injectedSecrets: [],
     defaultFor: () => undefined,
-    call: vi.fn(),
     attempt: vi.fn(attempt),
-  }) as unknown as ResolvedTool;
+  });
 
 const setUp = (
   written: WrittenStep | null,
@@ -194,7 +197,12 @@ const setUp = (
   } satisfies HookRequestsPort;
   const tool = vi.fn(async () => resolved);
   const issued = vi.fn(async () => 'callback_token');
-  const callAuth = vi.fn(async () => ({ connection: null, credentials: {} }));
+  const callAuth = vi.fn(async () =>
+    partial<CallAuth>({
+      connection: null,
+      credentials: partial<Credentials>({}),
+    }),
+  );
   const record = vi.fn(async () => {});
 
   return {
@@ -207,10 +215,12 @@ const setUp = (
     steps: new HookSteps(
       runtime,
       requests,
-      { ofTeam: vi.fn(async () => []) } as never,
-      { tool } as unknown as IntegrationRuntimePort,
-      { of: callAuth } as unknown as CallAuthResolver,
-      { issued } as unknown as HookCallbackTokens,
+      partial<DefinedIntegrationsPort>({
+        ofTeam: vi.fn(async () => []),
+      }),
+      partial<IntegrationRuntimePort>({ tool }),
+      partial<CallAuthResolver>({ of: callAuth }),
+      partial<HookCallbackTokens>({ issued }),
       { record },
       clock,
       logger(),

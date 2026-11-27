@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsSidebar } from '@/components/shell/layout/SettingsSidebar';
 import type { CustomSettingsPageDto } from '@/lib/api';
 import type { Role } from '@/lib/role';
+import { htmlElement } from '@/test/elements';
 
 const pages = vi.fn<() => CustomSettingsPageDto[] | undefined>();
 
@@ -41,7 +42,7 @@ const show = (role: Role) =>
   );
 
 const group = (heading: string) =>
-  screen.getByText(heading).closest('section') as HTMLElement;
+  htmlElement(screen.getByText(heading).closest('section'));
 
 describe('SettingsSidebar custom settings pages', () => {
   beforeEach(() => {

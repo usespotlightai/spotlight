@@ -2,6 +2,7 @@ import { GenerateRunChangeStackCommand } from '@change-review/application/comman
 import { GenerateRunChangeStackHandler } from '@change-review/application/commands/handlers/generate-run-change-stack.handler';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { GenerateChangeStack } from '@change-review/application/services/generate-change-stack.service';
+import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import {
   type CheckingPlan,
   CheckRequest,
@@ -9,6 +10,7 @@ import {
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -28,7 +30,7 @@ const generating = (
     repositories?: Repository[];
   } = {},
 ) => {
-  const begin = vi.fn(async () => ({}) as never);
+  const begin = vi.fn(async () => partial<ChangeStack>({}));
 
   const work = {
     run: async () => ({
@@ -58,10 +60,10 @@ const generating = (
   return {
     handler: new GenerateRunChangeStackHandler(
       work,
-      {
+      partial<RunLeasesPort>({
         claimedBy: async () => over.claimed !== false,
-      } as unknown as RunLeasesPort,
-      { begin } as unknown as GenerateChangeStack,
+      }),
+      partial<GenerateChangeStack>({ begin }),
     ),
     begin,
   };

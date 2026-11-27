@@ -18,6 +18,7 @@ import { teamAccess } from '@identity/application/ports/workspace-access.fake-sp
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -208,7 +209,9 @@ describe('DeleteSkillHandler', () => {
     const handler = new DeleteSkillHandler(
       access(),
       repository,
-      { skillsOn: vi.fn(async () => uses) } as unknown as StationReferences,
+      partial<StationReferences>({
+        skillsOn: vi.fn(async () => uses),
+      }),
       transaction,
     );
 

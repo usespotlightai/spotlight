@@ -1,4 +1,6 @@
 import { GitHubWebhookParser } from '@github/infrastructure/webhooks/github-webhook.parser';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { describe, expect, it } from 'vitest';
@@ -10,7 +12,10 @@ const delivered = (
   body: Record<string, unknown>,
   headers: Record<string, string> = {},
 ) => ({
-  headers: { ...(event ? { 'x-github-event': event } : {}), ...headers },
+  headers: {
+    ...(nonEmpty(event) ? { 'x-github-event': event } : {}),
+    ...headers,
+  },
   body,
   raw: null,
 });
@@ -19,9 +24,11 @@ const eventsOf = (event: string | undefined, body: Record<string, unknown>) =>
   parser.parse(delivered(event, { installation: { id: 42 }, ...body })).events;
 
 const activity = (event: string | undefined, body: Record<string, unknown>) =>
-  eventsOf(event, body).flatMap((each) =>
-    each.kind === 'pull-request-activity' ? [each.activity] : [],
-  )[0] ?? null;
+  firstOf(
+    eventsOf(event, body).flatMap((each) =>
+      each.kind === 'pull-request-activity' ? [each.activity] : [],
+    ),
+  ) ?? null;
 
 const pull = (over: Record<string, unknown> = {}) => ({
   merged: true,

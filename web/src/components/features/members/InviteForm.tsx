@@ -84,7 +84,13 @@ export function InviteForm({
             value={role}
             placeholder="Member"
             clearable={false}
-            onChange={(next) => next && setRole(next as InviteRole)}
+            onChange={(next) => {
+              const picked = INVITE_ROLES.find((each) => each.value === next);
+
+              if (picked !== undefined) {
+                setRole(picked.value);
+              }
+            }}
             disabled={sending}
             className={CONTROL}
           />

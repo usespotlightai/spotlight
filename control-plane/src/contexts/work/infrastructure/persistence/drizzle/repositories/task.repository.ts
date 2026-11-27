@@ -1,6 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import {
   FOREIGN_KEY_VIOLATION,
   UNIQUE_VIOLATION,
@@ -10,11 +9,15 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -23,42 +26,41 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { StationNotKnownYetError } from '@work/application/errors/station-not-known-yet.error';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Hold } from '@work/domain/entities/hold.entity';
-import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { ProposalAlreadyOpenedError } from '@work/domain/exceptions/proposal-already-opened.error';
 import { TaskBranchTakenError } from '@work/domain/exceptions/task-branch-taken.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
-import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
+import { Approval } from '@work/domain/value-objects/approval.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
-import { CommitSha } from '@work/domain/value-objects/commit-sha.vo';
-import { PushedHead } from '@work/domain/value-objects/pushed-head.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { CommitSha } from '@work/domain/value-objects/commit-sha.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
+import { HoldId } from '@work/domain/value-objects/hold-id.vo';
 import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
-import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
-import { ReviewedPullRequest } from '@work/domain/value-objects/reviewed-pull-request.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
-import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
+import { PushedHead } from '@work/domain/value-objects/pushed-head.vo';
 import { Resumption } from '@work/domain/value-objects/resumption.vo';
+import { ReviewedPullRequest } from '@work/domain/value-objects/reviewed-pull-request.vo';
+import { RunNotStarted } from '@work/domain/value-objects/run-not-started.vo';
+import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
-import { RunNotStarted } from '@work/domain/value-objects/run-not-started.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -115,7 +117,7 @@ const toApproval = (row: ApprovalRow): Approval =>
     because: row.because,
     status: row.status,
     decided:
-      row.decidedBy && row.decidedAt
+      nonEmpty(row.decidedBy) && nonEmpty(row.decidedAt)
         ? {
             by: UserId.of(row.decidedBy),
             at: new Date(row.decidedAt),
@@ -124,8 +126,8 @@ const toApproval = (row: ApprovalRow): Approval =>
         : null,
     spent: row.spent,
     edited: toEditedCall(row),
-    intent: row.intent ? ApprovalIntent.rehydrate(row.intent) : null,
-    askedOf: row.askedOf ? UserId.of(row.askedOf) : null,
+    intent: nonEmpty(row.intent) ? ApprovalIntent.rehydrate(row.intent) : null,
+    askedOf: nonEmpty(row.askedOf) ? UserId.of(row.askedOf) : null,
   });
 
 const toApprovalRow = (approval: Approval): ApprovalRow => ({
@@ -209,12 +211,12 @@ const toHold = (row: HoldRow): Hold =>
   Hold.rehydrate({
     id: HoldId.of(row.id),
     by: UserId.of(row.heldBy),
-    chat: row.chatId ? ChatId.of(row.chatId) : null,
+    chat: nonEmpty(row.chatId) ? ChatId.of(row.chatId) : null,
     stationId: StationId.of(row.stationId),
-    from: row.fromRunId ? RunId.of(row.fromRunId) : null,
+    from: nonEmpty(row.fromRunId) ? RunId.of(row.fromRunId) : null,
     verdict: row.verdict,
     turns: row.turnRunIds.map((each) => RunId.of(each)),
-    heldMove: row.heldMoveTo ? StationId.of(row.heldMoveTo) : null,
+    heldMove: nonEmpty(row.heldMoveTo) ? StationId.of(row.heldMoveTo) : null,
     startedAt: row.startedAt,
     endedAt: row.endedAt,
     end: row.end,
@@ -238,18 +240,22 @@ const toTask = (
     stationId: StationId.of(row.stationId),
     title: TaskTitle.of(row.title),
     branch: Branch.of(row.branch),
-    base: row.base ? Branch.of(row.base) : null,
-    description: row.description ? TaskDescription.of(row.description) : null,
+    base: nonEmpty(row.base) ? Branch.of(row.base) : null,
+    description: nonEmpty(row.description)
+      ? TaskDescription.of(row.description)
+      : null,
     rank: TaskRank.of(row.rank),
-    currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
-    session: row.sessionId ? HarnessSession.of(row.sessionId) : null,
-    claimedBy: row.runnerId ? RunnerId.of(row.runnerId) : null,
+    currentRunId: nonEmpty(row.currentRunId)
+      ? RunId.of(row.currentRunId)
+      : null,
+    session: nonEmpty(row.sessionId) ? HarnessSession.of(row.sessionId) : null,
+    claimedBy: nonEmpty(row.runnerId) ? RunnerId.of(row.runnerId) : null,
     notes: notes.map((note) => toNote(note, attachments)),
     createdAt: row.createdAt,
-    originStationId: row.originStationId
+    originStationId: nonEmpty(row.originStationId)
       ? StationId.of(row.originStationId)
       : null,
-    createdBy: row.createdById ? UserId.of(row.createdById) : null,
+    createdBy: nonEmpty(row.createdById) ? UserId.of(row.createdById) : null,
     openedFrom: TaskOrigin.decode(row.openedFrom),
     proposedIn:
       row.proposedInChatId !== null && row.proposedInPosition !== null
@@ -258,24 +264,26 @@ const toTask = (
             position: MessagePosition.of(row.proposedInPosition),
           })
         : null,
-    assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
+    assignee: nonEmpty(row.assigneeId) ? UserId.of(row.assigneeId) : null,
     finishedAt: row.finishedAt,
     draftGeneration: DraftGeneration.of(row.draftGeneration),
     awaitedTurn:
-      row.awaitedTurnAttempt !== null && row.currentRunId
+      row.awaitedTurnAttempt !== null &&
+      row.currentRunId !== null &&
+      row.currentRunId !== ''
         ? AwaitedTurn.of(RunId.of(row.currentRunId), row.awaitedTurnAttempt)
         : null,
     answeredTurnAt: row.answeredTurnAt,
     revision: TaskRevision.of(row.revision),
     version: row.version,
-    reviewedPullRequest: row.reviewedPullRequest
+    reviewedPullRequest: nonEmpty(row.reviewedPullRequest)
       ? ReviewedPullRequest.of(PullRequestUrl.of(row.reviewedPullRequest), {
           outside: row.reviewFromOutside,
         })
       : null,
-    moveHeldTo: row.moveHeldTo ? StationId.of(row.moveHeldTo) : null,
+    moveHeldTo: nonEmpty(row.moveHeldTo) ? StationId.of(row.moveHeldTo) : null,
     runNotStarted:
-      row.notStartedStationId && row.notStartedHarness
+      nonEmpty(row.notStartedStationId) && nonEmpty(row.notStartedHarness)
         ? RunNotStarted.at(
             StationId.of(row.notStartedStationId),
             HarnessId.of(row.notStartedHarness),
@@ -636,9 +644,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     }, new Map<string, OwnedPullRequestRow[]>());
   }
 
-  private async holdsFor(
-    taskIds: string[],
-  ): Promise<Map<string, HoldRow[]>> {
+  private async holdsFor(taskIds: string[]): Promise<Map<string, HoldRow[]>> {
     if (taskIds.length === 0) {
       return new Map();
     }
@@ -736,11 +742,13 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   async find(id: TaskId): Promise<Task | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(task)
-      .where(eq(task.id, id.value))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(task)
+        .where(eq(task.id, id.value))
+        .limit(1),
+    );
 
     return found ? ((await this.whole([found]))[0] ?? null) : null;
   }
@@ -801,10 +809,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       .select()
       .from(task)
       .where(
-        and(
-          eq(task.workspaceId, workspaceId.value),
-          eq(task.base, base.value),
-        ),
+        and(eq(task.workspaceId, workspaceId.value), eq(task.base, base.value)),
       );
 
     return this.whole(found);
@@ -903,7 +908,9 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   async settingUpFor(teamId: TeamId): Promise<Task | null> {
-    const [found] = await this.openSetups(eq(workStation.teamId, teamId.value));
+    const found = firstOf(
+      await this.openSetups(eq(workStation.teamId, teamId.value)),
+    );
 
     return found ?? null;
   }

@@ -1,10 +1,12 @@
 import { InvalidStackCheckError } from '@change-review/domain/exceptions/invalid-stack-check.error';
+import { isOneOf } from '@change-review/domain/services/one-of';
 import { waitExpiredSince } from '@change-review/domain/value-objects/runner-assignment.vo';
 import type { RunnerLease } from '@change-review/domain/value-objects/runner-claim.vo';
 import type {
   HunkId,
   LayerId,
 } from '@change-review/domain/value-objects/stack-ids';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const CHECK_STATUS_VIEWS = ['waiting', 'checked', 'skipped'] as const;
 
@@ -93,7 +95,7 @@ export interface StackSkip {
 }
 
 export const skipOf = (code: string, detail: string | null): StackSkip => {
-  if (!REPORTED_SKIPS.includes(code as ReportedSkip)) {
+  if (!isOneOf(REPORTED_SKIPS, code)) {
     throw new InvalidStackCheckError(
       `was skipped for ${code}, which is not a reason a runner can report`,
     );
@@ -101,7 +103,10 @@ export const skipOf = (code: string, detail: string | null): StackSkip => {
 
   const trimmed = detail?.trim().slice(-MAX_SKIP_DETAIL);
 
-  return { code: code as ReportedSkip, detail: trimmed ? trimmed : null };
+  return {
+    code,
+    detail: nonEmpty(trimmed) ? trimmed : null,
+  };
 };
 
 export const parseStoredSkip = (

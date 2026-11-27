@@ -2,6 +2,7 @@ import type { ReviewComment } from '@change-review/domain/aggregates/review-comm
 import type { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 
 export interface TaskPullRequests {
@@ -102,7 +103,7 @@ export const sharedByPaths = <T>(
   pathsOf: (item: T) => readonly string[],
 ): PullRequestShare<T>[] => {
   const all = pullRequestsOf(task);
-  const [first] = all;
+  const first = firstOf(all);
 
   if (!first) {
     return [];
@@ -126,16 +127,20 @@ export const sharedByPaths = <T>(
   }));
 };
 
-export const latestPerPullRequest = <T>(
+export const latestPerPullRequest = <T extends object>(
   task: TaskPullRequests,
   newestFirst: readonly T[],
   repositoryOf: (item: T) => RepositoryName | null,
 ): PullRequestShare<T>[] =>
   pullRequestsOf(task).flatMap((pullRequest) => {
     const latest =
-      newestFirst.find((each) => repositoryOf(each)?.isOf(pullRequest)) ??
-      newestFirst.find((each) =>
-        pullRequestFor(task, repositoryOf(each))?.equals(pullRequest),
+      newestFirst.find(
+        (each) => repositoryOf(each)?.isOf(pullRequest) === true,
+      ) ??
+      newestFirst.find(
+        (each) =>
+          pullRequestFor(task, repositoryOf(each))?.equals(pullRequest) ===
+          true,
       );
 
     return latest ? [{ pullRequest, items: [latest] }] : [];

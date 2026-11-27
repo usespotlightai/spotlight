@@ -1,7 +1,13 @@
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { RunFailure } from '@runs/domain/value-objects/run-failure.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
+
+const trimmedDetail = (detail: string | null | undefined): string | null => {
+  const trimmed = detail?.trim();
+  return !nonEmpty(trimmed) ? null : trimmed;
+};
 
 export class RunOutcome {
   private constructor(
@@ -39,7 +45,7 @@ export class RunOutcome {
       input.failed
         ? RunFailure.of(input.setupFailed ? 'unprepared' : 'exited')
         : null,
-      input.detail?.trim() || null,
+      trimmedDetail(input.detail),
     );
   }
 

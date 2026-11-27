@@ -4,6 +4,7 @@ import {
   signalScale,
   signalTick,
 } from '@/lib/insights';
+import { nonEmpty } from '@/lib/non-empty';
 
 const TRACK = 8;
 
@@ -46,7 +47,7 @@ export function SignalDumbbell({ reading }: { reading: SignalReading }) {
           strokeDasharray="2 2"
         />
 
-        {team && (
+        {nonEmpty(team) && (
           <line
             x1={team}
             x2={team}
@@ -58,7 +59,7 @@ export function SignalDumbbell({ reading }: { reading: SignalReading }) {
           />
         )}
 
-        {before && (
+        {nonEmpty(before) && (
           <>
             <line
               x1={before}

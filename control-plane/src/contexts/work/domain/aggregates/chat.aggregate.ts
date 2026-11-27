@@ -469,16 +469,17 @@ export class Chat extends EventRecorder {
       );
     }
 
-    const chosen = named?.trim() || null;
-    const repository = chosen
-      ? this.repositoryNamed(chosen)
-      : this.repositories.length === 1
-        ? (this.repositories[0] ?? null)
-        : null;
+    const chosen = (named?.trim() ?? '') || null;
+    const repository =
+      chosen !== null
+        ? this.repositoryNamed(chosen)
+        : this.repositories.length === 1
+          ? (this.repositories[0] ?? null)
+          : null;
 
     if (!repository) {
       throw new InvalidChatTransitionError(
-        chosen
+        chosen !== null
           ? `Chat ${this.id.value} has no checkout of ${chosen}. Its repositories are: ${this.repositories.map((each) => each.value).join(', ') || 'none'}.`
           : `Chat ${this.id.value} has ${this.repositories.length === 0 ? 'no repository' : 'more than one repository'}. Name the repository of the change with --repository.`,
       );

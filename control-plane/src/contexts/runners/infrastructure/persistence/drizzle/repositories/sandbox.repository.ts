@@ -27,6 +27,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -121,14 +122,12 @@ const columnsOf = (saved: Sandbox) => ({
   tokenHash: saved.tokenHash?.value ?? null,
   startedAt: saved.startedAt,
   state: saved.current,
-  leases: saved.leases.map(
-    (each): SandboxLeaseRecord => ({
-      kind: each.holder.kind,
-      holder: each.holder.id,
-      renewedAt: each.renewedAt.toISOString(),
-      ...(each.attempt === null ? {} : { attempt: each.attempt }),
-    }),
-  ),
+  leases: saved.leases.map((each): SandboxLeaseRecord => ({
+    kind: each.holder.kind,
+    holder: each.holder.id,
+    renewedAt: each.renewedAt.toISOString(),
+    ...(each.attempt === null ? {} : { attempt: each.attempt }),
+  })),
   idleSince: saved.idleSince,
   goneAt: saved.goneAt,
   warm: warmRecordOf(saved.warm),
@@ -199,11 +198,13 @@ export class DrizzleSandboxRepository implements SandboxRepository {
   }
 
   async find(id: SandboxId): Promise<Sandbox | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(sandbox)
-      .where(eq(sandbox.id, id.value))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(sandbox)
+        .where(eq(sandbox.id, id.value))
+        .limit(1),
+    );
 
     return found ? toSandbox(found) : null;
   }
@@ -212,27 +213,33 @@ export class DrizzleSandboxRepository implements SandboxRepository {
     workspaceId: WorkspaceId,
     key: SandboxKey,
   ): Promise<Sandbox | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(sandbox)
-      .where(
-        and(
-          eq(sandbox.workspaceId, workspaceId.value),
-          eq(sandbox.key, key.value),
-          eq(sandbox.state, 'open'),
-        ),
-      )
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(sandbox)
+        .where(
+          and(
+            eq(sandbox.workspaceId, workspaceId.value),
+            eq(sandbox.key, key.value),
+            eq(sandbox.state, 'open'),
+          ),
+        )
+        .limit(1),
+    );
 
     return found ? toSandbox(found) : null;
   }
 
   async liveByTokenHash(hash: TokenHash): Promise<Sandbox | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(sandbox)
-      .where(and(eq(sandbox.tokenHash, hash.value), ne(sandbox.state, 'gone')))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(sandbox)
+        .where(
+          and(eq(sandbox.tokenHash, hash.value), ne(sandbox.state, 'gone')),
+        )
+        .limit(1),
+    );
 
     return found ? toSandbox(found) : null;
   }
@@ -360,7 +367,9 @@ export class DrizzleSandboxRepository implements SandboxRepository {
     return rows.map(toSandbox);
   }
 
-  async withArchiveLeaseRenewedBefore(cutoff: Date): Promise<readonly Sandbox[]> {
+  async withArchiveLeaseRenewedBefore(
+    cutoff: Date,
+  ): Promise<readonly Sandbox[]> {
     const rows = await this.context.db
       .select()
       .from(sandbox)

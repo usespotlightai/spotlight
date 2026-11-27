@@ -6,13 +6,14 @@ import type { PushDiffRepository } from '@change-review/domain/repositories/push
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha as sha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { skipOf } from '@change-review/domain/value-objects/stack-check.vo';
 import type { ReviewWork } from '@runs/application/ports/review-work.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -60,8 +61,6 @@ const waiting = (stack: string, placement: string[] = []) =>
     entries: [],
     now: NOW,
   });
-
-const sha = (digit: string) => CommitSha.parsed(digit.repeat(40)) as CommitSha;
 
 const pushDiff = (id: string, placement: string[] = []) =>
   PushDiff.record({
@@ -119,20 +118,31 @@ const provisioning = (
     save,
     waitingIn,
     savedDiffs,
-    check: (stack: string) =>
-      stored.get(
+    check: (stack: string): StackCheck => {
+      const found = stored.get(
         StackCheckId.first(ChangeStackId.of(stack)).toString(),
-      ) as StackCheck,
-    diff: (id: string) => storedDiffs.get(id) as PushDiff,
+      );
+      if (found === undefined) {
+        throw new Error(`no check of stack ${stack} is stored`);
+      }
+      return found;
+    },
+    diff: (id: string): PushDiff => {
+      const found = storedDiffs.get(id);
+      if (found === undefined) {
+        throw new Error(`no push diff ${id} is stored`);
+      }
+      return found;
+    },
     service: new ProvisionReviewWork(
-      {
+      partial<StackCheckRepository>({
         find,
         ofStack,
         save,
         waitingIn,
         reserved,
-      } as unknown as StackCheckRepository,
-      diffs as unknown as PushDiffRepository,
+      }),
+      partial<PushDiffRepository>(diffs),
     ),
   };
 };

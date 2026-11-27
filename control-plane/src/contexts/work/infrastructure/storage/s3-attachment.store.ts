@@ -10,6 +10,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { KeyOverlay } from '@platform/storage/key-overlay';
 import type { S3Clients } from '@platform/storage/s3-clients';
 import { missing } from '@platform/storage/s3-objects';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -39,7 +40,7 @@ const encoded = (name: string): string => encodeURIComponent(name);
 
 const decoded = (name: string | undefined, fallback: string): string => {
   try {
-    return name ? decodeURIComponent(name) : fallback;
+    return nonEmpty(name) ? decodeURIComponent(name) : fallback;
   } catch {
     return fallback;
   }

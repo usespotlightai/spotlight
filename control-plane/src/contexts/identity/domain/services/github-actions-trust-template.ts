@@ -21,7 +21,7 @@ const SUBJECT_PREFIX = String.raw`repo:[\w.-]+(?:@\d+)?/[\w.-]+(?:@\d+)?`;
 
 const SUPPORTED_PREFIX = new RegExp(`^${SUBJECT_PREFIX}$`);
 
-const SETUP_SUBJECTS: Readonly<Record<string, RegExp>> = {
+const SETUP_SUBJECTS: Readonly<Partial<Record<string, RegExp>>> = {
   [PULL_REQUESTS_TRUST_KEY]: new RegExp(`^${SUBJECT_PREFIX}:pull_request$`),
   [DEFAULT_BRANCH_TRUST_KEY]: new RegExp(
     `^${SUBJECT_PREFIX}:ref:refs/heads/[^:*]+$`,

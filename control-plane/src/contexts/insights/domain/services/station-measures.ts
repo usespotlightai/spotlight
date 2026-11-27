@@ -6,6 +6,7 @@ import type {
   FinalReading,
 } from '@insights/domain/value-objects/alert-rule.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const UNMEASURED_SLACK = 4;
@@ -95,9 +96,9 @@ export const readingOf = (
 ): FinalReading | null => {
   const ran = measuredNewestFirst(rule.measure, newestFirst);
   const last = ran.slice(0, rule.over);
-  const through = last[0];
+  const through = firstOf(last);
 
-  if (last.length < rule.over || !through) {
+  if (last.length < rule.over || through === undefined) {
     return null;
   }
 

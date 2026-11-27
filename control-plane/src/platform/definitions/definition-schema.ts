@@ -24,7 +24,7 @@ export const refinedBy =
     }
   };
 
-export const madeBy = (make: (raw: string) => unknown) =>
+export const madeBy = (make: (raw: string) => unknown): z.ZodString =>
   z.string().superRefine(refinedBy(make));
 
 export const problemsIn = (

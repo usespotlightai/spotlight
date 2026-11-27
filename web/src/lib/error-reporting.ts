@@ -9,6 +9,8 @@ import {
 
 import { readStored, writeStored } from '@/hooks/useStoredState';
 import { type ErrorReportingResponseDto, getErrorReporting } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
+import { isRecord } from '@/lib/record';
 import { isGatewayStatus } from '@/lib/request-failure';
 
 export class GatewayError extends Error {
@@ -33,7 +35,7 @@ export async function startErrorReporting(): Promise<void> {
 }
 
 function start(reporting: ErrorReportingResponseDto): void {
-  if (reporting.dsn) {
+  if (nonEmpty(reporting.dsn)) {
     init(errorReportingOptions(reporting));
   }
 }
@@ -81,11 +83,11 @@ const isTextOrNull = (value: unknown): value is string | null =>
 function isReporting(
   value: unknown,
 ): value is ErrorReportingResponseDto & { build: string } {
-  if (typeof value !== 'object' || value === null) {
+  if (!isRecord(value)) {
     return false;
   }
 
-  const { build, dsn, environment, release } = value as Record<string, unknown>;
+  const { build, dsn, environment, release } = value;
   return (
     typeof build === 'string' &&
     isTextOrNull(dsn) &&
@@ -114,7 +116,7 @@ export function errorReportingOptions(
 }
 
 export function reportAs(userId: string | null): void {
-  setUser(userId ? { id: userId } : null);
+  setUser(nonEmpty(userId) ? { id: userId } : null);
 }
 
 export function withGatewayErrorReported(
@@ -134,12 +136,13 @@ export function withGatewayErrorReported(
 
 export function scrubbed(event: ErrorEvent): ErrorEvent {
   if (event.request) {
-    event.request.url = urlShape(event.request.url);
+    event.request.url =
+      event.request.url === undefined ? undefined : urlShape(event.request.url);
     delete event.request.query_string;
     delete event.request.cookies;
     delete event.request.data;
 
-    if (event.request.headers?.Referer) {
+    if (nonEmpty(event.request.headers?.Referer)) {
       event.request.headers.Referer = urlShape(event.request.headers.Referer);
     }
   }
@@ -161,8 +164,9 @@ function withoutIds(breadcrumb: Breadcrumb): Breadcrumb {
 
   const data = { ...breadcrumb.data };
   for (const key of ['url', 'from', 'to']) {
-    if (typeof data[key] === 'string') {
-      data[key] = urlShape(data[key]);
+    const value: unknown = data[key];
+    if (typeof value === 'string') {
+      data[key] = urlShape(value);
     }
   }
 
@@ -186,15 +190,15 @@ const shapedSegment = (segment: string): string =>
 const shapedPath = (path: string): string =>
   path.split('/').map(shapedSegment).join('/');
 
-function urlShape<T extends string | undefined>(url: T): T {
-  if (!url) {
+function urlShape(url: string): string {
+  if (url === '') {
     return url;
   }
 
   try {
     const parsed = new URL(url);
-    return `${parsed.origin}${shapedPath(parsed.pathname)}` as T;
+    return `${parsed.origin}${shapedPath(parsed.pathname)}`;
   } catch {
-    return shapedPath(url.split(/[?#]/, 1)[0] ?? '') as T;
+    return shapedPath(url.split(/[?#]/, 1)[0] ?? '');
   }
 }

@@ -17,6 +17,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { aDispatch, outcomeOf, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
@@ -80,7 +81,7 @@ interface Comment {
 }
 
 const commentsOnReview = async (): Promise<Comment[]> =>
-  ((await reading(TEAMMATE)).body as { comments: Comment[] }).comments;
+  bodyOf<{ comments: Comment[] }>(await reading(TEAMMATE)).comments;
 
 const stackOfRun = (): ChangeStack =>
   ChangeStack.startGeneration({
@@ -213,7 +214,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('a workspace member who is not on the team', () => {
@@ -246,7 +247,7 @@ describe('a workspace member who is not on the team', () => {
     const answer = await commenting(BYSTANDER);
 
     expect(answer.status).toBe(403);
-    expect((answer.body as { message: string }).message).toContain(
+    expect(bodyOf<{ message: string }>(answer).message).toContain(
       'not a member of this team',
     );
     expect(await commentsOnReview()).toEqual([]);
@@ -262,7 +263,7 @@ describe('a workspace member who is not on the team', () => {
 
   it('may not edit or delete a teammate’s comment, which stays as it was', async () => {
     const drafted = await commenting(TEAMMATE);
-    const { id } = drafted.body as Comment;
+    const { id } = bodyOf<Comment>(drafted);
 
     expect(drafted.status).toBe(201);
     expect((await editing(BYSTANDER, id)).status).toBe(403);
@@ -275,7 +276,7 @@ describe('a workspace member who is not on the team', () => {
   it('may not submit a review', async () => {
     expect((await submitting(BYSTANDER)).status).toBe(403);
     expect(
-      ((await reading(TEAMMATE)).body as { reviews: unknown[] }).reviews,
+      bodyOf<{ reviews: unknown[] }>(await reading(TEAMMATE)).reviews,
     ).toEqual([]);
   });
 });
@@ -291,7 +292,7 @@ describe('someone outside the workspace', () => {
 describe('a member of the team', () => {
   it('comments, answers and submits a review', async () => {
     const drafted = await commenting(TEAMMATE);
-    const { id } = drafted.body as Comment;
+    const { id } = bodyOf<Comment>(drafted);
 
     expect(drafted.status).toBe(201);
     expect((await editing(TEAMMATE, id)).status).toBe(204);
@@ -304,7 +305,7 @@ describe('a member of the team', () => {
 describe('a workspace admin who is not on the team', () => {
   it('comments and deletes the comment', async () => {
     const drafted = await commenting(ADMIN);
-    const { id } = drafted.body as Comment;
+    const { id } = bodyOf<Comment>(drafted);
 
     expect(drafted.status).toBe(201);
     expect((await deleting(ADMIN, id)).status).toBe(204);

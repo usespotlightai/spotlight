@@ -1,7 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { reviewKeys } from '@/hooks/api/useTaskReview';
 import { submitReview } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import type { ReviewVerdict } from '@/lib/review';
 
 type SubmitReviewInput = {
@@ -12,7 +17,11 @@ type SubmitReviewInput = {
   body: string;
 };
 
-export function useSubmitReview() {
+export function useSubmitReview(): UseMutationResult<
+  void,
+  Error,
+  SubmitReviewInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -25,7 +34,11 @@ export function useSubmitReview() {
     }: SubmitReviewInput) => {
       await submitReview({
         path: { teamId, taskId },
-        body: { verdict, body, ...(repository ? { repository } : {}) },
+        body: {
+          verdict,
+          body,
+          ...(nonEmpty(repository) ? { repository } : {}),
+        },
         throwOnError: true,
       });
     },

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 
 import type { AppTab } from '@/lib/app-tabs';
 import { desktopApp } from '@/lib/desktop';
+import { nonEmpty } from '@/lib/non-empty';
 import { settingsPath } from '@/lib/settings';
 
 type Tabs = {
@@ -41,7 +42,7 @@ export const tabFor = (
   }
 };
 
-export function useDesktopCommands(slug: string | undefined, tabs: Tabs) {
+export function useDesktopCommands(slug: string | undefined, tabs: Tabs): void {
   const navigate = useNavigate();
 
   const heard = useEffectEvent((command: string) => {
@@ -65,7 +66,7 @@ export function useDesktopCommands(slug: string | undefined, tabs: Tabs) {
     }
 
     if (command === 'settings') {
-      if (slug) {
+      if (nonEmpty(slug)) {
         void navigate(settingsPath(slug));
       }
       return;

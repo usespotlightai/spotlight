@@ -29,6 +29,6 @@ export class HookOccurrenceKey {
   }
 
   equals(other: HookOccurrenceKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof HookOccurrenceKey && this.value === other.value;
   }
 }

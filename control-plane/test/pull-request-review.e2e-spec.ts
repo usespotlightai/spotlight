@@ -16,6 +16,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
@@ -89,8 +90,8 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
     const lines = app.get(DrizzleLineRepository);
     const tasks = app.get(DrizzleTaskRepository);
     let next = 0;
-    const opening = BUILT_IN_LINES.find((each) =>
-      each.role?.equals(LineRole.REVIEW),
+    const opening = BUILT_IN_LINES.find(
+      (each) => each.role?.equals(LineRole.REVIEW) === true,
     );
     const line = Line.create({
       by: changeActorIn(),
@@ -152,10 +153,12 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
         `mentioned:${workspaceId}`,
       );
 
-    const [task] = await tasks.findByCorrelation(
-      WorkspaceId.of(workspaceId),
-      // oxlint-disable-next-line typescript/no-non-null-assertion -- correlation keys with a mark are not null
-      CorrelationKeys.of({ marks: [Mark.review(PullRequestUrl.of(pull))] })!,
+    const task = firstOf(
+      await tasks.findByCorrelation(
+        WorkspaceId.of(workspaceId),
+        // oxlint-disable-next-line typescript/no-non-null-assertion -- correlation keys with a mark are not null
+        CorrelationKeys.of({ marks: [Mark.review(PullRequestUrl.of(pull))] })!,
+      ),
     );
 
     expect(task?.reviewing).toBe(true);

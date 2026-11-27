@@ -5,11 +5,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TeamInsights } from '@/components/features/insights/TeamInsights';
 import type {
+  DayOutputResponseDto,
+  InsightsPeriodResponseDto,
+} from '@/lib/api';
+import type {
   Headline,
   InsightsCost,
   InsightsOverview,
   InsightsPeriod,
 } from '@/lib/insights';
+import { htmlElement } from '@/test/elements';
+import { partial } from '@/test/partial';
 
 type Queried = {
   data: unknown;
@@ -157,8 +163,8 @@ const headline = (over: Partial<Headline> = {}): Headline => ({
   ...over,
 });
 
-const OVERVIEW = {
-  period: { name: '7d' },
+const OVERVIEW = partial<InsightsOverview>({
+  period: partial<InsightsPeriodResponseDto>({ name: '7d' }),
   headline: headline(),
   changes: {
     spend: null,
@@ -176,14 +182,14 @@ const OVERVIEW = {
     activePeople: null,
   },
   output: [
-    {
+    partial<DayOutputResponseDto>({
       day: '2026-09-30',
       runs: 5,
       spend: { amount: 4.2, currency: 'USD' },
       merged: 1,
       mergedTaskIds: [],
       changes: [],
-    },
+    }),
   ],
   outputCurrency: 'USD',
   outputMixedCurrencies: false,
@@ -209,10 +215,10 @@ const OVERVIEW = {
     },
   ],
   people: [],
-} as unknown as InsightsOverview;
+});
 
-const MIXED_COST = {
-  period: { name: '30d' },
+const MIXED_COST = partial<InsightsCost>({
+  period: partial<InsightsPeriodResponseDto>({ name: '30d' }),
   cost: {
     spend: null,
     unpriced: 0,
@@ -227,7 +233,7 @@ const MIXED_COST = {
     cacheByStation: [],
   },
   spendChange: null,
-} as unknown as InsightsCost;
+});
 
 function Address() {
   const location = useLocation();
@@ -426,9 +432,11 @@ describe('TeamInsights', () => {
     showing();
 
     const tiles = screen.getByLabelText('Headline numbers');
-    const merged = within(tiles)
-      .getByText('PRs merged')
-      .closest('[data-slot="insights-tile"]') as HTMLElement;
+    const merged = htmlElement(
+      within(tiles)
+        .getByText('PRs merged')
+        .closest('[data-slot="insights-tile"]'),
+    );
 
     expect(merged).toHaveTextContent('8');
     const delta = merged.querySelector('[data-slot="delta"]');

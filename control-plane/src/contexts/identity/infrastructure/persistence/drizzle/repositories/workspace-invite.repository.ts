@@ -21,6 +21,8 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -30,9 +32,7 @@ import { and, desc, eq, type SQL, sql } from 'drizzle-orm';
 type Row = typeof workspaceInvite.$inferSelect;
 
 @Injectable()
-export class DrizzleWorkspaceInviteRepository
-  implements WorkspaceInviteRepository
-{
+export class DrizzleWorkspaceInviteRepository implements WorkspaceInviteRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -77,7 +77,12 @@ export class DrizzleWorkspaceInviteRepository
   }
 
   private async stored(saved: WorkspaceInvite): Promise<void> {
-    const { id, workspaceId: _workspaceId, email: _email, ...rest } = this.written(saved);
+    const {
+      id,
+      workspaceId: _workspaceId,
+      email: _email,
+      ...rest
+    } = this.written(saved);
 
     const written = await this.context.db
       .update(workspaceInvite)
@@ -165,12 +170,14 @@ export class DrizzleWorkspaceInviteRepository
   private async first(
     condition: SQL | undefined,
   ): Promise<WorkspaceInvite | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(workspaceInvite)
-      .where(condition)
-      .orderBy(desc(workspaceInvite.invitedAt))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(workspaceInvite)
+        .where(condition)
+        .orderBy(desc(workspaceInvite.invitedAt))
+        .limit(1),
+    );
 
     return found ? this.withTeams(found) : null;
   }
@@ -210,11 +217,13 @@ export class DrizzleWorkspaceInviteRepository
       email: EmailAddress.of(row.email),
       spec: InviteSpec.of(WorkspaceRole.of(row.role), teams),
       tokenHash: TokenHash.of(row.tokenHash),
-      invitedBy: row.invitedById ? UserId.of(row.invitedById) : null,
+      invitedBy: nonEmpty(row.invitedById) ? UserId.of(row.invitedById) : null,
       invitedAt: row.invitedAt,
       expiresAt: row.expiresAt,
       acceptedAt: row.acceptedAt,
-      acceptedBy: row.acceptedById ? UserId.of(row.acceptedById) : null,
+      acceptedBy: nonEmpty(row.acceptedById)
+        ? UserId.of(row.acceptedById)
+        : null,
       revokedAt: row.revokedAt,
       version: row.version,
     });

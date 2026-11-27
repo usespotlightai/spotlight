@@ -19,6 +19,8 @@ import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewDeliveryId } from '@change-review/domain/value-objects/review-delivery-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -104,7 +106,7 @@ const delivering = (over: {
       }),
     failed: async (delivery) =>
       void recorded.push({ how: 'failed', args: [delivery.id.value] }),
-    dropTask: async () => undefined,
+    dropTask: async () => {},
   };
 
   const pullRequest = over.pullRequest === undefined ? PULL : over.pullRequest;
@@ -155,7 +157,7 @@ const delivering = (over: {
   const reports = { report: vi.fn() };
   const service = new DeliverReviews(
     deliveries,
-    {
+    partial<ReviewRepository>({
       find: async (id) => reviews.get(id.value) ?? null,
       save: async (review) => {
         if (over.reviewSaveFails && review.state === 'posted') {
@@ -163,8 +165,8 @@ const delivering = (over: {
         }
         reviews.set(review.id.value, review);
       },
-    } as ReviewRepository,
-    {
+    }),
+    partial<ReviewCommentRepository>({
       find: async (id) => comments.get(id.value) ?? null,
       save: async (comment) => {
         if (conflicts.delete(comment.id.value)) {
@@ -172,7 +174,7 @@ const delivering = (over: {
         }
         comments.set(comment.id.value, comment);
       },
-    } as ReviewCommentRepository,
+    }),
     {
       run: async () => null,
       teamOfRun: async () => null,
@@ -750,9 +752,12 @@ describe('DeliverReviews', () => {
       { how: 'delivered', args: ['delivery_1'] },
     ]);
 
+    if (stored === undefined) {
+      throw new Error('expected comment_2 to be stored');
+    }
     const again = delivering({
       delivery: { kind: 'reply', subjectId: 'comment_2', attempts: 1 },
-      comments: [parent, stored as ReviewComment],
+      comments: [parent, stored],
     });
     await again.service.deliverDue();
 
@@ -761,7 +766,10 @@ describe('DeliverReviews', () => {
 
   it('posts a comment as it was submitted, and leaves out one deleted before it was sent', async () => {
     const { review, comments } = submitted();
-    const [first, second] = comments as [ReviewComment, ReviewComment];
+    const [first, second] = optionalItems(comments);
+    if (first === undefined || second === undefined) {
+      throw new Error('expected two submitted comments');
+    }
     const delivered = delivering({
       delivery: { kind: 'review', subjectId: 'review_1', attempts: 0 },
       reviews: [review],

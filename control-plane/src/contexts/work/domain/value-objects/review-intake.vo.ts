@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type {
   ReviewRequestReceived,
   ReviewTrigger,
@@ -74,7 +75,8 @@ export class ReviewIntake {
     }
 
     return !(
-      request.author && this.skip.authors.includes(request.author.toLowerCase())
+      nonEmpty(request.author) &&
+      this.skip.authors.includes(request.author.toLowerCase())
     );
   }
 

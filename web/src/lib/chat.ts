@@ -12,6 +12,8 @@ import {
 } from '@/lib/approval-status';
 import type { JournalledRun, JournalStep, RunJournal } from '@/lib/inbox';
 import { stretchesOf } from '@/lib/journal-step';
+import { nonEmpty } from '@/lib/non-empty';
+import { fieldOf, isRecord } from '@/lib/record';
 import { teamSectionPath } from '@/lib/team';
 
 export type Chat = ChatResponseDto;
@@ -27,13 +29,12 @@ export type ChatPullRequest = NonNullable<ChatMessage['pullRequest']>;
 export type SharedTrace = ChatTraceResponseDto;
 
 const isSharedTrace = (value: unknown): value is SharedTrace =>
-  typeof value === 'object' &&
-  value !== null &&
-  typeof (value as SharedTrace).taskId === 'string' &&
-  typeof (value as SharedTrace).title === 'string';
+  isRecord(value) &&
+  typeof value.taskId === 'string' &&
+  typeof value.title === 'string';
 
 export const tracesHandedOver = (state: unknown): SharedTrace[] => {
-  const traces = (state as { traces?: unknown } | null)?.traces;
+  const traces = fieldOf(state, 'traces');
 
   return Array.isArray(traces) ? traces.filter(isSharedTrace) : [];
 };
@@ -50,17 +51,13 @@ const TARGET_STATION_FIELDS = [
 ] as const satisfies readonly (keyof TargetStation)[];
 
 const isTargetStation = (value: unknown): value is TargetStation =>
-  typeof value === 'object' &&
-  value !== null &&
-  TARGET_STATION_FIELDS.every(
-    (field) => typeof (value as Record<string, unknown>)[field] === 'string',
-  );
+  isRecord(value) &&
+  TARGET_STATION_FIELDS.every((field) => typeof value[field] === 'string');
 
 export const targetStationHandedOver = (
   state: unknown,
 ): TargetStation | null => {
-  const targetStation = (state as { targetStation?: unknown } | null)
-    ?.targetStation;
+  const targetStation = fieldOf(state, 'targetStation');
 
   return isTargetStation(targetStation)
     ? {
@@ -75,21 +72,20 @@ export const targetStationHandedOver = (
 };
 
 export const promptHandedOver = (state: unknown): string | null => {
-  const prompt = (state as { prompt?: unknown } | null)?.prompt;
+  const prompt = fieldOf(state, 'prompt');
 
-  return typeof prompt === 'string' && prompt.trim() ? prompt : null;
+  return typeof prompt === 'string' && prompt.trim() !== '' ? prompt : null;
 };
 
 export type ChatSetup = ChatSetupRequestDto;
 
 const isChatSetup = (given: unknown): given is ChatSetup =>
-  typeof given === 'object' &&
-  given !== null &&
-  typeof (given as ChatSetup).repository === 'string' &&
-  typeof (given as ChatSetup).folder === 'string';
+  isRecord(given) &&
+  typeof given.repository === 'string' &&
+  typeof given.folder === 'string';
 
 export const setupHandedOver = (state: unknown): ChatSetup | null => {
-  const setup = (state as { setup?: unknown } | null)?.setup;
+  const setup = fieldOf(state, 'setup');
 
   return isChatSetup(setup)
     ? { repository: setup.repository, folder: setup.folder }
@@ -97,8 +93,7 @@ export const setupHandedOver = (state: unknown): ChatSetup | null => {
 };
 
 export const repositoriesHandedOver = (state: unknown): string[] => {
-  const repositories = (state as { repositories?: unknown } | null)
-    ?.repositories;
+  const repositories = fieldOf(state, 'repositories');
 
   return Array.isArray(repositories)
     ? repositories.filter((each): each is string => typeof each === 'string')
@@ -181,14 +176,14 @@ const momentOf = (message: ChatMessage): ChatMoment =>
         };
 
 const later = (at: string, floor: string | null): string =>
-  floor && Date.parse(floor) > Date.parse(at) ? floor : at;
+  nonEmpty(floor) && Date.parse(floor) > Date.parse(at) ? floor : at;
 
 const starterOf = (
   journal: RunJournal,
   messages: readonly ChatMessage[],
 ): string | null => {
-  const first = journal.steps[0];
-  if (!first) {
+  const first = journal.steps.at(0);
+  if (first === undefined) {
     return null;
   }
   const queued = Date.parse(first.startedAt) + QUEUED_AFTER_MESSAGE_MS;
@@ -201,7 +196,7 @@ const starterOf = (
     )
     .reduce<string | null>(
       (found, message) =>
-        found && Date.parse(found) >= Date.parse(message.at)
+        nonEmpty(found) && Date.parse(found) >= Date.parse(message.at)
           ? found
           : message.at,
       null,
@@ -279,7 +274,7 @@ export const turnsOf = (moments: readonly ChatMoment[]): ChatTurn[] => {
   }
 
   return cut
-    .filter((turn) => turn.message || turn.moments.length > 0)
+    .filter((turn) => turn.message !== null || turn.moments.length > 0)
     .map((turn) => ({
       message: turn.message,
       moments: [
@@ -290,7 +285,7 @@ export const turnsOf = (moments: readonly ChatMoment[]): ChatTurn[] => {
 };
 
 export const runsOfTurn = (turn: ChatTurn | undefined): string[] =>
-  turn?.message?.takenUpBy ? [turn.message.takenUpBy] : [];
+  nonEmpty(turn?.message?.takenUpBy) ? [turn.message.takenUpBy] : [];
 
 const PROPOSAL_STATUSES: Record<Proposal['state'], ApprovalStatus> = {
   open: 'pending',
@@ -315,7 +310,7 @@ export const proposalTitleOf = (proposal: Proposal): string =>
   PROPOSAL_TITLES[proposal.state];
 
 export const proposedStationOf = (proposal: Proposal): string | null =>
-  proposal.stationName
+  nonEmpty(proposal.stationName)
     ? [proposal.lineName, proposal.stationName].filter(Boolean).join(' › ')
     : null;
 
@@ -351,14 +346,14 @@ export const pullRequestNameOf = (url: string): string => {
 export const pullRequestStationOf = (
   pullRequest: ChatPullRequest,
 ): string | null =>
-  pullRequest.stationName
+  nonEmpty(pullRequest.stationName)
     ? [pullRequest.lineName, pullRequest.stationName]
         .filter(Boolean)
         .join(' › ')
     : null;
 
 export const proposalText = (proposal: Proposal): string =>
-  proposal.description
+  nonEmpty(proposal.description)
     ? `${proposal.title}\n\n${proposal.description}`
     : proposal.title;
 

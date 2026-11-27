@@ -2,8 +2,8 @@ import type { TeamInPeriod } from '@insights/application/ports/insights-reader.p
 import type { GroupCounts } from '@insights/domain/services/change-verdict';
 import type { TallyCounts } from '@insights/domain/services/run-tally';
 import type { Window } from '@insights/domain/value-objects/insights-period.vo';
-import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 import type { RunResolution } from '@insights/domain/value-objects/run-resolution';
+import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 import { runFact } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { type SQL, sql } from 'drizzle-orm';
 

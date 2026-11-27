@@ -1,3 +1,4 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
   TaskNoteForm,
@@ -41,9 +42,9 @@ export const openIn = <
 >(
   cut: readonly T[],
 ): T | null => {
-  const last = cut[cut.length - 1];
+  const last = itemAt(cut, cut.length - 1);
 
-  return last && stillOpen(last) ? last : null;
+  return last !== undefined && stillOpen(last) ? last : null;
 };
 
 export const unreadIn = (
@@ -97,24 +98,24 @@ export const conversationsOf = (
   const cut: Conversation[] = [];
   let open: NotePosition | null = null;
 
-  kinds.forEach((kind, index) => {
+  for (const [index, kind] of kinds.entries()) {
     const at = NotePosition.of(index);
 
     if (kind === OPENS_A_CONVERSATION && open === null) {
       open = at;
-      return;
+      continue;
     }
 
     if (kind === CLOSES_A_CONVERSATION && open !== null) {
       cut.push({ from: open, to: at });
       open = null;
-      return;
+      continue;
     }
 
     if (kind === REOPENS_A_CONVERSATION && open === null) {
       open = cut.pop()?.from ?? null;
     }
-  });
+  }
 
   if (open !== null) {
     cut.push({ from: open, to: null });

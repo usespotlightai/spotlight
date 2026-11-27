@@ -11,7 +11,7 @@ const focusReply = (editor: LexicalEditor | null) => {
 export function useReplyKey(
   editor: RefObject<LexicalEditor | null>,
   enabled: boolean,
-) {
+): void {
   useCommands(
     enabled
       ? [{ id: 'inbox.reply', run: () => focusReply(editor.current) }]

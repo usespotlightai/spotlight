@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceGeneral } from '@/routes/WorkspaceGeneral';
 
 const workspace = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useWorkspace', () => ({

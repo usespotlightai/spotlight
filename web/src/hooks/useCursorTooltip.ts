@@ -8,7 +8,29 @@ export type TipPlacement = { readonly left: boolean; readonly above: boolean };
 
 type Pointer = TipPlacement & { readonly x: number; readonly y: number };
 
-export function useCursorTooltip({ floating = false } = {}) {
+type CursorTooltipResult = {
+  area: {
+    onMouseMove: (event: MouseEvent<HTMLElement>) => void;
+    onMouseLeave: () => void;
+  };
+  tooltip: {
+    isAnimationActive: boolean;
+    portal?: HTMLElement | undefined;
+    position: { x: number; y: number } | undefined;
+    wrapperStyle: {
+      position?: 'fixed' | undefined;
+      top?: number | undefined;
+      left?: number | undefined;
+      zIndex: number;
+      pointerEvents: 'none';
+    };
+  };
+  placement: { left: boolean; above: boolean };
+};
+
+export function useCursorTooltip({
+  floating = false,
+} = {}): CursorTooltipResult {
   const [pointer, setPointer] = useState<Pointer | null>(null);
 
   return {

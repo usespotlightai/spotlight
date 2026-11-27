@@ -1,5 +1,6 @@
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -520,9 +521,11 @@ export class Task extends EventRecorder {
       );
     }
 
+    const held = firstOf(open);
+
     if (
-      open[0] &&
-      (input.finishedAt !== null || !open[0].stationId.equals(input.stationId))
+      held !== undefined &&
+      (input.finishedAt !== null || !held.stationId.equals(input.stationId))
     ) {
       throw new InconsistentStateError(
         'task',
@@ -532,14 +535,14 @@ export class Task extends EventRecorder {
 
     const running = input.currentRunId;
 
-    if (open[0] && running && !open[0].countsTurn(running)) {
+    if (held !== undefined && running && !held.countsTurn(running)) {
       throw new InconsistentStateError(
         'task',
         'is on hold yet runs a line run',
       );
     }
 
-    if (open[0] && !(input.assignee?.equals(open[0].by) ?? false)) {
+    if (held !== undefined && !(input.assignee?.equals(held.by) ?? false)) {
       throw new InconsistentStateError(
         'task',
         'is on hold for one person and assigned to another',
@@ -1182,8 +1185,8 @@ export class Task extends EventRecorder {
 
   private ownedPullRequest(url: PullRequestUrl, at: Date, line: LineMap): Task {
     if (
-      url.repository
-        ? this.pullRequestIn(url.repository)
+      url.repository !== null
+        ? this.pullRequestIn(url.repository) !== null
         : this.pullRequests.some((each) => each.equals(url))
     ) {
       return this;
@@ -1420,7 +1423,8 @@ export class Task extends EventRecorder {
     );
 
     return (
-      (inRepository.find((each) => each.open) ?? inRepository[0])?.url ?? null
+      (inRepository.find((each) => each.open) ?? firstOf(inRepository))?.url ??
+      null
     );
   }
 
@@ -2187,7 +2191,7 @@ export class Task extends EventRecorder {
       turnHeads: input.turnHeads,
       at: input.at,
     });
-    const summary = input.summary?.trim() || null;
+    const summary = (input.summary?.trim() ?? '') || null;
     const newNote: NewNote = {
       line: input.line,
       body: TaskNoteBody.resumed({
@@ -2536,7 +2540,7 @@ export class Task extends EventRecorder {
         ? this.currentRunId
         : null;
 
-    return current ?? byRuns[byRuns.length - 1] ?? null;
+    return current ?? itemAt(byRuns, byRuns.length - 1) ?? null;
   }
 
   closesAConversationAt(position: NotePosition): boolean {
@@ -2567,8 +2571,8 @@ export class Task extends EventRecorder {
     return this.notes.some(
       (note) =>
         note.voice.isPerson &&
-        [note.voice.author, ...note.voice.coAuthors].some((each) =>
-          each?.equals(person),
+        [note.voice.author, ...note.voice.coAuthors].some(
+          (each) => each?.equals(person) === true,
         ),
     );
   }
@@ -3100,7 +3104,7 @@ export class Task extends EventRecorder {
 
   approvalFor(subject: ApprovalSubject): CurrentApproval | null {
     for (let at = this.notes.length - 1; at >= 0; at--) {
-      const note = this.notes[at];
+      const note = itemAt(this.notes, at);
       const approval = note?.approval;
 
       if (note && approval?.appliesTo(subject, this.stationId)) {

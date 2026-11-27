@@ -3,6 +3,7 @@ import { UserEmail } from '@identity/domain/aggregates/user-email.aggregate';
 import { verificationSend } from '@identity/infrastructure/persistence/drizzle/schemas/user-email.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { and, count, eq, gte, lt, sql } from 'drizzle-orm';
 
@@ -15,15 +16,17 @@ export class DrizzleVerificationSends implements VerificationSendsPort {
       sql`select pg_advisory_xact_lock(hashtextextended(${`verification-send:${userId.value}`}, 0))`,
     );
 
-    const [counted] = await this.context.db
-      .select({ count: count() })
-      .from(verificationSend)
-      .where(
-        and(
-          eq(verificationSend.userId, userId.value),
-          gte(verificationSend.sentAt, since),
+    const counted = firstOf(
+      await this.context.db
+        .select({ count: count() })
+        .from(verificationSend)
+        .where(
+          and(
+            eq(verificationSend.userId, userId.value),
+            gte(verificationSend.sentAt, since),
+          ),
         ),
-      );
+    );
 
     return counted?.count ?? 0;
   }

@@ -11,6 +11,7 @@ import { ImagePill } from '@/components/features/runners/ImagePill';
 import { StatusDot } from '@/components/features/runners/StatusDot';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useLineNames } from '@/hooks/api/useLineNames';
+import { nonEmpty } from '@/lib/non-empty';
 import {
   type Host,
   hiddenFromViewer,
@@ -39,7 +40,7 @@ function LastRunTitle({
   const label = idleSandboxLabel(sandbox);
   const path = leasedRunPath(slug, sandbox.lastRun);
 
-  if (path) {
+  if (nonEmpty(path)) {
     return (
       <TrailLink
         to={path}
@@ -105,7 +106,9 @@ export function SandboxRow({ slug, host, row, harnesses }: SandboxRowProps) {
       </span>
 
       <span className="flex min-w-0">
-        {first.image && <ImagePill image={first.image} title={first.image} />}
+        {nonEmpty(first.image) && (
+          <ImagePill image={first.image} title={first.image} />
+        )}
       </span>
 
       <HarnessLogos harnesses={imageHarnesses(host, first.image, harnesses)} />

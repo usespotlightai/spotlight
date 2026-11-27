@@ -3,7 +3,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export class AvatarImageId {
-  private readonly kind = 'avatar-image-id' as const;
+  private readonly kind = 'avatar-image-id';
 
   private constructor(readonly value: string) {}
 
@@ -19,6 +19,6 @@ export class AvatarImageId {
   }
 
   equals(other: AvatarImageId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof AvatarImageId && this.value === other.value;
   }
 }

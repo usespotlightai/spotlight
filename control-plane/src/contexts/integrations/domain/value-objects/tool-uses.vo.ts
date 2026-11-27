@@ -30,7 +30,7 @@ export class ToolUses {
 
   equals(other: ToolUses): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof ToolUses &&
       this.uses.length === other.uses.length &&
       this.uses.every(
         (each, index) =>

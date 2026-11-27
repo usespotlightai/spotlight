@@ -30,7 +30,7 @@ export class PoolKey {
   }
 
   equals(other: PoolKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof PoolKey && this.value === other.value;
   }
 
   toString(): string {

@@ -29,7 +29,7 @@ function viewportBottom(element: HTMLElement) {
 export function useHeightTransition(
   panel: RefObject<HTMLElement | null>,
   open: boolean,
-) {
+): void {
   const wasOpen = useRef(open);
   const motion = useRef<Animation>(undefined);
 

@@ -33,6 +33,6 @@ export class OAuth2ClientId {
   }
 
   equals(other: OAuth2ClientId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof OAuth2ClientId && this.value === other.value;
   }
 }

@@ -7,6 +7,7 @@ import {
   type GrammarImport,
   joined,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const moduleFiles = (base: string): string[] => [
   `${base}.py`,
@@ -44,7 +45,7 @@ export const PYTHON_GRAMMAR: Grammar = {
           name.type === 'aliased_import' ? field(name, 'alias') : null;
         const text = imported?.text.split('.').pop();
 
-        return text
+        return nonEmpty(text)
           ? [{ local: alias?.text ?? text, imported: text, specifier }]
           : [];
       });

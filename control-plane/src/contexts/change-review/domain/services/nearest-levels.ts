@@ -1,5 +1,6 @@
 import type { HunkLink } from '@change-review/domain/services/diff-facts';
 import { LAYER_LINES } from '@change-review/domain/value-objects/stack-cohort.vo';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 
 interface Arc {
   readonly to: number;
@@ -13,8 +14,8 @@ const connected = (
   to: number,
   capacity: number,
 ) => {
-  const forward = arcs[from];
-  const backward = arcs[to];
+  const forward = itemAt(arcs, from);
+  const backward = itemAt(arcs, to);
 
   if (forward && backward) {
     forward.push({ to, capacity, back: backward.length });
@@ -60,7 +61,7 @@ const sourceSide = (
     const path: Arc[] = [];
 
     for (let step = reached.get(sink); step; step = reached.get(step.node)) {
-      const arc = arcs[step.node]?.[step.arc];
+      const arc = itemAt(arcs[step.node] ?? [], step.arc);
 
       if (arc) {
         path.push(arc);
@@ -71,7 +72,7 @@ const sourceSide = (
 
     for (const arc of path) {
       arc.capacity -= bottleneck;
-      const reverse = arcs[arc.to]?.[arc.back];
+      const reverse = itemAt(arcs[arc.to] ?? [], arc.back);
 
       if (reverse) {
         reverse.capacity += bottleneck;
@@ -214,21 +215,23 @@ const packed = (
   const chunks: { hunks: string[]; lines: number }[] = [];
 
   while (placed.size < parts.length) {
-    const ready = parts
-      .map((_, part) => part)
-      .filter(
-        (part) =>
-          !placed.has(part) &&
-          [...(needs[part] ?? [])].every((each) => placed.has(each)),
-      )
-      .sort((a, b) => rank(a) - rank(b) || a - b)[0];
+    const ready = firstOf(
+      parts
+        .map((_, part) => part)
+        .filter(
+          (part) =>
+            !placed.has(part) &&
+            [...(needs[part] ?? [])].every((each) => placed.has(each)),
+        )
+        .sort((a, b) => rank(a) - rank(b) || a - b),
+    );
 
     if (ready === undefined) {
       return [hunks];
     }
     placed.add(ready);
 
-    const last = chunks[chunks.length - 1];
+    const last = itemAt(chunks, chunks.length - 1);
     const lines = linesIn(ready);
     const members = (parts[ready] ?? []).flatMap((at) => hunks[at] ?? []);
 
@@ -300,7 +303,7 @@ const pinsOf = (
           other.to === link.to || !reached.has(indexOf.get(other.to) ?? -1),
       );
     };
-    const pinned = last.find(lastOf) ?? last[0];
+    const pinned = last.find(lastOf) ?? firstOf(last);
 
     return pinned && level.get(pinned.from) !== latest
       ? [{ ...pinned, kind: 'moves' as const }]

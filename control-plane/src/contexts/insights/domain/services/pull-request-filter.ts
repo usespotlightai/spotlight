@@ -15,6 +15,7 @@ import {
   PULL_REQUEST_TYPES,
   type PullRequestType,
 } from '@insights/domain/value-objects/pull-request-type';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export const MAX_FILTERED_REPOSITORIES = 50;
 
@@ -53,7 +54,7 @@ const oneOf = <T extends string>(
 
   const found = values.find((each) => each === query);
 
-  if (!found) {
+  if (!nonEmpty(found)) {
     throw new InvalidPullRequestFilterError(
       `${what} must be one of ${values.join(', ')}, not ${query}`,
     );

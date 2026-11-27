@@ -21,6 +21,7 @@ import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integr
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -134,7 +135,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const runsAt = (at: number) => {
@@ -144,15 +145,15 @@ const runsAt = (at: number) => {
     runs,
     service: new Runs(
       runs,
-      {} as ContentHashPort,
+      partial<ContentHashPort>({}),
       clockAt(at),
-      {} as HeldHarnessKeys,
+      partial<HeldHarnessKeys>({}),
     ),
     completing: new CompleteRunHandler(
       runs,
       context,
       clockAt(at),
-      {} as RunFileSources,
+      partial<RunFileSources>({}),
     ),
   };
 };
@@ -363,9 +364,9 @@ const cancellingOf =
       ),
     );
 
-const launch = {
+const launch = partial<HarnessLaunchPort>({
   skillHomes: () => ['.claude/skills'],
-} as unknown as HarnessLaunchPort;
+});
 
 const usageRecorded: DomainEvent[] = [];
 

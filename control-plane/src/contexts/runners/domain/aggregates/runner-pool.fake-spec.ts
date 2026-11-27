@@ -25,6 +25,7 @@ import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo'
 import { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -33,7 +34,7 @@ import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { vi } from 'vitest';
+import { type Mocked, vi } from 'vitest';
 
 export const POOL_ID = PoolId.of('pool_1');
 
@@ -66,7 +67,10 @@ export const aPullPool = (
     workspaceId: POOL_WORKSPACE,
     key: PoolKey.of('ephemeral'),
     labels: RunnerLabels.of(input.labels ?? ['linux']),
-    maxRuns: input.maxRuns ? MaxRuns.of(input.maxRuns) : null,
+    maxRuns:
+      input.maxRuns !== undefined && input.maxRuns !== 0
+        ? MaxRuns.of(input.maxRuns)
+        : null,
     access: {
       mode: 'pull',
       tokenHash: hashOf('a'),
@@ -93,7 +97,10 @@ export const aPushPool = (
     workspaceId: POOL_WORKSPACE,
     key: PoolKey.of(input.key ?? 'sandboxes'),
     labels: RunnerLabels.of(input.labels ?? ['sandbox']),
-    maxRuns: input.maxRuns ? MaxRuns.of(input.maxRuns) : null,
+    maxRuns:
+      input.maxRuns !== undefined && input.maxRuns !== 0
+        ? MaxRuns.of(input.maxRuns)
+        : null,
     access: {
       mode: 'push',
       url: ProvisionUrl.of(input.url ?? 'https://provision.example.com/runs'),
@@ -124,9 +131,12 @@ export const aPlatformPool = (
     by: changeActorIn(),
   });
 
-  return input.disabled || input.allows
+  return input.disabled || input.allows !== undefined
     ? created.configure(
-        { ...input.allows, ...(input.disabled ? { enabled: false } : {}) },
+        {
+          ...input.allows,
+          ...(input.disabled ? { enabled: false } : {}),
+        },
         changeActorIn(),
       )
     : created;
@@ -179,7 +189,7 @@ export const aRunner = (
     id: RunnerId.of(input.id ?? 'pooled_1'),
     through: input.through ?? aPullPool(),
     host: input.host === null ? null : HostId.of(input.host ?? HOST_ID.value),
-    enters: input.enters ? SandboxId.of(input.enters) : null,
+    enters: nonEmpty(input.enters) ? SandboxId.of(input.enters) : null,
     tokenHash: hashOf('b'),
     egressTokenHash: input.host === null ? null : hashOf('e'),
     proxyCredentialHash: input.proxyCredentialHash ?? null,
@@ -244,7 +254,12 @@ export const aHost = (
   });
 };
 
-export const storedHosts = (...known: RunnerHost[]) => {
+interface StoredHosts {
+  readonly stored: Map<string, RunnerHost>;
+  readonly hosts: Mocked<RunnerHostRepository>;
+}
+
+export const storedHosts = (...known: RunnerHost[]): StoredHosts => {
   const stored = new Map(known.map((host) => [host.id.value, host]));
   const hosts = {
     find: vi.fn(async (id: HostId) => stored.get(id.value) ?? null),

@@ -22,6 +22,7 @@ import {
 } from '@change-review/infrastructure/change-stacks/assist-change-stack.generator';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { PatternCodeReading } from '@change-review/infrastructure/change-stacks/pattern-code.reading';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -99,7 +100,7 @@ describe('AssistChangeStackGenerator', () => {
 
     await expect(generator.generate(REQUEST)).resolves.toEqual(SESSION_WAITING);
 
-    const [order] = orders;
+    const [order] = optionalItems(orders);
     expect(order).toMatchObject({
       workspaceId: 'workspace-1',
       purpose: 'change-review.change-stack',

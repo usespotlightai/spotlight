@@ -18,6 +18,8 @@ import {
   pullRequestsNarrowedBy,
 } from '@/lib/insights-pull-requests';
 import { formatDay } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
+import { isOneOf } from '@/lib/one-of';
 
 const PICKED: readonly PullRequestFilterKey[] = [
   'repository',
@@ -43,15 +45,14 @@ export function PullRequestFilters({
     onChange({ ...filter, [key]: value ?? undefined });
 
   const oneRepository =
-    !filter.repository || repositories.includes(filter.repository);
+    !nonEmpty(filter.repository) || repositories.includes(filter.repository);
   const others = pullRequestsNarrowedBy(filter).filter(
     (key) => !PICKED.includes(key) || (key === 'repository' && !oneRepository),
   );
 
   const picked = PICKED.filter(
-    (key) => filter[key] && (key !== 'repository' || oneRepository),
+    (key) => nonEmpty(filter[key]) && (key !== 'repository' || oneRepository),
   );
-  const pickedKeys = new Set(picked);
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -81,9 +82,7 @@ export function PullRequestFilters({
         onClear={() =>
           onChange(
             Object.fromEntries(
-              Object.entries(filter).filter(
-                ([key]) => !pickedKeys.has(key as PullRequestFilterKey),
-              ),
+              Object.entries(filter).filter(([key]) => !isOneOf(picked, key)),
             ),
           )
         }

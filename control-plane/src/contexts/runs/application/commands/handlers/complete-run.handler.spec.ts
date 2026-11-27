@@ -16,6 +16,7 @@ import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -74,13 +75,13 @@ const completing = (
   stored: { run?: () => Run; files?: RunFileSource } = {},
 ) =>
   new CompleteRunHandler(
-    {
+    partial<RunRepository>({
       findById: async () => (stored.run ? stored.run() : leased()),
       save,
-    } as unknown as RunRepository,
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
+    }),
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
     { now: () => NOW, sleep: async () => {} },
     stored.files ? runFilesFrom(stored.files) : runFilesFrom(),
   );
@@ -118,25 +119,26 @@ describe('CompleteRunHandler', () => {
     const saved: Run[] = [];
     const files = attaching();
 
-    await completing(async (run) => void saved.push(run), { files }).execute(
-      reviewing,
-    );
+    await completing(async (run) => void saved.push(run), {
+      files,
+    }).execute(reviewing);
 
-    const [run] = saved;
-    expect(run?.state).toBe('suspended');
-    expect(run?.claimedBy).toBeNull();
-    expect(run?.turnAt(FIRST)?.state).toBe('pending');
-    expect(run?.turnAt(FIRST)?.report.session?.value).toBe('session_1');
+    expect(saved).toHaveLength(1);
+    const run = saved[0];
+    expect(run.state).toBe('suspended');
+    expect(run.claimedBy).toBeNull();
+    expect(run.turnAt(FIRST)?.state).toBe('pending');
+    expect(run.turnAt(FIRST)?.report.session?.value).toBe('session_1');
     expect(
-      run?.turnAt(FIRST)?.report.handover?.attachments.map((each) => each.id),
+      run.turnAt(FIRST)?.report.handover?.attachments.map((each) => each.id),
     ).toEqual(['file_light']);
-    expect(run?.spec.value.resume).toEqual({
+    expect(run.spec.value.resume).toEqual({
       sessionId: 'session_1',
       resumeSession: true,
     });
     expect(files.asked).toEqual([['run_1@ws_1', ['file_light']]]);
     expect(files.taken).toEqual([]);
-    expect(run?.pullEvents().some((each) => each instanceof RunSuspended)).toBe(
+    expect(run.pullEvents().some((each) => each instanceof RunSuspended)).toBe(
       true,
     );
   });
@@ -177,9 +179,9 @@ describe('CompleteRunHandler', () => {
     const saved: Run[] = [];
     const files = attaching('replays');
 
-    await completing(async (run) => void saved.push(run), { files }).execute(
-      reviewing,
-    );
+    await completing(async (run) => void saved.push(run), {
+      files,
+    }).execute(reviewing);
 
     expect(files.asked).toEqual([]);
     expect(
@@ -193,7 +195,9 @@ describe('CompleteRunHandler', () => {
     const saved: Run[] = [];
     const files = attaching();
 
-    await completing(async (run) => void saved.push(run), { files }).execute(
+    await completing(async (run) => void saved.push(run), {
+      files,
+    }).execute(
       new CompleteRunCommand('run_1', 'runner_1', 1, true, 'boom', {
         next: 'review',
         attachments: ['file_light'],

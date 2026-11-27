@@ -11,6 +11,7 @@ import {
 } from '@/lib/insights';
 import type { ChangeAt } from '@/lib/insights-changes';
 import { formatDay } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 
 const BEFORE_AFTER_PANE: PaneConfig = {
   storageKey: 'spotlight.before-after-width',
@@ -54,7 +55,7 @@ export function BeforeAfterPanel({
             <p className="truncate text-muted-foreground text-xs">
               {[
                 names.get(change.stationId)?.lineName,
-                change.firstRunAt &&
+                nonEmpty(change.firstRunAt) &&
                   `first run ${formatDay(change.firstRunAt.slice(0, 10))}`,
               ]
                 .filter(Boolean)

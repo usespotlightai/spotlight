@@ -2,6 +2,7 @@ import type { ReviewCommentReply } from '@github/application/ports/review-commen
 import { GitHubReviewComments } from '@github/infrastructure/github/github-review-comments';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -43,11 +44,11 @@ const fetching = () =>
   vi.fn(async (url: string, init?: { body?: string }) => {
     requests.push({ url, body: JSON.parse(init?.body ?? '{}') });
 
-    return {
+    return partial<Response>({
       ok: true,
       status: 200,
       json: async () => replies.shift() ?? { data: {} },
-    } as unknown as Response;
+    });
   });
 
 const queried = () =>
@@ -57,7 +58,13 @@ const queried = () =>
 
 const named = (query: string) =>
   queried().filter((each) =>
-    ((each as { query?: string }).query ?? '').includes(query),
+    (typeof each === 'object' &&
+    each !== null &&
+    'query' in each &&
+    typeof each.query === 'string'
+      ? each.query
+      : ''
+    ).includes(query),
   );
 
 describe('GitHubReviewComments', () => {

@@ -1,6 +1,7 @@
 import { distinct } from '@shared-kernel/domain/distinct';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
@@ -75,7 +76,7 @@ const problemOf = (state: DispatchState): string | null => {
   if (
     state.toolsOnMarks.some(
       (each, at) =>
-        state.configuredAs?.lists(each) ||
+        state.configuredAs?.lists(each) === true ||
         state.toolsOnMarks.findIndex((other) => other.equals(each)) !== at,
     )
   ) {
@@ -197,7 +198,7 @@ export class Dispatch extends EventRecorder {
     };
     const problem = problemOf(state);
 
-    if (problem) {
+    if (nonEmpty(problem)) {
       throw new InvalidDispatchTransitionError(
         `Run ${input.id.value} ${problem}.`,
       );
@@ -209,7 +210,7 @@ export class Dispatch extends EventRecorder {
   static rehydrate(state: DispatchState): Dispatch {
     const problem = problemOf(state);
 
-    if (problem) {
+    if (nonEmpty(problem)) {
       throw new InconsistentStateError('dispatch', problem);
     }
 

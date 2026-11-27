@@ -6,17 +6,18 @@ import {
   type OnModuleDestroy,
   type OnModuleInit,
 } from '@nestjs/common';
+import { fieldOf } from '@platform/json/field-of';
 import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
-type UndiciRequest = { readonly origin?: string; readonly method?: string };
-type Created = { readonly request: UndiciRequest };
-type Answered = Created & {
-  readonly response: { readonly statusCode: number };
+const requestIn = (message: unknown): object | null => {
+  const request = fieldOf(message, 'request');
+
+  return typeof request === 'object' && request !== null ? request : null;
 };
-type Failed = Created & { readonly error: unknown };
 
 const CREATED = 'undici:request:create';
 const ANSWERED = 'undici:request:headers';
@@ -27,7 +28,7 @@ const SERVER_ERROR = 500;
 
 const hostOf = (origin: string | undefined): string | undefined => {
   try {
-    return origin ? new URL(origin).host : undefined;
+    return nonEmpty(origin) ? new URL(origin).host : undefined;
   } catch {
     return undefined;
   }
@@ -36,22 +37,29 @@ const hostOf = (origin: string | undefined): string | undefined => {
 // Paths and queries can carry secrets, such as the token in a webhook URL. Lines name the host only.
 @Injectable()
 export class OutboundCalls implements OnModuleInit, OnModuleDestroy {
-  readonly #started = new WeakMap<UndiciRequest, number>();
+  readonly #started = new WeakMap<object, number>();
 
   constructor(@Inject(LOGGER) private readonly logger: LoggerPort) {}
 
   readonly #created = (message: unknown): void => {
-    this.#started.set((message as Created).request, performance.now());
+    const request = requestIn(message);
+
+    if (request !== null) {
+      this.#started.set(request, performance.now());
+    }
   };
 
   readonly #answered = (message: unknown): void => {
-    const { request, response } = message as Answered;
-    const call = { ...this.described(request), status: response.statusCode };
+    const request = requestIn(message);
+    const statusCode = fieldOf(fieldOf(message, 'response'), 'statusCode');
 
-    if (
-      response.statusCode === TOO_MANY_REQUESTS ||
-      response.statusCode >= SERVER_ERROR
-    ) {
+    if (request === null || typeof statusCode !== 'number') {
+      return;
+    }
+
+    const call = { ...this.described(request), status: statusCode };
+
+    if (statusCode === TOO_MANY_REQUESTS || statusCode >= SERVER_ERROR) {
       this.logger.warn({ outbound: call }, 'Outbound call refused');
       return;
     }
@@ -60,10 +68,14 @@ export class OutboundCalls implements OnModuleInit, OnModuleDestroy {
   };
 
   readonly #failed = (message: unknown): void => {
-    const { request, error } = message as Failed;
+    const request = requestIn(message);
+
+    if (request === null) {
+      return;
+    }
 
     this.logger.warn(
-      { outbound: this.described(request), err: error },
+      { outbound: this.described(request), err: fieldOf(message, 'error') },
       'Outbound call failed',
     );
   };
@@ -80,12 +92,13 @@ export class OutboundCalls implements OnModuleInit, OnModuleDestroy {
     diagnostics.unsubscribe(FAILED, this.#failed);
   }
 
-  private described(request: UndiciRequest): Record<string, unknown> {
+  private described(request: object): Record<string, unknown> {
     const started = this.#started.get(request);
+    const origin = fieldOf(request, 'origin');
 
     return {
-      host: hostOf(request.origin),
-      method: request.method,
+      host: hostOf(typeof origin === 'string' ? origin : undefined),
+      method: fieldOf(request, 'method'),
       durationMs:
         started === undefined
           ? undefined

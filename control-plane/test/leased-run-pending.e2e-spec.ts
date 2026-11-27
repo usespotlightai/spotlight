@@ -6,6 +6,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { RunsPort } from '@runs/application/ports/runs.port';
 import { RunReadModel } from '@runs/application/services/run-read-model.service';
 import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/readers/run-facts.reader';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
@@ -33,18 +34,18 @@ beforeAll(async () => {
   const context = new DrizzleContext(db);
   works = new RunWorks(
     new RunReadModel(new DrizzleRunFactsReader(context)),
-    {} as RunsPort,
+    partial<RunsPort>({}),
     new DrizzleTaskRepository(context, NO_EVENTS),
     new DrizzleChatRepository(context, NO_EVENTS),
-    { findByStation: async () => null } as unknown as LineMapsPort,
+    partial<LineMapsPort>({ findByStation: async () => null }),
     new DrizzleDispatchRepository(context, NO_EVENTS),
-    {} as RepositorySettingsPort,
+    partial<RepositorySettingsPort>({}),
     { now: () => new Date(), sleep: async () => {} },
   );
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const RUNNER = RunnerId.of('runner_1');

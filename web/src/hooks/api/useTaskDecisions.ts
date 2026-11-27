@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { readTaskDecisions } from '@/lib/api';
+import { readTaskDecisions, type TaskDecisionsResponseDto } from '@/lib/api';
+import { required } from '@/lib/required';
 
 export const taskDecisionKeys = {
   forTask: (taskId?: string) => ['decisions', 'task', taskId ?? null] as const,
@@ -8,14 +9,17 @@ export const taskDecisionKeys = {
 
 const POLL_MS = 15_000;
 
-export function useTaskDecisions(teamId?: string, taskId?: string) {
+export function useTaskDecisions(
+  teamId?: string,
+  taskId?: string,
+): UseQueryResult<TaskDecisionsResponseDto> {
   return useQuery({
     queryKey: taskDecisionKeys.forTask(taskId),
-    enabled: Boolean(teamId && taskId),
+    enabled: Boolean(teamId) && Boolean(taskId),
     refetchInterval: POLL_MS,
     queryFn: async () => {
       const { data } = await readTaskDecisions({
-        path: { teamId: teamId as string, taskId: taskId as string },
+        path: { teamId: required(teamId), taskId: required(taskId) },
         throwOnError: true,
       });
       return data;

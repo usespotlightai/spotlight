@@ -1,4 +1,10 @@
-import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
+import type { RunPolicyContract } from '@runs/application/contracts/run-order.contract';
+import type {
+  LeasedRunFacts,
+  RunLeasesPort,
+} from '@runs/application/ports/run-leases.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -68,10 +74,10 @@ export const historyAccessesOf = (
   });
 
   return new HistoryAccesses(
-    {
+    partial<RunLeasesPort>({
       leasedBy: async (runId: RunId) =>
-        team
-          ? {
+        nonEmpty(team)
+          ? partial<LeasedRunFacts>({
               runId,
               team: TeamId.of(team),
               requester: {
@@ -81,16 +87,18 @@ export const historyAccessesOf = (
                 token: null,
                 team,
               },
-              policy: { actsBeyondItself: !isolated },
-            }
+              policy: partial<RunPolicyContract>({
+                actsBeyondItself: !isolated,
+              }),
+            })
           : null,
-    } as unknown as RunLeasesPort,
-    {
+    }),
+    partial<DispatchRepository>({
       find: async (runId: RunId) =>
         fixture.trialAsOf === undefined
           ? null
           : trialOf(runId, fixture.trialAsOf),
-    } as unknown as DispatchRepository,
+    }),
     scopes,
   );
 };

@@ -69,15 +69,20 @@ const withForbiddenActs = (
   document: OpenAPIObject,
   forbiddenActs: readonly string[],
 ): OpenAPIObject => {
-  const properties = (
-    document.components?.schemas?.ProblemResponseDto as
-      | { properties?: Record<string, Record<string, unknown>> }
-      | undefined
-  )?.properties;
+  const problem = document.components?.schemas?.ProblemResponseDto;
+  const properties =
+    problem !== undefined && 'properties' in problem
+      ? problem.properties
+      : undefined;
+  const permission = properties?.permission;
 
-  if (properties?.permission) {
-    const { type, ...rest } = properties.permission;
-    properties.permission = { type, enum: forbiddenActs, ...rest };
+  if (
+    properties !== undefined &&
+    permission !== undefined &&
+    !('$ref' in permission)
+  ) {
+    const { type, ...rest } = permission;
+    properties.permission = { type, enum: [...forbiddenActs], ...rest };
   }
 
   return document;

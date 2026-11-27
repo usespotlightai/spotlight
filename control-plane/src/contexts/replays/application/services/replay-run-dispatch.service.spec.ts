@@ -28,6 +28,7 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaysRequester } from '@replays/domain/value-objects/replays-requester.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -150,7 +151,7 @@ beforeEach(() => {
   replayKept = true;
   dispatch = new ReplayRunDispatch(
     decisions,
-    { find: async () => (replayKept ? ({} as Replay) : null) },
+    { find: async () => (replayKept ? partial<Replay>({}) : null) },
     trials,
     runs,
   );

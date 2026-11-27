@@ -14,6 +14,7 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -73,7 +74,7 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
 
   async changesOfTask(taskId: TaskId): Promise<RunChanges[]> {
     const runs = await this.dispatched(
-      and(eq(dispatch.kind, 'task'), eq(dispatch.taskId, taskId.value)) as SQL,
+      and(eq(dispatch.kind, 'task'), eq(dispatch.taskId, taskId.value)),
     );
 
     return this.journals.changesOf(runs.map((each) => RunId.of(each.runId)));
@@ -101,11 +102,13 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
     narrowedTo: SQL | undefined,
     read: (runs: DispatchedRun[]) => Promise<T>,
   ): Promise<RunsInWorkspace<T> | null> {
-    const [found] = await this.db
-      .select({ workspaceId: task.workspaceId })
-      .from(task)
-      .where(eq(task.id, taskId.value))
-      .limit(1);
+    const found = firstOf(
+      await this.db
+        .select({ workspaceId: task.workspaceId })
+        .from(task)
+        .where(eq(task.id, taskId.value))
+        .limit(1),
+    );
 
     if (!found) {
       return null;
@@ -116,7 +119,7 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
         eq(dispatch.kind, 'task'),
         eq(dispatch.taskId, taskId.value),
         narrowedTo,
-      ) as SQL,
+      ),
     );
 
     return {
@@ -131,11 +134,13 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
     narrowedTo: SQL | undefined,
     read: (runs: DispatchedRun[]) => Promise<T>,
   ): Promise<RunsOfChat<T> | null> {
-    const [found] = await this.db
-      .select({ startedById: chat.startedById })
-      .from(chat)
-      .where(and(eq(chat.id, chatId.value), eq(chat.teamId, teamId.value)))
-      .limit(1);
+    const found = firstOf(
+      await this.db
+        .select({ startedById: chat.startedById })
+        .from(chat)
+        .where(and(eq(chat.id, chatId.value), eq(chat.teamId, teamId.value)))
+        .limit(1),
+    );
 
     if (!found) {
       return null;
@@ -146,7 +151,7 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
         eq(dispatch.kind, 'chat'),
         eq(dispatch.chatId, chatId.value),
         narrowedTo,
-      ) as SQL,
+      ),
     );
 
     return {
@@ -177,7 +182,7 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
     }));
   }
 
-  private dispatched(which: SQL): Promise<DispatchedRun[]> {
+  private dispatched(which: SQL | undefined): Promise<DispatchedRun[]> {
     return this.db
       .select({ runId: dispatch.id, createdAt: dispatch.orderedAt })
       .from(dispatch)

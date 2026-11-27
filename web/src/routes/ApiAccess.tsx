@@ -14,6 +14,7 @@ import { IconRowSkeleton } from '@/components/shared/skeleton/IconRowSkeleton';
 import type { CreatedWorkspaceToken } from '@/hooks/api/useCreateWorkspaceToken';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useWorkspaceTokens } from '@/hooks/api/useWorkspaceTokens';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
 import type { WorkspaceToken } from '@/lib/token';
@@ -29,7 +30,7 @@ export function ApiAccess() {
   const [created, setCreated] = useState<CreatedWorkspaceToken | null>(null);
   const [revoking, setRevoking] = useState<WorkspaceToken | null>(null);
 
-  if (!slug) {
+  if (!nonEmpty(slug)) {
     return null;
   }
 
@@ -58,7 +59,7 @@ export function ApiAccess() {
           action={
             <SectionButton
               onClick={() => setCreating(true)}
-              disabled={!workspaceId}
+              disabled={!nonEmpty(workspaceId)}
             >
               Create token
             </SectionButton>

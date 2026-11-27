@@ -1,6 +1,7 @@
 import { NewTaskDialog } from '@/components/features/board/task/NewTaskDialog';
 import { useAddTask } from '@/hooks/api/useAddTask';
 import type { LineResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 
 type AddTaskDialogProps = {
   slug: string;
@@ -29,7 +30,7 @@ export function AddTaskDialog({
         line.stations.find((each) => each.id === stationId)?.name ?? ''
       }
       onCreate={async (task) =>
-        stationId &&
+        nonEmpty(stationId) &&
         addTask.mutateAsync({ teamId, lineId: line.id, stationId, task })
       }
     />

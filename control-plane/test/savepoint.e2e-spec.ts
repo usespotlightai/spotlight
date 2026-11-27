@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -18,15 +19,17 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const stored = async (id: string) =>
-  (
-    await database.db.execute(
-      sql`select count(*)::int as n from savepoint_check where id = ${id}`,
-    )
-  ).rows[0] as { n: number };
+  firstOf(
+    (
+      await database.db.execute(
+        sql`select count(*)::int as n from savepoint_check where id = ${id}`,
+      )
+    ).rows,
+  );
 
 describe('work in a savepoint inside a transaction', () => {
   it('rolls back only the savepoint work when a query in it fails, and the rest commits', async () => {

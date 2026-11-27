@@ -1,3 +1,4 @@
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -38,7 +39,7 @@ const line = deliveryLineOf({
 });
 
 const keyed = (key: string) =>
-  line.stations.find((each) => each.key.value === key) as Station;
+  present(line.stations.find((each) => each.key.value === key));
 
 const LEON = UserId.of('user_leon');
 const MAYA = UserId.of('user_maya');
@@ -122,7 +123,7 @@ describe('HandMoves', () => {
   it('keeps a completed task where it is', () => {
     const moves = movesOf(at('completed'));
 
-    expect(moves.completed?.denial).toBeNull();
+    expect(moves.completed.denial).toBeNull();
     expect(
       Object.entries(moves)
         .filter(([key]) => key !== 'completed')
@@ -136,12 +137,12 @@ describe('HandMoves', () => {
       hold: { by: LEON, chat: ChatId.of('chat_1') },
     };
 
-    expect(movesOf(held, viewer(LEON)).backlog?.denial).toBeNull();
-    expect(movesOf(held, viewer(MAYA)).backlog?.denial).toBe('on-hold');
-    expect(movesOf(held, viewer(MAYA)).implementation?.denial).toBeNull();
+    expect(movesOf(held, viewer(LEON)).backlog.denial).toBeNull();
+    expect(movesOf(held, viewer(MAYA)).backlog.denial).toBe('on-hold');
+    expect(movesOf(held, viewer(MAYA)).implementation.denial).toBeNull();
     expect(
       movesOf({ ...held, hold: { by: LEON, chat: null } }, viewer(MAYA, false))
-        .completed?.denial,
+        .completed.denial,
     ).toBe('on-hold');
   });
 
@@ -177,13 +178,13 @@ describe('HandMoves', () => {
       hold: { by: LEON, chat: null },
     };
 
-    expect(movesOf(asking('triage', approval)).spec?.denial).toBe(
+    expect(movesOf(asking('triage', approval)).spec.denial).toBe(
       'between-work-stations',
     );
-    expect(movesOf(asking('triage', connection)).spec?.denial).toBe(
+    expect(movesOf(asking('triage', connection)).spec.denial).toBe(
       'between-work-stations',
     );
-    expect(movesOf(held, viewer(LEON)).spec?.denial).toBe(
+    expect(movesOf(held, viewer(LEON)).spec.denial).toBe(
       'between-work-stations',
     );
     expect(HandMoves.denial(held, line, keyed('spec'), LEON)).toBe(
@@ -232,7 +233,7 @@ describe('HandMoves', () => {
           finished: false,
         },
         odd,
-        work as Station,
+        present(work),
         LEON,
       ),
     ).toBe('out-of-completed');

@@ -33,14 +33,30 @@ const layoutBox = (element: HTMLElement): Box => ({
   height: element.offsetHeight,
 });
 
-export const useSidebarCollapsedSetting = () =>
+export const useSidebarCollapsedSetting = (): boolean =>
   useStoredState(SIDEBAR_COLLAPSED_KEY, 'false')[0] === 'true';
+
+type CollapsedSidebarResult = {
+  collapsed: boolean;
+  peeking: boolean;
+  floating: boolean;
+  pinned: boolean;
+  docking: boolean;
+  toggling: boolean;
+  unpeek: () => void;
+  pin: () => void;
+  setCollapsed: (next: boolean) => void;
+  peekIntent: {
+    onPointerEnter: (event: ReactPointerEvent) => void;
+    onPointerLeave: () => void;
+  };
+};
 
 export function useCollapsedSidebar(
   paneRef: RefObject<HTMLElement | null>,
   triggerRef: RefObject<HTMLElement | null>,
   narrow = false,
-) {
+): CollapsedSidebarResult {
   const [stored, store] = useStoredState(SIDEBAR_COLLAPSED_KEY, 'false');
   const collapsed = stored === 'true' || narrow;
   const [peeking, setPeeking] = useState(false);

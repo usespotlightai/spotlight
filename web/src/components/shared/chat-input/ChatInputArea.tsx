@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { nonEmpty } from '@/lib/non-empty';
+
 type ChatInputAreaProps = {
   disabled: boolean;
   area?: string;
@@ -16,7 +18,7 @@ export function ChatInputArea({
   return (
     <div
       inert={disabled}
-      style={area ? { gridArea: area } : undefined}
+      style={nonEmpty(area) ? { gridArea: area } : undefined}
       className={className}
     >
       {children}

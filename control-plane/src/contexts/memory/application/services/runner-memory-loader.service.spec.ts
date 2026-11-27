@@ -1,6 +1,7 @@
 import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import { NotAllowedWithoutMemoriesError } from '@memory/domain/exceptions/not-allowed-without-memories.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -23,7 +24,7 @@ const leasedRun = (isolated: boolean): LeasedRun => ({
 });
 
 const loader = (run: LeasedRun) =>
-  new RunnerMemoryLoader({ leasedBy: async () => run } as unknown as WorkPort);
+  new RunnerMemoryLoader(partial<WorkPort>({ leasedBy: async () => run }));
 
 describe('a run that recalls memories', () => {
   it('is not allowed in a search, which may not recall them at all', async () => {

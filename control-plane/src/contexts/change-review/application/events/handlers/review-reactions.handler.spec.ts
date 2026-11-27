@@ -13,6 +13,7 @@ import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -40,12 +41,12 @@ const reacting = (stored: readonly ReviewComment[] = []) => {
   const comments = new Map(stored.map((each) => [each.id.value, each]));
   const enqueue = vi.fn(async () => {});
   const reactions = new ReviewReactions(
-    {
+    partial<ReviewCommentRepository>({
       find: async (id: ReviewCommentId) => comments.get(id.value) ?? null,
       save: async (comment: ReviewComment) =>
         void comments.set(comment.id.value, comment),
-    } as unknown as ReviewCommentRepository,
-    { enqueue } as unknown as ReviewDeliveriesPort,
+    }),
+    partial<ReviewDeliveriesPort>({ enqueue }),
     { generate: () => 'sync_1' },
     { now: () => NOW, sleep: async () => {} },
   );
@@ -146,7 +147,7 @@ describe('ReviewReactions', () => {
 
     expect(
       enqueue.mock.calls.map(
-        (call) => (call as unknown as [{ kind: string }])[0].kind,
+        (call) => partial<[{ kind: string }]>(call)[0].kind,
       ),
     ).toEqual(['reply', 'edit', 'delete']);
   });

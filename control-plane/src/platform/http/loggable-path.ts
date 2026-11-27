@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 const SECRET_PARAM = /token|secret/i;
 
 type Loggable = {
@@ -9,7 +10,7 @@ export function loggablePath(request: Loggable): string | undefined {
   const path = request.url?.split(/[?#]/, 1)[0];
   const route = request.route?.path;
 
-  if (!path || typeof route !== 'string') {
+  if (!nonEmpty(path) || typeof route !== 'string') {
     return path;
   }
 

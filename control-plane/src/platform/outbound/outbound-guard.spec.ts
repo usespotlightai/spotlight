@@ -1,11 +1,11 @@
 import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import {
   OutboundBlockedError,
   OutboundGuard,
 } from '@platform/outbound/outbound-guard';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
+import { portOf } from '@platform/testing/port-of.fake-spec';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -31,7 +31,7 @@ beforeAll(async () => {
     response.end('reached');
   });
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
-  port = (server.address() as AddressInfo).port;
+  port = portOf(server);
 });
 
 afterAll(async () => {

@@ -31,7 +31,7 @@ export class JudgingRound {
 
   equals(other: JudgingRound): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof JudgingRound &&
       this.runId.equals(other.runId) &&
       this.rubricVersion === other.rubricVersion &&
       this.attempt === other.attempt

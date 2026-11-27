@@ -17,6 +17,7 @@ import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -77,9 +78,9 @@ const slotsOn = (input: {
       sandboxes: [...input.warm, ...kept.map((each) => each.id.value)],
     }),
   );
-  const runners = {
+  const runners = partial<RunnerRepository>({
     aliveInWorkspace: vi.fn(async () => input.alive),
-  } as unknown as RunnerRepository;
+  });
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const held: string[] = [];
   const locks: HostSlotLocksPort = {
@@ -93,7 +94,7 @@ const slotsOn = (input: {
     hosts,
     runners,
     locks,
-    logger as unknown as LoggerPort,
+    partial<LoggerPort>(logger),
   );
 
   return { slots, stored, logger, held };

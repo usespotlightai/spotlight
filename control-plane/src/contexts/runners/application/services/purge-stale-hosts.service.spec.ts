@@ -11,6 +11,7 @@ import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runne
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const THROUGH_POOL = HostId.of('HOST0000000000000001');
@@ -28,7 +29,7 @@ const purging = () => {
   return {
     stored,
     hosts,
-    purge: new PurgeStaleHosts(hosts, { now: () => NOW } as ClockPort),
+    purge: new PurgeStaleHosts(hosts, partial<ClockPort>({ now: () => NOW })),
   };
 };
 
@@ -59,7 +60,10 @@ describe('PurgeStaleHosts', () => {
     );
 
     await expect(
-      new PurgeStaleHosts(hosts, { now: () => NOW } as ClockPort).purgeStale(),
+      new PurgeStaleHosts(
+        hosts,
+        partial<ClockPort>({ now: () => NOW }),
+      ).purgeStale(),
     ).resolves.toBe(1);
     expect([...stored.keys()]).toEqual([THROUGH_TRUST.value]);
   });
@@ -79,7 +83,10 @@ describe('PurgeStaleHosts', () => {
     });
 
     await expect(
-      new PurgeStaleHosts(hosts, { now: () => NOW } as ClockPort).purgeStale(),
+      new PurgeStaleHosts(
+        hosts,
+        partial<ClockPort>({ now: () => NOW }),
+      ).purgeStale(),
     ).resolves.toBe(0);
     expect([...stored.keys()]).toEqual([THROUGH_POOL.value]);
   });

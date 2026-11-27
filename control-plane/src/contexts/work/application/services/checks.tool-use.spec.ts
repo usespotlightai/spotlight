@@ -1,15 +1,20 @@
 import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
-import type { TaskLookupReaderPort } from '@work/application/ports/task-lookup-reader.port';
+import type {
+  TaskLookupReaderPort,
+  TaskLookupReading,
+} from '@work/application/ports/task-lookup-reader.port';
 import { ChecksToolUse } from '@work/application/services/checks.tool-use';
 import { NoPullRequestError } from '@work/domain/exceptions/no-pull-request.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 const CONTEXT: TaskToolContext = {
   kind: 'task',
@@ -50,18 +55,18 @@ const using = (
     ),
     failedInSuite: vi.fn(),
   } satisfies CheckRunsPort;
-  const tasks = {
+  const tasks = partial<TaskLookupReaderPort>({
     find: vi.fn(async () =>
       task
-        ? {
+        ? partial<TaskLookupReading>({
             reviewedPullRequest: null,
             pullRequests: task.pullRequest
               ? [task.pullRequest, ...(task.later ?? [])]
               : [],
-          }
+          })
         : null,
     ),
-  } as unknown as TaskLookupReaderPort;
+  });
 
   return { checkRuns, tool: new ChecksToolUse(tasks, checkRuns) };
 };
@@ -91,9 +96,9 @@ describe('ChecksToolUse', () => {
       later: [DOCS],
     });
 
-    const answered = (await tool.call(CONTEXT)) as {
-      pullRequests: { pullRequest: string }[];
-    };
+    const answered = z
+      .object({ pullRequests: z.array(z.object({ pullRequest: z.string() })) })
+      .parse(await tool.call(CONTEXT));
 
     expect(answered.pullRequests.map((each) => each.pullRequest)).toEqual([
       PULL_REQUEST.value,

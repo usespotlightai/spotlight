@@ -12,6 +12,7 @@ import { OpenInEditorRow } from '@/components/features/editor/OpenInEditorRow';
 import { TaskTraceLink } from '@/components/features/trace/TaskTraceLink';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { stopsRun, type Task } from '@/lib/task';
 
 type TaskPropertiesProps = {
@@ -31,14 +32,16 @@ export function TaskProperties({
   const [stopping, setStopping] = useState<string | null>(null);
   const station = line?.stations.find((each) => each.id === task.stationId);
   const stoppingAt = line?.stations.find((each) => each.id === stopping);
-  const linked = slug && teamId ? { slug, teamId } : null;
+  const linked = nonEmpty(slug) && nonEmpty(teamId) ? { slug, teamId } : null;
   const [sendingBackTo, setSendingBackTo] = useState<StationResponseDto | null>(
     null,
   );
 
-  const move = (stationId: string, reason?: string) =>
-    line &&
-    teamId &&
+  const move = (stationId: string, reason?: string) => {
+    if (!nonEmpty(teamId) || !line) {
+      return;
+    }
+
     moveTask.mutate({
       teamId,
       lineId: line.id,
@@ -46,8 +49,9 @@ export function TaskProperties({
       revision: task.revision,
       stationId,
       afterTaskId: null,
-      ...(reason ? { reason } : {}),
+      ...(nonEmpty(reason) ? { reason } : {}),
     });
+  };
 
   return (
     <aside className={TASK_PROPERTIES}>
@@ -108,7 +112,9 @@ export function TaskProperties({
           onClose={() => setStopping(null)}
         />
 
-        {teamId && <AssigneePicker teamId={teamId} task={task} variant="row" />}
+        {nonEmpty(teamId) && (
+          <AssigneePicker teamId={teamId} task={task} variant="row" />
+        )}
 
         {linked && (
           <TaskSourceLink

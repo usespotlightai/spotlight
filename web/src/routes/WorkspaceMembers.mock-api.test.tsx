@@ -12,6 +12,7 @@ import { SLUG } from '@/mocks/world';
 import { membersWorld } from '@/mocks/world/members';
 import { SIGNED_IN } from '@/mocks/world/settings';
 import { MockApplication } from '@/stories/MockApplication';
+import { htmlElement } from '@/test/elements';
 import { quietBrowser } from '@/test/signed-in';
 import { findToast } from '@/test/toasts';
 
@@ -25,8 +26,8 @@ const JORDAN = 'jordan.lee@acme.dev';
 
 const listed = (name: string) => screen.getByRole('list', { name });
 
-const rowOf = (list: string, text: string) =>
-  within(listed(list)).getByText(text).closest('li') as HTMLElement;
+const rowOf = (list: string, text: string): HTMLElement =>
+  htmlElement(within(listed(list)).getByText(text).closest('li'));
 
 const opened = async () => {
   render(<MockApplication at={membersPath(SLUG)} />);

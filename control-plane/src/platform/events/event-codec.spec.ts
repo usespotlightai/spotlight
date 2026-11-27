@@ -75,9 +75,10 @@ describe('EventCodec', () => {
 
     const decoded = codec().decode(
       JSON.parse(JSON.stringify(codec().encode(event))),
-    ) as Happened;
+    );
 
     expect(decoded).toBeInstanceOf(Happened);
+    if (!(decoded instanceof Happened)) throw new Error('expected Happened');
     expect(decoded.kind).toBe('thing.happened');
     expect(decoded.who.equals(Named.of('ada'))).toBe(true);
     expect(decoded.first?.value).toBe('grace');

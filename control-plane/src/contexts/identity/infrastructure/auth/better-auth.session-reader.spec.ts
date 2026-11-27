@@ -1,12 +1,12 @@
-import type { AppAuth } from '@identity/infrastructure/auth/auth';
-import { BetterAuthSessionReader } from '@identity/infrastructure/auth/better-auth.session-reader';
+import {
+  BetterAuthSessionReader,
+  type SessionAuth,
+} from '@identity/infrastructure/auth/better-auth.session-reader';
 import { APIError } from 'better-auth/api';
 import { describe, expect, it, vi } from 'vitest';
 
-const readerFailingWith = (getSession: () => Promise<unknown>) =>
-  new BetterAuthSessionReader({
-    api: { getSession: vi.fn(getSession) },
-  } as unknown as AppAuth);
+const readerFailingWith = (getSession: SessionAuth['api']['getSession']) =>
+  new BetterAuthSessionReader({ api: { getSession: vi.fn(getSession) } });
 
 describe('BetterAuthSessionReader', () => {
   it('maps a valid session to the session user', async () => {

@@ -9,6 +9,8 @@ import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { TEAM, WORKSPACE } from '@insights/runs.fake-spec';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -160,7 +162,9 @@ describe('StationAlertState', () => {
       'station-alert.reopened',
     ]);
     expect(events[2]).toBeInstanceOf(StationAlertReopened);
-    expect((events[2] as StationAlertReopened).taskId.value).toBe('task_1');
+    expect(instanceOf(StationAlertReopened, events[2]).taskId.value).toBe(
+      'task_1',
+    );
     expect(alertState.firings.map((each) => each.id.value)).toEqual([
       'alert_1',
     ]);
@@ -196,7 +200,7 @@ describe('StationAlertState', () => {
     ]);
 
     const events = resolved.pullEvents();
-    const event = events[1] as StationAlertResolved;
+    const event = instanceOf(StationAlertResolved, events[1]);
     expect(event).toBeInstanceOf(StationAlertResolved);
     expect(event.taskId.value).toBe('task_1');
   });
@@ -314,7 +318,11 @@ describe('StationAlertState', () => {
 
     const withoutTask = alertState.erasing(
       DeletionScope.ofTask(WORKSPACE, TaskId.of('task_1')),
-    ) as StationAlertState;
+    );
+
+    if (withoutTask === null) {
+      throw new Error('expected the alert state without the task');
+    }
 
     expect(withoutTask.firings.map((each) => each.id.value)).toEqual([
       'alert_2',
@@ -332,7 +340,7 @@ describe('StationAlertState', () => {
   it('rejects two open firings for one rule', () => {
     const next = ids();
     const fired = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
-    const open = fired.open[0];
+    const open = firstOf(fired.open);
 
     expect(() =>
       StationAlertState.rehydrate({

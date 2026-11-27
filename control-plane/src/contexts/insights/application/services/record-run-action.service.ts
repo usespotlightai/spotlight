@@ -8,6 +8,7 @@ import {
   actionKindOf,
 } from '@insights/domain/value-objects/person-action.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -49,14 +50,16 @@ export class RecordRunAction {
     const tool = { tool: event.tool, server: event.server };
     const workspaceId = WorkspaceId.of(event.workspaceId);
     const taskId = TaskId.of(event.taskId);
-    const run = event.afterRunId
+    const run = nonEmpty(event.afterRunId)
       ? await this.work.endedRun(RunId.of(event.afterRunId))
       : null;
     const owner = FactOwner.of(workspaceId, {
       teamId: run?.teamId ?? null,
       taskId,
     });
-    const afterRunId = event.afterRunId ? RunId.of(event.afterRunId) : null;
+    const afterRunId = nonEmpty(event.afterRunId)
+      ? RunId.of(event.afterRunId)
+      : null;
 
     await this.transaction.inTransaction(() =>
       this.recorder.record(this.records, {

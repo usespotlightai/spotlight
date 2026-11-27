@@ -27,7 +27,7 @@ const canonical = (value: unknown): unknown => {
   return Object.fromEntries(
     Object.keys(value)
       .sort()
-      .map((key) => [key, canonical((value as Record<string, unknown>)[key])]),
+      .map((key) => [key, canonical(Reflect.get(value, key))]),
   );
 };
 

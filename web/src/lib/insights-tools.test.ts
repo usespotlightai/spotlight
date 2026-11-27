@@ -6,6 +6,7 @@ import {
   formatTrendRule,
   usedNothing,
 } from '@/lib/insights-tools';
+import { partial } from '@/test/partial';
 
 describe('the Tools tab’s view model', () => {
   it('says the trend rule with the numbers the summary used', () => {
@@ -42,12 +43,12 @@ describe('the Tools tab’s view model', () => {
   });
 
   it('calls a period that used no skill, server or approval empty', () => {
-    const none = {
+    const none = partial<Parameters<typeof usedNothing>[0]>({
       skills: [],
       servers: [],
       dismissals: [],
       unused: [],
-    } as unknown as Parameters<typeof usedNothing>[0];
+    });
 
     expect(usedNothing(none)).toBe(true);
     expect(usedNothing({ ...none, unused: ['grafana'] })).toBe(false);

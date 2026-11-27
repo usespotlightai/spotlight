@@ -13,6 +13,7 @@ import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/rea
 import { DrizzleRunUsagesReader } from '@runs/infrastructure/persistence/drizzle/readers/run-usages.reader';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -73,7 +74,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const hooks = (...messages: string[]) =>
@@ -172,8 +173,8 @@ describe('journalling a run that was tried again', () => {
     const [read, ...more] = await new DrizzleRunJournals(db).ofRuns([runId]);
 
     expect(more).toEqual([]);
-    expect(read?.attempt).toBe(2);
-    expect(read?.steps.map((step) => step.text)).toEqual(['two-a']);
+    expect(read.attempt).toBe(2);
+    expect(read.steps.map((step) => step.text)).toEqual(['two-a']);
   });
 
   it('records the usage of the attempt that finished, and again when a later one does', async () => {
@@ -453,7 +454,12 @@ describe('telling when the agent last wrote', () => {
     session?: string,
   ) => ({
     type: 'message' as const,
-    data: { id, role, text, ...(session ? { session } : {}) },
+    data: {
+      id,
+      role,
+      text,
+      ...(nonEmpty(session) ? { session } : {}),
+    },
   });
 
   const received = () => {

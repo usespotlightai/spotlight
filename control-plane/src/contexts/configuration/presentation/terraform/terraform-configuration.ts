@@ -48,6 +48,8 @@ import {
   inCodePointOrderOf,
 } from '@platform/ordering/code-point-order';
 import { PLATFORM_EGRESS } from '@runners/application/ports/runner-configuration.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { ALL_CLAIMS } from '@shared-kernel/domain/value-objects/claim-share';
 import {
   FieldPath,
@@ -266,7 +268,7 @@ const References = (moduleIndex: ModuleIndex) => ({
     const integration = named?.integration;
 
     return named &&
-      integration &&
+      nonEmpty(integration) &&
       moduleIndex.integrations.has(inTeam(teamKey, integration))
       ? HclExpression.template(
           referenceTo(
@@ -284,7 +286,7 @@ const References = (moduleIndex: ModuleIndex) => ({
     const integration = named?.integration;
 
     return named &&
-      integration &&
+      nonEmpty(integration) &&
       moduleIndex.integrations.has(inTeam(teamKey, integration))
       ? HclExpression.indexed(
           referenceTo('integration', nameOf(teamKey, integration), 'tools'),
@@ -600,7 +602,10 @@ const line = (
       attribute('name', definition.name),
       ...present('role', definition.role),
       ...present('runners', definition.runners),
-      ...present('warm_sandboxes', definition.warmSandboxes || undefined),
+      ...present(
+        'warm_sandboxes',
+        definition.warmSandboxes === 0 ? undefined : definition.warmSandboxes,
+      ),
       ...present('default_assignee', definition.defaultAssignee),
       ...definition.repositories.map(repository),
       ...definition.stations.map(station),
@@ -653,7 +658,8 @@ const replacedAt = (
   path: readonly FieldSegment[],
   by: HclExpression,
 ): unknown => {
-  const [step, ...rest] = path;
+  const step = firstOf(path);
+  const rest = path.slice(1);
 
   if (step === undefined) {
     return by;
@@ -1173,7 +1179,7 @@ export const resourceHcl = (
   configuration: ExportableConfigurationDto,
   resource: ExportableResourceDto,
 ): ResourceHcl => {
-  const [one] = renderedIn(configuration, [resource]);
+  const one = firstOf(renderedIn(configuration, [resource]));
 
   return {
     hcl: formatHcl([

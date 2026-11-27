@@ -9,6 +9,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import { RunCheckoutsMapper } from '@work/application/mappers/run-checkouts.mapper';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type {
@@ -206,7 +207,7 @@ export class Turns {
 
       yield* page;
 
-      const last = page[page.length - 1];
+      const last = itemAt(page, page.length - 1);
 
       if (!last || page.length < PAGE) {
         return;

@@ -20,6 +20,7 @@ import {
   type TaskTurnAwaitedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-turn-awaited.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -30,14 +31,14 @@ const subscribers = (input: {
   wakingChecks?: Partial<WakeDuplicateChecks>;
 }) =>
   memorySubscribers(
-    {} as DeleteMemoryProposalSet,
-    {} as DeleteTeamMemories,
-    {} as MemoryReactions,
-    {} as RecordRunMemoryUses,
-    {} as UpkeepReactions,
-    (input.waking ?? {}) as WakeUpkeepSweeps,
-    (input.checking ?? {}) as DuplicateCheckReactions,
-    (input.wakingChecks ?? {}) as WakeDuplicateChecks,
+    partial<DeleteMemoryProposalSet>({}),
+    partial<DeleteTeamMemories>({}),
+    partial<MemoryReactions>({}),
+    partial<RecordRunMemoryUses>({}),
+    partial<UpkeepReactions>({}),
+    partial<WakeUpkeepSweeps>(input.waking ?? {}),
+    partial<DuplicateCheckReactions>(input.checking ?? {}),
+    partial<WakeDuplicateChecks>(input.wakingChecks ?? {}),
   );
 
 const SETTLED: AssistSessionSettledIntegrationEvent = {

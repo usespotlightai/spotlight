@@ -10,6 +10,7 @@ import {
   recordsCuts,
 } from '@insights/domain/value-objects/run-memories.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -49,7 +50,7 @@ export class RecordRunMemories {
   async used(event: RunMemoriesReceived): Promise<void> {
     const via = event.via;
 
-    if (!event.taskId || !isMemoryVia(via)) {
+    if (!nonEmpty(event.taskId) || !isMemoryVia(via)) {
       return;
     }
 

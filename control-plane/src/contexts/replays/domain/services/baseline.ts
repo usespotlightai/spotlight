@@ -2,6 +2,7 @@ import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate'
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayState } from '@replays/domain/value-objects/replay-state';
 import type { ScoringHash } from '@replays/domain/value-objects/scoring-hash.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const VALID_BASELINE_STATES = [
@@ -54,7 +55,7 @@ export const baselineFor = (
   return (
     matching.find((each) => each.current === 'finished') ??
     matching.find((each) => VALID.includes(each.current)) ??
-    matching[0] ??
+    firstOf(matching) ??
     null
   );
 };

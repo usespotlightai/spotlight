@@ -11,6 +11,7 @@ import {
   usePublicTaskChangeStacks,
 } from '@/hooks/api/usePublicChangeStacks';
 import { useSession } from '@/hooks/api/useSession';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
 
@@ -21,7 +22,7 @@ export function PublicChangeStack() {
   const location = useLocation();
   const task = usePublicTaskChangeStacks(taskId);
   const run = usePublicRunChangeStacks(runId);
-  const stacks = taskId ? task : run;
+  const stacks = nonEmpty(taskId) ? task : run;
 
   return (
     <div className="@container/pane flex h-dvh flex-col bg-surface">

@@ -18,6 +18,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { and, asc, eq, ne } from 'drizzle-orm';
 
@@ -45,10 +46,12 @@ export class DrizzleRunUsages implements RunUsageWriterPort {
   ) {}
 
   async readingsOf(runId: RunId): Promise<UsageReadings | null> {
-    const [found] = await this.context.db
-      .select({ attempt: run.attempt, suspended: run.suspendedAttempts })
-      .from(run)
-      .where(eq(run.id, runId.value));
+    const found = firstOf(
+      await this.context.db
+        .select({ attempt: run.attempt, suspended: run.suspendedAttempts })
+        .from(run)
+        .where(eq(run.id, runId.value)),
+    );
 
     if (!found) {
       return null;

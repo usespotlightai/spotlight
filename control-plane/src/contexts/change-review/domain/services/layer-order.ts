@@ -18,6 +18,7 @@ import {
   type ProposedLayer,
   type ProposedQuestion,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 
 export interface LayerOrderRepair {
   readonly cohort: ProposedCohort;
@@ -95,7 +96,7 @@ const withLayersSorted = (
   return {
     ...cohort,
     layers: order.flatMap((from) => {
-      const layer = cohort.layers[from];
+      const layer = itemAt(cohort.layers, from);
 
       return layer
         ? [
@@ -158,37 +159,37 @@ const levelsOf = (
     }
   }
 
-  let changed = false;
-  const moved = (hunk: string, to: number) => {
+  const moved = (hunk: string, to: number): boolean => {
     const at = level.get(hunk);
 
     if (at !== undefined && (direction === 'forward' ? at < to : at > to)) {
       level.set(hunk, to);
-      changed = true;
+      return true;
     }
+    return false;
   };
-  const ahead = (user: string, used: string) => {
+  const ahead = (user: string, used: string): boolean => {
     const later = level.get(user);
     const earlier = level.get(used);
 
     if (later !== undefined && earlier !== undefined && later < earlier) {
-      if (direction === 'forward') {
-        moved(user, earlier);
-      } else {
-        moved(used, later);
-      }
+      return direction === 'forward'
+        ? moved(user, earlier)
+        : moved(used, later);
     }
+    return false;
   };
+  let changed: boolean;
 
   do {
     changed = false;
 
     for (const link of ordered) {
-      ahead(link.from, link.to);
+      changed = ahead(link.from, link.to) || changed;
     }
     for (const link of moves) {
-      ahead(link.from, link.to);
-      ahead(link.to, link.from);
+      changed = ahead(link.from, link.to) || changed;
+      changed = ahead(link.to, link.from) || changed;
     }
     for (const [test, code] of covered) {
       const at = level.get(test) ?? 0;
@@ -198,11 +199,10 @@ const levelsOf = (
       const [behind, ahead] = at < latest ? [test, last] : [last, test];
 
       if (at !== latest && behind !== undefined && ahead !== undefined) {
-        if (direction === 'forward') {
-          moved(behind, Math.max(at, latest));
-        } else {
-          moved(ahead, Math.min(at, latest));
-        }
+        changed =
+          (direction === 'forward'
+            ? moved(behind, Math.max(at, latest))
+            : moved(ahead, Math.min(at, latest))) || changed;
       }
     }
   } while (changed);
@@ -323,7 +323,7 @@ const withHunksRelevelled = (
 
   const receiving = new Map(
     cohort.layers.flatMap((layer, from) => {
-      const first = layer.hunks[0];
+      const first = firstOf(layer.hunks);
       const at = first
         ? kept.findIndex(({ hunks }) =>
             hunks.some((entry) => entry.hunk === first.hunk),
@@ -339,7 +339,7 @@ const withHunksRelevelled = (
       .flatMap(([from]) => cohort.layers[from]?.summary ?? []);
 
   const rebuilt = kept.flatMap(({ from, hunks }, at) => {
-    const layer = cohort.layers[from];
+    const layer = itemAt(cohort.layers, from);
 
     return layer
       ? [
@@ -425,7 +425,7 @@ export const withLayersInOrder = (
   const sizeOf = (each: ProposedCohort) =>
     Math.max(enough, biggestLayerOf(part.diff, each));
   const smallest = (each: readonly ProposedCohort[]) =>
-    [...each].sort((a, b) => sizeOf(a) - sizeOf(b))[0];
+    firstOf([...each].sort((a, b) => sizeOf(a) - sizeOf(b)));
   const current =
     smallest(keeping.filter(fixed)) ??
     smallest(candidates.filter(fixed)) ??

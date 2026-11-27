@@ -8,6 +8,7 @@ import { ListRunnerActivityHandler } from '@runs/application/queries/handlers/li
 import { ListRunnerActivityQuery } from '@runs/application/queries/list-runner-activity.query';
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
 import type { RunViewing } from '@runs/application/services/run-viewing.service';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -71,12 +72,12 @@ const listing = (member: boolean) => {
         ['work/chat/chat_1', { title: 'Plan the billing migration' }],
       ]),
   });
-  const viewers = {
+  const viewers = partial<RunViewing>({
     readableAmong: vi.fn(async () => new Set(['run_6', 'run_7'])),
-  } as unknown as RunViewing;
+  });
 
   const handler = new ListRunnerActivityHandler(
-    {
+    partial<WorkspaceAccessPort>({
       inWorkspace: vi.fn(async () =>
         member
           ? {
@@ -87,7 +88,7 @@ const listing = (member: boolean) => {
             }
           : null,
       ),
-    } as unknown as WorkspaceAccessPort,
+    }),
     { leasedIn, lastRunsOf },
     { idleIn },
     labels,

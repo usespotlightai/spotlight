@@ -1,12 +1,16 @@
 import { randomUUID } from 'node:crypto';
 
+import { fieldOf } from '@platform/json/field-of';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { eq, inArray } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { type Answer, type Problem, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import {
@@ -97,7 +101,7 @@ describe('a search for a better station config, when it stalls or loses its stat
           taskId,
           cause,
           evidence: `The replay of ${taskId} shows the ${cause} at fault.`,
-          ...(suggestion ? { suggestion } : {}),
+          ...(nonEmpty(suggestion) ? { suggestion } : {}),
         },
       );
 
@@ -111,31 +115,29 @@ describe('a search for a better station config, when it stalls or loses its stat
     expect(heldOut.body.detail.replace(heldOutTasks[0], '<task>')).toBe(
       unknown.body.detail.replace('task_unknown', '<task>'),
     );
-    await causing(first?.taskId, 'luck').expect(422);
+    await causing(first.taskId, 'luck').expect(422);
     await proposing(reflecting, {
       name: 'late',
       hypothesis: 'Proposed while looking into why.',
       station: await liveBlock(),
     }).expect(409);
 
-    await causing(first?.taskId, 'config').expect(201);
+    await causing(first.taskId, 'config').expect(201);
     expect(
       (
         await causing(
-          first?.taskId,
+          first.taskId,
           'judge',
           'Drop the claim that requires tests.',
         ).expect(201)
       ).body,
     ).toEqual({
-      taskId: first?.taskId,
+      taskId: first.taskId,
       cause: 'judge',
-      replayRunId: first?.replayRunId,
+      replayRunId: first.replayRunId,
     });
-    await causing(second?.taskId, 'task', 'Take it out of the set.').expect(
-      201,
-    );
-    await causing(third?.taskId, 'check').expect(201);
+    await causing(second.taskId, 'task', 'Take it out of the set.').expect(201);
+    await causing(third.taskId, 'check').expect(201);
 
     await endedSearchRun(reflecting);
     await eventually(
@@ -153,13 +155,13 @@ describe('a search for a better station config, when it stalls or loses its stat
     expect(
       looked?.causes.map((each) => [each.taskId, each.cause, each.replayRunId]),
     ).toEqual([
-      [first?.taskId, 'judge', first?.replayRunId],
-      [second?.taskId, 'task', second?.replayRunId],
-      [third?.taskId, 'check', third?.replayRunId],
+      [first.taskId, 'judge', first.replayRunId],
+      [second.taskId, 'task', second.replayRunId],
+      [third.taskId, 'check', third.replayRunId],
     ]);
     expect(
       (await replayRow(seedReplayId))?.id === seedReplayId &&
-        (await entryOf(first?.replayRunId))?.replayId,
+        (await entryOf(first.replayRunId))?.replayId,
     ).toBe(seedReplayId);
 
     const notice = await eventually(
@@ -179,7 +181,7 @@ describe('a search for a better station config, when it stalls or loses its stat
       unread: true,
       resolved: false,
     });
-    expect(notice?.points).toEqual([
+    expect(notice.points).toEqual([
       expect.stringMatching(
         /^“Drain (the )?queue[^”]*”: the cause is the judge\. Drop the claim that requires tests\. Please fix the claims of the judge\.$/,
       ),
@@ -190,27 +192,25 @@ describe('a search for a better station config, when it stalls or loses its stat
         /^“Drain (the )?queue[^”]*”: the cause is the check\. .* Please fix the check of the station\.$/,
       ),
     ]);
-    expect(notice?.points.join('\n')).not.toContain(first?.taskId);
+    expect(notice.points.join('\n')).not.toContain(first.taskId);
     expect(await ownNotices()).toHaveLength(1);
 
     await http()
-      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/resolve`)
+      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice.id}/resolve`)
       .set(TEST_USER_HEADER, randomUUID())
       .expect(404);
     await owner()
-      .post(`/api/workspaces/elsewhere/inbox/notices/${notice?.id}/resolve`)
+      .post(`/api/workspaces/elsewhere/inbox/notices/${notice.id}/resolve`)
       .expect(404);
     await owner()
-      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/resolve`)
+      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice.id}/resolve`)
       .expect(204);
 
-    const resolved = (
-      (
-        await owner()
-          .get(`/api/workspaces/${team.slug}/inbox?state=resolved`)
-          .expect(200)
-      ).body as { readonly items: InboxEntry[] }
-    ).items.find((each) => each.id === notice?.id);
+    const resolved = bodyOf<{ readonly items: InboxEntry[] }>(
+      await owner()
+        .get(`/api/workspaces/${team.slug}/inbox?state=resolved`)
+        .expect(200),
+    ).items.find((each) => each.id === notice.id);
 
     expect(resolved).toMatchObject({ unread: false, resolved: true });
 
@@ -219,22 +219,19 @@ describe('a search for a better station config, when it stalls or loses its stat
     await db
       .update(schema.notice)
       .set({ createdAt: longAgo, resolvedAt: longAgo })
-      .where(eq(schema.notice.id, notice?.id));
+      .where(eq(schema.notice.id, notice.id));
 
     expect(
-      (
-        (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200))
-          .body as { readonly items: InboxEntry[] }
-      ).items.some((each) => each.id === notice?.id),
+      bodyOf<{ readonly items: InboxEntry[] }>(
+        await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200),
+      ).items.some((each) => each.id === notice.id),
     ).toBe(false);
     expect(
-      (
-        (
-          await owner()
-            .get(`/api/workspaces/${team.slug}/inbox?state=resolved`)
-            .expect(200)
-        ).body as { readonly items: InboxEntry[] }
-      ).items.some((each) => each.id === notice?.id),
+      bodyOf<{ readonly items: InboxEntry[] }>(
+        await owner()
+          .get(`/api/workspaces/${team.slug}/inbox?state=resolved`)
+          .expect(200),
+      ).items.some((each) => each.id === notice.id),
     ).toBe(true);
   }, 120_000);
 
@@ -253,8 +250,9 @@ describe('a search for a better station config, when it stalls or loses its stat
     await endedSearchRun(await leasedSearchRun(id, 2), true);
 
     const reflecting = await leasedSearchRun(id, 3);
-    const [failing] =
-      (await searchOf(id)).iterations[2]?.reflection?.tasks ?? [];
+    const failing = firstOf(
+      (await searchOf(id)).iterations[2]?.reflection?.tasks ?? [],
+    );
 
     await bearing(reflecting.token)
       .post(`/api/runs/${reflecting.runId}/failure-causes`, {
@@ -278,13 +276,12 @@ describe('a search for a better station config, when it stalls or loses its stat
     ]);
     expect(goingOn.iterations[2]?.reflection?.endedSearch).toBe(false);
     expect(goingOn.iterations[2]?.reflection?.result).toBe('continued');
-    const briefed = (await searchRunsOf(id)).find(
-      (each) => each.id === next.runId,
-    )?.spec as { briefing?: string } | undefined;
-
-    expect(briefed?.briefing).toContain(
-      'Suggested: Tell it to run migrations first.',
+    const briefed = fieldOf(
+      (await searchRunsOf(id)).find((each) => each.id === next.runId)?.spec,
+      'briefing',
     );
+
+    expect(briefed).toContain('Suggested: Tell it to run migrations first.');
 
     await endedSearchRun(next, true);
     await eventually(
@@ -317,12 +314,10 @@ describe('a search for a better station config, when it stalls or loses its stat
       { iterations: 1, ceiling: 20 },
       POLISH,
     );
-    const line = (
-      await owner().get(`/api/v1/resources/lines/${DELIVERY}`).expect(200)
-    ).body as {
+    const line = bodyOf<{
       version: number;
       definition: { stations: { key: string }[] };
-    };
+    }>(await owner().get(`/api/v1/resources/lines/${DELIVERY}`).expect(200));
 
     await owner()
       .put(
@@ -357,7 +352,7 @@ describe('a search for a better station config, when it stalls or loses its stat
       return (await searchRunsOf(id)).some((each) => each.state === 'queued');
     }, WITHIN);
 
-    const [agentRun] = await searchRunsOf(id);
+    const agentRun = firstOf(await searchRunsOf(id));
 
     await delivered({
       kind: TEAM_DELETED,

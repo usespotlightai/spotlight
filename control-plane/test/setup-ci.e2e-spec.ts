@@ -8,6 +8,7 @@ import {
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { ACCESSIBLE_REPOSITORIES } from '@work/application/ports/accessible-repositories.port';
 import { and, eq } from 'drizzle-orm';
 import {
@@ -128,7 +129,8 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
     await startingAs(owner).expect(201);
 
     const kept = await trusts();
-    const byKey = Object.fromEntries(kept.map((each) => [each.key, each]));
+    const byKey: Partial<Record<string, (typeof kept)[number]>> =
+      Object.fromEntries(kept.map((each) => [each.key, each]));
 
     expect(byKey['github-pull-requests']).toMatchObject({
       issuer: 'https://token.actions.githubusercontent.com',
@@ -207,15 +209,17 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
 
     await startingAs(owner, 'acme/platform-config').expect(201);
 
-    const [apply] = await db
-      .select()
-      .from(schema.oidcTrust)
-      .where(
-        and(
-          eq(schema.oidcTrust.workspaceId, workspaceId),
-          eq(schema.oidcTrust.key, 'github-apply'),
+    const apply = firstOf(
+      await db
+        .select()
+        .from(schema.oidcTrust)
+        .where(
+          and(
+            eq(schema.oidcTrust.workspaceId, workspaceId),
+            eq(schema.oidcTrust.key, 'github-apply'),
+          ),
         ),
-      );
+    );
     expect(apply?.subject).toBe(
       'repo:acme/platform-config:ref:refs/heads/main',
     );

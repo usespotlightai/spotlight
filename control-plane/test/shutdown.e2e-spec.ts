@@ -1,10 +1,10 @@
-import { Agent, get, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import { Agent, get } from 'node:http';
 
 import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
 import { describe, expect, it } from 'vitest';
 
 import { openApp } from './support/app';
+import { httpServerOf, addressOf } from './support/http-server';
 
 const answer = (
   port: number,
@@ -40,7 +40,7 @@ describe('shutdown', () => {
         },
       }),
     );
-    const { port } = (app.getHttpServer() as Server).address() as AddressInfo;
+    const { port } = addressOf(httpServerOf(app));
     const agent = new Agent({ keepAlive: true, maxSockets: 1 });
 
     try {

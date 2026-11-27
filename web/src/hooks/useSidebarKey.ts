@@ -6,7 +6,7 @@ const sidebarShown = () =>
   typeof window.matchMedia !== 'function' ||
   window.matchMedia(SHOWS_SIDEBAR).matches;
 
-export function useSidebarKey(toggle: () => void, enabled: boolean) {
+export function useSidebarKey(toggle: () => void, enabled: boolean): void {
   useCommands(
     enabled
       ? [{ id: 'sidebar.toggle', run: toggle, enabled: sidebarShown }]

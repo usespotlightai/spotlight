@@ -19,6 +19,7 @@ import type {
   ProposedQuestion,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import fc from 'fast-check';
 import { describe, it } from 'vitest';
 
@@ -175,7 +176,7 @@ describe('withHunksMovedInto under any cohort, hunks and target layer', () => {
     fc.assert(
       fc.property(moving, (drawn) => {
         const moved = movedInto(drawn);
-        const target = drawn.cohort.layers[drawn.target];
+        const target = optionalItems(drawn.cohort.layers)[drawn.target];
         const emptiedBefore = drawn.cohort.layers
           .slice(0, drawn.target)
           .filter((layer) =>
@@ -187,7 +188,7 @@ describe('withHunksMovedInto under any cohort, hunks and target layer', () => {
           moved === null ||
           (target !== undefined &&
             eachOnce(placedHunks([moved]), hunksIn(drawn.cohort)) &&
-            drawn.leaving.every((hunk) => into?.includes(hunk)))
+            drawn.leaving.every((hunk) => into?.includes(hunk) === true))
         );
       }),
       RUNS,

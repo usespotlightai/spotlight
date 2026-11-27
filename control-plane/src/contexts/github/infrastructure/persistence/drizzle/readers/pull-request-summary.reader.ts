@@ -12,9 +12,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import { and, eq, or } from 'drizzle-orm';
 
 @Injectable()
-export class DrizzlePullRequestSummaryReader
-  implements PullRequestSummaryReaderPort
-{
+export class DrizzlePullRequestSummaryReader implements PullRequestSummaryReaderPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async summariesOf(

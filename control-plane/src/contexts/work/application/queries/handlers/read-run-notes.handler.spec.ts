@@ -1,4 +1,5 @@
 import type { RunUsageFacts } from '@runs/application/ports/run-usage-reader.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
   RunNotesSummary,
@@ -90,7 +91,10 @@ const waitingOn = (
       waits: true,
       task: {
         running: true,
-        pending: { assignee: assignee ? UserId.of(assignee) : null, ask },
+        pending: {
+          assignee: nonEmpty(assignee) ? UserId.of(assignee) : null,
+          ask,
+        },
       },
       to: { currentRun: true, atTaskStation: true },
     }),

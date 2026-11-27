@@ -17,8 +17,15 @@ import {
 } from '@replays/application/services/close-stale-config-pull-requests.service';
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
 import { ReconcileConfigPullRequests } from '@replays/application/services/reconcile-config-pull-requests.service';
-import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
-import { PULL_REQUEST_REOPENED } from '@shared-kernel/application/integration-events/pull-request-reopened.integration-event';
+import {
+  PULL_REQUEST_CLOSED,
+  type PullRequestClosedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
+import {
+  PULL_REQUEST_REOPENED,
+  type PullRequestReopenedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-reopened.integration-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
@@ -30,6 +37,7 @@ import { describe, expect, it } from 'vitest';
 
 import { autoSearched } from './support/app';
 import { dueNow, scheduleOf } from './support/auto-searches';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import {
@@ -85,10 +93,12 @@ const liveAt = async (stationId = BUILD) => {
 };
 
 const writtenAt = async (stationId = BUILD) => {
-  const [row] = await db
-    .select({ key: schema.station.key })
-    .from(schema.station)
-    .where(eq(schema.station.id, stationId));
+  const row = firstOf(
+    await db
+      .select({ key: schema.station.key })
+      .from(schema.station)
+      .where(eq(schema.station.id, stationId)),
+  );
   const record = await app
     .get<LineResourcesPort>(LINE_RESOURCES)
     .withId(LineId.of(DELIVERY));
@@ -134,22 +144,32 @@ const onGitHub = (number: number, over: OnGitHub) => {
   };
 };
 
-const closedOnGitHub = (number: number, merged: boolean, over: OnGitHub = {}) =>
-  delivered({
+const closedOnGitHub = (
+  number: number,
+  merged: boolean,
+  over: OnGitHub = {},
+) => {
+  const closed: PullRequestClosedIntegrationEvent = {
     kind: PULL_REQUEST_CLOSED,
     ...onGitHub(number, over),
     closedAt: (over.at ?? new Date()).toISOString(),
     ...(merged
       ? { merged: true, mergeCommit: `merge_${number}` }
       : { merged: false, mergeCommit: null }),
-  } as never);
+  };
 
-const reopenedOnGitHub = (number: number, over: OnGitHub = {}) =>
-  delivered({
+  return delivered(closed);
+};
+
+const reopenedOnGitHub = (number: number, over: OnGitHub = {}) => {
+  const reopened: PullRequestReopenedIntegrationEvent = {
     kind: PULL_REQUEST_REOPENED,
     ...onGitHub(number, over),
     reopenedAt: (over.at ?? new Date()).toISOString(),
-  } as never);
+  };
+
+  return delivered(reopened);
+};
 
 const anOpenedPullRequest = async (input: {
   readonly number: number;
@@ -191,12 +211,12 @@ const anOpenedPullRequest = async (input: {
 };
 
 const pullRequestRow = async (id: string) =>
-  (
+  firstOf(
     await db
       .select()
       .from(schema.configPullRequest)
-      .where(eq(schema.configPullRequest.id, id))
-  )[0];
+      .where(eq(schema.configPullRequest.id, id)),
+  );
 
 const staleAfterChange = async (
   number: number,
@@ -236,13 +256,13 @@ const finishedWith = async (
 
   const agent = await leasedSearchRun(search.id, 1);
   const station = await writtenAt(stationId);
-  const proposed = (
+  const proposed = bodyOf<{ replayId: string }>(
     await proposing(agent, {
       name,
       hypothesis: 'Draining in order stops the stall.',
       station: { ...station, prompt: 'Build it, draining in order.\n' },
-    }).expect(201)
-  ).body as { replayId: string };
+    }).expect(201),
+  );
 
   await endedSearchRun(agent);
   await drained(() => ({ score: 5, cost: 0.1 }));
@@ -288,12 +308,18 @@ describe('following a config pull request after it opened', () => {
 
     await finishedWith(first, 'in-order');
 
-    const [opened] = await eventually(async () => {
-      await app.get(OpenConfigPullRequests).processDue();
-      const rows = await pullRequestsOf(first.id);
+    const opened = firstOf(
+      await eventually(async () => {
+        await app.get(OpenConfigPullRequests).processDue();
+        const rows = await pullRequestsOf(first.id);
 
-      return rows[0]?.state === 'opened' ? rows : null;
-    }, WITHIN);
+        return rows[0]?.state === 'opened' ? rows : null;
+      }, WITHIN),
+    );
+
+    if (opened === undefined) {
+      throw new Error('expected an opened pull request');
+    }
 
     expect(opened).toMatchObject({
       repository: CONFIG,
@@ -304,14 +330,14 @@ describe('following a config pull request after it opened', () => {
 
     await closedOnGitHub(1, false, { workspaceId: randomUUID() });
 
-    expect((await pullRequestRow(opened?.id))?.state).toBe('opened');
+    expect((await pullRequestRow(opened.id))?.state).toBe('opened');
 
     await closedOnGitHub(1, false, {
       gitHubId: null,
       repository: CONFIG.toUpperCase(),
     });
 
-    expect(await pullRequestRow(opened?.id)).toMatchObject({
+    expect(await pullRequestRow(opened.id)).toMatchObject({
       state: 'closed',
       closedBecause: 'by-person',
     });
@@ -322,7 +348,7 @@ describe('following a config pull request after it opened', () => {
       return schedule?.lastRejectedAt ? schedule : null;
     }, WITHIN);
 
-    expect(rejecting.rejected).toEqual([opened?.proposing]);
+    expect(rejecting.rejected).toEqual([opened.proposing]);
 
     await dueNow(searchedAt(), { lastStartedAt: null });
     await autoSearched(app);
@@ -357,7 +383,7 @@ describe('following a config pull request after it opened', () => {
 
     await reopenedOnGitHub(1);
 
-    expect(await pullRequestRow(opened?.id)).toMatchObject({
+    expect(await pullRequestRow(opened.id)).toMatchObject({
       state: 'opened',
       closedBecause: null,
     });
@@ -377,7 +403,7 @@ describe('following a config pull request after it opened', () => {
 
         return schedule?.rejected.length === 1 ? schedule : null;
       }, WITHIN),
-    ).toMatchObject({ rejected: [opened?.proposing] });
+    ).toMatchObject({ rejected: [opened.proposing] });
   }, 300_000);
 
   it('declines the pick of a search that finishes while a config pull request of its station is open, and tells nobody', async () => {

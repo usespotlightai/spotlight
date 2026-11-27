@@ -4,6 +4,11 @@ import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
 
+export type ConfiguredOrder = Pick<
+  RunOrder,
+  'harness' | 'model' | 'effort' | 'enabled'
+>;
+
 export interface ConfiguredSkillFolder {
   readonly skill: { readonly key: string };
   readonly files: readonly { readonly path: string; readonly text: string }[];
@@ -23,8 +28,8 @@ export const stationConfigOf = (
     folders: allFolders,
   }: {
     station: Station;
-    line: LineMap;
-    order: RunOrder;
+    line: Pick<LineMap, 'image' | 'repositories'>;
+    order: ConfiguredOrder;
     folders: readonly ConfiguredSkillFolder[];
   },
   sha256: (text: string) => string,

@@ -2,6 +2,7 @@
 import { parseArgs } from 'node:util';
 
 import { openReplayOutcomesRebuild } from '@replays/replays.replay-outcomes-rebuild';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const USAGE =
   'Usage: rebuild-replay-outcomes [--team <id>]\nWithout --team, rebuilds every team.';
@@ -22,7 +23,9 @@ async function rebuild(): Promise<void> {
   const { outcomes, close } = openReplayOutcomesRebuild();
 
   try {
-    for (const teamId of values.team ? [values.team] : await outcomes.teams()) {
+    for (const teamId of nonEmpty(values.team)
+      ? [values.team]
+      : await outcomes.teams()) {
       console.log(
         `Rebuilt ${await outcomes.ofTeam(teamId)} replay outcomes for team ${teamId}.`,
       );

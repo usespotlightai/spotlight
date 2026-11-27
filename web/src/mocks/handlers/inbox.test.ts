@@ -27,6 +27,9 @@ import {
   resolveInboxNotice,
   submitReview,
 } from '@/lib/api';
+import { client } from '@/lib/api/client.gen';
+import { nonEmpty } from '@/lib/non-empty';
+import { entryOf } from '@/mocks/entry';
 import { serveMockApi } from '@/mocks/testing';
 import { GROWTH_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
 import {
@@ -50,6 +53,11 @@ import {
 } from '@/mocks/world/inbox';
 import { inboxStore } from '@/mocks/world/inbox-store';
 import { TOM } from '@/mocks/world/people';
+
+const detailOf = (error: unknown): unknown =>
+  typeof error === 'object' && error !== null && 'detail' in error
+    ? error.detail
+    : undefined;
 
 const inbox = async () => [
   ...(await listInbox({ path: { slug: SLUG }, throwOnError: true })).data.items,
@@ -361,7 +369,8 @@ describe('the mock inbox', () => {
       path,
       throwOnError: true,
     });
-    const [first, second] = asked.disputedClaims;
+    const first = asked.disputedClaims.at(0);
+    const second = asked.disputedClaims.at(1);
     expect(second).toBeDefined();
     const notDisputed = asked.claims.findIndex(
       (_, claim) => !asked.disputedClaims.includes(claim),
@@ -480,7 +489,7 @@ describe('the mock inbox', () => {
       const { response, error } = await call;
       return {
         status: response?.status,
-        detail: (error as { detail?: string } | undefined)?.detail,
+        detail: detailOf(error),
       };
     };
     const longNote = 'x'.repeat(2_001);
@@ -566,16 +575,15 @@ describe('the mock inbox', () => {
     });
     expect(
       await refusal(
-        answerJudgeDisagreementClaim({
+        client.post({
+          url: '/teams/{teamId}/judge-disagreements/{disagreementId}/claims/{claim}/answer',
           path: {
             teamId: PLATFORM_ID,
             disagreementId: VERDICTS_AGREE_DISAGREEMENT_ID,
             claim: 0,
           },
-          body: {
-            answer: 'nope' as 'judge-right',
-            note: null,
-          },
+          body: { answer: 'nope', note: null },
+          headers: { 'Content-Type': 'application/json' },
         }),
       ),
     ).toEqual({
@@ -586,7 +594,10 @@ describe('the mock inbox', () => {
   });
 
   it('refuses an answer from anyone but the person a question asks', async () => {
-    const disagreement = inboxStore().disagreements[SENT_BACK_DISAGREEMENT_ID];
+    const disagreement = entryOf(
+      inboxStore().disagreements,
+      SENT_BACK_DISAGREEMENT_ID,
+    );
     expect(disagreement).toBeDefined();
     if (disagreement) {
       disagreement.askedOf = TOM.id;
@@ -598,7 +609,7 @@ describe('the mock inbox', () => {
     });
 
     expect(refused.response?.status).toBe(403);
-    expect((refused.error as { detail?: string }).detail).toBe(
+    expect(detailOf(refused.error)).toBe(
       `Judge disagreement ${SENT_BACK_DISAGREEMENT_ID} asks another person. Only that person can answer it.`,
     );
   });
@@ -669,7 +680,8 @@ describe('the mock inbox', () => {
 
     for (const withdrawn of [agreed, gone, changed]) {
       expect(
-        withdrawn.withdrawnAt && withdrawn.withdrawnAt > withdrawn.openedAt,
+        nonEmpty(withdrawn.withdrawnAt) &&
+          withdrawn.withdrawnAt > withdrawn.openedAt,
       ).toBe(true);
     }
   });

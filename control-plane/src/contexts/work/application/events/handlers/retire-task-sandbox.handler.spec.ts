@@ -1,4 +1,5 @@
 import type { SandboxRetirementPort } from '@runners/application/ports/sandbox-retirement.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -31,10 +32,10 @@ const retiring = (
   const task =
     input.task === null
       ? null
-      : ({
+      : partial<Task>({
           keepsNoLiveWorkingCopy: input.task?.keepsNoLiveWorkingCopy ?? false,
-        } as unknown as Task);
-  const tasks = { find: vi.fn(async () => task) } as unknown as TaskRepository;
+        });
+  const tasks = partial<TaskRepository>({ find: vi.fn(async () => task) });
   const sandboxes: SandboxRetirementPort = { retire: vi.fn(async () => {}) };
 
   return { handler: new RetireTaskSandbox(tasks, sandboxes), sandboxes };

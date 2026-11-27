@@ -15,13 +15,16 @@ const PLAIN = new Uint8Array(32).fill(7);
 const BLOB = new Uint8Array([1, 2, 3]);
 
 const kmsAnswering = () => {
-  const send = vi.fn(async (command: unknown) =>
-    command instanceof GenerateDataKeyCommand
-      ? { Plaintext: PLAIN, CiphertextBlob: BLOB }
-      : { Plaintext: PLAIN },
-  );
+  const send = vi
+    .fn()
+    .mockImplementation(async (command: unknown) =>
+      command instanceof GenerateDataKeyCommand
+        ? { Plaintext: PLAIN, CiphertextBlob: BLOB }
+        : { Plaintext: PLAIN },
+    );
+  const kms: Pick<KMSClient, 'send'> = { send };
 
-  return { send, kms: { send } as unknown as Pick<KMSClient, 'send'> };
+  return { send, kms };
 };
 
 describe('AwsKeyManagement', () => {
@@ -30,8 +33,10 @@ describe('AwsKeyManagement', () => {
 
     const issued = await new AwsKeyManagement(kms, KEY_ID).issue(CONTEXT);
 
-    const [command] = send.mock.calls[0] as [GenerateDataKeyCommand];
-    expect(command).toBeInstanceOf(GenerateDataKeyCommand);
+    const command: unknown = send.mock.calls[0]?.[0];
+    if (!(command instanceof GenerateDataKeyCommand)) {
+      throw new Error('expected a GenerateDataKeyCommand');
+    }
     expect(command.input).toEqual({
       KeyId: KEY_ID,
       KeySpec: 'AES_256',
@@ -53,8 +58,10 @@ describe('AwsKeyManagement', () => {
       ),
     ).resolves.toEqual(PLAIN);
 
-    const [command] = send.mock.calls[0] as [DecryptCommand];
-    expect(command).toBeInstanceOf(DecryptCommand);
+    const command: unknown = send.mock.calls[0]?.[0];
+    if (!(command instanceof DecryptCommand)) {
+      throw new Error('expected a DecryptCommand');
+    }
     expect(command.input).toEqual({
       KeyId: KEY_ID,
       CiphertextBlob: Buffer.from(BLOB),
@@ -63,11 +70,13 @@ describe('AwsKeyManagement', () => {
   });
 
   it('says that a data key that another KMS key wrapped does not decrypt', async () => {
-    const kms = {
-      send: vi.fn(async () => {
-        throw new InvalidCiphertextException({ message: 'no', $metadata: {} });
-      }),
-    } as unknown as Pick<KMSClient, 'send'>;
+    const kms: Pick<KMSClient, 'send'> = {
+      send: vi
+        .fn()
+        .mockRejectedValue(
+          new InvalidCiphertextException({ message: 'no', $metadata: {} }),
+        ),
+    };
 
     await expect(
       new AwsKeyManagement(kms, KEY_ID).unwrap('d3JhcHBlZA==', CONTEXT),
@@ -79,11 +88,9 @@ describe('AwsKeyManagement', () => {
       message: 'slow',
       $metadata: {},
     });
-    const kms = {
-      send: vi.fn(async () => {
-        throw throttled;
-      }),
-    } as unknown as Pick<KMSClient, 'send'>;
+    const kms: Pick<KMSClient, 'send'> = {
+      send: vi.fn().mockRejectedValue(throttled),
+    };
 
     await expect(
       new AwsKeyManagement(kms, KEY_ID).unwrap('d3JhcHBlZA==', CONTEXT),
@@ -91,10 +98,9 @@ describe('AwsKeyManagement', () => {
   });
 
   it('rejects a data key KMS issued without its parts', async () => {
-    const kms = { send: vi.fn(async () => ({})) } as unknown as Pick<
-      KMSClient,
-      'send'
-    >;
+    const kms: Pick<KMSClient, 'send'> = {
+      send: vi.fn().mockResolvedValue({}),
+    };
 
     await expect(
       new AwsKeyManagement(kms, KEY_ID).issue(CONTEXT),

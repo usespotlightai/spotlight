@@ -3,8 +3,12 @@ import { appJwt } from '@github/infrastructure/github/app-jwt';
 import { Inject, Injectable } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { z } from 'zod';
 
 const API = 'https://api.github.com';
+
+const APP = z.object({ slug: z.string().optional() });
 
 @Injectable()
 export class GitHubAppIdentity implements GitHubAppPort {
@@ -15,7 +19,9 @@ export class GitHubAppIdentity implements GitHubAppPort {
   async installUrl(): Promise<string | null> {
     const slug = this.#slug ?? (await this.named());
 
-    return slug && `https://github.com/apps/${slug}/installations/new`;
+    return !nonEmpty(slug)
+      ? slug
+      : `https://github.com/apps/${slug}/installations/new`;
   }
 
   private async named(): Promise<string | null> {
@@ -31,9 +37,9 @@ export class GitHubAppIdentity implements GitHubAppPort {
       return null;
     }
 
-    const app = (await response.json()) as { slug?: string };
+    const app = APP.safeParse(await response.json());
 
-    this.#slug = app.slug ?? null;
+    this.#slug = app.success ? (app.data.slug ?? null) : null;
 
     return this.#slug;
   }

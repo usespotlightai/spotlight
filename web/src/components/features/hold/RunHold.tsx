@@ -6,6 +6,7 @@ import { ResumeDialog } from '@/components/features/hold/ResumeDialog';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useCommands } from '@/hooks/useCommands';
 import { heldMoveOf, moveOnTargets } from '@/lib/hold';
+import { nonEmpty } from '@/lib/non-empty';
 import { runPath } from '@/lib/run';
 
 type RunHoldProps = {
@@ -33,7 +34,7 @@ export function RunHold({ slug, teamId, taskId, runId }: RunHoldProps) {
       <OnHoldPill
         hold={hold}
         to={
-          hold.runId && hold.runId !== runId
+          nonEmpty(hold.runId) && hold.runId !== runId
             ? runPath(slug, teamId, hold.runId)
             : undefined
         }

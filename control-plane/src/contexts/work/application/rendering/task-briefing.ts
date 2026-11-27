@@ -1,4 +1,5 @@
 import { SKILL_FILE } from '@runs/application/contracts/run-spec.contract';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   HANDOVER_TO_A_PERSON,
   HANDOVER_TO_FINISH,
@@ -99,7 +100,7 @@ const listing = (
   skills: readonly SkillBrief[],
   listedIn: string | null,
 ): string | null =>
-  listedIn && skills.length > 0
+  nonEmpty(listedIn) && skills.length > 0
     ? [
         '## Skills',
         'These are in the workspace. Read one when you need what it is about:',
@@ -266,9 +267,11 @@ export const TaskBriefing = {
         folder: input.memoryFolder,
         briefed: input.memories.length > 0,
       }),
+
       station?.memories
         ? Learned.rememberingBeforeHandover()
         : Learned.remembering(),
+
       station?.decisions ? RECORDING_DECISIONS : null,
       workingCopyOf(input.task, input.line),
       SpotlightCli.section,

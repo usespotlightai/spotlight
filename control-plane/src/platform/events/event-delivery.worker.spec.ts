@@ -2,6 +2,7 @@ import type { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import type { EventOutbox } from '@platform/events/event-outbox';
 import type { DeliveryLane } from '@platform/events/event-subscribers';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const logger = {
@@ -18,7 +19,7 @@ describe('EventDeliveryWorker', () => {
     const holding = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const delivery = {
+    const delivery = partial<EventDelivery>({
       processDue: vi.fn(async (lane: DeliveryLane) => {
         lanes.push(lane);
 
@@ -28,10 +29,10 @@ describe('EventDeliveryWorker', () => {
 
         return 0;
       }),
-    };
+    });
     const worker = new EventDeliveryWorker(
-      delivery as unknown as EventDelivery,
-      {} as EventOutbox,
+      delivery,
+      partial<EventOutbox>({}),
       logger,
     );
 

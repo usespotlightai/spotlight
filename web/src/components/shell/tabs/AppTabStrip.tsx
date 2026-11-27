@@ -18,10 +18,10 @@ import { desktopApp, framesWindow } from '@/lib/desktop';
 import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
-const STRIP_SPACING = {
+const STRIP_SPACING: CSSProperties & Record<`--${string}`, string> = {
   '--tab-gap': 'calc(var(--spacing) * 1.5)',
   '--history-button': 'calc(var(--spacing) * 7)',
-} as CSSProperties;
+};
 
 type AppTabStripProps = {
   tabs: readonly AppTab[];

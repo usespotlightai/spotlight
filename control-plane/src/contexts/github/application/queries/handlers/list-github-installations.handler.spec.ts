@@ -2,7 +2,11 @@ import type { ReachableInstallationsPort } from '@github/application/ports/reach
 import { ListGitHubInstallationsHandler } from '@github/application/queries/handlers/list-github-installations.handler';
 import { ListGitHubInstallationsQuery } from '@github/application/queries/list-github-installations.query';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
-import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import type {
+  WorkspaceDetail,
+  WorkspaceReaderPort,
+} from '@identity/application/ports/workspace-reader.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -15,11 +19,11 @@ const listing = (over: { member?: boolean } = {}) => {
   } satisfies ReachableInstallationsPort;
 
   const handler = new ListGitHubInstallationsHandler(
-    {
+    partial<WorkspaceReaderPort>({
       findForMember: vi.fn(async () =>
-        over.member === false ? null : { id: 'ws_1' },
+        over.member === false ? null : partial<WorkspaceDetail>({ id: 'ws_1' }),
       ),
-    } as unknown as WorkspaceReaderPort,
+    }),
     installations,
   );
 

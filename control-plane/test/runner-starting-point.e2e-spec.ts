@@ -3,11 +3,14 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { deleteRunnersOf } from './support/runners';
 import { requestedByChat, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
@@ -67,13 +70,16 @@ const claimed = async (runId: string): Promise<string> => {
     })
     .expect(200);
 
-  const assignment = (
+  const assignment = bodyOf<{
+    token: string;
+    work: { run: { id: string; attempt: number } };
+  }>(
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
       .send({ host: HOST, image: IMAGE })
-      .expect(200)
-  ).body as { token: string; work: { run: { id: string; attempt: number } } };
+      .expect(200),
+  );
 
   expect(assignment.work.run.id).toBe(runId);
   expect(assignment.work.run.attempt).toBe(1);
@@ -147,7 +153,7 @@ const anArchiveOf = async (
   of: { readonly taskId: string | null; readonly runId: string },
   completed: boolean,
 ): Promise<string> => {
-  const taskId = of.taskId as string;
+  const taskId = present(of.taskId);
   const id = randomUUID();
 
   await db.insert(schema.workingCopyArchive).values({
@@ -165,10 +171,9 @@ const anArchiveOf = async (
 };
 
 const runRow = async (runId: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.run)
-    .where(eq(schema.run.id, runId));
+  const row = firstOf(
+    await db.select().from(schema.run).where(eq(schema.run.id, runId)),
+  );
 
   return row;
 };
@@ -230,7 +235,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 describe('a runner saying where its run started', () => {

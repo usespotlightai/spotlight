@@ -104,9 +104,10 @@ export class Action {
       );
     }
 
-    const [problem] = Action.problemsOf(fields);
+    const problems = Action.problemsOf(fields);
 
-    if (problem) {
+    if (problems.length > 0) {
+      const [problem] = problems;
       throw new InvalidActionError(problem.at, problem.because);
     }
 

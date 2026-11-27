@@ -6,6 +6,7 @@ import type {
   ReviewWorkPort,
 } from '@runs/application/ports/review-work.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -37,12 +38,12 @@ const renewing = (
   });
 
   const handler = new RenewReviewWorkLeaseHandler(
-    { renewLease } as unknown as ReviewWorkPort,
+    partial<ReviewWorkPort>({ renewLease }),
     {
       claimantOf: seen,
       registeredClaimantOf: async () => null,
     } satisfies RunnerClaimantsPort,
-    { now: () => NOW } as ClockPort,
+    partial<ClockPort>({ now: () => NOW }),
   );
 
   return { handler, seen, renewLease };

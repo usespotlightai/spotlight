@@ -79,6 +79,7 @@ export function InsightsTable<T>({
                 className={cn(
                   'relative min-w-0 font-normal',
                   at === 0 && EDGE_INDENT,
+
                   column.numeric ? 'text-right' : 'text-left',
                 )}
               >
@@ -120,7 +121,7 @@ export function InsightsTable<T>({
                       className={cn(
                         'min-w-0 truncate text-foreground',
                         at === 0 && EDGE_INDENT,
-                        column.numeric && 'text-right tabular-nums',
+                        column.numeric === true && 'text-right tabular-nums',
                       )}
                     >
                       {cell}

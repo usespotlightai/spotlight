@@ -11,6 +11,8 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -46,8 +48,8 @@ const SET = MemoryProposalSet.rehydrate({
   version: 1,
 });
 
-const waiting = checkFor({ set: SET, runId: RUN, now: NOW })
-  ?.leaseJob(NOW)
+const waiting = present(checkFor({ set: SET, runId: RUN, now: NOW }))
+  .leaseJob(NOW)
   .waitJob(NOW);
 
 const waking = (
@@ -55,14 +57,14 @@ const waking = (
   save: (check: DuplicateCheck) => Promise<void> = async () => {},
 ) => {
   const saved: DuplicateCheck[] = [];
-  const comparer = { runOf: () => runId } as unknown as ProposalComparerPort;
-  const checks = {
+  const comparer = partial<ProposalComparerPort>({ runOf: () => runId });
+  const checks = partial<DuplicateCheckRepository>({
     of: async () => waiting,
     save: async (check: DuplicateCheck) => {
       saved.push(check);
       await save(check);
     },
-  } as unknown as DuplicateCheckRepository;
+  });
 
   return {
     saved,
@@ -81,7 +83,7 @@ describe('waking a duplicate check once its session settles', () => {
 
     await wake.settled(SESSION);
 
-    expect(waiting?.isDue(SOON)).toBe(false);
+    expect(waiting.isDue(SOON)).toBe(false);
     expect(saved).toHaveLength(1);
     expect(saved[0]?.isDue(SOON)).toBe(true);
   });

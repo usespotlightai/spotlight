@@ -12,16 +12,26 @@ export const contextBindings = (tokens: readonly symbol[]): ContextBindings => {
     tokens.map((token) => [token, Symbol(`bound ${token.description}`)]),
   );
 
+  const exposedOf = (token: symbol): symbol => {
+    const exposed = exposedAs.get(token);
+
+    if (exposed === undefined) {
+      throw new Error('A token has no exposed binding');
+    }
+
+    return exposed;
+  };
+
   return {
     tokens,
     exposed: tokens.map((token) => ({
-      provide: exposedAs.get(token) as symbol,
+      provide: exposedOf(token),
       useExisting: token,
     })),
     exposedTokens: [...exposedAs.values()],
     bound: tokens.map((token) => ({
       provide: token,
-      useExisting: exposedAs.get(token) as symbol,
+      useExisting: exposedOf(token),
     })),
   };
 };

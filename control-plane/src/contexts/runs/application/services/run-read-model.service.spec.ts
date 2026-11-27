@@ -6,7 +6,10 @@ import {
   aCompletedArchive,
   anArchive,
 } from '@runs/domain/aggregates/working-copy-archive.fake-spec';
+import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -18,13 +21,18 @@ const runOf = ({
   workspace?: string;
   startedFrom?: string | null;
 } = {}): Run =>
-  ({
+  partial<Run>({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of(workspace),
-    startedFrom: startedFrom
-      ? { archive: WorkingCopyArchiveId.of(startedFrom) }
+    startedFrom: nonEmpty(startedFrom)
+      ? StartingPoint.of({
+          archive: WorkingCopyArchiveId.of(startedFrom),
+          checkouts: [],
+          attempt: 1,
+          at: new Date('2026-11-01T00:00:00.000Z'),
+        })
       : null,
-  }) as unknown as Run;
+  });
 
 const reading = ({
   run = runOf(),
@@ -35,12 +43,14 @@ const reading = ({
   newest?: WorkingCopyArchive | null;
   archives?: readonly WorkingCopyArchive[];
 }) =>
-  new RunReadModel({
-    runs: async () => (run ? [run] : []),
-    archives: async (ids: readonly WorkingCopyArchiveId[]) =>
-      archives.filter((each) => ids.some((id) => id.equals(each.id))),
-    newestArchiveOf: async () => newest,
-  } as unknown as RunFactsReaderPort);
+  new RunReadModel(
+    partial<RunFactsReaderPort>({
+      runs: async () => (run ? [run] : []),
+      archives: async (ids: readonly WorkingCopyArchiveId[]) =>
+        archives.filter((each) => ids.some((id) => id.equals(each.id))),
+      newestArchiveOf: async () => newest,
+    }),
+  );
 
 const RUN = RunId.of('run_1');
 

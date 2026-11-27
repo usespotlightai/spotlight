@@ -83,9 +83,9 @@ export function JudgeAgreement({
   const shown =
     versions.find((version) => version.rubricVersion === picked) ??
     versions.find((version) => version.current) ??
-    versions[0];
+    versions.at(0);
 
-  if (!shown) {
+  if (shown === undefined) {
     return (
       <div className={BOX}>
         <EmptyState

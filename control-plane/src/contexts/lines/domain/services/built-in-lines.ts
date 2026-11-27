@@ -6,6 +6,7 @@ import { ReviewPolicy } from '@lines/domain/value-objects/review-policy.vo';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
 import { StationDescription } from '@lines/domain/value-objects/station-description.vo';
 import { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -81,11 +82,11 @@ const opening = (input: {
     key: StationKey.of(input.key),
     name: StationName.of(input.name),
     color: StationColor.of(input.color),
-    description: input.description
+    description: nonEmpty(input.description)
       ? StationDescription.of(input.description)
       : null,
     kind,
-    agentPrompt: input.prompt ? AgentPrompt.of(input.prompt) : null,
+    agentPrompt: nonEmpty(input.prompt) ? AgentPrompt.of(input.prompt) : null,
     passesTo: (input.passesTo ?? []).map((each) => StationKey.of(each)),
     tools: input.tools ?? [],
     ...agentFeaturesOf(kind, input),

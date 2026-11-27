@@ -13,7 +13,7 @@ export class HoldId {
   }
 
   equals(other: HoldId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof HoldId && this.value === other.value;
   }
 
   toString(): string {

@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const SHAPE = /^v?([0-9]+(\.[0-9A-Za-z-]+)*)$/;
 
@@ -10,7 +11,7 @@ export class HarnessVersion {
   static of(raw: string): HarnessVersion {
     const matched = SHAPE.exec(raw.trim());
 
-    if (!matched?.[1] || matched[1].length > MAX_LENGTH) {
+    if (matched === null || matched[1].length > MAX_LENGTH) {
       throw new InconsistentStateError(
         'harness version',
         'must be a harness CLI release, as in 2.1.270',
@@ -22,7 +23,7 @@ export class HarnessVersion {
 
   static reported(raw: string | undefined): HarnessVersion | null {
     try {
-      return raw ? HarnessVersion.of(raw) : null;
+      return nonEmpty(raw) ? HarnessVersion.of(raw) : null;
     } catch {
       return null;
     }

@@ -11,6 +11,7 @@ import {
   submitted,
 } from '@insights/infrastructure/judging/assist-sessions.fake-spec';
 import { RUBRIC_VERSION } from '@insights/judging.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -68,7 +69,7 @@ describe('judging a run in an assist session', () => {
 
     await judging(sessions);
 
-    const [order] = sessions.orders;
+    const order = firstOf(sessions.orders);
     expect(order).toMatchObject({
       workspaceId: 'workspace_1',
       purpose: 'insights.judge',
@@ -138,7 +139,7 @@ describe('judging a run in an assist session', () => {
       reference: { hunks: REQUEST.hunks, hunksLeftOut: 0 },
     });
 
-    const [order] = sessions.orders;
+    const order = firstOf(sessions.orders);
     expect(order?.briefing).toContain('Answer "guidance"');
     expect(order?.briefing).toContain('blocked every effect outside it');
     expect(order?.briefing).toContain('never a hunk of the reference');
@@ -158,8 +159,8 @@ describe('judging a run in an assist session', () => {
     });
     await judging(live, { ...REQUEST, blockedTools: ['pull-request'] });
 
-    const [blocked] = replayed.orders;
-    const [open] = live.orders;
+    const blocked = firstOf(replayed.orders);
+    const open = firstOf(live.orders);
     expect(blocked?.briefing).toContain(
       'The sandbox also blocked these tools of the station: `pull-request`, `linear.comment`.',
     );
@@ -220,7 +221,7 @@ describe('judging a run in an assist session', () => {
       },
     };
     await judge.judge(REQUEST);
-    const [first] = sessions.orders;
+    const first = firstOf(sessions.orders);
     sessions.settle(
       { purpose: 'insights.judge', key: first?.key ?? '' },
       submitted(VERDICT),

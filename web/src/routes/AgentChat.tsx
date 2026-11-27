@@ -21,6 +21,7 @@ import { useMarkChatReadOnView } from '@/hooks/api/useMarkChatReadOnView';
 import { useAgentChatTrail } from '@/hooks/useAgentChatTrail';
 import { notFound } from '@/lib/error';
 import { JournalDemandContext } from '@/lib/journal-demand';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { useTabTitle } from '@/lib/tab-title';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -84,7 +85,7 @@ export function AgentChat() {
 
   useTabTitle(chat ? undefined : 'Chat');
 
-  if (!slug || !teamId) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId)) {
     return null;
   }
 

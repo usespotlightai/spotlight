@@ -9,6 +9,7 @@ import type {
 import { Inject, Injectable } from '@nestjs/common';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
+import { z } from 'zod';
 
 const API = 'https://api.github.com';
 
@@ -39,13 +40,36 @@ mutation($thread: ID!) {
   resolveReviewThread(input: { threadId: $thread }) { clientMutationId }
 }`;
 
-interface Thread {
-  readonly id: string;
-  readonly isResolved: boolean;
-  readonly comments: {
-    readonly nodes: { readonly id: string; readonly body: string }[];
-  };
-}
+const THREAD = z.object({
+  id: z.string(),
+  isResolved: z.boolean(),
+  comments: z.object({
+    nodes: z.array(z.object({ id: z.string(), body: z.string() })),
+  }),
+});
+
+type Thread = z.infer<typeof THREAD>;
+
+const THREADS_ANSWER = z
+  .object({
+    repository: z
+      .object({
+        pullRequest: z
+          .object({
+            reviewThreads: z
+              .object({ nodes: z.array(THREAD).optional() })
+              .optional(),
+          })
+          .nullish(),
+      })
+      .nullish(),
+  })
+  .nullish();
+
+const GRAPHQL_ANSWER = z.object({
+  data: z.unknown().optional(),
+  errors: z.array(z.object({ message: z.string().optional() })).optional(),
+});
 
 const numbered = (url: string): number => {
   const last = Number(url.trim().split('/').pop());
@@ -106,11 +130,8 @@ export class GitHubReviewComments implements ReviewCommentsPort {
       token,
     );
 
-    const threads = (
-      read as {
-        repository?: { pullRequest?: { reviewThreads?: { nodes?: Thread[] } } };
-      }
-    ).repository?.pullRequest?.reviewThreads?.nodes;
+    const threads =
+      THREADS_ANSWER.parse(read)?.repository?.pullRequest?.reviewThreads?.nodes;
 
     return (
       threads?.find((each) =>
@@ -152,12 +173,12 @@ export class GitHubReviewComments implements ReviewCommentsPort {
       body: JSON.stringify({ query, variables }),
     });
 
-    const answered = (await response.json()) as {
-      data?: unknown;
-      errors?: { message?: string }[];
-    };
+    const answered = GRAPHQL_ANSWER.parse(await response.json());
 
-    if (!response.ok || answered.errors?.length) {
+    if (
+      !response.ok ||
+      (answered.errors !== undefined && answered.errors.length !== 0)
+    ) {
       throw new UpstreamError(
         'replying to a review comment',
         answered.errors?.[0]?.message ?? `GitHub answered ${response.status}`,

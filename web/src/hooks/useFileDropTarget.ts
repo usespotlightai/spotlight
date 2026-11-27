@@ -9,7 +9,7 @@ export const FileDropContext = createContext<
 export function useFileDropTarget(
   take: TakeFiles,
   { disabled }: { readonly disabled: boolean },
-) {
+): void {
   const register = use(FileDropContext);
   const latest = useRef(take);
   const taking = !disabled;

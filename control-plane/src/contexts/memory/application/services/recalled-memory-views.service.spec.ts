@@ -11,6 +11,7 @@ import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -44,7 +45,7 @@ const recalling = (memory: Memory) => {
       return { name: 'Maya Chen', image: null };
     },
   };
-  const work = {
+  const work = partial<WorkPort>({
     reasoning: async () => [
       { index: 1, kind: 'thought', text: 'A queue needs a worker.' },
       { index: 2, kind: 'message', text: 'Retrying in the request.' },
@@ -53,11 +54,11 @@ const recalling = (memory: Memory) => {
       { position: 1, by: 'person', author: MAYA, text: 'Never queue it.' },
       { position: 2, by: 'world', author: null, text: 'FYI.' },
     ],
-  } as unknown as WorkPort;
+  });
   const views = new TeamMemoryViews(
-    { find: async () => null } as unknown as MemoryRepository,
+    partial<MemoryRepository>({ find: async () => null }),
     people,
-    { runsUsing: async () => new Map() } as unknown as MemoryUsesPort,
+    partial<MemoryUsesPort>({ runsUsing: async () => new Map() }),
   );
 
   return {

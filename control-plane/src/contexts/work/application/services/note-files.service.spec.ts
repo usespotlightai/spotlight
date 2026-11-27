@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -100,9 +101,12 @@ const noteFiles = (task: Task | null) => {
   });
 
   return {
-    files: new NoteFiles({ find } satisfies AttachmentReaderPort, {
-      open,
-    } as unknown as AttachmentStorePort),
+    files: new NoteFiles(
+      { find } satisfies AttachmentReaderPort,
+      partial<AttachmentStorePort>({
+        open,
+      }),
+    ),
     open,
     find,
   };

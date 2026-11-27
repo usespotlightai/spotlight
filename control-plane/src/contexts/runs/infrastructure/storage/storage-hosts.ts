@@ -1,10 +1,11 @@
 import type { Env } from '@platform/config/env.schema';
 import type { SandboxHostsPort } from '@runs/application/ports/sandbox-hosts.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const storageHostOf = (env: Env): string => {
   const endpoint = env.S3_RUNNER_ENDPOINT ?? env.S3_ENDPOINT;
 
-  if (endpoint) {
+  if (nonEmpty(endpoint)) {
     return new URL(endpoint).hostname;
   }
 

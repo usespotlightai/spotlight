@@ -22,6 +22,8 @@ import { MemoryUpkeepId } from '@memory/domain/value-objects/memory-upkeep-id.vo
 import type { UpkeepChange } from '@memory/domain/value-objects/upkeep-change';
 import { UpkeepProposalId } from '@memory/domain/value-objects/upkeep-proposal-id.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -97,7 +99,7 @@ const reacting = (
         settled.push(upkeepId);
       },
     },
-    {
+    partial<MemoryRepository>({
       find: async (id: MemoryId) => memories.get(id.value) ?? null,
       findAll: async (ids: readonly MemoryId[]) =>
         ids.flatMap((id) => memories.get(id.value) ?? []),
@@ -110,14 +112,14 @@ const reacting = (
         memories.set(added.id.value, added);
       },
       nextHandle: async () => MemoryHandle.of(50),
-    } as unknown as MemoryRepository,
-    {
+    }),
+    partial<MemoryUpkeepRepository>({
       find: async () => upkeeps[upkeeps.length - 1] ?? null,
       save: async (saved: MemoryUpkeep) => {
         upkeeps.push(saved);
       },
-    } as unknown as MemoryUpkeepRepository,
-    {
+    }),
+    partial<MemoryUpkeepScheduleRepository>({
       ofTeam: async () => schedules[schedules.length - 1] ?? null,
       add: async (added: MemoryUpkeepSchedule) => {
         schedules.push(added);
@@ -125,7 +127,7 @@ const reacting = (
       save: async (saved: MemoryUpkeepSchedule) => {
         schedules.push(saved);
       },
-    } as unknown as MemoryUpkeepScheduleRepository,
+    }),
     instantly,
     { now: () => NOW, sleep: async () => undefined },
   );
@@ -148,7 +150,7 @@ const approved = (
     change === 'merge' ? MemoryBody.of('One rule.') : null,
     'Not used in 90 days.',
     MemoryDecision.of({ by: ADA, at: NOW }),
-    merged ? MemoryId.of(merged) : null,
+    nonEmpty(merged) ? MemoryId.of(merged) : null,
   );
 
 describe('UpkeepReactions', () => {

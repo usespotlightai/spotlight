@@ -7,6 +7,7 @@ import { IncludedCommentReturned } from '@change-review/domain/events/included-c
 import { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
+import { isOneOf } from '@change-review/domain/services/one-of';
 import type { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
@@ -95,13 +96,13 @@ export class Review extends EventRecorder {
       throw new InvalidReviewError('must be submitted by a person or an agent');
     }
 
-    if (!(REVIEW_VERDICTS as readonly string[]).includes(input.verdict)) {
+    if (!isOneOf(REVIEW_VERDICTS, input.verdict)) {
       throw new InvalidReviewError(
         'verdict must be comment, approve or request changes',
       );
     }
 
-    const verdict = input.verdict as ReviewVerdict;
+    const verdict = input.verdict;
     const body = input.body.trim();
 
     const drafts = input.drafts.filter(

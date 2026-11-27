@@ -255,9 +255,7 @@ const group = (
     };
 
     if (hasStation(row)) {
-      line.stations.push(
-        summaryOf(row, line.search, skills, tools, routes),
-      );
+      line.stations.push(summaryOf(row, line.search, skills, tools, routes));
     }
 
     lines.set(row.lineId, line);

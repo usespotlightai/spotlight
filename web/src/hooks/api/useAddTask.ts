@@ -1,7 +1,11 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { taskKeys } from '@/hooks/api/useTasks';
-import { addTask } from '@/lib/api';
+import { addTask, type TaskResponseDto } from '@/lib/api';
 import { refreshAfterWrite } from '@/lib/live-writes';
 import type { NewTask } from '@/lib/task';
 
@@ -12,7 +16,11 @@ type AddTaskInput = {
   task: NewTask;
 };
 
-export function useAddTask() {
+export function useAddTask(): UseMutationResult<
+  TaskResponseDto,
+  Error,
+  AddTaskInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

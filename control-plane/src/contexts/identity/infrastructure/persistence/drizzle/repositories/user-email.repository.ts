@@ -16,6 +16,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { and, count, eq, type SQL, sql } from 'drizzle-orm';
@@ -49,7 +50,12 @@ export class DrizzleUserEmailRepository implements UserEmailRepository {
 
   async save(saved: UserEmail): Promise<void> {
     await this.context.inTransaction(async () => {
-      const { id, userId: _userId, email: _email, ...rest } = this.written(saved);
+      const {
+        id,
+        userId: _userId,
+        email: _email,
+        ...rest
+      } = this.written(saved);
       let written: { id: string }[];
 
       try {
@@ -96,10 +102,12 @@ export class DrizzleUserEmailRepository implements UserEmailRepository {
   }
 
   async countOfUser(userId: UserId): Promise<number> {
-    const [counted] = await this.context.db
-      .select({ count: count() })
-      .from(userEmail)
-      .where(eq(userEmail.userId, userId.value));
+    const counted = firstOf(
+      await this.context.db
+        .select({ count: count() })
+        .from(userEmail)
+        .where(eq(userEmail.userId, userId.value)),
+    );
 
     return counted?.count ?? 0;
   }
@@ -127,11 +135,9 @@ export class DrizzleUserEmailRepository implements UserEmailRepository {
   }
 
   private async first(condition: SQL | undefined): Promise<UserEmail | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(userEmail)
-      .where(condition)
-      .limit(1);
+    const found = firstOf(
+      await this.context.db.select().from(userEmail).where(condition).limit(1),
+    );
 
     return found ? this.rehydrated(found) : null;
   }

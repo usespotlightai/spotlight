@@ -10,7 +10,7 @@ export const CHANGED_PATHS_TYPES = [HARNESS_CONNECTED, 'tool.changed'] as const;
 export class ChangedPaths {
   #reading = false;
   #attempt: number | null = null;
-  #calls = new Map<string, number>();
+  readonly #calls = new Map<string, number>();
   #changes: (readonly string[])[] = [];
 
   take(

@@ -9,6 +9,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useTeamAvatar } from '@/hooks/api/useAvatar';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
 
@@ -21,7 +22,7 @@ export function TeamGeneral() {
     (candidate) => candidate.id === teamId,
   );
 
-  if (!teamId || (workspace.data !== undefined && !team)) {
+  if (!nonEmpty(teamId) || (workspace.data !== undefined && !team)) {
     return null;
   }
 

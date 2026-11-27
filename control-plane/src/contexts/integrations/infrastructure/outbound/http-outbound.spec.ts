@@ -10,6 +10,13 @@ import {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import {
+  bodyOf,
+  callAt,
+  errorOf,
+  headersOf,
+  urlOf,
+} from '@integrations/integrations.requests.fake-spec';
+import {
   credentialsFor,
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
@@ -46,11 +53,26 @@ const action = (): RequestIR => {
     throw new Error(read.problems.map((each) => each.reason).join(', '));
   }
 
-  return read.readable.actions.get('post-message') as RequestIR;
+  return actionOf(read.readable.actions, 'post-message');
+};
+
+const actionOf = (
+  actions: ReadonlyMap<string, RequestIR>,
+  name: string,
+): RequestIR => {
+  const found = actions.get(name);
+
+  if (found === undefined) {
+    throw new Error(`expected action ${name}`);
+  }
+
+  return found;
 };
 
 const replying = (body: unknown, status = 200) =>
-  vi.fn(async () => new Response(JSON.stringify(body), { status }));
+  vi.fn<typeof globalThis.fetch>(
+    async () => new Response(JSON.stringify(body), { status }),
+  );
 
 const against = {
   ask: { body: 'The queue is stuck.' },
@@ -68,13 +90,11 @@ describe('HttpOutbound', () => {
 
     await out.run(action(), against, SLACK);
 
-    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = callAt(fetch);
     expect(url).toBe('https://slack.com/api/chat.postMessage');
-    expect(init.method).toBe('POST');
-    expect((init.headers as Record<string, string>).authorization).toBe(
-      'Bearer xoxb-1',
-    );
-    expect(JSON.parse(init.body as string)).toEqual({
+    expect(init?.method).toBe('POST');
+    expect(headersOf(init).authorization).toBe('Bearer xoxb-1');
+    expect(JSON.parse(bodyOf(init))).toEqual({
       channel: 'C0DELIVERY',
       text: 'The queue is stuck.',
     });
@@ -86,10 +106,8 @@ describe('HttpOutbound', () => {
 
     await out.run(action(), against, SLACK);
 
-    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect((init.headers as Record<string, string>)['content-type']).toBe(
-      'application/json',
-    );
+    const [, init] = callAt(fetch);
+    expect(headersOf(init)['content-type']).toBe('application/json');
   });
 
   it('leaves a content-type the file set alone', async () => {
@@ -106,7 +124,7 @@ actions:
 `;
     const read = compileIntegration(parseYaml(FORM), expressions);
     const request = read.ok
-      ? (read.readable.actions.get('post-message') as RequestIR)
+      ? actionOf(read.readable.actions, 'post-message')
       : (() => {
           throw new Error('did not compile');
         })();
@@ -116,8 +134,8 @@ actions:
 
     await out.run(request, against, SLACK);
 
-    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect((init.headers as Record<string, string>)['content-type']).toBe(
+    const [, init] = callAt(fetch);
+    expect(headersOf(init)['content-type']).toBe(
       'application/x-www-form-urlencoded',
     );
   });
@@ -229,8 +247,8 @@ actions:
   });
 
   it('follows a redirect itself, and injects nothing for another host', async () => {
-    const fetch = vi.fn(async (url: string) =>
-      new URL(url).host === 'slack.com'
+    const fetch = vi.fn<typeof globalThis.fetch>(async (url) =>
+      new URL(urlOf(url)).host === 'slack.com'
         ? new Response(null, {
             status: 307,
             headers: { location: 'https://files.slack-edge.com/post' },
@@ -240,22 +258,16 @@ actions:
 
     await new HttpOutbound(
       allowingOutbound(['slack.com', '*.slack-edge.com']),
-      fetch as unknown as typeof globalThis.fetch,
+      fetch,
     ).run(action(), against, SLACK);
 
-    const [first, second] = fetch.mock.calls as unknown as [
-      [string, RequestInit],
-      [string, RequestInit],
-    ];
-    expect(first[1].redirect).toBe('manual');
-    expect((first[1].headers as Record<string, string>).authorization).toBe(
-      'Bearer xoxb-1',
-    );
+    const first = callAt(fetch, 0);
+    const second = callAt(fetch, 1);
+    expect(first[1]?.redirect).toBe('manual');
+    expect(headersOf(first[1]).authorization).toBe('Bearer xoxb-1');
     expect(second[0]).toBe('https://files.slack-edge.com/post');
-    expect(second[1].method).toBe('POST');
-    expect(
-      (second[1].headers as Record<string, string>).authorization,
-    ).toBeUndefined();
+    expect(second[1]?.method).toBe('POST');
+    expect(headersOf(second[1]).authorization).toBeUndefined();
   });
 
   it('checks every host a redirect sends it to', async () => {
@@ -331,7 +343,7 @@ actions:
 `;
     const read = compileIntegration(parseYaml(OAUTH), expressions);
     const request = read.ok
-      ? (read.readable.actions.get('post-message') as RequestIR)
+      ? actionOf(read.readable.actions, 'post-message')
       : (() => {
           throw new Error('did not compile');
         })();
@@ -341,10 +353,8 @@ actions:
 
     await out.run(request, { ...against, connection: 'xoxb-live' }, SLACK);
 
-    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect((init.headers as Record<string, string>).authorization).toBe(
-      'Bearer xoxb-live',
-    );
+    const [, init] = callAt(fetch);
+    expect(headersOf(init).authorization).toBe('Bearer xoxb-live');
   });
 
   describe('the hosts that get the connection token', () => {
@@ -371,15 +381,14 @@ actions:
         throw new Error('did not compile');
       }
 
-      return read.readable.actions.get('post-message') as RequestIR;
+      return actionOf(read.readable.actions, 'post-message');
     };
     const to = (url: string): RequestIR => ({
       ...postMessage(),
       url: { parts: [url] },
     });
     const sent = (fetch: ReturnType<typeof replying>) =>
-      (fetch.mock.calls[0] as unknown as [string, RequestInit])[1]
-        .headers as Record<string, string>;
+      headersOf(callAt(fetch)[1]);
 
     it('sends the token to a host in connection.oauth2.hosts', async () => {
       const fetch = replying({ ok: true });
@@ -438,7 +447,7 @@ actions:
         throw new Error(read.problems.map((each) => each.reason).join(', '));
       }
 
-      return read.readable.actions.get('fetch') as RequestIR;
+      return actionOf(read.readable.actions, 'fetch');
     };
 
     const named = {
@@ -450,7 +459,7 @@ actions:
     });
 
     const answering = (body: BodyInit, type: string) =>
-      vi.fn(
+      vi.fn<typeof globalThis.fetch>(
         async () =>
           new Response(body, {
             status: 200,
@@ -468,10 +477,8 @@ actions:
         ).bytes(fetching(), named, FILES),
       ).resolves.toEqual(new Uint8Array([1, 2, 3]));
 
-      const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-      expect((init.headers as Record<string, string>).authorization).toBe(
-        'Bearer xoxb-1',
-      );
+      const [, init] = callAt(fetch);
+      expect(headersOf(init).authorization).toBe('Bearer xoxb-1');
     });
 
     it('rejects a page in place of the file', async () => {
@@ -544,7 +551,7 @@ actions:
       throw new Error(read.problems.map((each) => each.reason).join(', '));
     }
 
-    return read.readable.actions.get(name) as RequestIR;
+    return actionOf(read.readable.actions, name);
   };
 
   const payload = {
@@ -568,12 +575,10 @@ actions:
       SLACK,
     );
 
-    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = callAt(fetch);
     expect(url).toBe('https://slack.com/api/chat.postMessage');
-    expect((init.headers as Record<string, string>).authorization).toBe(
-      'Bearer xoxb-1',
-    );
-    expect(JSON.parse(init.body as string)).toEqual({
+    expect(headersOf(init).authorization).toBe('Bearer xoxb-1');
+    expect(JSON.parse(bodyOf(init))).toEqual({
       channel: 'C0DELIVERY',
       text: 'Asked at Triage: The queue is stuck.',
       attempt: 2,
@@ -625,11 +630,11 @@ describe('HttpOutbound, a secret injected in the query', () => {
 
     await out.answer(geocode, auth, null, GOOGLE);
 
-    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    const called = new URL(url);
+    const [url, init] = callAt(fetch);
+    const called = new URL(urlOf(url));
     expect(called.searchParams.getAll('key')).toEqual(['AIza-1/2']);
     expect(called.searchParams.get('address')).toBe('10 Downing St');
-    expect(init.headers).toEqual({ accept: 'application/json' });
+    expect(init?.headers).toEqual({ accept: 'application/json' });
   });
 
   it('answers with the key taken out of whatever the host echoed', async () => {
@@ -670,12 +675,12 @@ describe('HttpOutbound, a secret injected in the query', () => {
       .catch((error: unknown) => error);
 
     expect(failed).toBeInstanceOf(UpstreamError);
-    expect((failed as Error).message).not.toContain('AIza');
+    expect(errorOf(failed).message).not.toContain('AIza');
   });
 
   it('injects nothing for another host that a redirect sends it to, even where the redirect echoes the key', async () => {
     const fetch = vi
-      .fn()
+      .fn<typeof globalThis.fetch>()
       .mockResolvedValueOnce(
         new Response(null, {
           status: 302,
@@ -692,7 +697,7 @@ describe('HttpOutbound, a secret injected in the query', () => {
 
     await out.answer(geocode, auth, null, GOOGLE);
 
-    const [second] = fetch.mock.calls[1] as unknown as [string];
+    const [second] = callAt(fetch, 1);
     expect(second).toBe('https://cdn.example.com/geocode?page=2&key=[secret]');
   });
 });

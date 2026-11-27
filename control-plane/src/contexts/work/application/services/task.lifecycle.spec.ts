@@ -1,6 +1,7 @@
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -344,7 +345,9 @@ interface World {
 
 const RANK = TaskRank.of('i');
 
-const placements: TaskPlacementsPort = { placementsAt: async () => [] };
+const placements: TaskPlacementsPort = {
+  placementsAt: async () => [],
+};
 const facts: RunFactsPort = { of: async () => [] };
 
 const servicesOf = (world: World) => {
@@ -389,7 +392,7 @@ const handoverOf = (task: Task, ending: Ending, choice: number) => {
     case 'failed':
       return ResolvedHandover.failed(body, TaskFailure.fromRun('runner-lost'));
     case 'pass': {
-      const to = routes[choice % Math.max(routes.length, 1)];
+      const to = itemAt(routes, choice % Math.max(routes.length, 1));
 
       return to
         ? ResolvedHandover.pass(to, body)

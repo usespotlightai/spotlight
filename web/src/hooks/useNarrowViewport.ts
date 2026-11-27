@@ -14,6 +14,6 @@ const subscribe = (changed: () => void) => {
 
 const narrow = () => query()?.matches ?? false;
 
-export function useNarrowViewport() {
+export function useNarrowViewport(): boolean {
   return useSyncExternalStore(subscribe, narrow, () => false);
 }

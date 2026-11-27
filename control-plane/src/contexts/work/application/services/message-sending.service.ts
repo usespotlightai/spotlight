@@ -1,6 +1,7 @@
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -115,7 +116,7 @@ export class MessageSending {
     at: Date,
   ): Promise<Omit<HoldStart, 'by'>> {
     const current = task.currentRunId;
-    const [facts] = current ? await this.facts.of([current]) : [];
+    const facts = current ? firstOf(await this.facts.of([current])) : undefined;
 
     return {
       id: HoldId.of(this.ids.generate()),

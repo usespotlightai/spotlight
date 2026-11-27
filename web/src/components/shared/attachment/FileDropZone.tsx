@@ -64,8 +64,9 @@ export function FileDropZone({ children, className }: FileDropZoneProps) {
             return;
           }
           event.preventDefault();
-          if (event.dataTransfer) {
-            event.dataTransfer.dropEffect = 'copy';
+          const transfer = event.nativeEvent.dataTransfer;
+          if (transfer !== null) {
+            transfer.dropEffect = 'copy';
           }
         }}
         onDropCapture={leave}

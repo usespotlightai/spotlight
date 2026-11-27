@@ -41,6 +41,7 @@ import {
   type LineFields,
   lineSchema,
 } from '@lines/infrastructure/lines/line-definition.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import {
@@ -154,7 +155,9 @@ const compileStation = (
   let agentPrompt: AgentPrompt | null = null;
 
   try {
-    agentPrompt = station.prompt ? AgentPrompt.of(station.prompt) : null;
+    agentPrompt = nonEmpty(station.prompt)
+      ? AgentPrompt.of(station.prompt)
+      : null;
   } catch (error) {
     return invalid(['prompt'], error);
   }
@@ -162,7 +165,7 @@ const compileStation = (
   let check: StationCheck | null = null;
 
   try {
-    check = station.check ? StationCheck.of(station.check) : null;
+    check = nonEmpty(station.check) ? StationCheck.of(station.check) : null;
   } catch (error) {
     return invalid(['check'], error);
   }
@@ -178,7 +181,7 @@ const compileStation = (
   let description: StationDescription | null = null;
 
   try {
-    description = station.description
+    description = nonEmpty(station.description)
       ? StationDescription.of(station.description)
       : null;
   } catch (error) {
@@ -266,14 +269,16 @@ const compileStation = (
       key: StationKey.of(station.key),
       name,
       kind: station.kind,
-      color: station.color
+      color: nonEmpty(station.color)
         ? StationColor.of(station.color)
         : StationColor.plain(),
       description,
       harness,
       model,
       effort,
-      profile: station.profile ? ProfileKey.of(station.profile) : null,
+      profile: nonEmpty(station.profile)
+        ? ProfileKey.of(station.profile)
+        : null,
       agentPrompt,
       check,
       placement,
@@ -319,7 +324,9 @@ const compileRepository = (
   let image: RunnerImage | null = null;
 
   try {
-    image = repository.image ? RunnerImage.of(repository.image) : null;
+    image = nonEmpty(repository.image)
+      ? RunnerImage.of(repository.image)
+      : null;
   } catch (error) {
     return invalid('image', error);
   }
@@ -327,7 +334,9 @@ const compileRepository = (
   let setup: RepositorySetup | null = null;
 
   try {
-    setup = repository.setup ? RepositorySetup.of(repository.setup) : null;
+    setup = nonEmpty(repository.setup)
+      ? RepositorySetup.of(repository.setup)
+      : null;
   } catch (error) {
     return invalid('setup', error);
   }
@@ -580,10 +589,10 @@ export const compileLine = (input: unknown): ParsedLine => {
         stations,
         reactions: definition.reactions.map((reaction) => ({
           happening: Happening.of(reaction.happening),
-          from: reaction.from ? StationKey.of(reaction.from) : null,
+          from: nonEmpty(reaction.from) ? StationKey.of(reaction.from) : null,
           to: StationKey.of(reaction.to),
         })),
-        role: definition.role ? LineRole.of(definition.role) : null,
+        role: nonEmpty(definition.role) ? LineRole.of(definition.role) : null,
         repositories,
         reviews,
         placement,

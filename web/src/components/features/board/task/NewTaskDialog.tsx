@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { useAttachments } from '@/hooks/useAttachments';
 import { messageOf } from '@/lib/error';
+import { nonEmpty } from '@/lib/non-empty';
 import type { NewTask } from '@/lib/task';
 
 type NewTaskDialogProps = {
@@ -132,7 +133,7 @@ export function NewTaskDialog({
               className="font-medium text-base text-foreground leading-6"
             />
 
-            {refusal && (
+            {nonEmpty(refusal) && (
               <p role="alert" className="text-destructive text-xs">
                 {refusal}
               </p>

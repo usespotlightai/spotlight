@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type {
   GitAnswerDto,
   GitCallDto,
@@ -53,8 +54,19 @@ const joined = (parts: readonly Uint8Array[]): Uint8Array => {
 };
 
 const once = (bytes: Uint8Array): AsyncIterable<Uint8Array> => ({
-  async *[Symbol.asyncIterator]() {
-    yield bytes;
+  [Symbol.asyncIterator]: () => {
+    let sent = false;
+
+    return {
+      next: async (): Promise<IteratorResult<Uint8Array>> => {
+        const result: IteratorResult<Uint8Array> = sent
+          ? { done: true, value: undefined }
+          : { done: false, value: bytes };
+        sent = true;
+
+        return result;
+      },
+    };
   },
 });
 
@@ -209,7 +221,9 @@ const packetsIn = (bytes: Uint8Array): readonly Uint8Array[] | null => {
 
 const acceptedRefsIn = (report: Uint8Array): ReadonlySet<string> => {
   const outer = packetsIn(report) ?? [];
-  const banded = outer.length > 0 && outer.every((each) => (each[0] ?? 0) <= 3);
+  const banded =
+    outer.length > 0 &&
+    outer.every((each) => (each.length > 0 ? each[0] : 0) <= 3);
   const status = banded
     ? (packetsIn(
         joined(
@@ -248,7 +262,7 @@ const reportOf = (
     capabilities.includes(each),
   );
 
-  if (!band) {
+  if (!nonEmpty(band)) {
     return status;
   }
 
@@ -268,7 +282,7 @@ export class GitReceivePack implements ReceivePackPort {
   async read(call: GitCallDto): Promise<PushRead> {
     const encoding = headerOf(call.headers, 'content-encoding');
 
-    if (!call.body || (encoding && encoding !== 'identity')) {
+    if (!call.body || (nonEmpty(encoding) && encoding !== 'identity')) {
       return {
         kind: 'unreadable',
         answer: textAnswer(400, 'Spotlight reads only uncompressed pushes.'),

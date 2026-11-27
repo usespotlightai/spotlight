@@ -10,10 +10,11 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, type SQL } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type BudgetRow = typeof lineSearchBudget.$inferSelect;
 
@@ -40,9 +41,7 @@ const admissionsOf = (budget: LineSearchBudget) =>
   }));
 
 @Injectable()
-export class DrizzleLineSearchBudgetRepository
-  implements LineSearchBudgetRepository
-{
+export class DrizzleLineSearchBudgetRepository implements LineSearchBudgetRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -50,16 +49,18 @@ export class DrizzleLineSearchBudgetRepository
   ) {}
 
   async locked(lineId: LineId, month: Date): Promise<LineSearchBudget | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(lineSearchBudget)
-      .where(
-        and(
-          eq(lineSearchBudget.lineId, lineId.value),
-          eq(lineSearchBudget.month, month),
-        ),
-      )
-      .for('update');
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(lineSearchBudget)
+        .where(
+          and(
+            eq(lineSearchBudget.lineId, lineId.value),
+            eq(lineSearchBudget.month, month),
+          ),
+        )
+        .for('update'),
+    );
 
     return found ? toBudget(found) : null;
   }
@@ -102,7 +103,7 @@ export class DrizzleLineSearchBudgetRepository
         eq(lineSearchBudget.lineId, saved.lineId.value),
         eq(lineSearchBudget.month, saved.month),
         eq(lineSearchBudget.version, saved.version),
-      ) as SQL;
+      );
       const written = saved.isDeleted
         ? await this.context.db
             .delete(lineSearchBudget)

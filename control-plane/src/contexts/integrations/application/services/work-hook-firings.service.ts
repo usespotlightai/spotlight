@@ -25,6 +25,7 @@ import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 interface LeasedFiring {
   firing: HookFiring;
@@ -235,7 +236,7 @@ export class WorkHookFirings {
       return null;
     }
 
-    if (hook.broken || !hook.written) {
+    if (nonEmpty(hook.broken) || !hook.written) {
       await this.firings.save(
         firing.hookBroken(hook.key.value, hook.broken ?? '', this.clock.now()),
       );

@@ -10,6 +10,7 @@ import { useMenuActions } from '@/hooks/useMenuActions';
 import { useOpenIntent } from '@/hooks/useOpenIntent';
 import { useStopRunAction } from '@/hooks/useStopRunAction';
 import type { TaskHoldResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { type Run, runStatus, stoppable } from '@/lib/run';
 import { since } from '@/lib/since';
 import { stationShare } from '@/lib/station';
@@ -50,10 +51,11 @@ export function RunRow({
       {...intent}
       className={cn(
         'relative flex min-w-0 items-start gap-2 rounded-md py-2 text-sm transition-colors hover:bg-accent has-[a:focus-visible]:ring-1 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-inset @xl/pane:h-9 @xl/pane:items-center @xl/pane:py-0',
+
         gutter ? 'px-3' : 'px-2',
       )}
     >
-      {gutter && <span className="w-4 shrink-0" aria-hidden />}
+      {gutter === true && <span className="w-4 shrink-0" aria-hidden />}
 
       <span className="flex h-5 shrink-0 items-center @xl/pane:h-auto">
         {run.station ? (
@@ -72,7 +74,7 @@ export function RunRow({
           title={title}
           className={cn(
             'min-w-0 truncate text-foreground outline-none after:absolute after:inset-0 after:rounded-md',
-            taskTitle && 'basis-full @xl/pane:basis-auto',
+            nonEmpty(taskTitle) && 'basis-full @xl/pane:basis-auto',
           )}
         >
           {title}
@@ -83,7 +85,7 @@ export function RunRow({
         )}
 
         <div className="flex min-w-0 grow flex-wrap items-center gap-x-2 gap-y-1 @xl/pane:contents">
-          {taskTitle && run.station && (
+          {nonEmpty(taskTitle) && run.station && (
             <span
               title={run.station.name}
               className="min-w-[6rem] truncate text-muted-foreground text-xs @xl/pane:min-w-0 @xl/pane:shrink-0"
@@ -120,7 +122,7 @@ function EndedPill({ run }: { run: Run }) {
   const Icon = ENDED_ICONS[run.state];
   const status = runStatus(run);
 
-  if (!Icon || !status) {
+  if (!Icon || !nonEmpty(status)) {
     return null;
   }
 

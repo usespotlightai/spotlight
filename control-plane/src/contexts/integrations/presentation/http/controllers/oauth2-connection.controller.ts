@@ -1,7 +1,10 @@
 import { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
 import { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import type { OAuth2Start } from '@integrations/application/ports/oauth2-linking.port';
-import { ACTS_AS } from '@integrations/domain/value-objects/acts-as.vo';
+import {
+  ACTS_AS,
+  type ActsAsKind,
+} from '@integrations/domain/value-objects/acts-as.vo';
 import { ConnectIntegrationRequestDto } from '@integrations/presentation/http/dto/connect-integration.request.dto';
 import { OAuth2StartResponseDto } from '@integrations/presentation/http/dto/oauth2-start.response.dto';
 import { OAUTH2_CALLBACK_ROUTE } from '@integrations/presentation/http/oauth2-callback-route';
@@ -48,6 +51,7 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export interface Redirectable extends CookieJar {
   redirect(url: string): void;
@@ -56,6 +60,9 @@ export interface Redirectable extends CookieJar {
 export const FAILED_REDIRECT = '/?integration=failed';
 
 const OAUTH2_ERROR_CODE = /^[a-z_]{1,64}$/;
+
+const isActsAs = (value: string | null): value is ActsAsKind =>
+  ACTS_AS.some((kind) => kind === value);
 
 type CallbackRefusal =
   | 'provider-error'
@@ -103,20 +110,23 @@ export class OAuth2ConnectionController {
     description:
       'The OAuth2 endpoints of the integration are not found, or its client registration failed',
   })
+  @ApiBody({ type: ConnectIntegrationRequestDto, required: false })
   async connect(
     @Param('teamId') teamId: string,
     @Param('integration') integration: string,
     @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) response: CookieJar,
-    @Body() body: ConnectIntegrationRequestDto = {},
+    @Body() body: ConnectIntegrationRequestDto | null = {},
   ): Promise<OAuth2StartResponseDto> {
-    const actsAs = body?.actsAs ?? null;
+    const requested = body?.actsAs ?? null;
 
-    if (actsAs !== null && !ACTS_AS.includes(actsAs)) {
+    if (requested !== null && !isActsAs(requested)) {
       throw new BadRequestException(
-        `A connection must act as ${ACTS_AS.join(' or ')}. Received: ${actsAs}`,
+        `A connection must act as ${ACTS_AS.join(' or ')}. Received: ${requested}`,
       );
     }
+
+    const actsAs = isActsAs(requested) ? requested : null;
 
     const started = await this.commandBus.execute<
       BeginOAuth2ConnectionCommand,
@@ -151,17 +161,17 @@ export class OAuth2ConnectionController {
     const nonce = this.nonceCookie.readFrom(request.headers);
     this.nonceCookie.clear(response);
 
-    if (error) {
+    if (nonEmpty(error)) {
       this.failed(response, 'provider-error', error);
       return;
     }
 
-    if (!state || !code) {
+    if (!nonEmpty(state) || !nonEmpty(code)) {
       this.failed(response, 'incomplete-callback');
       return;
     }
 
-    if (!nonce) {
+    if (!nonEmpty(nonce)) {
       this.failed(response, 'no-nonce-cookie');
       return;
     }
@@ -188,7 +198,7 @@ export class OAuth2ConnectionController {
       {
         reason,
         providerError:
-          error && OAUTH2_ERROR_CODE.test(error) ? error : undefined,
+          nonEmpty(error) && OAUTH2_ERROR_CODE.test(error) ? error : undefined,
       },
       'Did not finish an OAuth2 connection',
     );

@@ -5,6 +5,7 @@ import {
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { nonEmpty } from '@/lib/non-empty';
 import type { TeamRun } from '@/lib/run';
 
 type RunHeaderProps = {
@@ -19,7 +20,7 @@ export function RunHeader({ slug, teamId, run, trail }: RunHeaderProps) {
     <PageHeader
       title={<Breadcrumbs segments={trail} />}
       actions={
-        run.taskId && (
+        nonEmpty(run.taskId) && (
           <>
             <RunHold
               slug={slug}

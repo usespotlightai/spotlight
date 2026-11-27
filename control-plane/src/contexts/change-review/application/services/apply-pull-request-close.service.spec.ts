@@ -11,6 +11,7 @@ import { Decision } from '@change-review/domain/entities/decision.entity';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -62,7 +63,7 @@ const applying = (
   let stored: DecisionSet | null =
     over.stored === undefined ? decided() : over.stored;
 
-  const work = {
+  const work = partial<WorkPort>({
     taskWithPullRequest: async (): Promise<ReviewedTask | null> =>
       over.task === null
         ? null
@@ -77,9 +78,9 @@ const applying = (
             currentRunId: null,
             ...over.task,
           },
-  } as unknown as WorkPort;
+  });
 
-  const sets = {
+  const sets = partial<DecisionSetRepository>({
     forTask: async () => stored,
     save: async (set: DecisionSet) => {
       stored = set;
@@ -87,13 +88,13 @@ const applying = (
     remove: async () => {
       stored = null;
     },
-  } as unknown as DecisionSetRepository;
+  });
 
   const service = new ApplyPullRequestClose(
     work,
     sets,
     { inTransaction: <T>(work: () => Promise<T>) => work() },
-    { now: () => NOW, sleep: async () => undefined },
+    { now: () => NOW, sleep: async () => {} },
   );
 
   return { service, stored: () => stored };

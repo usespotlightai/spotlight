@@ -33,7 +33,7 @@ export class RecordReplayRunUsage {
       steps: event.steps,
       changedLines: event.changedLines,
       cost:
-        event.cost !== null && event.currency
+        event.cost !== null && event.currency !== null && event.currency !== ''
           ? Money.of(event.cost, event.currency)
           : null,
       tokens: event.tokens,

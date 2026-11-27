@@ -18,6 +18,7 @@ import {
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { inList } from '@platform/persistence/drizzle/in-list';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { getTableColumns, type SQL, type SQLWrapper, sql } from 'drizzle-orm';
 
 const factOfRecord = sql`${pullRequestFact.workspaceId} = ${pullRequestRecord.workspaceId} and ${pullRequestFact.pullRequest} = ${pullRequestRecord.pullRequest}`;
@@ -142,7 +143,9 @@ const teamPullRequestsWhere = async (
             pullRequest: row.pullRequest,
             seen,
             ownerTaskId:
-              row.ownerTaskId && row.ownerTeamId ? row.ownerTaskId : null,
+              nonEmpty(row.ownerTaskId) && nonEmpty(row.ownerTeamId)
+                ? row.ownerTaskId
+                : null,
             reviewTaskIds: row.reviewTaskIds,
             by: row.madeBy,
             type: row.type,

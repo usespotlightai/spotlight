@@ -26,6 +26,7 @@ import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
@@ -35,6 +36,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 const NOW = new Date('2026-08-31T09:00:00.000Z');
 
@@ -122,13 +124,13 @@ const claiming = (
       now = new Date(now.getTime() + ms);
     },
   };
-  const runs = {
+  const runs = partial<RunRepository>({
     reservedFor: vi.fn(async () => over.reservedFor ?? null),
     findById: vi.fn(async () => queued()),
     save: vi.fn(async (run: Run) => {
       saved.push(run);
     }),
-  } as unknown as RunRepository;
+  });
   const checks = {
     claimNext: claimCheck,
     claimReserved,
@@ -139,7 +141,7 @@ const claiming = (
   };
   const handler = new ClaimRunHandler(
     runs,
-    { next: claimNext } as unknown as RunClaims,
+    partial<RunClaims>({ next: claimNext }),
     {
       claimantOf: async () => null,
       registeredClaimantOf: vi.fn(async () =>
@@ -148,18 +150,18 @@ const claiming = (
     },
     clock,
     checks,
-    new ClaimsTaken(runs, checks, pooled as unknown as RunnersPort, clock, {
+    new ClaimsTaken(runs, checks, partial<RunnersPort>(pooled), clock, {
       debug: () => {},
       info: () => {},
       warn: () => {},
       error: () => {},
     }),
-    { failed } as unknown as ProvisionFailures,
-    { mayStart } as unknown as ClaimGate,
+    partial<ProvisionFailures>({ failed }),
+    partial<ClaimGate>({ mayStart }),
     new LongPoll(clock),
-    {
+    partial<SandboxesPort>({
       liveKeysIn: vi.fn(async () => over.liveKeys ?? []),
-    } as unknown as SandboxesPort,
+    }),
   );
 
   return {
@@ -244,9 +246,13 @@ describe('ClaimRunHandler', () => {
   it('survives the round trip a runner actually makes', async () => {
     const claimed = await claiming().execute(new ClaimRunCommand('runner_1'));
 
-    const overTheWire = JSON.parse(JSON.stringify(claimed)) as {
-      run: { spec: { command: { executable: string } } };
-    };
+    const overTheWire = z
+      .object({
+        run: z.object({
+          spec: z.object({ command: z.object({ executable: z.string() }) }),
+        }),
+      })
+      .parse(JSON.parse(JSON.stringify(claimed)));
 
     expect(overTheWire.run.spec.command.executable).toBe('claude-agent-acp');
   });

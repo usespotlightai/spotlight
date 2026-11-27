@@ -159,10 +159,10 @@ describe('restoredAttachments', () => {
       },
     ]);
 
-    expect(shot?.imageSource).toEqual({
+    expect(shot.imageSource).toEqual({
       url: '/api/workspaces/acme/attachments/a1',
     });
-    expect(notes?.imageSource).toBeNull();
+    expect(notes.imageSource).toBeNull();
   });
 });
 

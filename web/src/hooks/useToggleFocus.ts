@@ -22,7 +22,7 @@ export function useToggleFocus({
   desktop,
   touch,
   narrow,
-}: ToggleFocusProps) {
+}: ToggleFocusProps): void {
   const restoreRef = useRef<HTMLElement | null>(null);
   const opened = !collapsed || pinned;
   const reachable = desktop || (touch && !narrow);

@@ -3,6 +3,7 @@ import { FixedRepositories } from '@/components/features/stations/FixedRepositor
 import { ClosedChatInput } from '@/components/shared/chat-input/ClosedChatInput';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
+import { nonEmpty } from '@/lib/non-empty';
 import { LINE_SETS_REPOSITORIES } from '@/lib/run';
 
 type ClosedTaskComposerProps = {
@@ -38,7 +39,9 @@ export function ClosedTaskComposer({
       because={because}
       settings={<FixedAgent agent={agent} />}
       onStop={
-        stopRunId ? () => stop.mutate({ teamId, runId: stopRunId }) : undefined
+        nonEmpty(stopRunId)
+          ? () => stop.mutate({ teamId, runId: stopRunId })
+          : undefined
       }
       below={
         <FixedRepositories

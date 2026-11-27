@@ -5,11 +5,14 @@ import { ChangedPaths } from '@runs/infrastructure/journal/changed-paths';
 import { JournalBuilder } from '@runs/infrastructure/journal/journal-builder';
 import type { Journalled } from '@runs/infrastructure/journal/journalled';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 const RECORDINGS = join(
   __dirname,
   '../../../../../../data-plane/runner/internal/acp/testdata',
 );
+
+const RECORDED_EVENT = z.object({ type: z.string(), data: z.unknown() });
 
 const encoded = (value: unknown): string =>
   Buffer.from(JSON.stringify(value)).toString('base64');
@@ -53,10 +56,7 @@ const recorded = (
     .split('\n')
     .filter(Boolean)
     .map((line, at) => {
-      const { type, data } = JSON.parse(line) as {
-        type: string;
-        data: unknown;
-      };
+      const { type, data } = RECORDED_EVENT.parse(JSON.parse(line));
       return { type, at: clock(at + 1), message: null, data: encoded(data) };
     }),
 ];

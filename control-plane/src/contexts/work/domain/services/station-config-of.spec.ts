@@ -7,13 +7,14 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
-import type { RunOrder } from '@work/domain/services/run-order';
-import { stationConfigOf } from '@work/domain/services/station-config-of';
+import {
+  type ConfiguredOrder,
+  stationConfigOf,
+} from '@work/domain/services/station-config-of';
 import {
   judgeOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
-import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
 import { describe, expect, it } from 'vitest';
@@ -24,14 +25,23 @@ const sha256 = (text: string): string =>
 const LINE = {
   image: null,
   repositories: LineRepositories.none(),
-} as unknown as LineMap;
+};
 
-const ORDER = {
+const ORDER: ConfiguredOrder = {
   harness: HarnessId.of('claude-code'),
   model: null,
   effort: null,
-  enabled: { profile: null, stationTools: [], toolsOnMarks: [], tools: [] },
-} as unknown as RunOrder;
+  enabled: {
+    profile: null,
+    stationTools: [],
+    toolsOnMarks: [],
+    tools: [],
+    builtInSkills: [],
+    teamSkills: [],
+    pinned: [],
+    refusals: [],
+  },
+};
 
 const CLAIMS = ['It changes only what the task requests.'];
 
@@ -47,7 +57,7 @@ const station = (
     ...over,
   });
 
-const configured = (at: Station, order: RunOrder = ORDER) =>
+const configured = (at: Station, order: ConfiguredOrder = ORDER) =>
   stationConfigOf({ station: at, line: LINE, order, folders: [] }, sha256);
 
 describe('stationConfigOf', () => {
@@ -100,21 +110,23 @@ describe('stationConfigOf', () => {
     const unmarked = configured(station(), {
       ...ORDER,
       enabled: {
+        ...ORDER.enabled,
         profile: null,
         stationTools: [PULL_REQUEST],
         toolsOnMarks: [],
         tools: [PULL_REQUEST],
       },
-    } as unknown as RunOrder);
+    });
     const marked = configured(station(), {
       ...ORDER,
       enabled: {
+        ...ORDER.enabled,
         profile: null,
         stationTools: [PULL_REQUEST],
         toolsOnMarks: [ISSUE],
         tools: [PULL_REQUEST, ISSUE],
       },
-    } as unknown as RunOrder);
+    });
 
     expect(marked.parts.tools).toEqual(['pull-request']);
     expect(marked.fingerprint).toBe(unmarked.fingerprint);
@@ -125,11 +137,13 @@ describe('stationConfigOf', () => {
       configured(station(), {
         ...ORDER,
         enabled: {
+          ...ORDER.enabled,
           profile: {
             key: ProfileKey.of('careful'),
             rules: [],
             mcpServers: [],
             native: {},
+            secrets: [],
             injectedSecrets: secrets.map((each) => SecretName.of(each)),
             sandboxEnv: [],
           },
@@ -137,7 +151,7 @@ describe('stationConfigOf', () => {
           toolsOnMarks: [],
           tools: [],
         },
-      } as unknown as RunOrder);
+      });
 
     it('are part of the profile’s settings, even where it names none', () => {
       expect(profiled(['STAGING_VIEWER']).parts.profile?.settings).toEqual(
@@ -162,11 +176,13 @@ describe('stationConfigOf', () => {
       configured(station(), {
         ...ORDER,
         enabled: {
+          ...ORDER.enabled,
           profile: {
             key: ProfileKey.of('careful'),
             rules: [],
             mcpServers: [],
             native: {},
+            secrets: [],
             injectedSecrets: [],
             sandboxEnv: sandboxEnv.map(({ variable, secret }) => ({
               variable,
@@ -177,7 +193,7 @@ describe('stationConfigOf', () => {
           toolsOnMarks: [],
           tools: [],
         },
-      } as unknown as RunOrder);
+      });
     const APP_KEY = {
       variable: 'GITHUB_APP_PRIVATE_KEY',
       secret: 'DEV_GITHUB_APP_KEY',

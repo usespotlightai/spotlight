@@ -1,7 +1,10 @@
 import type { CallAttempt } from '@integrations/application/ports/integration-runtime.port';
 import type { RunToolCall } from '@integrations/application/services/resolve-tool-for-run.service';
 import type { CallFailureFact } from '@integrations/domain/value-objects/hook-failure.vo';
-import type { ToolCallResultDto } from '@work/application/ports/integration-tool-calls.port';
+import type {
+  IntegrationTool,
+  ToolCallResultDto,
+} from '@work/application/ports/integration-tool-calls.port';
 
 const reasonOf = (fact: CallFailureFact): string =>
   fact.kind === 'over-outbound-limit'
@@ -32,4 +35,16 @@ export const answerOf = async (
   }
 
   throw Object.assign(new Error(reasonOf(result.fact)), { fact: result.fact });
+};
+
+export const resolvedTool = async (
+  resolving: Promise<IntegrationTool | null>,
+): Promise<IntegrationTool> => {
+  const tool = await resolving;
+
+  if (tool === null) {
+    throw new Error('expected a tool');
+  }
+
+  return tool;
 };

@@ -2,13 +2,14 @@ import { randomUUID } from 'node:crypto';
 import {
   createServer,
   type IncomingMessage,
+  type Server,
   type ServerResponse,
 } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ElicitResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { z } from 'zod';
 
 interface McpReceived {
@@ -29,6 +30,16 @@ type Other = (
   reply: ServerResponse,
   origin: string,
 ) => Promise<boolean>;
+
+export const portOf = (server: Server): number => {
+  const address = server.address();
+
+  if (address === null || typeof address === 'string') {
+    throw new Error('expected a TCP address');
+  }
+
+  return address.port;
+};
 
 export interface FakeMcpServer {
   readonly origin: string;
@@ -75,7 +86,9 @@ const registered = (server: McpServer, called: McpCalled[]): McpServer => {
     async (args) => {
       called.push({ tool: 'delete_issue', args });
 
-      return { content: [{ type: 'text', text: `{"deleted":"${args.id}"}` }] };
+      return {
+        content: [{ type: 'text', text: `{"deleted":"${args.id}"}` }],
+      };
     },
   );
   server.registerTool(
@@ -157,7 +170,10 @@ export const fakeMcpServer = async (
         return;
       }
 
-      if (options.token && authorization !== `Bearer ${options.token}`) {
+      if (
+        nonEmpty(options.token) &&
+        authorization !== `Bearer ${options.token}`
+      ) {
         reply
           .writeHead(401, {
             'www-authenticate': `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource${PATH}"`,
@@ -167,9 +183,9 @@ export const fakeMcpServer = async (
       }
 
       const id = headerOf(request, 'mcp-session-id');
-      const existing = id ? sessions.get(id) : undefined;
+      const existing = nonEmpty(id) ? sessions.get(id) : undefined;
 
-      if (id && !existing) {
+      if (nonEmpty(id) && !existing) {
         reply.writeHead(404).end();
         return;
       }
@@ -196,7 +212,7 @@ export const fakeMcpServer = async (
   });
 
   await new Promise<void>((resolve) => http.listen(0, '127.0.0.1', resolve));
-  origin = `http://127.0.0.1:${(http.address() as AddressInfo).port}`;
+  origin = `http://127.0.0.1:${portOf(http)}`;
 
   return {
     origin,

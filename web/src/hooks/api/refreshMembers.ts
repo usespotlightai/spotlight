@@ -7,7 +7,7 @@ import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 export function refreshMembers(
   queryClient: QueryClient,
   slug: string | undefined,
-) {
+): Promise<[void, void, void]> {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: memberKeys.all }),
     queryClient.invalidateQueries({

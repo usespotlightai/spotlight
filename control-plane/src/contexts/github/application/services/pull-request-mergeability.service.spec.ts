@@ -10,6 +10,7 @@ import type { GitHubConnectionRepository } from '@github/domain/repositories/git
 import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -74,7 +75,7 @@ const mergeabilityOver = (
 ) => {
   const rows = new Map(stored.map((each) => [each.url.value, each]));
   const dispatched: DomainEvent[] = [];
-  const pullRequests = {
+  const pullRequests = partial<PullRequestRepository>({
     openIn: async () =>
       [...rows.values()].filter((each) => each.state === 'open'),
     lockedAt: async (_: WorkspaceId, url: PullRequestUrl) =>
@@ -83,10 +84,10 @@ const mergeabilityOver = (
       dispatched.push(...saved.pullEvents());
       rows.set(saved.url.value, saved);
     },
-  } as unknown as PullRequestRepository;
-  const connections = {
+  });
+  const connections = partial<GitHubConnectionRepository>({
     connectedWorkspaceOf: async () => (connected ? WORKSPACE : null),
-  } as unknown as GitHubConnectionRepository;
+  });
   let asked = 0;
   const github = {
     mergeabilityOf: vi.fn<PullRequestPort['mergeabilityOf']>(

@@ -14,6 +14,7 @@ import { insightsStationsQuery } from '@/hooks/api/useInsightsStations';
 import { insightsToolsQuery } from '@/hooks/api/useInsightsTools';
 import { insightsTracesQuery } from '@/hooks/api/useInsightsTraces';
 import type { InsightsPeriod, InsightsTab } from '@/lib/insights';
+import { nonEmpty } from '@/lib/non-empty';
 
 type Warm = (client: QueryClient) => void;
 
@@ -53,12 +54,12 @@ const queryOf = (
 export function usePrefetchInsightsTab(
   teamId: string | undefined,
   period: InsightsPeriod,
-) {
+): (tab: InsightsTab) => void {
   const client = useContext(QueryClientContext);
 
   return useCallback(
     (tab: InsightsTab) => {
-      if (!client || !teamId) {
+      if (!client || !nonEmpty(teamId)) {
         return;
       }
 

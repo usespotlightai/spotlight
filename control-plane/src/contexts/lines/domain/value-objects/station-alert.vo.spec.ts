@@ -64,7 +64,10 @@ describe('StationAlert', () => {
     const error = errorOf(input);
 
     expect(error).toBeInstanceOf(InvalidStationAlertError);
-    expect((error as InvalidStationAlertError).field).toBe(field);
+    if (!(error instanceof InvalidStationAlertError)) {
+      throw new Error('expected InvalidStationAlertError');
+    }
+    expect(error.field).toBe(field);
   });
 
   it.each([
@@ -91,7 +94,10 @@ describe('StationAlert', () => {
       const error = errorOf(input);
 
       expect(error).toBeInstanceOf(InvalidStationAlertError);
-      expect((error as InvalidStationAlertError).field).toBeNull();
+      if (!(error instanceof InvalidStationAlertError)) {
+        throw new Error('expected InvalidStationAlertError');
+      }
+      expect(error.field).toBeNull();
     },
   );
 

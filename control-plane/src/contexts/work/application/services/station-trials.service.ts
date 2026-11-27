@@ -5,6 +5,8 @@ import type {
 } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
@@ -281,7 +283,9 @@ export class StationTrials implements StationTrialsPort {
       boundSecrets: order.boundSecrets,
       sandboxEnv: [],
     });
-    const briefing = followedUp ? `${briefed}\n\n${followedUp}` : briefed;
+    const briefing = nonEmpty(followedUp)
+      ? `${briefed}\n\n${followedUp}`
+      : briefed;
     const configuredAs = this.ordering.configuredAs(laidOut, candidate);
     const ordering = {
       outcome: 'ordered' as const,
@@ -306,7 +310,7 @@ export class StationTrials implements StationTrialsPort {
             ? { manifest: described.map(toolManifestOf) }
             : {}),
         },
-        restore: original.trial.archive
+        restore: nonEmpty(original.trial.archive)
           ? { archive: original.trial.archive }
           : null,
         refusal:
@@ -370,23 +374,25 @@ export class StationTrials implements StationTrialsPort {
 
   private async original(request: TrialRequest): Promise<Original> {
     const basedOn = RunId.of(request.basedOn);
-    const [facts] = await this.facts.of([basedOn]);
+    const facts = firstOf(await this.facts.of([basedOn]));
     const dispatch = await this.dispatches.find(basedOn);
     const subject = dispatch?.subject.kind === 'task' ? dispatch.subject : null;
     const task = subject ? await this.tasks.find(subject.taskId) : null;
     const block = trialBlockOf(
-      facts && {
-        inWorkspace: facts.workspaceId.equals(
-          WorkspaceId.of(request.workspaceId),
-        ),
-        taskId: subject?.taskId ?? null,
-        stationId: subject?.stationId ?? null,
-        ended: facts.ended,
-        startedFrom: facts.startedFrom !== null,
-        archive: TrialabilityMapper.archiveOf(facts),
-        briefed: dispatch?.briefedTask !== null,
-        taskExists: task !== null,
-      },
+      facts === undefined
+        ? null
+        : {
+            inWorkspace: facts.workspaceId.equals(
+              WorkspaceId.of(request.workspaceId),
+            ),
+            taskId: subject?.taskId ?? null,
+            stationId: subject?.stationId ?? null,
+            ended: facts.ended,
+            startedFrom: facts.startedFrom !== null,
+            archive: TrialabilityMapper.archiveOf(facts),
+            briefed: dispatch?.briefedTask !== null,
+            taskExists: task !== null,
+          },
     );
 
     if (block) {

@@ -1,20 +1,37 @@
 import {
+  type Mutation,
   type QueryClient,
   useMutation,
   useMutationState,
   useQueryClient,
+  type UseMutationResult,
 } from '@tanstack/react-query';
 
 import { runNotesKeys } from '@/hooks/api/useRunNotes';
 import { taskKeys } from '@/hooks/api/useTasks';
 import { teamRunKeys } from '@/hooks/api/useTeamRuns';
-import { sendMessage, sendTaskMessage } from '@/lib/api';
+import { sendMessage, sendTaskMessage, type TaskResponseDto } from '@/lib/api';
 import { refreshAfterWrite } from '@/lib/live-writes';
+import { required } from '@/lib/required';
 import type { MessageInFlight, OutgoingMessage } from '@/lib/run-notes';
 
 const sendMessageKey = ['send-message'] as const;
 
-export function useSendMessage() {
+type SendMessageMutation = Mutation<void, Error, OutgoingMessage>;
+
+const runIdOf = (variables: unknown): string =>
+  typeof variables === 'object' &&
+  variables !== null &&
+  'runId' in variables &&
+  typeof variables.runId === 'string'
+    ? variables.runId
+    : '';
+
+export function useSendMessage(): UseMutationResult<
+  void,
+  Error,
+  OutgoingMessage
+> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -58,12 +75,15 @@ export const startsTaskRunKey = ['starts-task-run'] as const;
 export function useTriedToStartRun(taskId: string): boolean {
   return useMutationState({
     filters: { mutationKey: startsTaskRunKey, status: 'success' },
-    select: (mutation) =>
-      (mutation.state.variables as TaskRef | undefined)?.taskId,
+    select: (mutation: Mutation<unknown, Error, TaskRef>) =>
+      mutation.state.variables?.taskId,
   }).includes(taskId);
 }
 
-export const refreshTask = (queryClient: QueryClient, teamId: string) =>
+export const refreshTask = (
+  queryClient: QueryClient,
+  teamId: string,
+): Promise<void[]> =>
   Promise.all(
     [
       taskKeys.forTeam(teamId),
@@ -73,7 +93,11 @@ export const refreshTask = (queryClient: QueryClient, teamId: string) =>
     ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
   );
 
-export function useSendTaskMessage() {
+export function useSendTaskMessage(): UseMutationResult<
+  TaskResponseDto,
+  Error,
+  TaskMessage
+> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -98,13 +122,10 @@ export function useMessagesInFlight(
       mutationKey: sendMessageKey,
       predicate: (mutation) =>
         ['pending', 'success'].includes(mutation.state.status) &&
-        runIds.includes(
-          (mutation.state.variables as OutgoingMessage | undefined)?.runId ??
-            '',
-        ),
+        runIds.includes(runIdOf(mutation.state.variables)),
     },
-    select: (mutation) => ({
-      ...(mutation.state.variables as OutgoingMessage),
+    select: (mutation: SendMessageMutation) => ({
+      ...required(mutation.state.variables),
       sentAt: mutation.state.submittedAt,
     }),
   });

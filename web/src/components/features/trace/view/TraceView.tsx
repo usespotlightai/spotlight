@@ -19,6 +19,7 @@ import {
 } from '@/lib/citation-targets';
 import { formatShortDuration } from '@/lib/inbox';
 import { lineRangeOf } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 import {
   ancestorsOf,
   lastChangeTo,
@@ -53,7 +54,7 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
   useDocumentListener(
     'pointerdown',
     (event) => {
-      const on = event.target as Node;
+      const on = event.target instanceof Node ? event.target : null;
 
       if (!listed.current?.contains(on) && !panel.current?.contains(on)) {
         setPicked(null);
@@ -131,11 +132,17 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
         return node ? () => reveal(node, null) : null;
       },
       hunk: (hunk) => {
-        const node = hunk.path ? lastChangeTo(displayed, hunk.path) : null;
+        const node = nonEmpty(hunk.path)
+          ? lastChangeTo(displayed, hunk.path)
+          : null;
         return node ? () => reveal(node, lineRangeOf(hunk)) : null;
       },
     };
   }, [displayed, reveal]);
+
+  const namesWanted: CSSProperties & Record<`--${string}`, string> = {
+    '--names-wanted': `${namesWidth}px`,
+  };
 
   return (
     <PaneScroller
@@ -159,7 +166,7 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
         <div
           ref={namesRef}
           className={cn('relative flex min-w-0 flex-1 flex-col', TIMELINE)}
-          style={{ '--names-wanted': `${namesWidth}px` } as CSSProperties}
+          style={namesWanted}
         >
           <div
             className={cn(

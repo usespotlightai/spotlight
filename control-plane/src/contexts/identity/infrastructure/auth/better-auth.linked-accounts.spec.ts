@@ -1,5 +1,7 @@
-import type { AppAuth } from '@identity/infrastructure/auth/auth';
-import { BetterAuthLinkedAccounts } from '@identity/infrastructure/auth/better-auth.linked-accounts';
+import {
+  BetterAuthLinkedAccounts,
+  type LinkedAccountsAuth,
+} from '@identity/infrastructure/auth/better-auth.linked-accounts';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -10,12 +12,12 @@ const linking = (
   getAccessToken: () => Promise<{ accessToken?: string }>,
 ) => {
   const getToken = vi.fn(getAccessToken);
-  const auth = {
+  const auth: LinkedAccountsAuth = {
     $context: Promise.resolve({
       internalAdapter: { findAccounts: vi.fn(async () => accounts) },
     }),
     api: { getAccessToken: getToken },
-  } as unknown as AppAuth;
+  };
 
   const logger = {
     debug: vi.fn(),

@@ -6,12 +6,13 @@ import type {
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
+import { z } from 'zod';
 
 const API = 'https://api.github.com';
 
 const MAX_PAGES = 10;
 
-type Fetch = typeof globalThis.fetch;
+type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
 const numbered = (url: string): number => {
   const last = Number(url.trim().split('/').pop());
@@ -22,6 +23,10 @@ const numbered = (url: string): number => {
 
   return last;
 };
+
+const COMMENTS = z.array(
+  z.object({ id: z.number(), body: z.string().nullish() }),
+);
 
 export class GitHubPullRequestComments implements PullRequestCommentsPort {
   constructor(
@@ -43,17 +48,18 @@ export class GitHubPullRequestComments implements PullRequestCommentsPort {
     );
     const body = `${comment.marker}\n${comment.body}`;
 
-    const response = existing
-      ? await this.fetch(`${API}/repos/${repo}/issues/comments/${existing}`, {
-          method: 'PATCH',
-          headers: this.headers(token),
-          body: JSON.stringify({ body }),
-        })
-      : await this.fetch(`${API}/repos/${repo}/issues/${number}/comments`, {
-          method: 'POST',
-          headers: this.headers(token),
-          body: JSON.stringify({ body }),
-        });
+    const response =
+      existing !== null && existing !== 0
+        ? await this.fetch(`${API}/repos/${repo}/issues/comments/${existing}`, {
+            method: 'PATCH',
+            headers: this.headers(token),
+            body: JSON.stringify({ body }),
+          })
+        : await this.fetch(`${API}/repos/${repo}/issues/${number}/comments`, {
+            method: 'POST',
+            headers: this.headers(token),
+            body: JSON.stringify({ body }),
+          });
 
     if (!response.ok) {
       throw new UpstreamError(
@@ -73,7 +79,7 @@ export class GitHubPullRequestComments implements PullRequestCommentsPort {
       token,
     );
 
-    if (!existing) {
+    if (existing === null || existing === 0) {
       return;
     }
 
@@ -109,11 +115,10 @@ export class GitHubPullRequestComments implements PullRequestCommentsPort {
         );
       }
 
-      const comments = (await response.json()) as {
-        readonly id: number;
-        readonly body?: string;
-      }[];
-      const found = comments.find((each) => each.body?.startsWith(marker));
+      const comments = COMMENTS.parse(await response.json());
+      const found = comments.find(
+        (each) => each.body?.startsWith(marker) === true,
+      );
 
       if (found) {
         return found.id;

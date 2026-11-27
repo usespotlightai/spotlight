@@ -21,7 +21,7 @@ export class BootId {
   }
 
   equals(other: BootId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof BootId && this.value === other.value;
   }
 
   toString(): string {

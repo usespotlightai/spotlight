@@ -27,6 +27,7 @@ export function NestedGroupRow({
   spans = '@4xl:col-span-1 @lg:group-data-compact/nested:col-span-1',
   children,
 }: NestedGroupRowProps) {
+  const celled = Boolean(cells);
   const named = (
     <>
       {onToggle ? (
@@ -51,7 +52,7 @@ export function NestedGroupRow({
       data-slot="nested-group"
       className={cn(
         'relative col-span-full min-h-9 min-w-0 items-center py-2 pr-2',
-        cells
+        celled
           ? 'grid grid-cols-2 gap-x-6 gap-y-1 @4xl:grid-cols-subgrid @lg:group-data-compact/nested:grid-cols-subgrid'
           : 'flex gap-1.5',
         depth === 0
@@ -59,7 +60,7 @@ export function NestedGroupRow({
           : cn(OUTER_INDENT, OUTER_GUIDE, OUTER_DIVIDER),
       )}
     >
-      {cells ? (
+      {celled ? (
         <>
           <div
             className={cn(

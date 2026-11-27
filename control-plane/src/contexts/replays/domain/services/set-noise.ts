@@ -4,6 +4,7 @@ import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 const ROUNDING = 1e-9;
 
@@ -63,7 +64,7 @@ const rateOfRepeat = (replay: ReplayOutcome, repeat: number): number | null => {
 
   return judged.length === 0
     ? null
-    : judged.filter((each) => each.succeeded).length / judged.length;
+    : judged.filter((each) => each.succeeded === true).length / judged.length;
 };
 
 const flippedIn = (replay: ReplayOutcome): readonly string[] => [
@@ -77,7 +78,7 @@ const flippedIn = (replay: ReplayOutcome): readonly string[] => [
           )
           .map((each) => each.succeeded),
       );
-      const [first] = repeats;
+      const first = firstOf(repeats);
 
       return verdicts.size > 1 && first ? [first.taskId.value] : [];
     }),

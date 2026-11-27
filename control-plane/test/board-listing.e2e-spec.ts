@@ -50,7 +50,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 describe('the tasks the board reads for a team', () => {
@@ -78,7 +78,7 @@ describe('the tasks the board reads for a team', () => {
       search: null,
     });
 
-    expect(listed?.items.map((each) => each.title)).toEqual(['Ship the thing']);
+    expect(listed.items.map((each) => each.title)).toEqual(['Ship the thing']);
   });
 });
 

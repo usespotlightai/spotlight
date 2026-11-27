@@ -24,6 +24,7 @@ import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -100,8 +101,10 @@ describe('hook firings, stored in the database (e2e)', () => {
     });
 
   const claimNext = async (now: Date): Promise<HookFiring | null> => {
-    const [next] = (await firings.claimCandidates(now, 20)).filter(
-      (candidate) => candidate.isClaimableAt(now),
+    const next = firstOf(
+      (await firings.claimCandidates(now, 20)).filter((candidate) =>
+        candidate.isClaimableAt(now),
+      ),
     );
 
     if (!next) {
@@ -124,10 +127,12 @@ describe('hook firings, stored in the database (e2e)', () => {
   };
 
   const stateOf = async (id: HookFiringId) => {
-    const [row] = await db
-      .select()
-      .from(schema.hookFiring)
-      .where(eq(schema.hookFiring.id, id.value));
+    const row = firstOf(
+      await db
+        .select()
+        .from(schema.hookFiring)
+        .where(eq(schema.hookFiring.id, id.value)),
+    );
 
     return row?.state;
   };

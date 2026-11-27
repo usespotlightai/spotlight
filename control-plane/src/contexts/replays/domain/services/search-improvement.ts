@@ -7,6 +7,7 @@ import {
 import { scoredOn, scoresOf } from '@replays/domain/services/search-scores';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 export const improvedOnBestBefore = (
   search: Search,
@@ -30,12 +31,14 @@ export const improvedOnBestBefore = (
       .map((each) => each.candidateId.value),
   );
   const scores = scoresOf(search, replays, minGain);
-  const [best] = rankedOf(
-    [scores.seed, ...scores.candidates].filter(
-      (each) =>
-        each.finished && (each.seed || before.has(each.candidateId.value)),
+  const best = firstOf(
+    rankedOf(
+      [scores.seed, ...scores.candidates].filter(
+        (each) =>
+          each.finished && (each.seed || before.has(each.candidateId.value)),
+      ),
+      search.objective,
     ),
-    search.objective,
   );
   const bestReplay = replays.find((each) =>
     each.id.equals(best?.replayId ?? search.seed.replay.replayId),

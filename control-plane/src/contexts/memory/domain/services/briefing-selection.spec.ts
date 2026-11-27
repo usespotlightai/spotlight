@@ -8,6 +8,7 @@ import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { TouchedContext } from '@memory/domain/value-objects/run-context';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -43,8 +44,10 @@ const approved = (
     body: MemoryBody.of(body),
     scope: MemoryScope.of({
       teamId: scope.teamId ?? TEAM,
-      lineId: scope.lineId ? LineId.of(scope.lineId) : null,
-      stationId: scope.stationId ? StationId.of(scope.stationId) : null,
+      lineId: nonEmpty(scope.lineId) ? LineId.of(scope.lineId) : null,
+      stationId: nonEmpty(scope.stationId)
+        ? StationId.of(scope.stationId)
+        : null,
       repository: scope.repository ?? null,
       paths: (scope.paths ?? []).map(MemoryPath.of),
     }),

@@ -14,6 +14,7 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { count, gt } from 'drizzle-orm';
 
 @Injectable()
@@ -43,15 +44,17 @@ export class RunnerHostGauges implements OnModuleInit, OnModuleDestroy {
   }
 
   private async read() {
-    const [row] = await this.db
-      .select({ hosts: count() })
-      .from(runnerHost)
-      .where(
-        gt(
-          runnerHost.lastHeartbeatAt,
-          RunnerHost.onlineCutoff(this.clock.now()),
+    const row = firstOf(
+      await this.db
+        .select({ hosts: count() })
+        .from(runnerHost)
+        .where(
+          gt(
+            runnerHost.lastHeartbeatAt,
+            RunnerHost.onlineCutoff(this.clock.now()),
+          ),
         ),
-      );
+    );
 
     return { 'spotlight.runner_hosts.online': [{ value: row?.hosts ?? 0 }] };
   }

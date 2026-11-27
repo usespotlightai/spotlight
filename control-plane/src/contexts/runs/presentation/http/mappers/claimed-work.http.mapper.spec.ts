@@ -14,14 +14,22 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 const NOW = new Date('2026-11-07T10:00:00.000Z');
 const COMMIT = 'c'.repeat(40);
 
+const CLAIMED_RUN_WIRE = z.looseObject({
+  kind: z.string(),
+  run: z.looseObject({ spec: z.unknown() }).nullable(),
+});
+
 const wire = (run: Run) =>
-  JSON.parse(
-    JSON.stringify(ClaimedWorkHttpMapper.toResponse(claimedRun(run))),
-  ) as { kind: string; run: { spec: unknown } | null };
+  CLAIMED_RUN_WIRE.parse(
+    JSON.parse(
+      JSON.stringify(ClaimedWorkHttpMapper.toResponse(claimedRun(run))),
+    ),
+  );
 
 describe('the run a runner claims', () => {
   it('carries the requester’s extensions beside the spec and the working copy key as its resume key, as runners read them', () => {

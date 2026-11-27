@@ -1,6 +1,7 @@
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { TONE_FILL } from '@/components/shared/outcome-tones';
 import { formatShare, type ShownDelta } from '@/lib/insights';
+import { nonEmpty } from '@/lib/non-empty';
 import {
   OUTCOME_NOTE,
   OUTCOMES_TITLE,
@@ -28,12 +29,13 @@ const tasksOf = (count: number): string =>
 
 export function OutcomesTile({ tally, changes }: OutcomesTileProps) {
   const parts = outcomePartsOf(tally);
-  const [accepted, ...rest] = parts;
+  const accepted = parts.at(0);
+  const rest = parts.slice(1);
   const keyed = rest.filter((part) => part.key !== 'other' && part.count > 0);
   const withChange = (shown: string, key: OutcomeKey) => {
     const change = changes?.[key]?.shown;
 
-    return change ? `${shown}, ${change}` : shown;
+    return nonEmpty(change) ? `${shown}, ${change}` : shown;
   };
 
   return (

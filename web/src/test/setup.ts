@@ -8,14 +8,20 @@ import {
 import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
+import { partial } from '@/test/partial';
+
 configure({ asyncUtilTimeout: 3000 });
 
-globalThis.ReadableStream ??=
-  ReadableStream as typeof globalThis.ReadableStream;
-globalThis.WritableStream ??=
-  WritableStream as typeof globalThis.WritableStream;
-globalThis.TransformStream ??=
-  TransformStream as typeof globalThis.TransformStream;
+const fillIn = (globals: Record<string, unknown>): void => {
+  for (const [name, value] of Object.entries(globals)) {
+    const current: unknown = Reflect.get(globalThis, name);
+    if (current === undefined || current === null) {
+      Reflect.set(globalThis, name, value);
+    }
+  }
+};
+
+fillIn({ ReadableStream, WritableStream, TransformStream });
 
 afterEach(cleanup);
 
@@ -26,7 +32,7 @@ Element.prototype.scrollIntoView = () => undefined;
 Element.prototype.scrollTo = () => undefined;
 Element.prototype.getAnimations = () => [];
 Range.prototype.getBoundingClientRect = () => new DOMRect();
-Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
+Range.prototype.getClientRects = () => partial<DOMRectList>([]);
 HTMLCanvasElement.prototype.getContext = (() =>
   null) as typeof HTMLCanvasElement.prototype.getContext;
 
@@ -36,7 +42,7 @@ class NoResizeObserver implements ResizeObserver {
   disconnect() {}
 }
 
-globalThis.ResizeObserver ??= NoResizeObserver;
+fillIn({ ResizeObserver: NoResizeObserver });
 
 class NoIntersectionObserver implements IntersectionObserver {
   readonly root = null;
@@ -51,4 +57,4 @@ class NoIntersectionObserver implements IntersectionObserver {
   }
 }
 
-globalThis.IntersectionObserver ??= NoIntersectionObserver;
+fillIn({ IntersectionObserver: NoIntersectionObserver });

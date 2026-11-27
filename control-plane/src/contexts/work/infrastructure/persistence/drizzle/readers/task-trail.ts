@@ -1,6 +1,8 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import { PLAIN_STATION_COLOR } from '@lines/application/contracts/line-view.contract';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -16,7 +18,6 @@ import type { RunReview } from '@work/application/ports/run-reader.port';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import type { OpenAsk } from '@work/domain/services/conversation-audience';
-import type { HeldFor } from '@work/domain/services/hold-rights';
 import {
   conversationsOf,
   notesIn,
@@ -27,6 +28,7 @@ import {
 } from '@work/domain/services/conversations';
 import { deferralWaitingIn } from '@work/domain/services/deferred-moves';
 import { foldedVisits } from '@work/domain/services/folded-visits';
+import type { HeldFor } from '@work/domain/services/hold-rights';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
@@ -143,7 +145,7 @@ const approvalOf = (
     status: parts.status,
     edited: toEditedCall(parts)?.writtenInputs ?? null,
     intent: parts.intent ?? null,
-    askedOf: parts.askedOf
+    askedOf: nonEmpty(parts.askedOf)
       ? { id: parts.askedOf, name: named.get(parts.askedOf)?.name ?? '' }
       : null,
   };
@@ -257,7 +259,10 @@ const waitingDeferralsFor = async (
 
   return new Map(
     [...trails].flatMap(([taskId, notes]) => {
-      const waiting = deferralWaitingIn(notes, (notes[0]?.currentRunId ?? null) !== null);
+      const waiting = deferralWaitingIn(
+        notes,
+        (notes[0]?.currentRunId ?? null) !== null,
+      );
 
       return waiting ? [[taskId, waiting.position] as const] : [];
     }),
@@ -281,17 +286,21 @@ const inboxNotesOf = async (
     ),
     people.findMany(
       rows.flatMap((row) => [
-        ...(row.authorId ? [UserId.of(row.authorId)] : []),
+        ...(nonEmpty(row.authorId) ? [UserId.of(row.authorId)] : []),
         ...row.coAuthorIds.map(UserId.of),
         ...(row.connectionAsk ? [UserId.of(row.connectionAsk.personId)] : []),
-        ...(row.approval?.askedOf ? [UserId.of(row.approval.askedOf)] : []),
+        ...(nonEmpty(row.approval?.askedOf)
+          ? [UserId.of(row.approval.askedOf)]
+          : []),
       ]),
     ),
     waitingDeferralsFor(db, taskIds),
   ]);
 
   return rows.map((row) => {
-    const author = row.authorId ? authors.get(row.authorId) : undefined;
+    const author = nonEmpty(row.authorId)
+      ? authors.get(row.authorId)
+      : undefined;
 
     return {
       taskId: row.taskId,
@@ -309,7 +318,7 @@ const inboxNotesOf = async (
         attachmentsOf(attached, row.taskId).byNote.get(row.position) ?? [],
       at: row.at,
       readAt: row.readAt,
-      author: row.authorId
+      author: nonEmpty(row.authorId)
         ? {
             id: row.authorId,
             name: author?.name ?? '',
@@ -562,10 +571,10 @@ export const foldedAround = (
 ): InboxFoldedVisit[] =>
   foldedVisits(trail, new Set(shown.map((note) => note.position))).flatMap(
     ({ notes, closing, answers, passedBack }) => {
-      const [first] = notes;
-      const last = notes[notes.length - 1];
+      const first = firstOf(notes);
+      const last = itemAt(notes, notes.length - 1);
 
-      return first && last
+      return first !== undefined && last !== undefined
         ? [
             {
               first,
@@ -611,7 +620,7 @@ export const openAskOf = (note: {
   approval: note.approval
     ? {
         open: Approval.isPending(note.approval.status),
-        askedOf: note.approval.askedOf
+        askedOf: nonEmpty(note.approval.askedOf)
           ? UserId.of(note.approval.askedOf)
           : null,
       }
@@ -701,7 +710,9 @@ export const openHoldsFor = async (
   return new Map(
     rows.map((row) => [
       row.taskId,
-      { chat: row.chatId ? ChatId.of(row.chatId) : null },
+      {
+        chat: nonEmpty(row.chatId) ? ChatId.of(row.chatId) : null,
+      },
     ]),
   );
 };
@@ -823,7 +834,9 @@ export const latestRunsAtCurrentStation = async (
   ).flat();
 
   return new Map(
-    rows.flatMap((row) => (row.taskId ? [[row.taskId, row.id] as const] : [])),
+    rows.flatMap((row) =>
+      nonEmpty(row.taskId) ? [[row.taskId, row.id] as const] : [],
+    ),
   );
 };
 

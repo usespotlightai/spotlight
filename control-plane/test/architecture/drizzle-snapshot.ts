@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { parsedAs } from '../support/body';
 import { SOURCE_ROOT } from './source-index';
 
 type SnapshotForeignKey = {
@@ -24,11 +25,9 @@ const latest = readdirSync(META)
   .reverse()[0];
 
 const tables = Object.values(
-  (
-    JSON.parse(readFileSync(join(META, latest), 'utf8')) as {
-      tables: Readonly<Record<string, SnapshotTable>>;
-    }
-  ).tables,
+  parsedAs<{
+    tables: Readonly<Record<string, SnapshotTable>>;
+  }>(readFileSync(join(META, latest), 'utf8')).tables,
 );
 
 export const SNAPSHOT_VERSIONED_TABLES: ReadonlySet<string> = new Set(

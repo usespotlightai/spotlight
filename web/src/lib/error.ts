@@ -1,3 +1,5 @@
+import { fieldOf } from '@/lib/record';
+
 export function messageOf(
   thrown: unknown,
   fallback = 'Sorry, the request failed.',
@@ -29,9 +31,10 @@ export function messageOf(
 }
 
 const answered = (thrown: unknown, status: number): boolean => {
-  const body = thrown as { statusCode?: unknown; status?: unknown } | null;
-
-  return body?.statusCode === status || body?.status === status;
+  return (
+    fieldOf(thrown, 'statusCode') === status ||
+    fieldOf(thrown, 'status') === status
+  );
 };
 
 export const notFound = (thrown: unknown): boolean => answered(thrown, 404);

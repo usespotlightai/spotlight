@@ -1,5 +1,6 @@
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -109,9 +110,9 @@ const tasks = (found: Task | null = task()) =>
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = (teamId = 'team_1') =>
-  ({
+  partial<LineMapsPort>({
     findByStation: vi.fn(async () => delivery('ws_1', 'station_1', teamId)),
-  }) as unknown as LineMapsPort;
+  });
 
 const assign = (
   assigneeId: string | null,

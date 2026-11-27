@@ -10,6 +10,10 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PullRequestsTab } from '@/components/features/insights/pull-requests/PullRequestsTab';
+import type {
+  InsightsPeriodResponseDto,
+  WeekShareResponseDto,
+} from '@/lib/api';
 import { paramsOf, viewOf } from '@/lib/insights';
 import type {
   InsightsPullRequest,
@@ -17,6 +21,8 @@ import type {
   InsightsPullRequests,
   PullRequestFilter,
 } from '@/lib/insights-pull-requests';
+import { htmlElement } from '@/test/elements';
+import { partial } from '@/test/partial';
 
 type Queried = {
   data: unknown;
@@ -67,17 +73,17 @@ const measures = {
   revertRate: 0.5,
 };
 
-const week = {
+const week = partial<WeekShareResponseDto>({
   week: '2026-09-28',
   merged: 4,
   authored: 2,
   reviewed: 1,
   bots: 0,
   rate: 0.75,
-};
+});
 
-const SUMMARY = {
-  period: { name: '30d' },
+const SUMMARY = partial<InsightsPullRequests>({
+  period: partial<InsightsPeriodResponseDto>({ name: '30d' }),
   total: 6,
   repositories: ['acme/api'],
   weeks: ['2026-09-28'],
@@ -116,7 +122,7 @@ const SUMMARY = {
     },
   ],
   depth: [{ rounds: '1', spotlight: 2, people: 1 }],
-} as unknown as InsightsPullRequests;
+});
 
 const pullRequest = (
   over: Partial<InsightsPullRequest>,
@@ -151,8 +157,8 @@ const pullRequest = (
   ...over,
 });
 
-const LIST = {
-  period: { name: '30d' },
+const LIST = partial<InsightsPullRequestList>({
+  period: partial<InsightsPeriodResponseDto>({ name: '30d' }),
   total: 2,
   page: 1,
   size: 50,
@@ -169,7 +175,7 @@ const LIST = {
       spend: null,
     }),
   ],
-} as unknown as InsightsPullRequestList;
+});
 
 function Productivity() {
   const [params, setParams] = useSearchParams();
@@ -270,9 +276,11 @@ describe('the pull requests of the Productivity tab', () => {
 
     expect(
       within(
-        within(tiles)
-          .getByText('Made by Spotlight')
-          .closest('[data-slot="insights-tile"]') as HTMLElement,
+        htmlElement(
+          within(tiles)
+            .getByText('Made by Spotlight')
+            .closest('[data-slot="insights-tile"]'),
+        ),
       ).getByRole('link', { name: '2' }),
     ).toHaveAttribute(
       'href',

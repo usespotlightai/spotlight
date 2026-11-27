@@ -18,6 +18,7 @@ import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { ReplayState } from '@replays/domain/value-objects/replay-state';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
@@ -214,14 +215,15 @@ const judgeOf = (calibration: ReplayOutcome): JudgeConsistency | null => {
   }
 
   const compared = requested.filter((each) => each.judgeAgreed !== null);
-  const agreed = compared.filter((each) => each.judgeAgreed).length;
+  const agreed = compared.filter((each) => each.judgeAgreed === true).length;
   const agreement = compared.length > 0 ? agreed / compared.length : null;
 
   return {
     replayId: calibration.id,
     compared: compared.length,
     agreed,
-    pending: requested.filter((each) => each.secondJudging?.pending).length,
+    pending: requested.filter((each) => each.secondJudging?.pending === true)
+      .length,
     agreement,
     unstable: agreement !== null && agreement < JUDGE_UNSTABLE_BELOW,
   };
@@ -237,7 +239,7 @@ const checksOf = (calibration: ReplayOutcome): CheckConsistency | null => {
   return {
     replayId: calibration.id,
     rechecked: requested.filter((each) => each.checksFlipped !== null).length,
-    pending: requested.filter((each) => each.recheck?.pending).length,
+    pending: requested.filter((each) => each.recheck?.pending === true).length,
     flaky: requested.flatMap((each) =>
       each.checksFlipped && each.run && each.checks && each.recheck
         ? [
@@ -261,8 +263,9 @@ const oracleOf = (
   minGain: number,
 ): OracleReading => {
   const against = oracle.referenceReplayId
-    ? (replays.find((each) => oracle.referenceReplayId?.equals(each.id)) ??
-      null)
+    ? (replays.find(
+        (each) => oracle.referenceReplayId?.equals(each.id) === true,
+      ) ?? null)
     : null;
   const compared =
     against?.current === 'finished' && oracle.current === 'finished'
@@ -303,7 +306,7 @@ export const missingReferencesOf = <
 ): readonly ReplayId[] =>
   read.flatMap((each) =>
     each.referenceReplayId &&
-    !read.some((other) => each.referenceReplayId?.equals(other.id))
+    !read.some((other) => each.referenceReplayId?.equals(other.id) === true)
       ? [each.referenceReplayId]
       : [],
   );
@@ -333,13 +336,15 @@ export const setHealthOf = (
   );
   const calibration = live.find((each) => each.calibration) ?? null;
   const oracle =
-    newest.flatMap((each) => {
-      const candidate = candidateOf(each, candidates);
+    firstOf(
+      newest.flatMap((each) => {
+        const candidate = candidateOf(each, candidates);
 
-      return candidate?.isOracle && candidate.basedOn.equals(liveFingerprint)
-        ? [{ replay: each, candidate }]
-        : [];
-    })[0] ?? null;
+        return candidate?.isOracle && candidate.basedOn.equals(liveFingerprint)
+          ? [{ replay: each, candidate }]
+          : [];
+      }),
+    ) ?? null;
 
   const noise = setNoiseOf(replays, candidates, liveFingerprint);
 

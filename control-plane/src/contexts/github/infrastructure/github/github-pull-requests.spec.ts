@@ -1,17 +1,21 @@
 import type { PullRequestOpening } from '@github/application/ports/pull-request.port';
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubPullRequests } from '@github/infrastructure/github/github-pull-requests';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
-const access = {
+const JSON_OBJECT = z.record(z.string(), z.unknown());
+
+const access = partial<RepositoryAccessPort>({
   credential: vi.fn(async () => ({
     username: 'x-access-token',
     password: 'tok_1',
   })),
-} as unknown as RepositoryAccessPort;
+});
 
 const opening: PullRequestOpening = {
   workspaceId: WorkspaceId.of('ws_1'),
@@ -41,9 +45,10 @@ const repository = (over: { open?: boolean; taken?: boolean } = {}) =>
     sent.push({
       url,
       method: init.method ?? 'GET',
-      body: init.body
-        ? (JSON.parse(init.body as string) as Record<string, unknown>)
-        : {},
+      body:
+        typeof init.body === 'string'
+          ? JSON_OBJECT.parse(JSON.parse(init.body))
+          : {},
     });
 
     if (url.endsWith('/repos/acme/api')) {
@@ -52,6 +57,7 @@ const repository = (over: { open?: boolean; taken?: boolean } = {}) =>
     if (url.includes('/pulls?state=open')) {
       return answering(
         200,
+
         over.open
           ? [
               {

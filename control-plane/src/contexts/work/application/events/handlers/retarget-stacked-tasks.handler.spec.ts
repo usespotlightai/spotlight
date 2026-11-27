@@ -1,4 +1,5 @@
 import type { PullRequestAt } from '@github/application/ports/pull-request.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -70,7 +71,7 @@ const retargeting = (
 ) => {
   const saved: Task[] = [];
   const moved: [number, string | null][] = [];
-  const tasks = {
+  const tasks = partial<TaskRepository>({
     owningPullRequest: async (_at: WorkspaceId, pullRequest: PullRequestUrl) =>
       stored.find((each) =>
         each.ownedPullRequests.some((owned) => owned.url.equals(pullRequest)),
@@ -82,7 +83,7 @@ const retargeting = (
     save: async (each: Task) => {
       saved.push(each);
     },
-  } as unknown as TaskRepository;
+  });
 
   return {
     saved,

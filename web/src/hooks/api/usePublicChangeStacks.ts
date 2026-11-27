@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { changeStackKeys } from '@/hooks/api/useRunChangeStacks';
 import {
@@ -11,6 +11,7 @@ import {
   inProgress,
   stackOfPublic,
 } from '@/lib/change-stack';
+import { required } from '@/lib/required';
 
 const POLL_MS = 5_000;
 
@@ -37,7 +38,9 @@ const readPublic = async (
 const polling = (data: ChangeStacks | null | undefined) =>
   data && inProgress(data.stacks) ? POLL_MS : false;
 
-export function usePublicTaskChangeStacks(taskId?: string) {
+export function usePublicTaskChangeStacks(
+  taskId?: string,
+): UseQueryResult<ChangeStacks | null> {
   return useQuery({
     queryKey: changeStackKeys.publicTask(taskId),
     enabled: Boolean(taskId),
@@ -45,12 +48,14 @@ export function usePublicTaskChangeStacks(taskId?: string) {
     refetchInterval: (query) => polling(query.state.data),
     queryFn: () =>
       readPublic(() =>
-        listPublicTaskChangeStacks({ path: { taskId: taskId as string } }),
+        listPublicTaskChangeStacks({ path: { taskId: required(taskId) } }),
       ),
   });
 }
 
-export function usePublicRunChangeStacks(runId?: string) {
+export function usePublicRunChangeStacks(
+  runId?: string,
+): UseQueryResult<ChangeStacks | null> {
   return useQuery({
     queryKey: changeStackKeys.publicRun(runId),
     enabled: Boolean(runId),
@@ -58,7 +63,7 @@ export function usePublicRunChangeStacks(runId?: string) {
     refetchInterval: (query) => polling(query.state.data),
     queryFn: () =>
       readPublic(() =>
-        listPublicRunChangeStacks({ path: { runId: runId as string } }),
+        listPublicRunChangeStacks({ path: { runId: required(runId) } }),
       ),
   });
 }

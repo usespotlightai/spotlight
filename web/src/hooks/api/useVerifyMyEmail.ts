@@ -1,17 +1,24 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { myEmailKeys } from '@/hooks/api/useMyEmails';
-import { verifyMyEmail } from '@/lib/api';
+import { verifyMyEmail, type UserEmailResponseDto } from '@/lib/api';
 import { messageOf } from '@/lib/error';
+import { required } from '@/lib/required';
 
-export function useVerifyMyEmail(token: string | undefined) {
+export function useVerifyMyEmail(
+  token: string | undefined,
+): UseMutationResult<UserEmailResponseDto, Error, void> {
   const queryClient = useQueryClient();
 
   return useMutation({
     meta: { quiet: true },
     mutationFn: async () => {
       const { data, error, response } = await verifyMyEmail({
-        path: { token: token as string },
+        path: { token: required(token) },
       });
 
       if (data) {

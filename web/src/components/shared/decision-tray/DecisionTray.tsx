@@ -27,7 +27,7 @@ export function DecisionTray({ tray, alongside, children }: DecisionTrayProps) {
 
   return (
     <div data-decision className="flex flex-col gap-0.5">
-      {(shown || alongside) && (
+      {(Boolean(shown) || Boolean(alongside)) && (
         <div className="relative">
           <div
             ref={pills}

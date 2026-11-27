@@ -14,6 +14,7 @@ import {
   secretGrant,
 } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, gt, inArray, lte, type SQL } from 'drizzle-orm';
@@ -27,7 +28,9 @@ export class DrizzleRunGrants implements RunGrantsRepository {
   ) {}
 
   async find(runId: RunId): Promise<RunGrants | null> {
-    const [found] = await this.loaded(eq(runGrants.runId, runId.value), 1);
+    const found = firstOf(
+      await this.loaded(eq(runGrants.runId, runId.value), 1),
+    );
 
     return found ?? null;
   }

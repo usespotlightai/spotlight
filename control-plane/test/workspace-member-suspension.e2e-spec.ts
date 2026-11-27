@@ -7,10 +7,12 @@ import {
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
@@ -45,7 +47,7 @@ describe('suspending and leaving a workspace (e2e)', () => {
   const workspace = `/api/workspaces/${workspaceId}`;
   const suspension = (id: string) => `${workspace}/members/${id}/suspension`;
   const rosterOf = async (viewer: string): Promise<Member[]> =>
-    (await as(viewer).get(`${workspace}/members`).expect(200)).body as Member[];
+    bodyOf<Member[]>(await as(viewer).get(`${workspace}/members`).expect(200));
   const memberNamed = async (viewer: string, id: string) =>
     (await rosterOf(viewer)).find((each) => each.id === id);
 
@@ -144,10 +146,12 @@ describe('suspending and leaving a workspace (e2e)', () => {
       by: 'Ada',
     });
     await eventually(async () => {
-      const [line] = await db
-        .select({ assignee: schema.line.defaultAssignee })
-        .from(schema.line)
-        .where(eq(schema.line.id, lineId));
+      const line = firstOf(
+        await db
+          .select({ assignee: schema.line.defaultAssignee })
+          .from(schema.line)
+          .where(eq(schema.line.id, lineId)),
+      );
 
       return line?.assignee === null;
     });

@@ -7,6 +7,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { KeyOverlay } from '@platform/storage/key-overlay';
 import type { S3Clients } from '@platform/storage/s3-clients';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -51,6 +52,16 @@ type Command =
   | DeleteObjectCommand
   | PutObjectCommand;
 
+const copyIn = (call: readonly Command[] | undefined): CopyObjectCommand => {
+  const command = call?.[0];
+
+  if (!(command instanceof CopyObjectCommand)) {
+    throw new Error('expected a CopyObjectCommand');
+  }
+
+  return command;
+};
+
 const bucketWith = (
   keys: readonly string[],
   failing: Error[] = [],
@@ -76,7 +87,7 @@ const bucketWith = (
     }
     return {};
   });
-  const store = { send } as unknown as S3Client;
+  const store = partial<S3Client>({ send });
 
   return {
     send,
@@ -90,9 +101,9 @@ const bucketWith = (
   };
 };
 
-const sent = (send: { mock: { calls: unknown[][] } }) =>
+const sent = (send: { mock: { calls: [Command][] } }) =>
   send.mock.calls.map((call) => {
-    const [command] = call as [Command];
+    const [command] = call;
 
     return [command.constructor.name, command.input.Key];
   });
@@ -200,7 +211,7 @@ describe('S3AttachmentStore', () => {
         FILE.copiedAs(AttachmentId.of('file_2')),
       );
 
-      const [copy] = send.mock.calls[0] as [CopyObjectCommand];
+      const copy = copyIn(send.mock.calls[0]);
       expect(copy.input).toEqual({
         Bucket: 'files',
         CopySource: `files/${STORED}`,
@@ -221,7 +232,7 @@ describe('S3AttachmentStore', () => {
         ['CopyObjectCommand', STORED],
         ['DeleteObjectCommand', PENDING],
       ]);
-      const [copy] = send.mock.calls[1] as [CopyObjectCommand];
+      const copy = copyIn(send.mock.calls[1]);
       expect(copy.input).toEqual({
         Bucket: 'files',
         CopySource: `files/${PENDING}`,
@@ -333,9 +344,7 @@ describe('S3AttachmentStore', () => {
         FILE.copiedAs(AttachmentId.of('file_2')),
       );
 
-      const [copy] = send.mock.calls[send.mock.calls.length - 1] as [
-        CopyObjectCommand,
-      ];
+      const copy = copyIn(send.mock.calls[send.mock.calls.length - 1]);
       expect(copy.input).toMatchObject({
         CopySource: `files/${STORED}`,
         Key: `${PREVIEW}/workspaces/ws_1/attachments/file_2`,

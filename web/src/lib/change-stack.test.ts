@@ -218,7 +218,7 @@ describe('filesOf', () => {
     const [layer] = stack().cohorts[0]?.layers ?? [];
     const [file] = filesOf(stack(), layer);
 
-    expect(file?.note).toBe('Adds the invitation model.');
+    expect(file.note).toBe('Adds the invitation model.');
   });
 });
 
@@ -226,10 +226,10 @@ describe('patchOf', () => {
   it('heads a hunk with the paths either side of it', () => {
     const [added, renamed] = stack().files;
 
-    expect(patchOf(added as never, added?.hunks[0] as never)).toMatch(
+    expect(patchOf(added, added.hunks[0])).toMatch(
       /^--- \/dev\/null\n\+\+\+ b\/src\/invite\.ts\n@@/,
     );
-    expect(patchOf(renamed as never, renamed?.hunks[0] as never)).toMatch(
+    expect(patchOf(renamed, renamed.hunks[0])).toMatch(
       /^--- a\/src\/router\.ts\n\+\+\+ b\/src\/routes\.ts\n/,
     );
   });
@@ -311,7 +311,7 @@ describe('answeredIn', () => {
     );
     const layer = stacks[0]?.cohorts[0]?.layers[1];
 
-    expect(layer?.questions[0]?.answered).toEqual(MISSED);
+    expect(layer.questions[0]?.answered).toEqual(MISSED);
     expect(toReadAgain(layer)).toBe(true);
     expect(stacks[1]).toBe(other);
   });

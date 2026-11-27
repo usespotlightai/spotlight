@@ -1,4 +1,5 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   isSlug,
   MAX_SLUG_LENGTH,
@@ -12,7 +13,8 @@ export class Opening {
 
   static of(input: { lineRole: string; station?: string | null }): Opening {
     const lineRole = input.lineRole.trim();
-    const station = input.station?.trim() || null;
+    const written = input.station?.trim();
+    const station = !nonEmpty(written) ? null : written;
 
     if (!isSlug(lineRole)) {
       throw new InvalidIdentifierError(

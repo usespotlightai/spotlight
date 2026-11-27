@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -33,7 +34,7 @@ export const workAccessSeeing = (
         }
       : null;
 
-  return {
+  return partial<WorkAccess>({
     seenTeam,
     seesTeam: async (teamId: TeamId, viewer: UserId) =>
       (await seenTeam(teamId, viewer)) !== null,
@@ -55,5 +56,5 @@ export const workAccessSeeing = (
     isAdminOf: async () => over.admin ?? false,
     membersOf: async () => TeamMembers.of(over.members ?? []),
     inboxOf: async () => null,
-  } as unknown as WorkAccess;
+  });
 };

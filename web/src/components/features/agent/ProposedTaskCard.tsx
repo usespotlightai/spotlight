@@ -20,6 +20,7 @@ import {
   proposalTitleOf,
 } from '@/lib/chat';
 import { DockedContext } from '@/lib/decision-tray';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type ProposedTaskCardProps = {
@@ -162,7 +163,7 @@ function ProposalOutcome({
         <DecisionButton
           variant="default"
           data-focus-next
-          disabled={pending || !proposal.stationName}
+          disabled={pending || !nonEmpty(proposal.stationName)}
           onClick={onCreate}
           aria-describedby={titleId}
         >

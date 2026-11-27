@@ -3,13 +3,14 @@ import type {
   RunDisposition,
 } from '@insights/application/ports/run-acceptance.port';
 import type { StationFactsPort } from '@insights/application/ports/station-facts.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export class RunAcceptance implements RunAcceptancePort {
   constructor(private readonly facts: StationFactsPort) {}
 
   async acceptedAfter(runId: string): Promise<boolean> {
-    const [fact] = await this.facts.ofRuns([RunId.of(runId)]);
+    const fact = firstOf(await this.facts.ofRuns([RunId.of(runId)]));
 
     return fact?.disposition === 'accepted';
   }

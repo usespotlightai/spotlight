@@ -1,4 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type Person = {
@@ -28,7 +29,9 @@ export function PersonAvatar({
         className,
       )}
     >
-      {person.image && <AvatarImage src={person.image} alt={person.name} />}
+      {nonEmpty(person.image) && (
+        <AvatarImage src={person.image} alt={person.name} />
+      )}
 
       <AvatarFallback className="bg-card text-[0.625rem] text-muted-foreground uppercase group-data-[size=sm]/avatar:text-[0.625rem]">
         {initial}

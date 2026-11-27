@@ -6,6 +6,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { memory } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, desc, eq, sql } from 'drizzle-orm';
 
@@ -36,7 +37,7 @@ export class DrizzleMemoryListing implements MemoryListingPort {
           criteria.repository
             ? eq(memory.repository, criteria.repository.value)
             : undefined,
-          criteria.path
+          nonEmpty(criteria.path)
             ? sql`exists (select 1 from jsonb_array_elements_text(${memory.paths}) as entry(path) where starts_with(entry.path, ${criteria.path}))`
             : undefined,
         ),

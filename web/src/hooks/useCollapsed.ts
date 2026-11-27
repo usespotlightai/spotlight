@@ -24,10 +24,15 @@ const store = (storageKey: string, ids: readonly string[]) => {
   } catch {}
 };
 
+type CollapsedResult = {
+  isExpanded: (id: string) => boolean;
+  toggle: (id: string) => void;
+};
+
 export function useCollapsed(
   storageKey: string,
   collapsedByDefault: readonly string[] = [],
-) {
+): CollapsedResult {
   const [collapsed, setCollapsed] = useState<readonly string[]>(() =>
     readStored(storageKey, collapsedByDefault),
   );

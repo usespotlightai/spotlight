@@ -12,6 +12,7 @@ import type {
 import type { KeyOverlay } from '@platform/storage/key-overlay';
 import type { S3Clients } from '@platform/storage/s3-clients';
 import { missing } from '@platform/storage/s3-objects';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const CONTENT_TYPE = 'application/json';
@@ -89,7 +90,7 @@ export class S3TerraformStateBodies implements TerraformStateBodiesPort {
         }),
       );
       const keys = (listed.Contents ?? []).flatMap(({ Key }) =>
-        Key ? [{ Key }] : [],
+        nonEmpty(Key) ? [{ Key }] : [],
       );
 
       if (keys.length > 0) {
@@ -102,6 +103,6 @@ export class S3TerraformStateBodies implements TerraformStateBodiesPort {
       }
 
       token = listed.IsTruncated ? listed.NextContinuationToken : undefined;
-    } while (token);
+    } while (nonEmpty(token));
   }
 }

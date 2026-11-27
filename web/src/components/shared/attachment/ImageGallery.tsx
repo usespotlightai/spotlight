@@ -80,7 +80,7 @@ const fitted = (
     height: window.innerHeight - MARGIN_Y * 2,
   };
 
-  if (!image?.naturalWidth || !image.naturalHeight) {
+  if (image === null || image.naturalWidth === 0 || image.naturalHeight === 0) {
     return room;
   }
 
@@ -167,6 +167,11 @@ const play = (
         .finished.catch(() => undefined)
     : Promise.resolve();
 
+const entryAt = (
+  entries: readonly GalleryEntry[],
+  at: number,
+): GalleryEntry | undefined => entries[at];
+
 const inDocumentOrder = (a: GalleryEntry, b: GalleryEntry) =>
   a.button.compareDocumentPosition(b.button) & Node.DOCUMENT_POSITION_FOLLOWING
     ? -1
@@ -190,9 +195,9 @@ export function ImageGallery({ children }: { children: ReactNode }) {
 
   const sorted = useMemo(() => [...entries].sort(inDocumentOrder), [entries]);
   const index = sorted.findIndex((each) => each.id === openId);
-  const current = sorted[index];
-  const previous = sorted[index - 1];
-  const next = sorted[index + 1];
+  const current = entryAt(sorted, index);
+  const previous = entryAt(sorted, index - 1);
+  const next = entryAt(sorted, index + 1);
 
   const register = useCallback((entry: GalleryEntry) => {
     setEntries((was) => [...was.filter((each) => each.id !== entry.id), entry]);

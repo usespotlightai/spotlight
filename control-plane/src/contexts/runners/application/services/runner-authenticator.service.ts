@@ -14,6 +14,7 @@ import { CredentialSource } from '@runners/domain/value-objects/credential-sourc
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 export class RunnerAuthenticator implements RunnerAuthenticatorPort {
@@ -49,11 +50,13 @@ export class RunnerAuthenticator implements RunnerAuthenticatorPort {
   ): Promise<RunnerPool | RunnerTrust | null> {
     const { bearer, trust } = credential;
 
-    if (!bearer) {
+    if (!nonEmpty(bearer)) {
       return null;
     }
 
-    return trust?.trim() ? this.trusted(trust, bearer) : this.pooled(bearer);
+    return trust !== undefined && trust.trim() !== ''
+      ? this.trusted(trust, bearer)
+      : this.pooled(bearer);
   }
 
   private async pooled(token: string): Promise<RunnerPool | null> {

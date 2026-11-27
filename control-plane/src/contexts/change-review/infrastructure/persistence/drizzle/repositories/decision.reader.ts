@@ -21,6 +21,7 @@ import {
 } from '@change-review/infrastructure/persistence/drizzle/schemas/decision.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import {
@@ -108,11 +109,13 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async ofTask(taskId: TaskId): Promise<TaskDecisionsDto | null> {
-    const [set] = await this.context.db
-      .select()
-      .from(decisionSet)
-      .where(eq(decisionSet.taskId, taskId.value))
-      .limit(1);
+    const set = firstOf(
+      await this.context.db
+        .select()
+        .from(decisionSet)
+        .where(eq(decisionSet.taskId, taskId.value))
+        .limit(1),
+    );
 
     if (!set) {
       return null;

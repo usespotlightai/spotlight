@@ -1,10 +1,21 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { myEmailKeys } from '@/hooks/api/useMyEmails';
-import { resendMyEmailVerification } from '@/lib/api';
+import {
+  resendMyEmailVerification,
+  type UserEmailResponseDto,
+} from '@/lib/api';
 import { messageOf } from '@/lib/error';
 
-export function useResendMyEmailVerification() {
+export function useResendMyEmailVerification(): UseMutationResult<
+  UserEmailResponseDto,
+  Error,
+  string
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

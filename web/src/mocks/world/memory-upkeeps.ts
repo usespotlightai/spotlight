@@ -1,6 +1,5 @@
 import type {
   MemoryUpkeepResponseDto,
-  TeamMemoryResponseDto,
   UpkeepProposalResponseDto,
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
@@ -10,9 +9,10 @@ import { MEMORY_SEED } from '@/mocks/world/team-memories';
 export const UPKEEP_ID = 'upkeep_weekly';
 
 const named = (id: string) => {
-  const found = MEMORY_SEED[PLATFORM_ID]?.find(
-    (each) => each.id === id,
-  ) as TeamMemoryResponseDto;
+  const found = MEMORY_SEED[PLATFORM_ID]?.find((each) => each.id === id);
+  if (found === undefined) {
+    throw new Error(`No seeded memory ${id}.`);
+  }
 
   return {
     id: found.id,

@@ -1,7 +1,7 @@
 import { memory } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
-import { and, eq, gt, isNull, lte, or } from 'drizzle-orm';
+import { and, eq, gt, isNull, lte, or, type SQL } from 'drizzle-orm';
 
-export const activeAsOf = (at: Date | null) =>
+export const activeAsOf = (at: Date | null): SQL | undefined =>
   at
     ? and(
         lte(memory.approvedAt, at),

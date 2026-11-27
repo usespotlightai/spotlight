@@ -1,4 +1,5 @@
 import { formatStation, type StationNames } from '@/lib/insights';
+import { nonEmpty } from '@/lib/non-empty';
 
 type StationGroupNameProps = {
   stationId: string;
@@ -13,7 +14,7 @@ export function StationGroupName({ stationId, names }: StationGroupNameProps) {
       <span className="truncate font-medium text-foreground">
         {formatStation(names, stationId)}
       </span>
-      {line && <span className="text-muted-foreground">{line}</span>}
+      {nonEmpty(line) && <span className="text-muted-foreground">{line}</span>}
     </p>
   );
 }

@@ -24,17 +24,13 @@ import { ProblemException } from '@platform/http/resources/problem.exception';
 import { ProblemFilter } from '@platform/http/resources/problem.filter';
 import { ProposeSearchCandidateCommand } from '@replays/application/commands/propose-search-candidate.command';
 import type { SearchCandidateProposed } from '@replays/application/dto/replay-outcomes.dto';
+import { fieldsOf } from '@replays/presentation/http/controllers/requests';
 import {
   ProposeSearchCandidateRequestDto,
   SearchCandidateProposedResponseDto,
 } from '@replays/presentation/http/dto/searches.response.dto';
 
 const CANDIDATE = 'search candidate';
-
-const fieldsOf = (body: unknown): Record<string, unknown> =>
-  typeof body === 'object' && body !== null && !Array.isArray(body)
-    ? (body as Record<string, unknown>)
-    : {};
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({

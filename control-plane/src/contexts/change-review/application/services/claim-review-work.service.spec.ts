@@ -10,7 +10,7 @@ import type { PushDiffRepository } from '@change-review/domain/repositories/push
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha as sha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
@@ -22,6 +22,7 @@ import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import type { ReviewWork } from '@runs/application/ports/review-work.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
@@ -115,8 +116,6 @@ const waitingCheck = (placement = RunnerPlacement.anywhere()) => {
   });
 };
 
-const sha = (digit: string) => CommitSha.parsed(digit.repeat(40)) as CommitSha;
-
 const pushDiff = (id = 'diff_1', placement = RunnerPlacement.anywhere()) =>
   PushDiff.record({
     id: PushDiffId.of(id),
@@ -142,10 +141,12 @@ const diffsOf = (
 
   return {
     saved,
-    repository: {
+    repository: partial<PushDiffRepository>({
       waitingIn: async () => [...stored.values()],
       reservedFor: async (runner: RunnerId) =>
-        [...stored.values()].filter((each) => each.reservation?.isFor(runner)),
+        [...stored.values()].filter(
+          (each) => each.reservation?.isFor(runner) === true,
+        ),
       find: async (id: PushDiffId) => stored.get(id.value) ?? null,
       save: async (diff: PushDiff) => {
         if (conflicts.includes(diff.id.value)) {
@@ -154,15 +155,15 @@ const diffsOf = (
         saved.push(diff);
         stored.set(diff.id.value, diff);
       },
-    } as unknown as PushDiffRepository,
+    }),
   };
 };
 
-const NO_DIFFS = {
+const NO_DIFFS = partial<PushDiffRepository>({
   waitingIn: async () => [],
   reservedFor: async () => [],
   find: async () => null,
-} as unknown as PushDiffRepository;
+});
 
 const reservedFor = (runner: RunnerId) =>
   waitingCheck().reservedFor(runner, PoolId.of('pool_burst'), NOW);
@@ -175,13 +176,15 @@ const claimingReserved = (found: StackCheck | null) => {
     saved,
     listedFor,
     service: new ClaimReviewWork(
-      {
+      partial<StackCheckRepository>({
         reservedFor: listedFor,
         save: async (check: StackCheck) => {
           saved.push(check);
         },
-      } as unknown as StackCheckRepository,
-      { find: async () => completed() } as unknown as ChangeStackRepository,
+      }),
+      partial<ChangeStackRepository>({
+        find: async () => completed(),
+      }),
       { patchOf: () => 'diff' },
       { inTransaction: (work) => work() },
       NO_DIFFS,
@@ -197,9 +200,9 @@ describe('ClaimReviewWork', () => {
     const find = vi.fn();
 
     const claimed = await new ClaimReviewWork(
-      { waitingIn } as unknown as StackCheckRepository,
-      { find } as unknown as ChangeStackRepository,
-      {} as PatchWriterPort,
+      partial<StackCheckRepository>({ waitingIn }),
+      partial<ChangeStackRepository>({ find }),
+      partial<PatchWriterPort>({}),
       { inTransaction: (work) => work() },
       NO_DIFFS,
     ).claimNext(WorkspaceId.of('ws_1'), RunnerId.of('runner_1'), LAPTOP, NOW);
@@ -226,13 +229,15 @@ describe('ClaimReviewWork', () => {
     const saved: StackCheck[] = [];
 
     await new ClaimReviewWork(
-      {
+      partial<StackCheckRepository>({
         waitingIn: async () => [later, first],
         save: async (check: StackCheck) => {
           saved.push(check);
         },
-      } as unknown as StackCheckRepository,
-      { find: async () => completed() } as unknown as ChangeStackRepository,
+      }),
+      partial<ChangeStackRepository>({
+        find: async () => completed(),
+      }),
       { patchOf: () => 'diff' },
       { inTransaction: (work) => work() },
       NO_DIFFS,
@@ -258,7 +263,7 @@ describe('ClaimReviewWork', () => {
     const saved: StackCheck[] = [];
 
     const claimed = await new ClaimReviewWork(
-      {
+      partial<StackCheckRepository>({
         waitingIn: async () => [first, second],
         save: async (check: StackCheck) => {
           if (check.stackId.equals(first.stackId)) {
@@ -266,8 +271,10 @@ describe('ClaimReviewWork', () => {
           }
           saved.push(check);
         },
-      } as unknown as StackCheckRepository,
-      { find: async () => completed() } as unknown as ChangeStackRepository,
+      }),
+      partial<ChangeStackRepository>({
+        find: async () => completed(),
+      }),
       { patchOf: () => 'diff' },
       { inTransaction: (work) => work() },
       NO_DIFFS,
@@ -341,7 +348,7 @@ describe('ClaimReviewWork', () => {
         removed,
         saved,
         service: new ClaimReviewWork(
-          {
+          partial<StackCheckRepository>({
             waitingIn: async () => [check],
             reservedFor: async () => [check],
             save: async (each: StackCheck) => {
@@ -350,8 +357,8 @@ describe('ClaimReviewWork', () => {
             remove: async (each: StackCheck) => {
               removed.push(each);
             },
-          } as unknown as StackCheckRepository,
-          { find: async () => null } as unknown as ChangeStackRepository,
+          }),
+          partial<ChangeStackRepository>({ find: async () => null }),
           { patchOf: () => 'diff' },
           { inTransaction: (work) => work() },
           NO_DIFFS,
@@ -388,7 +395,7 @@ describe('ClaimReviewWork', () => {
       return {
         saved,
         service: new ClaimReviewWork(
-          {
+          partial<StackCheckRepository>({
             find: async () => stored,
             save: async (check: StackCheck) => {
               if (left > 0) {
@@ -397,9 +404,9 @@ describe('ClaimReviewWork', () => {
               }
               saved.push(check);
             },
-          } as unknown as StackCheckRepository,
-          {} as ChangeStackRepository,
-          {} as PatchWriterPort,
+          }),
+          partial<ChangeStackRepository>({}),
+          partial<PatchWriterPort>({}),
           { inTransaction: (work) => work() },
           NO_DIFFS,
         ),
@@ -450,7 +457,7 @@ describe('ClaimReviewWork', () => {
       return {
         saved,
         service: new ClaimReviewWork(
-          {
+          partial<StackCheckRepository>({
             find: async () => found,
             save: async (check: StackCheck) => {
               if (left > 0) {
@@ -459,9 +466,9 @@ describe('ClaimReviewWork', () => {
               }
               saved.push(check);
             },
-          } as unknown as StackCheckRepository,
-          {} as ChangeStackRepository,
-          {} as PatchWriterPort,
+          }),
+          partial<ChangeStackRepository>({}),
+          partial<PatchWriterPort>({}),
           { inTransaction: (work) => work() },
           NO_DIFFS,
         ),
@@ -599,7 +606,7 @@ describe('ClaimReviewWork', () => {
         savedDiffs: pushes.saved,
         savedChecks,
         service: new ClaimReviewWork(
-          {
+          partial<StackCheckRepository>({
             waitingIn: async () => checks,
             reservedFor: async () => checks,
             find: async () => checks[0] ?? null,
@@ -607,8 +614,10 @@ describe('ClaimReviewWork', () => {
             save: async (check: StackCheck) => {
               savedChecks.push(check);
             },
-          } as unknown as StackCheckRepository,
-          { find: async () => completed() } as unknown as ChangeStackRepository,
+          }),
+          partial<ChangeStackRepository>({
+            find: async () => completed(),
+          }),
           { patchOf: () => 'diff' },
           { inTransaction: (work) => work() },
           pushes.repository,
@@ -751,7 +760,7 @@ describe('ClaimReviewWork', () => {
 
         return {
           saved,
-          repository: {
+          repository: partial<PushDiffRepository>({
             find: async () => leased,
             save: async (diff: PushDiff) => {
               if (!refused) {
@@ -760,15 +769,15 @@ describe('ClaimReviewWork', () => {
               }
               saved.push(diff);
             },
-          } as unknown as PushDiffRepository,
+          }),
         };
       };
       const unclaiming = savedOnce();
       const renewing = savedOnce();
       const serviceOf = (diffs: PushDiffRepository) =>
         new ClaimReviewWork(
-          {} as unknown as StackCheckRepository,
-          {} as unknown as ChangeStackRepository,
+          partial<StackCheckRepository>({}),
+          partial<ChangeStackRepository>({}),
           { patchOf: () => 'diff' },
           { inTransaction: (work) => work() },
           diffs,
@@ -793,11 +802,11 @@ describe('ClaimReviewWork', () => {
         save: vi.fn(async () => {}),
       };
       const service = new ClaimReviewWork(
-        checks as unknown as StackCheckRepository,
-        {} as ChangeStackRepository,
-        {} as PatchWriterPort,
+        partial<StackCheckRepository>(checks),
+        partial<ChangeStackRepository>({}),
+        partial<PatchWriterPort>({}),
         { inTransaction: (work) => work() },
-        diffs as unknown as PushDiffRepository,
+        partial<PushDiffRepository>(diffs),
       );
 
       await service.unclaim(STACK_WORK, RUNNER, NOW);

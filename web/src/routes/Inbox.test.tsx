@@ -5,9 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import { Inbox } from '@/routes/Inbox';
+import { htmlElement } from '@/test/elements';
 
 const waiting = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 const resolve = vi.fn();
 const reopen = vi.fn();
@@ -773,7 +774,7 @@ describe('Inbox', () => {
       const row = screen
         .getByText('The search for a better Build config stalled')
         .closest('[data-list-item]');
-      fireEvent.pointerEnter(row as HTMLElement);
+      fireEvent.pointerEnter(htmlElement(row));
       press('e');
 
       expect(resolve).toHaveBeenCalledTimes(1);

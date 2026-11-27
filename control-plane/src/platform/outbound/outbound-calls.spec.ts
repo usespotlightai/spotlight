@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import { OutboundCalls } from '@platform/outbound/outbound-calls';
+import { portOf } from '@platform/testing/port-of.fake-spec';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('OutboundCalls', () => {
@@ -24,7 +24,7 @@ describe('OutboundCalls', () => {
     await new Promise<void>((resolve) =>
       server.listen(0, '127.0.0.1', resolve),
     );
-    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    origin = `http://127.0.0.1:${portOf(server)}`;
     calls.onModuleInit();
   });
 
@@ -71,7 +71,7 @@ describe('OutboundCalls', () => {
     await new Promise<void>((resolve) =>
       closed.listen(0, '127.0.0.1', resolve),
     );
-    const { port } = closed.address() as AddressInfo;
+    const port = portOf(closed);
     await new Promise((resolve) => closed.close(resolve));
 
     await fetch(`http://127.0.0.1:${port}/`).catch(() => undefined);

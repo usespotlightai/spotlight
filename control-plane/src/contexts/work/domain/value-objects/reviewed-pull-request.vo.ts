@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
@@ -23,7 +24,7 @@ export class ReviewedPullRequest {
     const repository = this.url.repository;
     const ref = this.url.headRef;
 
-    return repository && ref ? { repository, ref } : null;
+    return repository && nonEmpty(ref) ? { repository, ref } : null;
   }
 
   equals(other: ReviewedPullRequest): boolean {

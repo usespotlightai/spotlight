@@ -5,6 +5,7 @@ import { useSendMessage, useSendTaskMessage } from '@/hooks/api/useSendMessage';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useSharedDraft } from '@/hooks/useSharedDraft';
+import { nonEmpty } from '@/lib/non-empty';
 import { LINE_SETS_REPOSITORIES, type YourMessage } from '@/lib/run';
 
 type Target =
@@ -95,7 +96,9 @@ export function RunComposer({
           because={LINE_SETS_REPOSITORIES}
         />
       }
-      onStop={runId ? () => stop.mutate({ teamId, runId }) : undefined}
+      onStop={
+        nonEmpty(runId) ? () => stop.mutate({ teamId, runId }) : undefined
+      }
       onSend={(
         { body, attachments, files, coAuthors, draftGeneration },
         restore,

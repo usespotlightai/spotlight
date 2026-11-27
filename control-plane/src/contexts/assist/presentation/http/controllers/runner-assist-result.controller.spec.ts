@@ -3,18 +3,21 @@ import type { AssistResultSubmitted } from '@assist/application/dto/assist-resul
 import { RunnerAssistResultController } from '@assist/presentation/http/controllers/runner-assist-result.controller';
 import type { CommandBus } from '@nestjs/cqrs';
 import { ProblemException } from '@platform/http/resources/problem.exception';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
 const submitting = (answer: AssistResultSubmitted) => {
   const sent: unknown[] = [];
-  const controller = new RunnerAssistResultController({
-    execute: async (command: unknown) => {
-      sent.push(command);
-      return answer;
-    },
-  } as unknown as CommandBus);
+  const controller = new RunnerAssistResultController(
+    partial<CommandBus>({
+      execute: async (command: unknown) => {
+        sent.push(command);
+        return answer;
+      },
+    }),
+  );
 
   return { controller, sent };
 };
@@ -22,9 +25,11 @@ const submitting = (answer: AssistResultSubmitted) => {
 const problemOf = async (pending: Promise<unknown>) => {
   const thrown: unknown = await pending.catch((error: unknown) => error);
 
-  expect(thrown).toBeInstanceOf(ProblemException);
+  if (!(thrown instanceof ProblemException)) {
+    throw new Error('expected a ProblemException');
+  }
 
-  return (thrown as ProblemException).problem;
+  return thrown.problem;
 };
 
 describe('RunnerAssistResultController', () => {

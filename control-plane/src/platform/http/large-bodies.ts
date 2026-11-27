@@ -40,7 +40,9 @@ const parseLarge = json({
   },
 });
 
-export const largeBodiesOf = (app: INestApplication) => {
+export const largeBodiesOf = (
+  app: INestApplication,
+): ((request: Request, response: Response, next: NextFunction) => void) => {
   let takesLargeBody: ((method: string, path: string) => boolean) | null = null;
 
   return (request: Request, response: Response, next: NextFunction) => {

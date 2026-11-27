@@ -1,6 +1,7 @@
 import { StartGateUnavailableError } from '@runs/application/ports/run-start-gates.port';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -21,7 +22,7 @@ const TEAM = TeamId.of('team_1');
 
 const gating = (viewed = true, failure: Error | null = null) => {
   const of = vi.fn(async (taskId: string, runId: string | null) =>
-    viewed ? ({ taskId, runId } as unknown as TaskViewDto) : null,
+    viewed ? partial<TaskViewDto>({ taskId, runId }) : null,
   );
   const before = vi.fn(async () => {
     if (failure) {
@@ -35,8 +36,8 @@ const gating = (viewed = true, failure: Error | null = null) => {
     of,
     before,
     gate: new TaskRunStartGate(
-      { of } as unknown as TaskViewsPort,
-      { before } as unknown as LifecycleHooksPort,
+      partial<TaskViewsPort>({ of }),
+      partial<LifecycleHooksPort>({ before }),
     ),
   };
 };

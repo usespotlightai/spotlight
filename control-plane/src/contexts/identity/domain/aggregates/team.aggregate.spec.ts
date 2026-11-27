@@ -82,8 +82,10 @@ describe('Team', () => {
     const [raised, ...rest] = createdAtSignUp().pullEvents();
 
     expect(rest).toHaveLength(0);
-    expect(raised).toBeInstanceOf(TeamCreated);
-    expect((raised as TeamCreated).workspaceId).toEqual(WORKSPACE);
+    if (!(raised instanceof TeamCreated)) {
+      throw new Error('expected a TeamCreated');
+    }
+    expect(raised.workspaceId).toEqual(WORKSPACE);
   });
 
   it('keeps whether it was made at sign-up or by configuration', () => {

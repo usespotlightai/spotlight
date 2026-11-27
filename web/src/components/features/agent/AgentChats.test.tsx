@@ -7,9 +7,10 @@ import { AgentChats } from '@/components/features/agent/AgentChats';
 import { TabPane } from '@/components/shell/tabs/TabPane';
 import { useAppTabs } from '@/hooks/useAppTabs';
 import type { ChatSummary } from '@/lib/chat';
+import { nonEmpty } from '@/lib/non-empty';
 
 const chats = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 const older = vi.fn<(...args: unknown[]) => unknown>();
 const load = vi.fn();
@@ -35,7 +36,7 @@ vi.mock('@/components/features/agent/NewChatComposer', () => ({
   }) => (
     <>
       <p>Plan with the agent</p>
-      {defaultPrompt && <p>{defaultPrompt}</p>}
+      {nonEmpty(defaultPrompt) && <p>{defaultPrompt}</p>}
       {defaultRepositories.length > 0 && (
         <p>{defaultRepositories.join(', ')}</p>
       )}

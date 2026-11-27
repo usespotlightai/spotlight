@@ -116,7 +116,7 @@ const matchSchema = z
 export const hookSchema = z
   .object({
     key: key('migrations-need-a-dba'),
-    on: z.enum(HOOK_EVENTS as [string, ...string[]], {
+    on: z.enum(HOOK_EVENTS, {
       message: `is one of ${HOOK_EVENTS.join(', ')}`,
     }),
     match: matchSchema.default({

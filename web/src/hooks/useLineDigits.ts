@@ -5,7 +5,7 @@ import type { HoveredLine } from '@/components/shared/PatchCodeDiff';
 export function useLineDigits(
   inside: RefObject<HTMLElement | null>,
   hovered: HoveredLine,
-) {
+): number {
   const [digits, setDigits] = useState(1);
 
   useEffect(() => {

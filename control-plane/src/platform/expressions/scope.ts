@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 export type SchemaFields = { readonly [field: string]: string | SchemaFields };
 
 export type Declared = string | { readonly schema: SchemaFields };
@@ -36,7 +37,8 @@ export class Scope {
   }
 
   fieldsAt(path: readonly string[]): readonly string[] {
-    const [name, ...within] = path;
+    const name = firstOf(path);
+    const within = path.slice(1);
     const declared = name === undefined ? undefined : this.declared[name];
     let fields: string | SchemaFields | undefined =
       typeof declared === 'object' ? declared.schema : declared;

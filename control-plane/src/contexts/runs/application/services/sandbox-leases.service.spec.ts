@@ -4,6 +4,7 @@ import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -45,8 +46,8 @@ const leasing = (run: Run | null) => {
   };
   const runs = { findById: vi.fn(async () => run) };
   const leases = new SandboxLeases(
-    sandboxes as unknown as SandboxesPort,
-    runs as unknown as RunRepository,
+    partial<SandboxesPort>(sandboxes),
+    partial<RunRepository>(runs),
     { now: () => NOW, sleep: async () => {} },
   );
 

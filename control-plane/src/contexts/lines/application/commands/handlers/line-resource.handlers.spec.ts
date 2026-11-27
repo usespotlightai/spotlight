@@ -20,6 +20,7 @@ import { LineCompiler } from '@lines/infrastructure/lines/line.compile';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import {
   actorFor,
   changeActorIn,
@@ -120,19 +121,14 @@ const creates = () =>
 
 const lines = (existing: Line | null, thenAt: Line | null = existing) => {
   const find = vi.fn(async () => existing);
+  const save = vi.fn(async (saved: Line) => {
+    if (saved.isDeleted && !thenAt) {
+      return;
+    }
+    find.mockResolvedValue(thenAt);
+  });
 
-  return {
-    find,
-    save: vi.fn(async (saved: Line) => {
-      if (saved.isDeleted && !thenAt) {
-        return;
-      }
-      find.mockResolvedValue(thenAt);
-    }),
-  } as unknown as LineRepository & {
-    find: typeof find;
-    save: ReturnType<typeof vi.fn>;
-  };
+  return { ...partial<LineRepository>({ find, save }), find, save };
 };
 
 describe('CreateLineHandler', () => {
@@ -148,7 +144,7 @@ describe('CreateLineHandler', () => {
       access(over.isAdmin),
       teams,
       new LineCompiler(),
-      { create: apply } as unknown as ApplyLines,
+      partial<ApplyLines>({ create: apply }),
       creates(),
       transaction,
       catalog,
@@ -283,7 +279,7 @@ describe('UpdateLineHandler', () => {
       access(over.isAdmin),
       new LineCompiler(),
       stored,
-      { reconcile } as unknown as ApplyLines,
+      partial<ApplyLines>({ reconcile }),
       transaction,
       catalog,
     );
@@ -395,13 +391,13 @@ describe('DeleteLineHandler', () => {
     const { remove, stored } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((stored.save.mock.calls[0] as [Line])[0].isDeleted).toBe(true);
+    expect(stored.save.mock.calls[0][0].isDeleted).toBe(true);
   });
 
   it('will not delete a line while a task is on it', async () => {
     const { remove, stored, existing } = deleting();
     const [, working] = existing.stations;
-    const busy = deleting({ [working?.key.value ?? '']: 1 });
+    const busy = deleting({ [working.key.value]: 1 });
 
     expect(await busy.remove()).toMatchObject({ outcome: 'in-use' });
     expect(busy.stored.save).not.toHaveBeenCalled();

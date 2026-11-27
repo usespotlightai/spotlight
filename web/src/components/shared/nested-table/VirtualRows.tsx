@@ -31,7 +31,7 @@ export function VirtualRows({
   });
 
   const items = virtualizer.getVirtualItems();
-  const first = items[0];
+  const first = items.at(0);
   const last = items.at(-1);
   const before = first ? first.start - margin : 0;
   const after = last ? virtualizer.getTotalSize() - last.end : 0;

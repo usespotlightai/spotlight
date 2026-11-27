@@ -12,6 +12,7 @@ import type { Avatar } from '@identity/domain/aggregates/avatar.aggregate';
 import { AvatarVersionConflictError } from '@identity/domain/exceptions/avatar-version-conflict.error';
 import { AvatarDigest } from '@identity/domain/value-objects/avatar-digest.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { describe, expect, it } from 'vitest';
 
@@ -54,7 +55,7 @@ describe('SetAvatarHandler', () => {
     });
 
     expect(put).toHaveBeenCalledWith(OWNER, NEW_IMAGE, expect.anything());
-    const added = add.mock.calls[0]?.[0];
+    const added = firstOf(add.mock.calls)?.[0];
     expect(added?.shows(AvatarDigest.of(DIGEST))).toBe(true);
     expect(added?.image).toEqual(NEW_IMAGE);
     expect(added?.pullEvents().map((each) => each.kind)).toEqual([
@@ -76,7 +77,9 @@ describe('SetAvatarHandler', () => {
 
     expect(add).not.toHaveBeenCalled();
     expect(
-      save.mock.calls[0]?.[0].pullEvents().map((each) => each.kind),
+      firstOf(save.mock.calls)?.[0]
+        .pullEvents()
+        .map((each) => each.kind),
     ).toEqual(['avatar.replaced']);
   });
 

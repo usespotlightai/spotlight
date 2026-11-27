@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import { FilesLoader } from '@work/application/services/files-loader.service';
@@ -44,11 +45,8 @@ describe('FilesLoader', () => {
       }),
     ]);
 
-    const [, requested] = files.received.mock.calls[0] as unknown as [
-      unknown,
-      readonly AttachmentId[],
-    ];
-    expect(requested.map((each) => each.value)).toEqual(['file_1']);
+    const requested = firstOf(files.received.mock.calls)?.[1];
+    expect(requested?.map((each) => each.value)).toEqual(['file_1']);
   });
 
   it('rejects an id that names anywhere but a file', async () => {

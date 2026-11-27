@@ -2,6 +2,7 @@ import {
   PULL_REQUEST_TYPES,
   type PullRequestType,
 } from '@insights/domain/value-objects/pull-request-type';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export interface PullRequestText {
   readonly changeTitles: readonly string[];
@@ -67,13 +68,14 @@ const typeOfTitle = (title: string): PullRequestType | null => {
   const conventional = CONVENTIONAL.exec(title)?.[1]?.toLowerCase();
 
   return (
-    (conventional ? CONVENTIONAL_TYPES.get(conventional) : undefined) ??
-    firstMatch(title, LEADING_WORDS)
+    (nonEmpty(conventional)
+      ? CONVENTIONAL_TYPES.get(conventional)
+      : undefined) ?? firstMatch(title, LEADING_WORDS)
   );
 };
 
 const typeOfBranch = (branch: string | null): PullRequestType | null =>
-  branch ? firstMatch(branch, BRANCH_PREFIXES) : null;
+  nonEmpty(branch) ? firstMatch(branch, BRANCH_PREFIXES) : null;
 
 const mostOf = (types: readonly PullRequestType[]): PullRequestType | null => {
   const counts = new Map<PullRequestType, number>();

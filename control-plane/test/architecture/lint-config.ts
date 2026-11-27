@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { parsedAs } from '../support/body';
 import { SOURCE_ROOT } from './source-index';
 
 export type ImportPattern = {
@@ -20,6 +21,14 @@ export type ImportOverride = {
   readonly patterns: readonly ImportPattern[];
 };
 
+const isImportPattern = (value: unknown): value is ImportPattern =>
+  typeof value === 'object' &&
+  value !== null &&
+  'group' in value &&
+  Array.isArray(value.group) &&
+  'message' in value &&
+  typeof value.message === 'string';
+
 const patternsOf = (setting: unknown): readonly ImportPattern[] => {
   if (!Array.isArray(setting)) {
     return [];
@@ -29,19 +38,18 @@ const patternsOf = (setting: unknown): readonly ImportPattern[] => {
 
   return typeof options === 'object' &&
     options !== null &&
-    'patterns' in options
-    ? (options.patterns as readonly ImportPattern[])
+    'patterns' in options &&
+    Array.isArray(options.patterns)
+    ? options.patterns.filter(isImportPattern)
     : [];
 };
 
 export const IMPORT_OVERRIDES: readonly ImportOverride[] = (
-  (
-    JSON.parse(
-      readFileSync(join(SOURCE_ROOT, '..', '.oxlintrc.json'), 'utf8'),
-    ) as { readonly overrides?: readonly Override[] }
+  parsedAs<{ readonly overrides?: readonly Override[] }>(
+    readFileSync(join(SOURCE_ROOT, '..', '.oxlintrc.json'), 'utf8'),
   ).overrides ?? []
 )
-  .filter((override) => override.rules?.['no-restricted-imports'])
+  .filter((override) => Boolean(override.rules?.['no-restricted-imports']))
   .map((override) => ({
     files: override.files ?? [],
     excludeFiles: override.excludeFiles ?? [],

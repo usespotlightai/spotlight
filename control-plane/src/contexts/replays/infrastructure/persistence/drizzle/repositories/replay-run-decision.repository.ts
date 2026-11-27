@@ -10,10 +10,12 @@ import {
   replay,
   replayRunDecision,
 } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, lt, notExists, type SQL } from 'drizzle-orm';
+import { and, asc, eq, lt, notExists } from 'drizzle-orm';
 
 type DecisionRow = typeof replayRunDecision.$inferSelect;
 
@@ -29,7 +31,7 @@ const toDecision = (row: DecisionRow): ReplayRunDecision =>
     unreplayableReason: row.unreplayableReason,
     trial: row.movesOnAfter
       ? {
-          fingerprint: row.trialFingerprint
+          fingerprint: nonEmpty(row.trialFingerprint)
             ? StationFingerprint.of(row.trialFingerprint)
             : null,
           movesOnAfter: MovesOnWords.of(row.movesOnAfter),
@@ -46,16 +48,16 @@ const columnsOf = (decision: ReplayRunDecision) => ({
 });
 
 @Injectable()
-export class DrizzleReplayRunDecisionRepository
-  implements ReplayRunDecisionRepository
-{
+export class DrizzleReplayRunDecisionRepository implements ReplayRunDecisionRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async find(runId: RunId): Promise<ReplayRunDecision | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(replayRunDecision)
-      .where(eq(replayRunDecision.runId, runId.value));
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(replayRunDecision)
+        .where(eq(replayRunDecision.runId, runId.value)),
+    );
 
     return found ? toDecision(found) : null;
   }
@@ -125,7 +127,7 @@ export class DrizzleReplayRunDecisionRepository
     const at = and(
       eq(replayRunDecision.runId, decision.runId.value),
       eq(replayRunDecision.version, decision.version),
-    ) as SQL;
+    );
     const written = decision.isDeleted
       ? await this.context.db
           .delete(replayRunDecision)

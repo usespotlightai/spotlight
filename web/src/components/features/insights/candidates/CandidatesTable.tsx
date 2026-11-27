@@ -43,10 +43,10 @@ export function CandidatesTable({
       >
         <VirtualRows count={stations.length} estimate={STATION_ESTIMATE}>
           {(index) => {
-            const station = stations[index];
+            const station = stations.at(index);
 
             return (
-              station && (
+              station !== undefined && (
                 <CandidateStationRows
                   station={station}
                   names={names}

@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { RunLeasesWorker } from '@runs/presentation/workers/run-leases.worker';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { eq, inArray, ne } from 'drizzle-orm';
 import {
   afterAll,
@@ -16,6 +17,7 @@ import {
 } from 'vitest';
 
 import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf, deleteRunsOf } from './support/runners';
 import { requestedBySpec } from './support/runs';
@@ -101,17 +103,17 @@ describe('egress fetching a run’s secrets (e2e)', () => {
       })
       .expect(200);
 
-    return (
+    return bodyOf<{
+      token: string;
+      egressToken: string;
+      work: { run: { id: string } };
+    }>(
       await http()
         .post('/api/hosts/claim')
         .set('Authorization', `Bearer ${TOKEN}`)
         .send({ host: HOST, image: IMAGE })
-        .expect(200)
-    ).body as {
-      token: string;
-      egressToken: string;
-      work: { run: { id: string } };
-    };
+        .expect(200),
+    );
   };
 
   const fetchSecrets = (token: string, with_: string) =>
@@ -205,10 +207,12 @@ describe('egress fetching a run’s secrets (e2e)', () => {
       .expect(201)) as Answer<{ readonly id: string }>;
     const runId = ordered.body.id;
 
-    const [row] = await db
-      .select({ spec: schema.run.spec })
-      .from(schema.run)
-      .where(eq(schema.run.id, runId));
+    const row = firstOf(
+      await db
+        .select({ spec: schema.run.spec })
+        .from(schema.run)
+        .where(eq(schema.run.id, runId)),
+    );
     expect(row?.spec).toMatchObject({
       command: {
         env: { ANTHROPIC_API_KEY: 'spotlight-egress:ANTHROPIC_API_KEY' },
@@ -410,10 +414,12 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     await fetchSecrets(second.egressToken, to.written).expect(200);
     await fetchSecrets(second.egressToken, recipient().written).expect(409);
 
-    const [stored] = await db
-      .select({ attempt: schema.runGrants.attempt })
-      .from(schema.runGrants)
-      .where(eq(schema.runGrants.runId, runId));
+    const stored = firstOf(
+      await db
+        .select({ attempt: schema.runGrants.attempt })
+        .from(schema.runGrants)
+        .where(eq(schema.runGrants.runId, runId)),
+    );
     expect(stored?.attempt).toBe(2);
   });
 

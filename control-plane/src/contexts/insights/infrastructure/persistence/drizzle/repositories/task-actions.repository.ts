@@ -15,6 +15,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -29,7 +31,11 @@ const openingOf = (row: TaskActionsRow): TaskOpening | null => {
   if (!row.openedAt) {
     return null;
   }
-  if (!row.teamId || !row.lineId || !row.stationId) {
+  if (
+    !nonEmpty(row.teamId) ||
+    !nonEmpty(row.lineId) ||
+    !nonEmpty(row.stationId)
+  ) {
     throw new InconsistentStateError(
       'task actions',
       'were opened without saying on which team, line and station',
@@ -40,7 +46,7 @@ const openingOf = (row: TaskActionsRow): TaskOpening | null => {
     teamId: TeamId.of(row.teamId),
     lineId: LineId.of(row.lineId),
     stationId: StationId.of(row.stationId),
-    by: row.openedById ? UserId.of(row.openedById) : null,
+    by: nonEmpty(row.openedById) ? UserId.of(row.openedById) : null,
     at: row.openedAt,
   });
 };
@@ -85,9 +91,7 @@ const columnsOf = (taskActions: TaskActions) =>
   }) satisfies Partial<typeof taskAction.$inferInsert>;
 
 @Injectable()
-export class DrizzleTaskActionsRepository
-  implements TaskActionsRepository
-{
+export class DrizzleTaskActionsRepository implements TaskActionsRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -141,18 +145,18 @@ export class DrizzleTaskActionsRepository
   }
 
   async of(taskId: TaskId): Promise<TaskActions | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(taskAction)
-      .where(eq(taskAction.taskId, taskId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(taskAction)
+        .where(eq(taskAction.taskId, taskId.value))
+        .limit(1),
+    );
 
     return row ? toTaskActions(row) : null;
   }
 
-  async ofTasks(
-    taskIds: readonly TaskId[],
-  ): Promise<readonly TaskActions[]> {
+  async ofTasks(taskIds: readonly TaskId[]): Promise<readonly TaskActions[]> {
     if (taskIds.length === 0) {
       return [];
     }

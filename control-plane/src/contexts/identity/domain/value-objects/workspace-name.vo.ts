@@ -3,7 +3,7 @@ import { InvalidWorkspaceNameError } from '@identity/domain/exceptions/invalid-w
 const MAX_LENGTH = 100;
 
 export class WorkspaceName {
-  private readonly kind = 'workspace-name' as const;
+  private readonly kind = 'workspace-name';
 
   private constructor(readonly value: string) {}
 
@@ -23,6 +23,6 @@ export class WorkspaceName {
   }
 
   equals(other: WorkspaceName): boolean {
-    return this.value === other.value && this.kind === other.kind;
+    return this.value === other.value && other instanceof WorkspaceName;
   }
 }

@@ -1,5 +1,5 @@
 import type { Judging } from '@insights/domain/aggregates/judging.aggregate';
-import type { RunJudged } from '@insights/domain/events/run-judged.event';
+import { RunJudged } from '@insights/domain/events/run-judged.event';
 import { InvalidJudgingError } from '@insights/domain/exceptions/invalid-judging.error';
 import { JudgeEvidence } from '@insights/domain/services/judge-evidence';
 import {
@@ -7,6 +7,8 @@ import {
   queuedJudging,
   rubricOf,
 } from '@insights/judging.fake-spec';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { JudgingFailure } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import { WAIT_MS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -55,14 +57,14 @@ describe('Judging', () => {
 
   it('records the judge’s grounded verdict claim by claim', () => {
     const done = judged(oneClaim(), true);
-    const [event] = done.pullEvents() as RunJudged[];
+    const event = instanceOf(RunJudged, firstOf(done.pullEvents()));
 
     expect(done.hasPendingJob).toBe(false);
     expect(done.judgedAt).toEqual(NOW);
-    expect(event?.kind).toBe('judging.judged');
-    expect(event?.claimResults).toEqual([true]);
-    expect(event?.passThreshold).toBe(1);
-    expect(event?.reasons).toHaveLength(1);
+    expect(event.kind).toBe('judging.judged');
+    expect(event.claimResults).toEqual([true]);
+    expect(event.passThreshold).toBe(1);
+    expect(event.reasons).toHaveLength(1);
   });
 
   it('records each claim’s result with the rubric’s pass threshold', () => {
@@ -81,11 +83,11 @@ describe('Judging', () => {
       model: 'some/model',
       now: NOW,
     });
-    const [event] = done.pullEvents() as RunJudged[];
+    const event = instanceOf(RunJudged, firstOf(done.pullEvents()));
 
-    expect(event?.passThreshold).toBe(0.5);
-    expect(event?.claimResults).toEqual([true, false]);
-    expect(event?.reasons.map((each) => each.claim)).toEqual([0, 1]);
+    expect(event.passThreshold).toBe(0.5);
+    expect(event.claimResults).toEqual([true, false]);
+    expect(event.reasons.map((each) => each.claim)).toEqual([0, 1]);
   });
 
   it('retries later when every reason cites what is not there', () => {
@@ -111,14 +113,17 @@ describe('Judging', () => {
 
     expect(half.hasPendingJob).toBe(true);
     expect(mostlyGrounded.hasPendingJob).toBe(false);
-    expect((mostlyGrounded.pullEvents()[0] as RunJudged).reasons).toHaveLength(
-      2,
-    );
+    expect(
+      instanceOf(RunJudged, mostlyGrounded.pullEvents()[0]).reasons,
+    ).toHaveLength(2);
   });
 
   it('keeps what each cited step said, as the judge read it', () => {
-    const event = judged(oneClaim(), true).pullEvents()[0] as RunJudged;
-    const [citation] = event.reasons[0]?.citations ?? [];
+    const event = instanceOf(
+      RunJudged,
+      judged(oneClaim(), true).pullEvents()[0],
+    );
+    const citation = firstOf(event.reasons[0]?.citations ?? []);
 
     expect(event.seen.stepAt(citation?.step ?? -1)?.text).toBe(
       'Retrying in the request.',
@@ -208,13 +213,16 @@ describe('Judging', () => {
     const next = rubricOf(NEXT_RUBRIC_VERSION, ['It retries twice.']);
 
     const again = done.rejudged(next, NOW);
-    const [event] = judged(again, false).pullEvents() as RunJudged[];
+    const event = instanceOf(
+      RunJudged,
+      firstOf(judged(again, false).pullEvents()),
+    );
 
     expect(again.hasPendingJob).toBe(true);
     expect(again.origin).toBe('backfill');
     expect(again.rubric.version).toBe(NEXT_RUBRIC_VERSION);
-    expect(event?.origin).toBe('backfill');
-    expect(event?.rubricVersion).toBe(NEXT_RUBRIC_VERSION);
+    expect(event.origin).toBe('backfill');
+    expect(event.rubricVersion).toBe(NEXT_RUBRIC_VERSION);
   });
 
   it('re-judges neither a pending run nor one with the same claims', () => {

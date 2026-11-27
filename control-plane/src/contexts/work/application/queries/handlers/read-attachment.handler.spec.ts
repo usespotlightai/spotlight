@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type {
   AttachmentHolder,
   AttachmentReaderPort,
@@ -22,9 +23,9 @@ const reading = (holder: AttachmentHolder) =>
         holder,
       })),
     } satisfies AttachmentReaderPort,
-    {
+    partial<AttachmentStorePort>({
       link: vi.fn(async () => 'https://files.example/attachment_1'),
-    } as unknown as AttachmentStorePort,
+    }),
   );
 
 const read = (holder: AttachmentHolder, viewer: string) =>
@@ -40,7 +41,7 @@ const readingUnclaimed = (
   const handler = new ReadAttachmentHandler(
     access,
     { find: vi.fn(async () => null) } satisfies AttachmentReaderPort,
-    { linkPending } as unknown as AttachmentStorePort,
+    partial<AttachmentStorePort>({ linkPending }),
   );
 
   return {

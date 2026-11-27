@@ -15,6 +15,7 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -49,7 +50,10 @@ const carried = (
 };
 
 const reasonOf = (error: unknown): string => {
-  const cause = (error as { cause?: unknown } | null)?.cause ?? error;
+  const cause =
+    typeof error === 'object' && error !== null && 'cause' in error
+      ? (error.cause ?? error)
+      : error;
 
   return cause instanceof Error ? cause.message : String(cause);
 };
@@ -83,6 +87,7 @@ export class GitHubGitTransport implements RepositoryGitPort {
       // Stream the body because packfiles can be very large. Node must have duplex: 'half' to stream.
       ...(call.body
         ? {
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion
             body: Readable.toWeb(
               Readable.from(call.body),
             ) as unknown as BodyInit,
@@ -105,7 +110,7 @@ export class GitHubGitTransport implements RepositoryGitPort {
     const answered: Record<string, string> = {};
     for (const name of ANSWERED) {
       const value = response.headers.get(name);
-      if (value) {
+      if (nonEmpty(value)) {
         answered[name] = value;
       }
     }
@@ -115,6 +120,7 @@ export class GitHubGitTransport implements RepositoryGitPort {
       headers: answered,
       body: response.body
         ? (Readable.fromWeb(
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion
             response.body as never,
           ) as AsyncIterable<Uint8Array>)
         : null,

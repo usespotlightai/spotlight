@@ -4,6 +4,7 @@ import type {
   TestStationChange,
 } from '@replays/application/services/test-station-change.service';
 import type { JsonValue } from '@shared-kernel/domain/json-value';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -86,8 +87,11 @@ const chatOf = (context: ChatToolExtensionContext): ImprovingChat => ({
 const textOf = (value: JsonValue | undefined): string | null =>
   typeof value === 'string' ? value : null;
 
-const namedOf = (value: JsonValue | undefined): string | null =>
-  textOf(value)?.trim() || null;
+const namedOf = (value: JsonValue | undefined): string | null => {
+  const named = textOf(value)?.trim();
+
+  return !nonEmpty(named) ? null : named;
+};
 
 export class TestStationChangeExtension implements ChatToolExtension {
   readonly declaration = DECLARATION;

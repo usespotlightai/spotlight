@@ -12,6 +12,7 @@ import { costTick } from '@/lib/chart';
 import { spentIn } from '@/lib/inbox';
 import { type DayOutput, OUTPUT_NOTE, type StationNames } from '@/lib/insights';
 import { formatDay } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 
 export const OUTPUT_CHART_HEIGHT = 200;
 
@@ -52,7 +53,9 @@ export const TipContent = ({
         rows: [
           [
             'Spent',
-            day.spend && currency ? spentIn(day.spend.amount, currency) : '–',
+            day.spend && nonEmpty(currency)
+              ? spentIn(day.spend.amount, currency)
+              : '–',
           ],
           ['Runs', `${day.runs}`],
           ['PRs merged', `${day.merged}`],
@@ -84,7 +87,7 @@ export function OutputAgainstCost({
   const data = useMemo(() => [...days], [days]);
   const spendTick = useMemo(
     () => (spend: number) =>
-      currency ? costTick(spend, currency) : String(spend),
+      nonEmpty(currency) ? costTick(spend, currency) : String(spend),
     [currency],
   );
 

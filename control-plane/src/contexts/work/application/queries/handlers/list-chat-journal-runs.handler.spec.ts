@@ -1,17 +1,23 @@
+import type { JournalledRun } from '@runs/application/contracts/run-journal.contract';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import type { RunsOfChat } from '@work/application/ports/viewed-runs';
 import { ListChatJournalRunsQuery } from '@work/application/queries/chat.queries';
 import { ListChatJournalRunsHandler } from '@work/application/queries/handlers/list-chat-journal-runs.handler';
 import type { RunAccess } from '@work/application/services/run-access.service';
 import { describe, expect, it, vi } from 'vitest';
 
-const listing = (found: unknown) =>
+const listing = (found: JournalledRun[]) =>
   new ListChatJournalRunsHandler(
-    {
-      runsOfChat: vi.fn(async () => ({ found })),
-    } as unknown as RunJournalReaderPort,
-    {
-      shownOfChat: vi.fn(async (runs: { found: unknown }) => runs.found),
-    } as unknown as RunAccess,
+    partial<RunJournalReaderPort>({
+      runsOfChat: vi.fn(async () =>
+        partial<RunsOfChat<JournalledRun[]>>({ found }),
+      ),
+    }),
+    partial<RunAccess>({
+      shownOfChat: async <T>(runs: RunsOfChat<T> | null) =>
+        runs === null ? null : runs.found,
+    }),
   ).execute(new ListChatJournalRunsQuery('team_1', 'chat_1', 'user_1'));
 
 describe('ListChatJournalRunsHandler', () => {

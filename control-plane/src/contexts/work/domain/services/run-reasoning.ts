@@ -1,4 +1,6 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { isJsonObject } from '@shared-kernel/domain/json-value';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { StepKind } from '@work/domain/value-objects/step-kind';
 
 /** The commands of the spotlight CLI that a briefing tells the agent to run, and that its journal shows it ran. */
@@ -59,20 +61,22 @@ const firstIn = (text: string): Reasoning | null => {
     const match = invoked.exec(shell);
     const command = match?.[1];
 
-    return match && command
+    return match !== null && nonEmpty(command)
       ? [{ at: match.index + match[0].length - command.length, kind }]
       : [];
   }).sort((one, other) => one.at - other.at);
-  const first = found[0];
+  const first = firstOf(found);
 
-  return first ? { kind: first.kind, text: shell, commandAt: first.at } : null;
+  return first !== undefined
+    ? { kind: first.kind, text: shell, commandAt: first.at }
+    : null;
 };
 
 const commanded = (step: {
   readonly text: string;
   readonly input?: string | null;
 }): Reasoning | null =>
-  firstIn(step.text) ?? (step.input ? firstIn(step.input) : null);
+  firstIn(step.text) ?? (nonEmpty(step.input) ? firstIn(step.input) : null);
 
 export const reasoningIn = (step: {
   readonly kind: StepKind;

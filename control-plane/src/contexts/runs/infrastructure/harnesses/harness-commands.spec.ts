@@ -1,18 +1,25 @@
 import { TRACE_PARENT_VAR } from '@runs/application/contracts/run-spec.contract';
-import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import type {
+  HarnessCatalogueEntry,
+  HarnessLaunchPort,
+} from '@runs/application/ports/harness-launch.port';
 import { HarnessCommands } from '@runs/infrastructure/harnesses/harness-commands';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const commanding = () => {
   const chosen: unknown[] = [];
-  const launch = {
-    catalogue: () => [{ id: 'claude-code' }, { id: 'codex' }],
+  const launch = partial<HarnessLaunchPort>({
+    catalogue: () => [
+      partial<HarnessCatalogueEntry>({ id: 'claude-code' }),
+      partial<HarnessCatalogueEntry>({ id: 'codex' }),
+    ],
     commandFor: (id: HarnessId, picked: unknown) => {
       chosen.push([id.value, picked]);
       return { executable: id.value, args: ['-p'], env: { HOME: '/home' } };
     },
-  } as unknown as HarnessLaunchPort;
+  });
 
   return { commands: new HarnessCommands(launch), chosen };
 };

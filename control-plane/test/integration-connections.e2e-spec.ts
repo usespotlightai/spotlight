@@ -18,6 +18,8 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Credential } from '@secrets/application/contracts/credential.contract';
 import type { CredentialEncryptionPort } from '@secrets/application/ports/credential-encryption.port';
+import { itemAt, firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -42,9 +44,11 @@ const labelled: CredentialEncryptionPort = {
   encrypt: async (_workspaceId, label, credential) =>
     Buffer.from(`${label}\n${credential.revealed()}`).toString('base64'),
   decrypt: async (_workspaceId, label, ciphertext) => {
-    const [encryptedFor, plain] = Buffer.from(ciphertext, 'base64')
+    const parts = Buffer.from(ciphertext, 'base64')
       .toString('utf8')
       .split('\n');
+    const encryptedFor = itemAt(parts, 0);
+    const plain = itemAt(parts, 1);
 
     if (encryptedFor !== label) {
       throw new Error(`encrypted for ${encryptedFor}, decrypted as ${label}`);
@@ -74,7 +78,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const connection = (
@@ -148,15 +152,17 @@ describe('integration connections stored per owner', () => {
     await connections.save(connection(teamId, alice, 'alice'));
     await connections.save(connection(teamId, bob, 'bob'));
 
-    const [alices] = await db
-      .select()
-      .from(schema.integrationConnection)
-      .where(
-        and(
-          eq(schema.integrationConnection.teamId, teamId.value),
-          eq(schema.integrationConnection.owner, alice.key),
+    const alices = firstOf(
+      await db
+        .select()
+        .from(schema.integrationConnection)
+        .where(
+          and(
+            eq(schema.integrationConnection.teamId, teamId.value),
+            eq(schema.integrationConnection.owner, alice.key),
+          ),
         ),
-      );
+    );
     await db
       .update(schema.integrationConnection)
       .set({ accessToken: alices?.accessToken ?? '' })
@@ -180,9 +186,9 @@ describe('integration connections stored per owner', () => {
     const one = await connections.of(teamId, LINEAR, alice);
     const other = await connections.of(teamId, LINEAR, alice);
 
-    await connections.save(one?.claimRefresh(NOW) as IntegrationConnection);
+    await connections.save(present(one?.claimRefresh(NOW)));
     await expect(
-      connections.save(other?.claimRefresh(NOW) as IntegrationConnection),
+      connections.save(present(other?.claimRefresh(NOW))),
     ).rejects.toBeInstanceOf(IntegrationConnectionVersionConflictError);
 
     const claimed = await connections.of(teamId, LINEAR, alice);
@@ -192,9 +198,11 @@ describe('integration connections stored per owner', () => {
     );
 
     await connections.save(
-      claimed?.refreshedWith(
-        OAuthTokens.of({ accessToken: 'alice-2', refreshToken: 'alice-r-2' }),
-      ) as IntegrationConnection,
+      present(
+        claimed?.refreshedWith(
+          OAuthTokens.of({ accessToken: 'alice-2', refreshToken: 'alice-r-2' }),
+        ),
+      ),
     );
 
     const refreshed = await connections.of(teamId, LINEAR, alice);
@@ -214,11 +222,7 @@ describe('integration connections stored per owner', () => {
       connections.save(connection(teamId, alice, 'alice-twice')),
     ).rejects.toBeInstanceOf(IntegrationConnectionVersionConflictError);
 
-    const first = (await connections.of(
-      teamId,
-      LINEAR,
-      alice,
-    )) as IntegrationConnection;
+    const first = present(await connections.of(teamId, LINEAR, alice));
     await connections.save(
       first.reconnectedWith(
         OAuthTokens.of({ accessToken: 'alice-again' }),
@@ -227,11 +231,7 @@ describe('integration connections stored per owner', () => {
       ),
     );
 
-    const again = (await connections.of(
-      teamId,
-      LINEAR,
-      alice,
-    )) as IntegrationConnection;
+    const again = present(await connections.of(teamId, LINEAR, alice));
     expect(again.accessToken.value).toBe('alice-again');
     expect(again.connectedAt).toEqual(reconnectedAt);
     expect(again.version).toBe(first.version + 1);
@@ -276,9 +276,7 @@ describe('OAuth client registrations', () => {
     expect(stored?.clientSecret?.value).toBe('client-1-secret');
 
     await registrations.save(
-      (stored as OAuth2ClientRegistration).replaceWith(
-        registered(teamId, 'client-3'),
-      ),
+      present(stored).replaceWith(registered(teamId, 'client-3')),
     );
     expect((await registrations.of(teamId, LINEAR))?.clientId.value).toBe(
       'client-3',
@@ -302,7 +300,7 @@ describe('tasks waiting on a connection', () => {
     };
 
     await tasks.save(list.closeConversation(newNote));
-    const closed = (await tasks.find(list.id)) as Task;
+    const closed = present(await tasks.find(list.id));
     await tasks.save(
       Task.rehydrate({ ...closed, currentRunId: runId }).askToConnect(
         runId,
@@ -343,7 +341,7 @@ describe('tasks waiting on a connection', () => {
       owner,
       { line: null, at: NOW },
     );
-    await tasks.save(answered as Task);
+    await tasks.save(present(answered));
 
     expect(
       await tasks.awaitingConnection(
@@ -352,7 +350,7 @@ describe('tasks waiting on a connection', () => {
         IntegrationName.of('linear'),
       ),
     ).toEqual([]);
-    const read = (await tasks.find(list.id)) as Task;
+    const read = present(await tasks.find(list.id));
     expect(read.notes.find((each) => each.connectionAsk)?.form).toBe(
       'connection',
     );

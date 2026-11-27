@@ -1,6 +1,7 @@
 import { type Chord, chordOf, SEQUENCE_MS } from '@/lib/commands/keys';
 import type { CommandRegistry } from '@/lib/commands/registry';
 import { typingIn } from '@/lib/commands/typing';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function listenForKeys(
   registry: CommandRegistry,
@@ -20,7 +21,7 @@ export function listenForKeys(
     }
 
     const chord = chordOf(event);
-    if (!chord) {
+    if (!nonEmpty(chord)) {
       return;
     }
 

@@ -25,6 +25,7 @@ export function ShortcutKeys({
       data-slot="shortcut-keys"
       className={cn(
         'inline-flex shrink-0 items-center text-muted-foreground',
+
         plain ? 'gap-1' : 'gap-[3px]',
         className,
       )}

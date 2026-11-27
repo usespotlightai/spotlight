@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { unsubscribeFromPush } from '@/lib/api';
 import { authClient } from '@/lib/authClient';
@@ -17,7 +21,7 @@ const withoutPush = async () => {
   await unsubscribeFromPush({ body: { endpoint } });
 };
 
-export function useSignOut() {
+export function useSignOut(): UseMutationResult<void, Error, void> {
   const queryClient = useQueryClient();
 
   return useMutation({

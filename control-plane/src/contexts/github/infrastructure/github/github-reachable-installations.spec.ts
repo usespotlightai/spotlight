@@ -1,6 +1,7 @@
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import { GitHubReachableInstallations } from '@github/infrastructure/github/github-reachable-installations';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,7 +13,17 @@ const installed = (id: number, login: string) => ({
 });
 
 const github = (pages: Record<number, { status: number; body: unknown }>) => {
-  const fetching = vi.fn(async (url: string) => {
+  const fetching = vi.fn<
+    (
+      url: string,
+      init: { headers: Record<string, string> },
+    ) => Promise<{
+      ok: boolean;
+      status: number;
+      headers: Headers;
+      json: () => Promise<unknown>;
+    }>
+  >(async (url) => {
     const page = Number(new URL(url).searchParams.get('page'));
     const answer = pages[page] ?? { status: 200, body: { installations: [] } };
 
@@ -50,10 +61,7 @@ describe('GitHubReachableInstallations', () => {
       { installation: GitHubInstallation.of('7'), account: 'acme' },
       { installation: GitHubInstallation.of('42'), account: 'zeta' },
     ]);
-    const [url, init] = fetching.mock.calls[0] as unknown as [
-      string,
-      { headers: Record<string, string> },
-    ];
+    const [url, init] = present(fetching.mock.calls[0]);
     expect(url).toBe(
       'https://api.github.com/user/installations?per_page=100&page=1',
     );

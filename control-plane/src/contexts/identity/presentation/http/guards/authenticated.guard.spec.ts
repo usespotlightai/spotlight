@@ -14,6 +14,8 @@ import {
 import { ALLOW_WORKSPACE_TOKENS } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import { REQUEST_PRINCIPAL } from '@platform/http/decorators/current-principal.decorator';
 import { REQUEST_USER } from '@platform/http/decorators/current-user.decorator';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -45,10 +47,10 @@ function setup(
   const reflector = new Reflector();
   vi.spyOn(reflector, 'getAllAndOverride').mockImplementation(
     (marker) =>
-      (marker === ALLOW_ANONYMOUS && options.anonymous) ||
-      (marker === ADMIN_ONLY && options.adminOnly) ||
-      (marker === READS_SESSION_IF_ANY && options.readsSession) ||
-      (marker === ALLOW_WORKSPACE_TOKENS && options.allowsTokens) ||
+      (marker === ALLOW_ANONYMOUS && options.anonymous === true) ||
+      (marker === ADMIN_ONLY && options.adminOnly === true) ||
+      (marker === READS_SESSION_IF_ANY && options.readsSession === true) ||
+      (marker === ALLOW_WORKSPACE_TOKENS && options.allowsTokens === true) ||
       false,
   );
 
@@ -62,17 +64,21 @@ function setup(
     authenticate,
   } satisfies WorkspaceTokenIdentityPort;
 
-  const request: Record<string | symbol, unknown> = {
-    headers: {
-      cookie: 'x',
-      ...(options.bearer ? { authorization: `Bearer ${options.bearer}` } : {}),
-    },
+  const headers: Record<string, string> = {
+    cookie: 'x',
+    ...(nonEmpty(options.bearer)
+      ? { authorization: `Bearer ${options.bearer}` }
+      : {}),
   };
-  const context = {
-    getHandler: () => undefined,
-    getClass: () => undefined,
-    switchToHttp: () => ({ getRequest: () => request }),
-  } as unknown as ExecutionContext;
+  const request: Record<string | symbol, unknown> = { headers };
+  const context = partial<ExecutionContext>({
+    getHandler: vi.fn(),
+    getClass: vi.fn(),
+    switchToHttp: () =>
+      partial<ReturnType<ExecutionContext['switchToHttp']>>({
+        getRequest: vi.fn().mockReturnValue(request),
+      }),
+  });
 
   return {
     guard: new AuthenticatedGuard(reflector, sessions, tokens),
@@ -81,6 +87,7 @@ function setup(
     readBearer,
     authenticate,
     request,
+    headers,
   };
 }
 
@@ -220,19 +227,18 @@ describe('AuthenticatedGuard', () => {
   });
 
   it('takes the bearer scheme in any case', async () => {
-    const { guard, context, request, readBearer } = setup({
+    const { guard, context, headers, readBearer } = setup({
       login: true,
     });
-    (request.headers as Record<string, string>).authorization =
-      `bearer ${LOGIN}`;
+    headers.authorization = `bearer ${LOGIN}`;
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(readBearer).toHaveBeenCalledWith(LOGIN);
   });
 
   it('turns away another authorization scheme, rather than falling back to the cookie session', async () => {
-    const { guard, context, request, read } = setup({ session: true });
-    (request.headers as Record<string, string>).authorization = 'Basic abc';
+    const { guard, context, headers, read } = setup({ session: true });
+    headers.authorization = 'Basic abc';
 
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
       UnauthorizedException,

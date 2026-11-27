@@ -1,11 +1,12 @@
 import { captureException } from '@sentry/react';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { LexicalEditor } from 'lexical';
+import { createEditor, type LexicalEditor } from 'lexical';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useChatMessage } from '@/hooks/useChatMessage';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
 import type { SharedAttachment } from '@/lib/shared-draft';
+import { partial } from '@/test/partial';
 
 const uploaded = vi.fn<(...args: unknown[]) => unknown>();
 
@@ -22,15 +23,15 @@ const draft = (
   generation: number,
   share: (attachment: SharedAttachment) => void,
 ): SharedDraft =>
-  ({
+  partial<SharedDraft>({
     attachments,
     generation,
     share,
     unshare: vi.fn(),
-  }) as unknown as SharedDraft;
+  });
 
 const synced = (name: string, generation: number, isSynced: boolean) =>
-  ({
+  partial<SharedDraft>({
     name,
     generation,
     synced: isSynced,
@@ -38,7 +39,13 @@ const synced = (name: string, generation: number, isSynced: boolean) =>
     attachments: [],
     share: vi.fn(),
     unshare: vi.fn(),
-  }) as unknown as SharedDraft;
+  });
+
+const editorWith = (update: () => void): LexicalEditor => {
+  const editor = createEditor();
+  vi.spyOn(editor, 'update').mockImplementation(update);
+  return editor;
+};
 
 const watched = (shared: SharedDraft) => {
   const update = vi.fn();
@@ -46,7 +53,7 @@ const watched = (shared: SharedDraft) => {
     ({ shared }) => useChatMessage('acme', [], '', shared),
     { initialProps: { shared } },
   );
-  hook.result.current.editor.current = { update } as unknown as LexicalEditor;
+  hook.result.current.editor.current = editorWith(update);
 
   return { ...hook, update };
 };
@@ -127,10 +134,7 @@ describe('useChatMessage putting back a refused message', () => {
     const { result } = renderHook(() =>
       useChatMessage('acme', [], 'try again'),
     );
-    result.current.editor.current = {
-      update,
-      getEditorState: () => ({ toJSON: () => ({ root: { children: [] } }) }),
-    } as unknown as LexicalEditor;
+    result.current.editor.current = editorWith(update);
 
     act(() => result.current.release());
     act(() => result.current.restore());
@@ -154,7 +158,7 @@ describe('useChatMessage putting back a refused message', () => {
     const { result } = renderHook(() =>
       useChatMessage('acme', [], 'try again'),
     );
-    result.current.editor.current = { update } as unknown as LexicalEditor;
+    result.current.editor.current = editorWith(update);
 
     act(() => result.current.restore());
 

@@ -16,6 +16,7 @@ import type { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.ev
 import { Money } from '@runs/domain/value-objects/money.vo';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -24,7 +25,7 @@ import { describe, expect, it } from 'vitest';
 const RUN = RunId.of('run_1');
 
 const facts = (over: Partial<RunFacts> = {}): RunFacts =>
-  ({
+  partial<RunFacts>({
     runId: RUN,
     workspaceId: WorkspaceId.of('ws_1'),
     state: 'completed',
@@ -34,11 +35,13 @@ const facts = (over: Partial<RunFacts> = {}): RunFacts =>
     policy: orderedFor.holdingTurn('task_1', 3).policy.parts,
     team: TeamId.of('team_1'),
     ...over,
-  }) as unknown as RunFacts;
+  });
 
 const recording = (found: RunFacts | null) => {
   const recorded: RunUsageRecorded[] = [];
-  const known: RunFactsPort = { of: async () => (found ? [found] : []) };
+  const known: RunFactsPort = {
+    of: async () => (found ? [found] : []),
+  };
   const usages: RunUsageWriterPort = {
     readingsOf: async () => ({
       attempt: 2,
@@ -66,9 +69,9 @@ const recording = (found: RunFacts | null) => {
       }
     },
   };
-  const launch = {
+  const launch = partial<HarnessLaunchPort>({
     skillHomes: () => ['.claude/skills'],
-  } as unknown as HarnessLaunchPort;
+  });
 
   return {
     handler: new RecordRunUsage(known, usages, launch),
@@ -76,7 +79,7 @@ const recording = (found: RunFacts | null) => {
   };
 };
 
-const ended = { runId: RUN } as unknown as RunEnded;
+const ended = partial<RunEnded>({ runId: RUN });
 
 describe('RecordRunUsage', () => {
   it('records the usage of a completed run with who asked for it and whether it is listed', async () => {
@@ -112,7 +115,7 @@ describe('RecordRunUsage', () => {
       }),
     );
 
-    await handler.onRunExhausted(ended as unknown as RunExhausted);
+    await handler.onRunExhausted(partial<RunExhausted>({ runId: RUN }));
 
     expect(recorded[0]?.requester.subject).toBe('replays/search/search_1');
     expect(recorded[0]?.listed).toBe(false);

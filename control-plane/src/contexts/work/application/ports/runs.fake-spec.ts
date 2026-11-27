@@ -17,6 +17,7 @@ import {
   type RunEndedIntegrationEvent,
   type RunRequesterPublished,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -173,14 +174,21 @@ export const turnFacts = (part: Partial<TurnFacts> = {}): TurnFacts => ({
   ...part,
 });
 
-export const heldTurn = (held: TurnFacts | null) => {
+export interface HeldTurn {
+  readonly turns: RunTurnsPort;
+  readonly runs: Mocked<RunsPort>;
+  readonly hold: (facts: TurnFacts | null) => void;
+  readonly current: () => TurnFacts | null;
+}
+
+export const heldTurn = (held: TurnFacts | null): HeldTurn => {
   let current = held;
-  const turns = {
+  const turns = partial<RunTurnsPort>({
     turnOf: async (runId: RunId, attempt: number) =>
       current?.runId.equals(runId) && current.attempt === attempt
         ? current
         : null,
-  } as unknown as RunTurnsPort;
+  });
   const runs = recordingRuns({
     keep: async () => {
       current = current && { ...current, turn: 'kept' };
@@ -197,7 +205,7 @@ export const heldTurn = (held: TurnFacts | null) => {
   return {
     turns,
     runs,
-    hold: (facts: TurnFacts | null) => {
+    hold: (facts) => {
       current = facts;
     },
     current: () => current,

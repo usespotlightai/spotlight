@@ -1,13 +1,29 @@
 import { sentryOptions } from '@platform/errors/sentry-options';
-import type { Breadcrumb, ErrorEvent } from '@sentry/nestjs';
+import type { Breadcrumb, ErrorEvent, EventHint } from '@sentry/nestjs';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 const options = sentryOptions({ SENTRY_DSN: 'https://key@sentry.invalid/1' });
 
+const send = (event: ErrorEvent, hint: EventHint): ErrorEvent => {
+  const sent = options?.beforeSend?.(event, hint);
+  if (sent === undefined || sent === null || 'then' in sent) {
+    throw new Error('expected the event to be sent');
+  }
+  return sent;
+};
+
+const kept = (breadcrumb: Breadcrumb): Breadcrumb => {
+  const result = options?.beforeBreadcrumb?.(breadcrumb);
+  if (result === undefined || result === null) {
+    throw new Error('expected the breadcrumb to be kept');
+  }
+  return result;
+};
+
 describe('sentryOptions', () => {
   it('sends the route of a request, never a token in its path', () => {
-    const event = options?.beforeSend?.(
+    const event = send(
       {
         type: undefined,
         request: {
@@ -21,7 +37,7 @@ describe('sentryOptions', () => {
         ],
       },
       {},
-    ) as ErrorEvent;
+    );
 
     expect(event.request?.url).toBe(
       'https://app.example/api/invites/:id/accept',
@@ -31,10 +47,10 @@ describe('sentryOptions', () => {
   });
 
   it('keeps only the origin of an outbound breadcrumb', () => {
-    const breadcrumb = options?.beforeBreadcrumb?.({
+    const breadcrumb = kept({
       category: 'fetch',
       data: { url: 'https://api.github.com/repos/acme/app?access_token=x' },
-    }) as Breadcrumb;
+    });
 
     expect(breadcrumb.data?.url).toBe('https://api.github.com');
   });
@@ -47,7 +63,7 @@ describe('sentryOptions', () => {
     );
 
   const sendEvent = (error: DrizzleQueryError) =>
-    options?.beforeSend?.(
+    send(
       {
         type: undefined,
         exception: {
@@ -58,7 +74,7 @@ describe('sentryOptions', () => {
         },
       },
       { originalException: error },
-    ) as ErrorEvent;
+    );
 
   const titleOf = (event: ErrorEvent) => {
     const values = event.exception?.values ?? [];
@@ -99,33 +115,33 @@ describe('sentryOptions', () => {
       },
     );
 
-    const event = options?.beforeSend?.(
+    const event = send(
       {
         type: undefined,
         exception: { values: [{ type: 'Error', value: report.message }] },
       },
       { originalException: report },
-    ) as ErrorEvent;
+    );
 
     expect(event.fingerprint).toEqual(['database-unavailable', '53300']);
   });
 
   it('never sends the parameters of a failed query in a breadcrumb', () => {
-    const breadcrumb = options?.beforeBreadcrumb?.({
+    const breadcrumb = kept({
       category: 'console',
       message: 'Failed query: select 1\nparams: hello@example.com',
-    }) as Breadcrumb;
+    });
 
     expect(breadcrumb.message).toBe('Failed query: select 1');
   });
 
   it('never sends the parameters of a failed query a console call logged', () => {
-    const breadcrumb = options?.beforeBreadcrumb?.({
+    const breadcrumb = kept({
       category: 'console',
       data: {
         arguments: ['Database failed:', queryError('select 1', '53300')],
       },
-    }) as Breadcrumb;
+    });
 
     expect(breadcrumb.data?.arguments).toEqual([
       'Database failed:',
@@ -134,12 +150,12 @@ describe('sentryOptions', () => {
   });
 
   it('never sends the parameters of a failed query nested in a logged object', () => {
-    const breadcrumb = options?.beforeBreadcrumb?.({
+    const breadcrumb = kept({
       category: 'console',
       data: {
         arguments: [{ err: queryError('select 1', '53300'), more: [1] }],
       },
-    }) as Breadcrumb;
+    });
 
     expect(breadcrumb.data?.arguments).toEqual([
       { err: 'Error: Failed query: select 1', more: [1] },
@@ -155,11 +171,12 @@ describe('sentryOptions', () => {
     const unrelated = new Error('boom');
     const nested = { a: { b: { c: { d: 'deep' } } } };
 
-    const breadcrumb = options?.beforeBreadcrumb?.({
+    const breadcrumb = kept({
       category: 'console',
       data: { arguments: ['at', at, point, unrelated, nested] },
-    }) as Breadcrumb;
-    const logged = breadcrumb.data?.arguments as unknown[];
+    });
+    const logged: unknown = breadcrumb.data?.arguments;
+    if (!Array.isArray(logged)) throw new Error('expected logged arguments');
 
     expect(logged[1]).toBe(at);
     expect(logged[2]).toBe(point);
@@ -172,10 +189,10 @@ describe('sentryOptions', () => {
       cause: queryError('select 1', '53300'),
     });
 
-    const breadcrumb = options?.beforeBreadcrumb?.({
+    const breadcrumb = kept({
       category: 'console',
       data: { arguments: [wrapper] },
-    }) as Breadcrumb;
+    });
 
     expect(breadcrumb.data?.arguments).toEqual([
       'Error: Failed to get session',
@@ -183,10 +200,10 @@ describe('sentryOptions', () => {
   });
 
   it('never sends the parameters of a failed query in the event message', () => {
-    const event = options?.beforeSend?.(
+    const event = send(
       { type: undefined, message: 'Failed query: select 1\nparams: x@y.z' },
       {},
-    ) as ErrorEvent;
+    );
 
     expect(event.message).toBe('Failed query: select 1');
   });

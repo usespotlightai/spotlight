@@ -119,7 +119,7 @@ export class HookRedeliveries {
         }
       }
 
-      if (!page.next) {
+      if (page.next === null) {
         return unseen;
       }
 

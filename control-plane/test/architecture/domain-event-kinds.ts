@@ -2,6 +2,7 @@ import {
   INTEGRATION_EVENT_KIND,
   KIND_PARTS,
 } from '@shared-kernel/application/integration-events/integration-event';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import ts from 'typescript';
 
 import {
@@ -81,7 +82,7 @@ export const DECLARED_EVENTS: readonly DeclaredEvent[] =
 
 export const DOMAIN_EVENT_OWNERS: ReadonlyMap<string, readonly string[]> =
   DECLARED_EVENTS.reduce((owners, event) => {
-    if (event.kind && event.context) {
+    if (nonEmpty(event.kind) && nonEmpty(event.context)) {
       owners.set(event.kind, [
         ...new Set([...(owners.get(event.kind) ?? []), event.context]),
       ]);

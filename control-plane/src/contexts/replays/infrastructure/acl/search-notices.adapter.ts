@@ -3,6 +3,7 @@ import type {
   SearchNoticesPort,
   StationNotice,
 } from '@replays/application/ports/search-notices.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { NoticesPort } from '@work/application/ports/notices.port';
 
 const OPENS_STATION = 'Open the station';
@@ -22,7 +23,7 @@ export class SearchNotices implements SearchNoticesPort {
       link: `lines/${notice.lineId.value}/stations/${notice.stationId.value}`,
       linkLabel: OPENS_STATION,
       externalLink:
-        notice.pullRequest &&
+        nonEmpty(notice.pullRequest) &&
         this.notices.allowsExternalLink(notice.pullRequest)
           ? { url: notice.pullRequest, label: REVIEWS_PULL_REQUEST }
           : null,

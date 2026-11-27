@@ -1,4 +1,5 @@
 import { WithTooltip } from '@/components/shared/WithTooltip';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 export type Tone = 'busy' | 'ready' | 'gone';
@@ -22,7 +23,7 @@ export function StatusDot({ tone, tip, children }: StatusDotProps) {
         aria-hidden
         className={cn('size-1.5 shrink-0 rounded-full', DOTS[tone])}
       />
-      {tip ? (
+      {nonEmpty(tip) ? (
         <WithTooltip tooltip={tip} named={children}>
           <span className="truncate">{children}</span>
         </WithTooltip>

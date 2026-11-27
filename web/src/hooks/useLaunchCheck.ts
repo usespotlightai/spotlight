@@ -2,7 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const LAUNCH_WAIT_MS = 2_000;
 
-export function useLaunchCheck(waitMs = LAUNCH_WAIT_MS) {
+type LaunchCheckResult = {
+  missed: boolean;
+  launched: () => void;
+  dismiss: () => void;
+};
+
+export function useLaunchCheck(waitMs = LAUNCH_WAIT_MS): LaunchCheckResult {
   const [missed, setMissed] = useState(false);
   const stop = useRef<() => void>(() => {});
 

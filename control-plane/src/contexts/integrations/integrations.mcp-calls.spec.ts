@@ -35,6 +35,8 @@ import { discoveringNothing } from '@integrations/integrations.mcp.fake-spec';
 import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -105,11 +107,11 @@ const resolving = async (
         }),
       ),
     ),
-    {} as HttpOutbound,
+    partial<HttpOutbound>({}),
     clientsFrom(),
-    {} as OAuth2Exchange,
+    partial<OAuth2Exchange>({}),
     discoveringNothing(),
-    { call: vi.fn(call) } as unknown as McpSessions,
+    partial<McpSessions>({ call: vi.fn(call) }),
     unlimited,
     hosts,
     noNetwork,
@@ -138,7 +140,7 @@ const callAuthAs = (
   refreshed: string | null = null,
 ): CallAuth & { unauthorized: ReturnType<typeof vi.fn> } => {
   const unauthorized = vi.fn(async () =>
-    refreshed ? AccessToken.of(refreshed) : null,
+    nonEmpty(refreshed) ? AccessToken.of(refreshed) : null,
   );
 
   return {
@@ -225,7 +227,9 @@ describe('a tool an MCP server offers', () => {
         OutboundScope.allows('mcp.tracker.example'),
         OutboundScope.allows('elsewhere.example'),
       );
-      return { content: [{ type: 'text' as const, text: 'done' }] };
+      return {
+        content: [{ type: 'text' as const, text: 'done' }],
+      };
     }, scopedTo('mcp.tracker.example'));
 
     await answerOf(resolved.attempt({}, callAuthAs('ada-token'), null));

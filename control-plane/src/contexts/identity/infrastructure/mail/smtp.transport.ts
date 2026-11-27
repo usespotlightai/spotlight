@@ -3,6 +3,7 @@ import type {
   MailTransport,
 } from '@identity/infrastructure/mail/mail.transport';
 import type { Env } from '@platform/config/env.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { createTransport, type Transporter } from 'nodemailer';
 
 export class SmtpMail implements MailTransport {
@@ -16,7 +17,9 @@ export class SmtpMail implements MailTransport {
   }
 
   static configured(env: Env): SmtpMail | null {
-    return env.SMTP_URL ? new SmtpMail(env.SMTP_URL, env.MAIL_FROM) : null;
+    return nonEmpty(env.SMTP_URL)
+      ? new SmtpMail(env.SMTP_URL, env.MAIL_FROM)
+      : null;
   }
 
   async deliver(message: MailMessage): Promise<void> {

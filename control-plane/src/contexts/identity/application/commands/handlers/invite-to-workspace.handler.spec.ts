@@ -24,6 +24,7 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -108,44 +109,46 @@ const inviting = (
   let issued = 0;
   let generated = 0;
 
-  const administration = new WorkspaceAdministration({
-    findBySlug: async () => workspace(over.role),
-  } as unknown as WorkspaceRepository);
+  const administration = new WorkspaceAdministration(
+    partial<WorkspaceRepository>({
+      findBySlug: async () => workspace(over.role),
+    }),
+  );
   const handler = new InviteToWorkspaceHandler(
     administration,
-    {
+    partial<WorkspaceInviteRepository>({
       add,
       save,
       latestTo: async (_: WorkspaceId, email: EmailAddress) =>
         over.previous?.(email.value) ?? null,
-    } as unknown as WorkspaceInviteRepository,
-    { ofWorkspace: async () => TEAMS } as unknown as TeamRepository,
+    }),
+    partial<TeamRepository>({ ofWorkspace: async () => TEAMS }),
     {
       listedByEmail: async (_: WorkspaceId, email: string) =>
         over.members?.includes(email) ? LEON : null,
       emailsOf: async () => [],
     },
     new InviteSending(
-      {
+      partial<PersonReaderPort>({
         find: async () =>
           over.sender === null ? null : { id: LEON, name: 'Leon', image: null },
-      } as unknown as PersonReaderPort,
+      }),
       { send },
-      { warn } as unknown as LoggerPort,
+      partial<LoggerPort>({ warn }),
     ),
-    {
+    partial<TokenIssuer>({
       issue: () => {
         issued += 1;
         return { token: `tok_${issued}`, hash: `${issued}`.repeat(64) };
       },
-    } as unknown as TokenIssuer,
+    }),
     {
       generate: () => {
         generated += 1;
         return `invite_${generated}`;
       },
     },
-    { now: () => NOW } as ClockPort,
+    partial<ClockPort>({ now: () => NOW }),
   );
 
   const execute = vi.spyOn(handler, 'execute');

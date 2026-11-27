@@ -13,9 +13,9 @@ const NOT_RUN = new Set(['unknown', 'pending']);
 const reading = (each: HealthReading): string => `${each.label}: ${each.text}`;
 
 const warningNote = (warnings: readonly HealthReading[]): TooltipNote => {
-  const [only] = warnings;
+  const only = warnings.at(0);
 
-  return warnings.length === 1 && only
+  return warnings.length === 1 && only !== undefined
     ? { title: only.label, body: only.advice, rows: only.rows }
     : {
         title: 'Replay set warnings',
@@ -26,7 +26,7 @@ const warningNote = (warnings: readonly HealthReading[]): TooltipNote => {
 export function SetSummary({ set }: SetSummaryProps) {
   const readings = healthReadingsOf(set.health, set.health.minGain);
   const warnings = readings.filter((each) => each.tone === 'bad');
-  const [first] = warnings;
+  const first = warnings.at(0);
   const health: TooltipNote = {
     title: 'Replay set health',
     rows: readings.map((each) => [
@@ -45,7 +45,7 @@ export function SetSummary({ set }: SetSummaryProps) {
         <InfoTooltip tooltip={health} />
       </span>
 
-      {first && (
+      {first !== undefined && (
         <span data-slot="set-warning" className="flex items-center gap-1.5">
           <WarningTooltip
             tone="warning"

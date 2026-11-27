@@ -3,16 +3,17 @@ import {
   RedisOutboundLimits,
 } from '@integrations/infrastructure/outbound/outbound-limits';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import RedisMock from 'ioredis-mock';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 const quiet = () =>
-  ({
+  partial<LoggerPort>({
     info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
     debug: vi.fn(),
-  }) as unknown as LoggerPort;
+  });
 
 const clock = (waitMs = 5_000) => {
   let now = 0;

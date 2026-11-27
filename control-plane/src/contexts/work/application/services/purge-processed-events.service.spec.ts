@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
 import { PurgeProcessedEvents } from '@work/application/services/purge-processed-events.service';
 import { describe, expect, it, vi } from 'vitest';
@@ -9,7 +10,7 @@ describe('PurgeProcessedEvents', () => {
     const batches = [1_000, 1_000, 12];
     const purgeBefore = vi.fn(async () => batches.shift() ?? 0);
     const purging = new PurgeProcessedEvents(
-      { purgeBefore } as unknown as ProcessedEventsPort,
+      partial<ProcessedEventsPort>({ purgeBefore }),
       { now: () => NOW, sleep: async () => {} },
     );
 

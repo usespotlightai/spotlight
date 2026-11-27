@@ -34,6 +34,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -569,7 +570,7 @@ export class Sandboxes
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
 
     return (
-      !!found?.isOpen &&
+      found?.isOpen === true &&
       found.withoutExpiredLeases(at).holdsEditor(LeaseHolder.editor(holder))
     );
   }
@@ -628,7 +629,7 @@ export class Sandboxes
   async authenticate(
     token: string | undefined,
   ): Promise<AuthenticatedSandbox | null> {
-    if (!token) {
+    if (!nonEmpty(token)) {
       return null;
     }
 

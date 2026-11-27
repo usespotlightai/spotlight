@@ -23,20 +23,22 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
+import { ownedPools } from '@runners/infrastructure/persistence/drizzle/owned-pools';
 import { runnerPool } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+import {
+  workingCopyStoreColumns,
+  workingCopyStoreOf,
+} from '@runners/infrastructure/persistence/drizzle/working-copy-store.columns';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  workingCopyStoreColumns,
-  workingCopyStoreOf,
-} from '@runners/infrastructure/persistence/drizzle/working-copy-store.columns';
-import { ownedPools } from '@runners/infrastructure/persistence/drizzle/owned-pools';
 import { and, eq, inArray, type SQL } from 'drizzle-orm';
 
 type Row = typeof runnerPool.$inferSelect;
@@ -79,14 +81,14 @@ const accessOf = (row: Row): PoolAccess => {
     });
   }
 
-  if (row.tokenHash) {
+  if (nonEmpty(row.tokenHash)) {
     return PullAccess.of(
       TokenHash.of(row.tokenHash),
       RotationVersion.of(row.tokenVersion),
     );
   }
 
-  if (row.provisionUrl && row.provisionSecret) {
+  if (nonEmpty(row.provisionUrl) && nonEmpty(row.provisionSecret)) {
     return PushAccess.of(
       ProvisionUrl.of(row.provisionUrl),
       EncryptedProvisionSecret.of(row.provisionSecret),
@@ -219,36 +221,39 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
     return this.all(eq(runnerPool.key, key.value));
   }
 
-  findByKey(workspaceId: WorkspaceId, key: PoolKey): Promise<RunnerPool | null> {
+  findByKey(
+    workspaceId: WorkspaceId,
+    key: PoolKey,
+  ): Promise<RunnerPool | null> {
     return this.one(
       and(
         eq(runnerPool.workspaceId, workspaceId.value),
         eq(runnerPool.key, key.value),
-      ) as SQL,
+      ),
       { locked: false },
     );
   }
 
   findOwned(id: PoolId): Promise<RunnerPool | null> {
-    return this.one(and(eq(runnerPool.id, id.value), ownedPools) as SQL, {
+    return this.one(and(eq(runnerPool.id, id.value), ownedPools), {
       locked: false,
     });
   }
 
   ownedIn(workspaceId: WorkspaceId): Promise<readonly RunnerPool[]> {
     return this.all(
-      and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools) as SQL,
+      and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools),
     );
   }
 
-  private async all(where: SQL): Promise<readonly RunnerPool[]> {
+  private async all(where: SQL | undefined): Promise<readonly RunnerPool[]> {
     const rows = await this.context.db.select().from(runnerPool).where(where);
 
     return rows.map(toPool);
   }
 
   private async one(
-    where: SQL,
+    where: SQL | undefined,
     { locked }: { locked: boolean },
   ): Promise<RunnerPool | null> {
     const chosen = this.context.db
@@ -256,7 +261,7 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
       .from(runnerPool)
       .where(where)
       .limit(1);
-    const [found] = locked ? await chosen.for('update') : await chosen;
+    const found = firstOf(locked ? await chosen.for('update') : await chosen);
 
     return found ? toPool(found) : null;
   }

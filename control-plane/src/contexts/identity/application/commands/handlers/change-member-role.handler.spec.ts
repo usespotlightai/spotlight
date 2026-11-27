@@ -6,6 +6,7 @@ import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo'
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -36,10 +37,12 @@ const changing = (workspace: Workspace | null = staffed()) => {
     dispatched.push(...saved.pullEvents());
   });
 
-  const handler = new ChangeMemberRoleHandler({
-    findBySlug: async () => workspace,
-    save,
-  } as unknown as WorkspaceRepository);
+  const handler = new ChangeMemberRoleHandler(
+    partial<WorkspaceRepository>({
+      findBySlug: async () => workspace,
+      save,
+    }),
+  );
 
   return { handler, save, dispatched };
 };

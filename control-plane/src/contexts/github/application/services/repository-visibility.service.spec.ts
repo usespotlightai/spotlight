@@ -13,6 +13,7 @@ import {
 } from '@github/domain/value-objects/repository-visibility.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -26,7 +27,7 @@ const ago = (ms: number) => new Date(NOW.getTime() - ms);
 
 const setup = (
   stored: Record<string, StoredVisibility> = {},
-  github: Record<string, RepositoryVisibility | Error> = {},
+  github: Partial<Record<string, RepositoryVisibility | Error>> = {},
 ) => {
   const rows = new Map(Object.entries(stored));
   const store: RepositoryVisibilityStorePort = {
@@ -41,7 +42,7 @@ const setup = (
       },
     ),
   };
-  const settings = {
+  const settings = partial<RepositorySettingsPort>({
     visibilityOf: vi.fn(async (_: WorkspaceId, repository: Repository) => {
       const answer = github[keyOf(repository)];
 
@@ -51,7 +52,7 @@ const setup = (
 
       return answer;
     }),
-  } as unknown as RepositorySettingsPort;
+  });
   const logger = { warn: vi.fn(), info: vi.fn(), error: vi.fn() };
   const telemetry = telemetryInMemory();
 
@@ -60,7 +61,7 @@ const setup = (
       store,
       settings,
       { now: () => NOW, sleep: async () => {} },
-      logger as unknown as LoggerPort,
+      partial<LoggerPort>(logger),
       telemetry,
     ),
     store,

@@ -6,6 +6,8 @@ import type { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { TeamIntegrations } from '@integrations/infrastructure/acl/team-integrations.adapter';
 import { InMemoryInferredOutputSchemas } from '@integrations/integrations.inferred.fake-spec';
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { ToolDeclaration } from '@work/application/contracts/tools.contract';
 import { describe, expect, it } from 'vitest';
@@ -29,7 +31,9 @@ const integrationsOf = (
 ) =>
   new TeamIntegrations(
     new ProvidedTools(
-      { ofTeam: async () => [] } as unknown as DefinedIntegrationsPort,
+      partial<DefinedIntegrationsPort>({
+        ofTeam: async () => [],
+      }),
       declarations,
       schemas,
     ),
@@ -64,10 +68,12 @@ const providing = async (declarations: readonly ToolDeclaration[]) => {
 
 describe('TeamIntegrations', () => {
   it('says what a tool answered before, where it was called', async () => {
-    const [comment, search] = await providing([
+    const provided = await providing([
       declared('linear.comment'),
       declared('linear.search'),
     ]);
+    const comment = itemAt(provided, 0);
+    const search = itemAt(provided, 1);
 
     expect(comment?.inferredOutput).toEqual({
       type: 'object',

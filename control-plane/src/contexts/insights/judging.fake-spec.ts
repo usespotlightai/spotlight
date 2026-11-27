@@ -136,7 +136,7 @@ export class JudgingsInMemory implements JudgingRepository {
   async nextDueJob(now: Date): Promise<Judging | null> {
     return (
       [...this.stored.values()]
-        .filter((each) => each.job?.isDue(now))
+        .filter((each) => each.job?.isDue(now) === true)
         .sort((a, b) => a.queuedAt.getTime() - b.queuedAt.getTime())[0] ?? null
     );
   }

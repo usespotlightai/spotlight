@@ -44,7 +44,8 @@ const placeClosing = (
   if (!followedOn) {
     return { closing };
   }
-  return closing ? { afterRun: { runId, content: closing } } : {};
+  const closed = Boolean(closing);
+  return closed ? { afterRun: { runId, content: closing } } : {};
 };
 
 export function RunPage({

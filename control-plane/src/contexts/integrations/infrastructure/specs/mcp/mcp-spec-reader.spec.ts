@@ -7,6 +7,7 @@ import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions'
 import { McpSpecReader } from '@integrations/infrastructure/specs/mcp/mcp-spec-reader';
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -35,14 +36,16 @@ const tool = (name: string): Tool => ({
 });
 
 const listing = (tools: () => Promise<readonly Tool[]>) =>
-  new McpSpecReader({ tools: vi.fn(tools) } as unknown as McpSessions);
+  new McpSpecReader(partial<McpSessions>({ tools: vi.fn(tools) }));
 
 describe('McpSpecReader', () => {
   it('lists the server’s tools with the team’s connection', async () => {
     const tools = vi.fn(async () => [tool('one')]);
-    const read = await new McpSpecReader({
-      tools,
-    } as unknown as McpSessions).read(SPEC, CALL_AUTH);
+    const read = await new McpSpecReader(
+      partial<McpSessions>({
+        tools,
+      }),
+    ).read(SPEC, CALL_AUTH);
 
     expect(read).toMatchObject({
       kind: 'read',
@@ -96,9 +99,11 @@ describe('McpSpecReader', () => {
       .fn<McpSessions['tools']>()
       .mockRejectedValueOnce(new McpUnauthorizedError(SPEC.url ?? ''))
       .mockResolvedValueOnce([tool('one')]);
-    const read = await new McpSpecReader({
-      tools,
-    } as unknown as McpSessions).read(SPEC, {
+    const read = await new McpSpecReader(
+      partial<McpSessions>({
+        tools,
+      }),
+    ).read(SPEC, {
       ...CALL_AUTH,
       connection: {
         token: AccessToken.of('stale'),
@@ -119,7 +124,7 @@ describe('McpSpecReader', () => {
   it('sends no connection to a server it does not authenticate with by oauth2', async () => {
     const tools = vi.fn(async () => [tool('one')]);
 
-    await new McpSpecReader({ tools } as unknown as McpSessions).read(
+    await new McpSpecReader(partial<McpSessions>({ tools })).read(
       ApiSpec.of({
         kind: 'mcp',
         url: 'https://mcp.tracker.example/mcp',

@@ -1,7 +1,13 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type {
+  TeamWorkspaceMembership,
+  WorkspaceAccessPort,
+} from '@identity/application/ports/workspace-access.port';
 import { SetPersonToolRuleHandler } from '@integrations/application/commands/handlers/set-person-tool-rule.handler';
 import { SetPersonToolRuleCommand } from '@integrations/application/commands/set-person-tool-rule.command';
-import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import type {
+  DefinedIntegration,
+  DefinedIntegrationsPort,
+} from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import { actionNamed } from '@integrations/domain/value-objects/action.fake-spec';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
@@ -14,6 +20,7 @@ import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.v
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InMemoryPersonToolPolicies } from '@integrations/integrations.policies.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -23,15 +30,19 @@ const LINEAR = IntegrationKey.of('linear');
 const setting = (member = true, actsAs = 'requester') => {
   const policies = new InMemoryPersonToolPolicies();
   const handler = new SetPersonToolRuleHandler(
-    {
-      inWorkspaceOfTeam: async () => (member ? { isAdmin: false } : null),
-    } as unknown as WorkspaceAccessPort,
-    {
+    partial<WorkspaceAccessPort>({
+      inWorkspaceOfTeam: async () =>
+        member ? partial<TeamWorkspaceMembership>({ isAdmin: false }) : null,
+    }),
+    partial<DefinedIntegrationsPort>({
       ofTeam: async () => [
-        { integration: 'linear', tools: ['linear.comment', 'linear.issue'] },
+        partial<DefinedIntegration>({
+          integration: 'linear',
+          tools: ['linear.comment', 'linear.issue'],
+        }),
       ],
-    } as unknown as DefinedIntegrationsPort,
-    {
+    }),
+    partial<IntegrationRuntimePort>({
       offered: () => [
         OfferedTools.listed(
           Integration.of({
@@ -58,7 +69,7 @@ const setting = (member = true, actsAs = 'requester') => {
           ContentHash.of('a'.repeat(64)),
         ),
       ],
-    } as unknown as IntegrationRuntimePort,
+    }),
     policies,
   );
 

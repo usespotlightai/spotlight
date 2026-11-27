@@ -11,6 +11,7 @@ import {
   ReleaseSandboxArchiveCommand,
 } from '@runs/application/commands/working-copy-archive.commands';
 import type { JournalEntry } from '@runs/application/ports/run-journal.port';
+import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
 import { RunJournalAppends } from '@runs/application/services/run-journal-appends.service';
 import { SandboxArchives } from '@runs/application/services/sandbox-archives.service';
 import {
@@ -25,6 +26,7 @@ import { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -68,7 +70,7 @@ const setUp = (input: {
     releaseArchive: vi.fn(async () => {}),
     archivedAttemptOf: vi.fn(async () => input.archived ?? null),
   };
-  const sandboxes = new SandboxArchives(port as unknown as SandboxesPort);
+  const sandboxes = new SandboxArchives(partial<SandboxesPort>(port));
   const appended: { attempt: RunAttempt; entries: readonly JournalEntry[] }[] =
     [];
   const published: string[] = [];
@@ -80,7 +82,9 @@ const setUp = (input: {
         throw new Error('not used');
       },
     },
-    { publish: (runId: string) => void published.push(runId) } as never,
+    partial<RunStreamPort>({
+      publish: (runId: string) => void published.push(runId),
+    }),
   );
   const clock = { now: () => NOW, sleep: async () => {} };
   const runs = runsOf(input.run);

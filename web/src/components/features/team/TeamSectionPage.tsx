@@ -7,6 +7,7 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { nonEmpty } from '@/lib/non-empty';
 import {
   TEAM_SECTIONS,
   type TeamSectionId,
@@ -35,13 +36,13 @@ export function TeamSectionPage({
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
   const base: BreadcrumbSegment[] = [
-    ...(team && slug && teamId
+    ...(team && nonEmpty(slug) && nonEmpty(teamId)
       ? [{ label: team.name, avatar: team.name, to: teamPath(slug, teamId) }]
       : []),
     {
       label: TEAM_SECTIONS[section].label,
       to:
-        crumbs.length > 0 && slug && teamId
+        crumbs.length > 0 && nonEmpty(slug) && nonEmpty(teamId)
           ? teamSectionPath(slug, teamId, section)
           : undefined,
     },

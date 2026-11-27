@@ -1,4 +1,7 @@
 import { DeleteTeamMemories } from '@memory/application/services/delete-team-memories.service';
+import { DuplicateCheck } from '@memory/domain/aggregates/duplicate-check.aggregate';
+import type { MemoryUpkeepSchedule } from '@memory/domain/aggregates/memory-upkeep-schedule.aggregate';
+import type { MemoryUpkeep } from '@memory/domain/aggregates/memory-upkeep.aggregate';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryVersionConflictError } from '@memory/domain/exceptions/memory-version-conflict.error';
 import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
@@ -11,7 +14,12 @@ import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { MemoryUpkeepId } from '@memory/domain/value-objects/memory-upkeep-id.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -46,36 +54,45 @@ const deleting = (
   const removed: string[] = [];
   const upkeepsLeft = ['upkeep_1', 'upkeep_2'];
   let scheduleLeft = true;
-  const upkeeps = {
-    ofTeam: async () => upkeepsLeft.map((id) => ({ id })),
-    remove: async (upkeep: { id: string }) => {
-      removed.push(upkeep.id);
-      upkeepsLeft.splice(upkeepsLeft.indexOf(upkeep.id), 1);
+  const upkeeps = partial<MemoryUpkeepRepository>({
+    ofTeam: async () =>
+      upkeepsLeft.map((id) =>
+        partial<MemoryUpkeep>({ id: MemoryUpkeepId.of(id) }),
+      ),
+    remove: async (upkeep: MemoryUpkeep) => {
+      removed.push(upkeep.id.value);
+      upkeepsLeft.splice(upkeepsLeft.indexOf(upkeep.id.value), 1);
     },
-  } as unknown as MemoryUpkeepRepository;
-  const schedules = {
-    ofTeam: async () => (scheduleLeft ? { id: 'schedule' } : null),
-    remove: async (schedule: { id: string }) => {
-      removed.push(schedule.id);
+  });
+  const schedules = partial<MemoryUpkeepScheduleRepository>({
+    ofTeam: async () =>
+      scheduleLeft ? partial<MemoryUpkeepSchedule>({}) : null,
+    remove: async () => {
+      removed.push('schedule');
       scheduleLeft = false;
     },
-  } as unknown as MemoryUpkeepScheduleRepository;
+  });
   const checksLeft = ['check_1'];
-  const checks = {
+  const checks = partial<DuplicateCheckRepository>({
     ofTeam: async () =>
-      checksLeft.map((id) => ({
-        id,
-        isDeleted: false,
-        delete: () => ({ id, isDeleted: true }),
-      })),
-    save: async (check: { id: string; isDeleted: boolean }) => {
+      checksLeft.map((runId) =>
+        DuplicateCheck.due({
+          runId: RunId.of(runId),
+          workspaceId: WorkspaceId.of('ws_1'),
+          teamId: TEAM,
+          taskId: TaskId.of('task_1'),
+          setId: MemoryProposalSetId.of('set_1'),
+          now: new Date('2026-09-27T10:00:00.000Z'),
+        }),
+      ),
+    save: async (check: DuplicateCheck) => {
       if (check.isDeleted) {
-        removed.push(check.id);
-        checksLeft.splice(checksLeft.indexOf(check.id), 1);
+        removed.push(check.runId.value);
+        checksLeft.splice(checksLeft.indexOf(check.runId.value), 1);
       }
     },
-  } as unknown as DuplicateCheckRepository;
-  const memories = {
+  });
+  const memories = partial<MemoryRepository>({
     ofTeam: async () => [...stored.values()],
     save: async (memory: Memory) => {
       if (!memory.isDeleted || changedMeanwhile.has(memory.id.value)) {
@@ -87,7 +104,7 @@ const deleting = (
         toAdd = null;
       }
     },
-  } as unknown as MemoryRepository;
+  });
   const service = new DeleteTeamMemories(
     memories,
     {

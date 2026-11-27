@@ -6,6 +6,7 @@ import type { Env } from '@platform/config/env.schema';
 import { loggablePath } from '@platform/http/loggable-path';
 import { refusalOf } from '@platform/http/refusal';
 import { activeTraceId, traceIdOf } from '@platform/http/trace-id';
+import { fieldOf } from '@platform/json/field-of';
 import { logContext } from '@platform/logging/log-context';
 import {
   REDACTED_REQUEST_HEADERS,
@@ -48,12 +49,12 @@ const picked = (
     return undefined;
   }
 
-  const all = headers as Record<string, unknown>;
-
   return Object.fromEntries(
-    names
-      .filter((name) => all[name] !== undefined)
-      .map((name) => [name, all[name]]),
+    names.flatMap((name) => {
+      const value = fieldOf(headers, name);
+
+      return value === undefined ? [] : [[name, value]];
+    }),
   );
 };
 

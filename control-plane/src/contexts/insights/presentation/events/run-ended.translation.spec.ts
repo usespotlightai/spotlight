@@ -21,6 +21,7 @@ describe('endingOf', () => {
   it('reads an outcome it does not know as no ending', () => {
     expect(
       endingOf({
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         outcome: 'exploded' as RunEndedOutcome,
         stopped: false,
         failure: null,

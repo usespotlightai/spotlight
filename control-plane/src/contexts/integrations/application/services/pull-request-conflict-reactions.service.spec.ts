@@ -2,6 +2,7 @@ import { ReactionDeferredError } from '@integrations/application/errors/reaction
 import { PullRequestConflictReactions } from '@integrations/application/services/pull-request-conflict-reactions.service';
 import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import { describe, expect, it, vi } from 'vitest';
@@ -14,11 +15,13 @@ const CONFLICT = {
   base: 'main',
 };
 
-const RAISED = { happening: 'github.pull_request.conflicted' } as Happened;
+const RAISED = partial<Happened>({
+  happening: 'github.pull_request.conflicted',
+});
 
 const reactionsWith = (failure: DeliveryFailure | null) => {
   const react = vi.fn(async () => failure);
-  const logger = { warn: vi.fn() } as unknown as LoggerPort;
+  const logger = partial<LoggerPort>({ warn: vi.fn() });
 
   return {
     react,

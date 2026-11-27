@@ -1,6 +1,7 @@
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import { RunnerLeases } from '@runs/application/services/runner-leases.service';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,13 +20,13 @@ const ending = () => {
     claim,
     reservationDropped,
     endings: new RunnerLeases(
-      {
+      partial<RunnersPort>({
         workEnded,
         release,
         claim,
         reservationDropped,
-      } as unknown as RunnersPort,
-      { now: () => NOW } as ClockPort,
+      }),
+      partial<ClockPort>({ now: () => NOW }),
     ),
   };
 };

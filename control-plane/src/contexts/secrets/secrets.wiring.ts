@@ -130,6 +130,7 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const SECRETS_EVENTS = Symbol('SECRETS_EVENTS');
 
@@ -143,7 +144,7 @@ export const SECRETS_CONTROLLERS: readonly Type[] = [
 ];
 
 const keyManagementFor = (env: Env): KeyManagement =>
-  env.SPOTLIGHT_SECRETS_KMS_KEY_ID
+  nonEmpty(env.SPOTLIGHT_SECRETS_KMS_KEY_ID)
     ? new AwsKeyManagement(new KMSClient({}), env.SPOTLIGHT_SECRETS_KMS_KEY_ID)
     : new LocalKeyManagement(env.SPOTLIGHT_SECRETS_KEY ?? '');
 

@@ -8,6 +8,7 @@ import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -43,7 +44,7 @@ const taking = (
   const saved: Run[] = [];
   let clashes = over.clashes ?? 0;
   const warn = vi.fn();
-  const runs = {
+  const runs = partial<RunRepository>({
     findById: vi.fn(async () =>
       over.stored === undefined ? claimed() : over.stored,
     ),
@@ -57,7 +58,7 @@ const taking = (
       }
       saved.push(run);
     }),
-  } as unknown as RunRepository;
+  });
   const checks = { unclaim: vi.fn(async () => {}) };
   const runners = {
     claim: vi.fn(async () => {
@@ -76,10 +77,10 @@ const taking = (
     runners,
     taken: new ClaimsTaken(
       runs,
-      checks as unknown as ReviewWorkPort,
-      runners as unknown as RunnersPort,
-      { now: () => NOW } as ClockPort,
-      { warn, info } as unknown as LoggerPort,
+      partial<ReviewWorkPort>(checks),
+      partial<RunnersPort>(runners),
+      partial<ClockPort>({ now: () => NOW }),
+      partial<LoggerPort>({ warn, info }),
     ),
     info,
   };

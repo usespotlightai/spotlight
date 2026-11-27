@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { JudgeDisagreementThread } from '@/components/features/inbox/disagreements/JudgeDisagreementThread';
@@ -35,18 +36,18 @@ vi.mock('@/components/features/inbox/RunThread', () => ({
     pending,
   }: {
     runId: string;
-    after: unknown;
-    docked: { id: string; label: string; content: unknown }[];
+    after: ReactNode;
+    docked: { id: string; label: string; content: ReactNode }[];
     pending?: boolean;
   }) => (
     <div>
       <p>The thread of run {runId}</p>
-      {pending && <p>Waiting for the judge</p>}
-      {after as never}
+      {pending === true && <p>Waiting for the judge</p>}
+      {after}
       <ol aria-label="Tray">
         {docked.map((page) => (
           <li key={page.id} aria-label={page.label}>
-            {page.content as never}
+            {page.content}
           </li>
         ))}
       </ol>

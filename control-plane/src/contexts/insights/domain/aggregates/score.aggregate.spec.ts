@@ -2,7 +2,7 @@ import {
   MAX_SEEN_CHARS,
   Score,
 } from '@insights/domain/aggregates/score.aggregate';
-import type { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
+import { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { InvalidScoreError } from '@insights/domain/exceptions/invalid-score.error';
 import { Citation } from '@insights/domain/value-objects/citation.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
@@ -14,6 +14,8 @@ import {
   RUBRIC_VERSION,
 } from '@insights/judging.fake-spec';
 import { WORKSPACE } from '@insights/runs.fake-spec';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -45,10 +47,10 @@ const judged = (over: Partial<Parameters<typeof Score.judge>[0]> = {}) =>
 describe('Score', () => {
   it('names its rubric, and says it was recorded', () => {
     const score = judgeScore('run_1', [true]);
-    const [event] = score.pullEvents() as ScoreRecorded[];
+    const event = instanceOf(ScoreRecorded, firstOf(score.pullEvents()));
 
     expect(score.rubricVersion).toBe(RUBRIC_VERSION);
-    expect(event?.kind).toBe('score.recorded');
+    expect(event.kind).toBe('score.recorded');
   });
 
   it('is the share of claims met, marked one by one', () => {

@@ -14,7 +14,7 @@ export class WorkspaceRunnersId {
   }
 
   equals(other: WorkspaceRunnersId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof WorkspaceRunnersId && this.value === other.value;
   }
 
   toString(): string {

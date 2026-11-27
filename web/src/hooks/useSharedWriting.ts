@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 
 import { DRAFT_SENT } from '@/lib/chat-input';
 
-export function useSharedWriting(onWrote: () => void) {
+export function useSharedWriting(onWrote: () => void): void {
   const [editor] = useLexicalComposerContext();
 
   useEffect(

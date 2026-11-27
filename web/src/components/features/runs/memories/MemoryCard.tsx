@@ -49,7 +49,7 @@ export function MemoryCard({
             </div>
           )}
 
-          {action && <div className="flex shrink-0">{action}</div>}
+          {Boolean(action) && <div className="flex shrink-0">{action}</div>}
         </div>
       </div>
 
@@ -60,7 +60,7 @@ export function MemoryCard({
         className={BELOW}
       />
 
-      {footer && <div className={BELOW}>{footer}</div>}
+      {Boolean(footer) && <div className={BELOW}>{footer}</div>}
     </li>
   );
 }

@@ -23,7 +23,7 @@ export class EgressKey {
   }
 
   equals(other: EgressKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof EgressKey && this.value === other.value;
   }
 
   toString(): string {

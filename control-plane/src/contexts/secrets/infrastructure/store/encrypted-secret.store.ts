@@ -12,6 +12,7 @@ import {
 } from '@secrets/infrastructure/crypto/envelope';
 import type { WorkspaceKeys } from '@secrets/infrastructure/crypto/workspace-keys';
 import { secretValue } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { eq } from 'drizzle-orm';
 
 const aadFor = (secret: SecretReference): string =>
@@ -43,13 +44,15 @@ export class EncryptedSecretStore implements SecretStorePort {
   }
 
   async read(secret: SecretReference): Promise<SecretValue> {
-    const [stored] = await this.context.db
-      .select({ ciphertext: secretValue.ciphertext })
-      .from(secretValue)
-      .where(eq(secretValue.secretId, secret.id.value))
-      .limit(1);
+    const stored = firstOf(
+      await this.context.db
+        .select({ ciphertext: secretValue.ciphertext })
+        .from(secretValue)
+        .where(eq(secretValue.secretId, secret.id.value))
+        .limit(1),
+    );
 
-    if (!stored) {
+    if (stored === undefined) {
       throw new UnreadableSecretError(
         secret.name.value,
         'No value is stored for it.',

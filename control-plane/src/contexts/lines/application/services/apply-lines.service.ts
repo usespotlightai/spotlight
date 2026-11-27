@@ -13,6 +13,7 @@ import {
 import type { LinePlan } from '@lines/domain/value-objects/line-plan.vo';
 import { TaskCounts } from '@lines/domain/value-objects/stranded-station';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -98,7 +99,7 @@ export class ApplyLines {
   }
 
   private guardRoles(existing: readonly Line[], plan: LinePlan): void {
-    const [claimed] = rolesClaimedTwice(existing, [plan]);
+    const claimed = firstOf(rolesClaimedTwice(existing, [plan]));
 
     if (claimed) {
       throw new LineRoleTakenError(claimed);

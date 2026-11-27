@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 const BELONGING: readonly string[] = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 
 export class AuthorAssociation {
@@ -6,7 +7,9 @@ export class AuthorAssociation {
   private constructor(readonly value: string | null) {}
 
   static of(raw: string | null): AuthorAssociation {
-    return new AuthorAssociation(raw?.trim().toUpperCase() || null);
+    const named = raw?.trim().toUpperCase();
+
+    return new AuthorAssociation(!nonEmpty(named) ? null : named);
   }
 
   get isOutside(): boolean {
@@ -14,6 +17,6 @@ export class AuthorAssociation {
   }
 
   equals(other: AuthorAssociation): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof AuthorAssociation && this.value === other.value;
   }
 }

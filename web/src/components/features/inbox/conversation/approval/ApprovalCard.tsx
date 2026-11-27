@@ -16,6 +16,7 @@ import {
   differs,
 } from '@/lib/approval';
 import { DockedContext } from '@/lib/decision-tray';
+import { nonEmpty } from '@/lib/non-empty';
 
 type ApprovalCardProps = {
   approval: Approval;
@@ -79,7 +80,11 @@ export function ApprovalCard({
           approval={approval}
           pending={pending}
           acting={!deciding || mode === 'viewing'}
-          onEdit={deciding && !onlyFor ? () => setMode('editing') : undefined}
+          onEdit={
+            deciding && !nonEmpty(onlyFor)
+              ? () => setMode('editing')
+              : undefined
+          }
         />
 
         {deciding && mode === 'editing' ? (

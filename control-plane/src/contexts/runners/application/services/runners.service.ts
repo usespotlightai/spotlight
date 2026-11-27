@@ -52,6 +52,7 @@ import type {
 } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -196,7 +197,7 @@ export class Runners implements RunnersPort {
     const runnerId = RunnerId.of(this.ids.generate());
     const issued = this.tokens.issue();
     const egress = this.tokens.issue();
-    const entering: Entering | null = into
+    const entering: Entering | null = nonEmpty(into)
       ? { sandbox: SandboxId.of(into), host: hostId }
       : null;
     const starting: Starting = (through) =>

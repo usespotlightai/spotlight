@@ -6,8 +6,10 @@ import {
   type RouteObject,
 } from 'react-router';
 
+import { nonEmpty } from '@/lib/non-empty';
+
 import { APP_TABS_KEY, panesOf, placeAt, storedTabs } from './lib/app-tabs.ts';
-import { isLazyPage } from './lib/lazy-page.ts';
+import { isLazyPage, type LazyPage } from './lib/lazy-page.ts';
 import { workspacePages } from './workspace-pages.tsx';
 
 const WORKSPACE_PATH = /^\/w\/([^/]+)/;
@@ -31,7 +33,7 @@ export const visiblePaths = (
 ): string[] => {
   const slug = WORKSPACE_PATH.exec(pathname)?.[1];
 
-  if (!slug) {
+  if (!nonEmpty(slug)) {
     return [pathname];
   }
 
@@ -48,7 +50,7 @@ export const visiblePaths = (
 export const pagesAt = (
   paths: readonly string[],
   routes: RouteObject[] = workspaceRoutes(),
-) =>
+): LazyPage[] =>
   paths
     .flatMap((path) => matchRoutes(routes, path) ?? [])
     .map(({ route }) => route.element)
@@ -72,7 +74,9 @@ const whenIdle = (work: () => void) =>
     ? requestIdleCallback(work, { timeout: 2000 })
     : setTimeout(work, 200);
 
-export const preloadEveryPage = (routes: RouteObject[] = workspaceRoutes()) => {
+export const preloadEveryPage = (
+  routes: RouteObject[] = workspaceRoutes(),
+): void => {
   const pages = [
     ...new Set(
       everyPage(routes).flatMap((element) =>

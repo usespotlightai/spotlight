@@ -1,5 +1,5 @@
 import type { SequencedNotice } from '@platform/live/change-notices';
-import type { LiveChannel } from '@platform/live/live-feed.port';
+import { isLiveChannel, type LiveChannel } from '@platform/live/live-feed.port';
 import type {
   ChannelLog,
   LivePositions,
@@ -56,11 +56,12 @@ export const sinceOf = (
 
   for (const value of values.flatMap((each) => each.split(','))) {
     const at = value.lastIndexOf('@');
-    const channel = value.slice(0, at).trim() as LiveChannel;
+    const channel = value.slice(0, at).trim();
     const sequence = Number(value.slice(at + 1));
 
     if (
       at > 0 &&
+      isLiveChannel(channel) &&
       watched.has(channel) &&
       Number.isSafeInteger(sequence) &&
       sequence >= 0

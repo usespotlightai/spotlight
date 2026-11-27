@@ -1,6 +1,8 @@
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubCheckRuns } from '@github/infrastructure/github/github-check-runs';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -10,12 +12,12 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 
 const PULL_REQUEST = PullRequestUrl.of('https://github.com/acme/api/pull/7');
 
-const access = {
+const access = partial<RepositoryAccessPort>({
   credential: vi.fn(async () => ({
     username: 'x-access-token',
     password: 'tok_1',
   })),
-} as unknown as RepositoryAccessPort;
+});
 
 const answering = (status: number, body: unknown) => ({
   status,
@@ -271,10 +273,12 @@ describe('GitHubCheckRuns', () => {
             : answering(200, RUNS),
       );
 
-      const [first] = await new GitHubCheckRuns(access).failedInSuite(
-        WORKSPACE,
-        Repository.of('acme/api'),
-        42,
+      const first = firstOf(
+        await new GitHubCheckRuns(access).failedInSuite(
+          WORKSPACE,
+          Repository.of('acme/api'),
+          42,
+        ),
       );
 
       return first?.log ?? null;

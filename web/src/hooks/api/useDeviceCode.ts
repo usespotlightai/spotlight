@@ -1,14 +1,24 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { authClient } from '@/lib/authClient';
 import { type DeviceStatus, TOO_MANY_ATTEMPTS } from '@/lib/device';
+import { required } from '@/lib/required';
+
+const DEVICE_STATUSES: readonly DeviceStatus[] = [
+  'pending',
+  'approved',
+  'denied',
+];
 
 export const deviceKeys = {
   byUserCode: (userCode: string | null) =>
     ['auth', 'device', userCode] as const,
 };
 
-export function useDeviceCode(userCode: string | null, signedIn: boolean) {
+export function useDeviceCode(
+  userCode: string | null,
+  signedIn: boolean,
+): UseQueryResult<DeviceStatus | null> {
   return useQuery({
     queryKey: deviceKeys.byUserCode(userCode),
     enabled: Boolean(userCode) && signedIn,
@@ -18,7 +28,7 @@ export function useDeviceCode(userCode: string | null, signedIn: boolean) {
     meta: { persist: false },
     queryFn: async (): Promise<DeviceStatus | null> => {
       const { data, error } = await authClient.device({
-        query: { user_code: userCode as string },
+        query: { user_code: required(userCode) },
       });
 
       if (error?.status === 400) {
@@ -30,7 +40,12 @@ export function useDeviceCode(userCode: string | null, signedIn: boolean) {
       if (!data) {
         throw new Error('Sorry, the code couldn’t be checked.');
       }
-      return data.status as DeviceStatus;
+      const status = DEVICE_STATUSES.find((each) => each === data.status);
+
+      if (status === undefined) {
+        throw new Error('Sorry, the code couldn’t be checked.');
+      }
+      return status;
     },
   });
 }

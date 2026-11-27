@@ -26,10 +26,12 @@ export function PaneScroller({
         contentClassName="flex min-h-full flex-col"
       >
         <div className="@container/pane flex flex-1 flex-col">{children}</div>
-        {footer && <div className="sticky bottom-0 z-20">{footer}</div>}
+        {Boolean(footer) && (
+          <div className="sticky bottom-0 z-20">{footer}</div>
+        )}
       </ScrollArea>
 
-      {sidePanel && <div className="flex shrink-0">{sidePanel}</div>}
+      {Boolean(sidePanel) && <div className="flex shrink-0">{sidePanel}</div>}
     </div>
   );
 }

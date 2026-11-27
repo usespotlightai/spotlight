@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { nonEmpty } from '@/lib/non-empty';
 import { notificationsPath } from '@/lib/notifications';
 import { serveMockApi } from '@/mocks/testing';
 import { SLUG } from '@/mocks/world';
@@ -29,7 +30,8 @@ const browserWith = (permission: NotificationPermission) => {
     },
   };
   const pushManager = {
-    getSubscription: async () => (state.endpoint ? subscription : null),
+    getSubscription: async () =>
+      nonEmpty(state.endpoint) ? subscription : null,
     subscribe: vi.fn(async () => {
       state.endpoint = ENDPOINT;
       return subscription;

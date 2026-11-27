@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { AvatarChange } from '@/hooks/api/useAvatar';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 const ACCEPTED = 'image/png,image/jpeg,image/webp,image/gif';
@@ -79,7 +80,7 @@ export function AvatarSetting({
     >
       {editable ? (
         <>
-          {avatarUrl ? (
+          {nonEmpty(avatarUrl) ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 aria-label={label}
@@ -121,10 +122,10 @@ export function AvatarSetting({
             hidden
             aria-label={`Avatar image for ${name}`}
             onChange={(event) => {
-              const [file] = Array.from(event.target.files ?? []);
+              const file: File | undefined = event.target.files?.[0];
               event.target.value = '';
 
-              if (file) {
+              if (file !== undefined) {
                 send(file);
               }
             }}

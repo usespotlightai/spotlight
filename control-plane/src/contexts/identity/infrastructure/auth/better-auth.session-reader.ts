@@ -3,15 +3,22 @@ import type {
   SessionReaderPort,
   SessionUser,
 } from '@identity/application/ports/session-reader.port';
-import type { AppAuth } from '@identity/infrastructure/auth/auth';
 import { AUTH } from '@identity/infrastructure/auth/auth.constants';
 import { Inject, Injectable } from '@nestjs/common';
 import { isAPIError } from 'better-auth/api';
 import { fromNodeHeaders } from 'better-auth/node';
 
+export interface SessionAuth {
+  readonly api: {
+    getSession(context: {
+      headers: Headers;
+    }): Promise<{ readonly user: SessionUser } | null>;
+  };
+}
+
 @Injectable()
 export class BetterAuthSessionReader implements SessionReaderPort {
-  constructor(@Inject(AUTH) private readonly auth: AppAuth) {}
+  constructor(@Inject(AUTH) private readonly auth: SessionAuth) {}
 
   read(headers: SessionHeaders): Promise<SessionUser | null> {
     return this.userOf(fromNodeHeaders(headers));

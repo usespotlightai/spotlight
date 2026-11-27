@@ -136,9 +136,11 @@ describe('SecretInjection', () => {
 
     it('injects the rotated value from the moment it is rotated', async () => {
       const { injection, secrets } = await setUp();
-      const existing = (await secrets.withId(
-        SecretId.of('secret_linear'),
-      )) as Secret;
+      const existing = await secrets.withId(SecretId.of('secret_linear'));
+
+      if (existing === null) {
+        throw new Error('expected the Linear secret');
+      }
       const rotated = existing.update(
         definition({ value: 'lin_api_2', valueVersion: 2 }),
         BY,
@@ -521,9 +523,11 @@ describe('SecretInjection', () => {
         secrets: ['LINEAR_API_KEY'],
       });
 
-      const existing = (await secrets.withId(
-        SecretId.of('secret_linear'),
-      )) as Secret;
+      const existing = await secrets.withId(SecretId.of('secret_linear'));
+
+      if (existing === null) {
+        throw new Error('expected the Linear secret');
+      }
       await secrets.save(
         existing.update(
           definition({ bindings: [{ host: 'uploads.linear.app' }] }),

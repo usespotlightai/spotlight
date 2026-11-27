@@ -8,6 +8,7 @@ import type {
 } from '@change-review/application/ports/work.port';
 import { PublicWorkAccess } from '@change-review/application/services/public-work-access.service';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -36,22 +37,22 @@ const setup = (
 ) => {
   const stacks = (over.stacks ?? ['acme/api']).map(stackIn);
   const visible = over.visible ?? (() => true);
-  const work = {
+  const work = partial<WorkPort>({
     task: vi.fn(async () =>
       over.known === false
         ? null
-        : ({ workspaceId: WORKSPACE } as ReviewedTask),
+        : partial<ReviewedTask>({ workspaceId: WORKSPACE }),
     ),
     run: vi.fn(async () =>
       over.known === false
         ? null
-        : ({ workspaceId: WORKSPACE } as RunForReview),
+        : partial<RunForReview>({ workspaceId: WORKSPACE }),
     ),
-  } as unknown as WorkPort;
-  const reader = {
+  });
+  const reader = partial<ChangeStackReaderPort>({
     publicOfTask: vi.fn(async () => stacks),
     publicOfRun: vi.fn(async () => stacks),
-  } as unknown as ChangeStackReaderPort;
+  });
   const visibility: RepositoryVisibilityPort = {
     arePublic: vi.fn(
       async (_: WorkspaceId, repositories: readonly Repository[]) =>

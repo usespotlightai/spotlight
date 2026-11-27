@@ -31,6 +31,7 @@ import {
 import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
 import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
 import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { AckMessagesCommand } from '@work/application/commands/ack-messages.command';
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { GrantRunAttachmentUploadCommand } from '@work/application/commands/grant-run-attachment-upload.command';
@@ -67,6 +68,12 @@ import {
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 import { RunnerHistoryHttpMapper } from '@work/presentation/http/mappers/runner-history.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
+
+const trimmedOrNull = (value: string | undefined): string | null => {
+  const trimmed = value?.trim();
+
+  return !nonEmpty(trimmed) ? null : trimmed;
+};
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
@@ -236,7 +243,7 @@ export class RunWorkController {
     @Query('last') last: string | undefined,
     @CurrentMachine() runnerId: string,
   ): Promise<RunnerHistoryResponseDto> {
-    if (!station?.trim()) {
+    if (station === undefined || station.trim() === '') {
       throw new NotFoundException();
     }
 
@@ -246,11 +253,11 @@ export class RunWorkController {
     >(
       new ReadRunnerHistoryQuery(runId, runnerId, {
         station: station.trim(),
-        line: line?.trim() || null,
-        fingerprint: fingerprint?.trim() || null,
-        outcome: outcome?.trim() || null,
-        since: since?.trim() || null,
-        last: last ? Number(last) : null,
+        line: trimmedOrNull(line),
+        fingerprint: trimmedOrNull(fingerprint),
+        outcome: trimmedOrNull(outcome),
+        since: trimmedOrNull(since),
+        last: nonEmpty(last) ? Number(last) : null,
       }),
     );
 
@@ -319,7 +326,7 @@ export class RunWorkController {
     @Param('runId') runId: string,
     @Param('tool') tool: string,
     @CurrentMachine() runnerId: string,
-    @Body() input: Record<string, unknown>,
+    @Body() input: Record<string, unknown> | undefined,
   ): Promise<ToolAnswerResponseDto> {
     const answered = await this.commandBus.execute<
       UseToolCommand,
@@ -354,7 +361,7 @@ export class RunWorkController {
       PermissionAnswerDto
     >(
       new AskPermissionCommand(runId, runnerId, {
-        sessionId: body.sessionId || null,
+        sessionId: !nonEmpty(body.sessionId) ? null : body.sessionId,
         kind: body.kind ?? '',
         title: body.title ?? '',
         input: body.input,

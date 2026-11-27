@@ -22,7 +22,7 @@ export class LongPoll {
     return new Date(this.clock.now().getTime() + this.windowMs);
   }
 
-  async polled<T>(
+  async polled<T extends object | string>(
     attempt: () => Promise<T | null>,
     until: Date = this.deadline(),
   ): Promise<T | null> {
@@ -35,7 +35,7 @@ export class LongPoll {
 
       const found = await attempt();
 
-      if (found || this.clock.now().getTime() >= deadline) {
+      if (found !== null || this.clock.now().getTime() >= deadline) {
         return found;
       }
 

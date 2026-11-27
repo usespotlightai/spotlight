@@ -2,6 +2,7 @@ import { EgressBlockedError } from '@integrations/application/errors/egress-bloc
 import { answersTransiently } from '@integrations/domain/services/call-transience';
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+import { causeOf, fieldOf } from '@platform/json/field-of';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 
 export class McpUnauthorizedError extends Error {
@@ -45,8 +46,8 @@ const NETWORK_ERROR_CODES: ReadonlySet<string> = new Set([
 const SESSION_GONE = 404;
 
 const codeOf = (error: unknown): string => {
-  const cause = (error as { cause?: unknown } | null)?.cause ?? error;
-  const code = (cause as { code?: unknown } | null)?.code;
+  const cause = causeOf(error) ?? error;
+  const code = fieldOf(cause, 'code');
 
   return typeof code === 'string'
     ? code
@@ -88,8 +89,8 @@ const failedInTransport = (error: unknown): boolean => {
     return TRANSPORT_ERROR_CODES.has(error.code);
   }
 
-  const cause = (error as { cause?: unknown } | null)?.cause ?? error;
-  const code = (cause as { code?: unknown } | null)?.code;
+  const cause = causeOf(error) ?? error;
+  const code = fieldOf(cause, 'code');
 
   return typeof code === 'string' && NETWORK_ERROR_CODES.has(code);
 };

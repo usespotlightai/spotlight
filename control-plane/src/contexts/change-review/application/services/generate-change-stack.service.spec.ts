@@ -19,7 +19,7 @@ import type { ChangeStackRepository } from '@change-review/domain/repositories/c
 import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import {
   Diff,
   type DiffFile,
@@ -36,6 +36,7 @@ import {
   NO_INDEX,
   type SymbolIndex,
 } from '@change-review/domain/value-objects/symbol-index.vo';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
@@ -200,13 +201,13 @@ const generating = (
       return [
         ...new Map(
           saved
-            .filter((each) => each.taskId?.equals(taskId))
+            .filter((each) => each.taskId?.equals(taskId) === true)
             .map((each) => [each.id.value, each]),
         ).values(),
       ];
     },
     ofTeam: async () => [],
-    remove: async () => undefined,
+    remove: async () => {},
   };
 
   const generator: ChangeStackGeneratorPort = {
@@ -214,7 +215,7 @@ const generating = (
       requests.push(request);
       const answer = answers.shift();
 
-      if (!answer) {
+      if (answer === undefined) {
         throw new Error('Requested too often');
       }
       if (answer === 'pending') {
@@ -249,7 +250,7 @@ const generating = (
     { generate: over.ids ?? (() => 'stack-1') },
     {
       now: () => new Date('2026-09-16T10:00:00Z'),
-      sleep: async () => undefined,
+      sleep: async () => {},
     },
     over.logger ?? QUIET,
   );
@@ -514,7 +515,7 @@ describe('GenerateChangeStack', () => {
         },
       ]);
 
-      const ready = saved[saved.length - 1];
+      const ready = optionalItems(saved)[saved.length - 1];
       expect(ready?.state).toBe('ready');
       expect(ready?.cohorts.map((each) => each.kind)).toEqual([
         'change',
@@ -733,7 +734,7 @@ describe('RedraftChangeStack', () => {
       generated.generator,
       {
         now: () => new Date('2026-09-16T10:05:00Z'),
-        sleep: async () => undefined,
+        sleep: async () => {},
       },
       QUIET,
     );
@@ -742,7 +743,7 @@ describe('RedraftChangeStack', () => {
   };
 
   it('requests the layers again with what the check found, and takes the redrafted stack', async () => {
-    const [table, endpoint] = twoLayers.layers;
+    const [table, endpoint] = optionalItems(twoLayers.layers);
     const moved: ProposedCohort = {
       ...twoLayers,
       layers: [endpoint, table].flatMap((layer) => (layer ? [layer] : [])),
@@ -758,7 +759,7 @@ describe('RedraftChangeStack', () => {
       requests[1]?.redraft?.failed.map((each) => [each.cohort, each.layer]),
     ).toEqual([[0, 0]]);
 
-    const redrafted = saved[saved.length - 1];
+    const redrafted = optionalItems(saved)[saved.length - 1];
     expect(
       redrafted?.cohorts[0]?.layers.map((layer) =>
         layer.hunks.map((entry) => entry.hunk),
@@ -1017,10 +1018,7 @@ describe('for a task that had a stack before', () => {
   describe('pushed to the pull request', () => {
     const PUSHED = {
       ...TASK_RUN,
-      origin: StackOrigin.push(
-        CommitSha.parsed('b'.repeat(40)) as CommitSha,
-        Pusher.of('octocat'),
-      ),
+      origin: StackOrigin.push(commitSha('b'), Pusher.of('octocat')),
     };
 
     it('drafts in a session based on the newest run of the task', async () => {

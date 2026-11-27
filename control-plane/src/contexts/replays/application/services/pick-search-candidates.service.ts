@@ -96,7 +96,7 @@ export class PickSearchCandidates {
 
     return {
       rejected: proposed
-        .filter((each) => schedule?.hasRejected(each.fingerprint))
+        .filter((each) => schedule?.hasRejected(each.fingerprint) === true)
         .map((each) => each.id),
       pullRequestOpen,
       stationGone,

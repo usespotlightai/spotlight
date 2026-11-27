@@ -1,4 +1,7 @@
+import type { PublicChangeStackDto } from '@change-review/application/dto/change-stack.dto';
 import { ChangeStackHttpMapper } from '@change-review/presentation/http/mappers/change-stack.http.mapper';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 describe('ChangeStackHttpMapper', () => {
@@ -200,11 +203,19 @@ describe('ChangeStackHttpMapper', () => {
 });
 
 describe('ChangeStackHttpMapper for the public', () => {
-  const keysOf = (value: unknown) => Object.keys(value as object).sort();
+  const keysOf = (value: object | undefined) => Object.keys(value ?? {}).sort();
+
+  const privateFields = {
+    check: { command: 'npm test' },
+    runId: 'run-1',
+    push: { head: 'abc', pushedBy: 'octocat' },
+    failure: 'broke',
+    startedAt: '2026-09-16T10:00:00.000Z',
+  };
 
   const response = ChangeStackHttpMapper.toPublicResponse({
     stacks: [
-      {
+      partial<PublicChangeStackDto>({
         id: 'stack-1',
         repository: 'acme/api',
         state: 'ready',
@@ -241,12 +252,14 @@ describe('ChangeStackHttpMapper for the public', () => {
                 hunks: [{ hunk: 'h1' }],
                 notes: [{ path: 'src/invite.ts', note: 'Adds it.' }],
                 questions: [
-                  {
-                    id: 'c1.l1.q1',
-                    question: 'Who gets the invitation?',
-                    hunks: ['h1'],
-                    answered: { reply: 'Secret', expected: 'Secret' },
-                  } as never,
+                  Object.assign(
+                    {
+                      id: 'c1.l1.q1',
+                      question: 'Who gets the invitation?',
+                      hunks: ['h1'],
+                    },
+                    { answered: { reply: 'Secret', expected: 'Secret' } },
+                  ),
                 ],
                 revision: { status: 'modified', previous: 'c1.l0' },
               },
@@ -254,16 +267,13 @@ describe('ChangeStackHttpMapper for the public', () => {
           },
         ],
         removed: [{ previous: 'c9.l1', cohort: 'Old', title: 'Gone' }],
-        check: { command: 'npm test' },
-        runId: 'run-1',
-        push: { head: 'abc', pushedBy: 'octocat' },
-        failure: 'broke',
-        startedAt: '2026-09-16T10:00:00.000Z',
-      } as never,
+        ...privateFields,
+      }),
     ],
   });
-  const [stack] = response.stacks;
-  const layer = stack?.cohorts[0]?.layers[0];
+  const stack = firstOf(response.stacks);
+  const cohort = stack === undefined ? undefined : firstOf(stack.cohorts);
+  const layer = cohort === undefined ? undefined : firstOf(cohort.layers);
 
   it('names exactly the fields of a stack that anybody may read', () => {
     expect(keysOf(stack)).toEqual([
@@ -289,7 +299,9 @@ describe('ChangeStackHttpMapper for the public', () => {
   });
 
   it('shows a question without any answer', () => {
-    expect(keysOf(layer?.questions[0])).toEqual(['hunks', 'id', 'question']);
+    expect(
+      keysOf(layer === undefined ? undefined : firstOf(layer.questions)),
+    ).toEqual(['hunks', 'id', 'question']);
   });
 
   it('carries none of what stays private', () => {

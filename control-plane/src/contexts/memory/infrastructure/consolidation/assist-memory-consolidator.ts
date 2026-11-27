@@ -8,6 +8,7 @@ import type {
 import { ConsolidationRound } from '@memory/domain/value-objects/consolidation-round.vo';
 import { UPKEEP_CHANGES } from '@memory/domain/value-objects/upkeep-change';
 import { JsonSchema } from '@platform/json/json-schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { z } from 'zod';
 
@@ -116,9 +117,12 @@ export class AssistMemoryConsolidator implements MemoryConsolidatorPort {
       return null;
     }
 
-    const [, team, dueAt, attempt] = CONSOLIDATION_KEY.exec(session.key) ?? [];
+    const matched = CONSOLIDATION_KEY.exec(session.key);
+    const team = matched?.[1];
+    const dueAt = matched?.[2];
+    const attempt = matched?.[3];
 
-    if (!team || dueAt === undefined || attempt === undefined) {
+    if (!nonEmpty(team) || dueAt === undefined || attempt === undefined) {
       return null;
     }
 

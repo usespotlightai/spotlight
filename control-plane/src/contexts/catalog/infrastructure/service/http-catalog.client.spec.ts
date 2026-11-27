@@ -53,7 +53,11 @@ describe('HttpCatalogClient', () => {
       'spotlight-workspace': 'ws_1',
       'spotlight-run': 'run_1',
     });
-    expect(JSON.parse(sent[0]?.init.body as string)).toEqual({
+    const body = sent[0]?.init.body;
+    if (typeof body !== 'string') {
+      throw new Error('expected a JSON body');
+    }
+    expect(JSON.parse(body)).toEqual({
       inputs: { query: 'queues' },
     });
   });

@@ -1,4 +1,5 @@
 import type { RunFacts } from '@runs/application/ports/run-facts.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -54,7 +55,7 @@ const lineWith = (...repositories: readonly string[]) =>
   });
 
 const factsOf = (paths: readonly string[]): RunFacts =>
-  ({
+  partial<RunFacts>({
     runId: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     ended: true,
@@ -64,7 +65,7 @@ const factsOf = (paths: readonly string[]): RunFacts =>
       at: new Date('2026-11-11T09:00:00.000Z'),
       checkouts: paths.map((path) => ({ path, commit: COMMIT })),
     },
-  }) as unknown as RunFacts;
+  });
 
 const RAN: TaskRunFacts = {
   runId: 'run_1',
@@ -84,11 +85,11 @@ const summaryOf = async (
   const [summary] = await new TrialableRuns(
     { of: async () => [facts] },
     { ofTaskRuns: async () => new Map([[ran.runId, ran]]) },
-    {} as StationRunReaderPort,
-    {
+    partial<StationRunReaderPort>({}),
+    partial<LineMapsPort>({
       findByStation: async (station: StationId) =>
         station.equals(BUILD) ? line : null,
-    } as unknown as LineMapsPort,
+    }),
   ).summaries('ws_1', ['run_1']);
 
   return summary;

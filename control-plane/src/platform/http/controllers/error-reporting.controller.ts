@@ -6,6 +6,9 @@ import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decora
 import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import { ErrorReportingResponseDto } from '@platform/http/dto/error-reporting.response.dto';
 
+const nonEmpty = (value: string | undefined): string | null =>
+  value === undefined || value === '' ? null : value;
+
 @ApiTags('error-reporting')
 @InAudience('web')
 @Controller('error-reporting')
@@ -20,12 +23,13 @@ export class ErrorReportingController {
   })
   @ApiOkResponse({ type: ErrorReportingResponseDto })
   handle(): ErrorReportingResponseDto {
-    const dsn = this.env.SENTRY_WEB_DSN || this.env.SENTRY_DSN || null;
+    const dsn =
+      nonEmpty(this.env.SENTRY_WEB_DSN) ?? nonEmpty(this.env.SENTRY_DSN);
 
     return new ErrorReportingResponseDto(
       dsn,
-      dsn ? this.env.SENTRY_ENVIRONMENT || null : null,
-      dsn ? this.env.SPOTLIGHT_RELEASE || null : null,
+      dsn === null ? null : nonEmpty(this.env.SENTRY_ENVIRONMENT),
+      dsn === null ? null : nonEmpty(this.env.SPOTLIGHT_RELEASE),
     );
   }
 }

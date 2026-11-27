@@ -1,4 +1,6 @@
 import type { BotActivity } from '@insights/domain/value-objects/seen-pull-request.vo';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export interface ObservedReview {
   readonly id: number;
@@ -51,9 +53,11 @@ const atOf = (review: ObservedReview): number =>
   review.at?.getTime() ?? Number.POSITIVE_INFINITY;
 
 const earliestOf = (reviews: readonly ObservedReview[]): Date | null => {
-  const [first] = reviews
-    .filter((each) => each.at !== null)
-    .sort((a, b) => atOf(a) - atOf(b));
+  const first = firstOf(
+    reviews
+      .filter((each) => each.at !== null)
+      .sort((a, b) => atOf(a) - atOf(b)),
+  );
 
   return first?.at ?? null;
 };
@@ -61,8 +65,9 @@ const earliestOf = (reviews: readonly ObservedReview[]): Date | null => {
 const roundsOf = (byPeople: readonly ObservedReview[]): number => {
   const reviews = [...byPeople].sort((a, b) => atOf(a) - atOf(b));
   const verdicts = reviews.filter((each) => VERDICTS.includes(each.state));
-  const last = verdicts[verdicts.length - 1];
-  const after = last ? reviews.slice(reviews.indexOf(last) + 1) : reviews;
+  const last = itemAt(verdicts, verdicts.length - 1);
+  const after =
+    last !== undefined ? reviews.slice(reviews.indexOf(last) + 1) : reviews;
 
   return verdicts.length + (after.length > 0 ? 1 : 0);
 };
@@ -78,11 +83,11 @@ const botLoginsOf = (activity: ObservedReviewActivity): readonly string[] =>
   [
     ...new Set([
       ...activity.reviews.flatMap((each) =>
-        each.byBot && each.login ? [each.login] : [],
+        each.byBot && nonEmpty(each.login) ? [each.login] : [],
       ),
       ...activity.botComments.map((each) => each.login),
       ...activity.threads.flatMap((each) =>
-        each.byBot && each.login ? [each.login] : [],
+        each.byBot && nonEmpty(each.login) ? [each.login] : [],
       ),
     ]),
   ].sort();

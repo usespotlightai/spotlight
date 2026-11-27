@@ -29,6 +29,7 @@ export const subscribing = <E extends DomainEvent>(
   kinds,
   callsOut,
   handle: async (event, record) => {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const raised = await handle(event as E, record);
 
     return Array.isArray(raised) ? (raised as readonly DomainEvent[]) : [];

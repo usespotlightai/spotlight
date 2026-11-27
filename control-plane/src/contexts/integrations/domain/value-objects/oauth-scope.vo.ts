@@ -35,6 +35,6 @@ export class OAuthScope {
   }
 
   equals(other: OAuthScope): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof OAuthScope && this.value === other.value;
   }
 }

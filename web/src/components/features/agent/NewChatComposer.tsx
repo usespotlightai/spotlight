@@ -10,6 +10,7 @@ import { useChatDraft } from '@/hooks/useChatDraft';
 import type { ChatSetup, SharedTrace, TargetStation } from '@/lib/chat';
 import { prefillSignature, validSettings } from '@/lib/chat-draft';
 import { stationReference, traceReference } from '@/lib/chat-input';
+import { nonEmpty } from '@/lib/non-empty';
 
 type NewChatComposerProps = {
   slug: string;
@@ -120,7 +121,7 @@ export function NewChatComposer({
             body,
             attachments,
             traces,
-            ...(targetStation ? { targetStation } : {}),
+            ...(nonEmpty(targetStation) ? { targetStation } : {}),
             ...(setup ? { setup } : {}),
           },
           {

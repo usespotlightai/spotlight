@@ -27,6 +27,9 @@ import type {
   NetworkCallsPort,
   NetworkRequest,
 } from '@runs/application/ports/network-calls.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -121,20 +124,23 @@ const sending = (
     },
   });
   const run = vi.fn();
-  const within = vi.fn(async (_workspace: string, work: () => unknown) =>
-    work(),
-  );
+  const within = vi.fn();
   const take = vi.fn(async () => true);
   const limits = over.limits ?? { perSecond: 50, take };
   const runtime = new CompiledIntegrationRuntime(
     new IntegrationReader(new CelExpressionEngine(), operationsContaining()),
-    { run } as unknown as HttpOutbound,
+    partial<HttpOutbound>({ run }),
     clientsFrom(),
-    {} as OAuth2Exchange,
+    partial<OAuth2Exchange>({}),
     discoveringNothing(),
     callingNoServer(),
     limits,
-    { within } as unknown as WorkspaceOutboundScopePort,
+    partial<WorkspaceOutboundScopePort>({
+      within: (workspaceId, work) => {
+        within(workspaceId, work);
+        return work();
+      },
+    }),
     new NetworkOutbound(
       new RealHttpOutbound(allowingOutbound(['audit.internal'])),
       calls,
@@ -171,7 +177,7 @@ describe('an action sent from the network', () => {
 
     await call('deployed');
 
-    const [{ request, expiresAt }] = queued as [(typeof queued)[number]];
+    const { request, expiresAt } = present(firstOf(queued));
     expect(request).toMatchObject({
       method: 'POST',
       url: 'https://audit.internal/records?team=delivery',

@@ -21,3 +21,6 @@ export const REPLAY_END_STATES = [
 ] as const;
 
 export type ReplayEndState = (typeof REPLAY_END_STATES)[number];
+
+export const isReplayEndState = (state: string): state is ReplayEndState =>
+  REPLAY_END_STATES.some((each) => each === state);

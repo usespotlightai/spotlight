@@ -23,6 +23,7 @@ import type {
   TaskHoldResponseDto,
 } from '@/lib/api';
 import { heldUntilResumed, lockedHold } from '@/lib/hold';
+import { nonEmpty } from '@/lib/non-empty';
 import { stationShare } from '@/lib/station';
 import { handMoveDenial, handMoveHint } from '@/lib/task';
 import { cn } from '@/lib/utils';
@@ -46,14 +47,14 @@ function StationOption({ station, share, hint, denied }: StationOptionProps) {
   const hintId = useId();
 
   return (
-    <Tooltip disabled={!hint}>
+    <Tooltip disabled={!nonEmpty(hint)}>
       <TooltipTrigger
         render={
           <DropdownMenuRadioItem
             value={station.id}
             disabled={denied}
             aria-labelledby={nameId}
-            aria-describedby={hint ? hintId : undefined}
+            aria-describedby={nonEmpty(hint) ? hintId : undefined}
             className="group/option data-disabled:pointer-events-auto"
           />
         }
@@ -66,13 +67,13 @@ function StationOption({ station, share, hint, denied }: StationOptionProps) {
         <span id={nameId} className="truncate">
           {station.name}
         </span>
-        {hint && (
+        {nonEmpty(hint) && (
           <span id={hintId} className="sr-only">
             {hint}
           </span>
         )}
       </TooltipTrigger>
-      {hint && <TooltipContent side="right">{hint}</TooltipContent>}
+      {nonEmpty(hint) && <TooltipContent side="right">{hint}</TooltipContent>}
     </Tooltip>
   );
 }
@@ -108,7 +109,7 @@ export function StationSelect({
   const me = useMe();
   const locked = lockedHold(held);
   const stays = handMoveDenial({ stationId: value, handMoves });
-  const shown = stays
+  const shown = nonEmpty(stays)
     ? offered.filter(({ station }) => station.id === value)
     : offered;
   useCommands(

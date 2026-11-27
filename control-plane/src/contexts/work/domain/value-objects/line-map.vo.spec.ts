@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -32,8 +33,15 @@ const delivery = (harness: HarnessId | null = HarnessId.of('claude-code')) => {
   });
 };
 
-const keyed = (line: LineMap, key: string) =>
-  line.stations.find((each) => each.key.value === key) as Station;
+const keyed = (line: LineMap, key: string): Station => {
+  const station = line.stations.find((each) => each.key.value === key);
+
+  if (station === undefined) {
+    throw new Error(`expected a station keyed ${key}`);
+  }
+
+  return station;
+};
 
 const at = (
   position: number,
@@ -87,7 +95,7 @@ const reacting = (reactions: readonly Reaction[]) =>
 const sends = (to: string, from?: string) =>
   Reaction.of({
     happening: COMMENTED,
-    from: from ? StationId.of(from) : null,
+    from: nonEmpty(from) ? StationId.of(from) : null,
     to: StationId.of(to),
   });
 

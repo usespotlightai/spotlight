@@ -21,6 +21,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
@@ -57,8 +58,9 @@ const STATION = randomUUID();
 const memories = () => `/api/teams/${team.teamId.value}/memories`;
 
 const listing = async (query = '', as = team.owner.value) =>
-  (await served(app).get(`${memories()}${query}`).set(TEST_USER_HEADER, as))
-    .body as MemoryBody[];
+  bodyOf<MemoryBody[]>(
+    await served(app).get(`${memories()}${query}`).set(TEST_USER_HEADER, as),
+  );
 
 const writing = (body: Record<string, unknown>) =>
   served(app)
@@ -116,7 +118,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('the team’s memory', () => {
@@ -207,9 +209,12 @@ describe('the team’s memory', () => {
   });
 
   it('corrects a memory with a new one, retiring the old and linking the two', async () => {
-    const old = (
-      await writing({ kind: 'preference', body: 'Name branches after people.' })
-    ).body as MemoryBody;
+    const old = bodyOf<MemoryBody>(
+      await writing({
+        kind: 'preference',
+        body: 'Name branches after people.',
+      }),
+    );
 
     const edited = await served(app)
       .post(`${memories()}/${old.id}/edit`)
@@ -217,16 +222,16 @@ describe('the team’s memory', () => {
       .send({ kind: 'preference', body: 'Name branches after the ticket.' });
 
     expect(edited.status).toBe(201);
-    const replacement = edited.body as MemoryBody;
+    const replacement = bodyOf<MemoryBody>(edited);
     expect(replacement.supersedes).toBe(old.id);
     expect(replacement.superseded?.id).toBe(old.id);
 
     const retired = await eventually(async () => {
-      const read = (
+      const read = bodyOf<MemoryBody>(
         await served(app)
           .get(`${memories()}/${old.id}`)
-          .set(TEST_USER_HEADER, team.owner.value)
-      ).body as MemoryBody;
+          .set(TEST_USER_HEADER, team.owner.value),
+      );
       return read.status === 'retired' && read;
     });
     expect(retired.retirement?.supersededBy).toBe(replacement.id);
@@ -238,9 +243,9 @@ describe('the team’s memory', () => {
   });
 
   it('retires a memory only with a reason, and only once', async () => {
-    const memory = (
-      await writing({ kind: 'failure', body: 'The upload test flakes.' })
-    ).body as MemoryBody;
+    const memory = bodyOf<MemoryBody>(
+      await writing({ kind: 'failure', body: 'The upload test flakes.' }),
+    );
     const retire = (reason: string) =>
       served(app)
         .post(`${memories()}/${memory.id}/retire`)
@@ -253,7 +258,7 @@ describe('the team’s memory', () => {
 
     expect(unexplained.status).toBe(422);
     expect(explained.status).toBe(200);
-    expect((explained.body as MemoryBody).retirement).toMatchObject({
+    expect(bodyOf<MemoryBody>(explained).retirement).toMatchObject({
       reason: 'It was fixed in the runner image.',
       by: { id: team.owner.value },
       supersededBy: null,
@@ -263,9 +268,9 @@ describe('the team’s memory', () => {
   });
 
   it('stores one correction when two arrive at once, and rejects a correction of a retired memory', async () => {
-    const old = (
-      await writing({ kind: 'preference', body: 'Squash every merge.' })
-    ).body as MemoryBody;
+    const old = bodyOf<MemoryBody>(
+      await writing({ kind: 'preference', body: 'Squash every merge.' }),
+    );
     const correcting = (body: string) =>
       served(app)
         .post(`${memories()}/${old.id}/edit`)
@@ -289,9 +294,9 @@ describe('the team’s memory', () => {
   });
 
   it('stops a retired memory applying to later runs', async () => {
-    const memory = (
-      await writing({ kind: 'environment', body: 'CI has no network.' })
-    ).body as MemoryBody;
+    const memory = bodyOf<MemoryBody>(
+      await writing({ kind: 'environment', body: 'CI has no network.' }),
+    );
     const runContext = {
       teamId: TeamId.of(team.teamId.value),
       lineId: LineId.of(LINE),
@@ -320,12 +325,12 @@ describe('the team’s memory', () => {
       app.get(DrizzleTaskRepository),
       `other-${randomUUID().slice(0, 8)}`,
     );
-    const theirs = (
+    const theirs = bodyOf<MemoryBody>(
       await served(app)
         .post(`/api/teams/${other.teamId.value}/memories`)
         .set(TEST_USER_HEADER, other.owner.value)
-        .send({ kind: 'preference', body: 'Ours alone.' })
-    ).body as MemoryBody;
+        .send({ kind: 'preference', body: 'Ours alone.' }),
+    );
 
     const read = await served(app)
       .get(`${memories()}/${theirs.id}`)
@@ -363,12 +368,12 @@ describe('a deleted team', () => {
       `gone-${randomUUID().slice(0, 8)}`,
     );
     const theirs = `/api/teams/${gone.teamId.value}/memories`;
-    const old = (
+    const old = bodyOf<MemoryBody>(
       await served(app)
         .post(theirs)
         .set(TEST_USER_HEADER, gone.owner.value)
-        .send({ kind: 'preference', body: 'Squash before merging.' })
-    ).body as MemoryBody;
+        .send({ kind: 'preference', body: 'Squash before merging.' }),
+    );
     const edited = await served(app)
       .post(`${theirs}/${old.id}/edit`)
       .set(TEST_USER_HEADER, gone.owner.value)

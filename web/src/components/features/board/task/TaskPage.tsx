@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDeleteTask } from '@/hooks/api/useDeleteTask';
 import type { LineResponseDto } from '@/lib/api';
 import { holdPathOf } from '@/lib/hold';
+import { nonEmpty } from '@/lib/non-empty';
 import type { Task } from '@/lib/task';
 import { linePath, teamPath } from '@/lib/team';
 
@@ -34,7 +35,7 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
   const hold = task.hold;
 
   const remove = () => {
-    if (!teamId) {
+    if (!nonEmpty(teamId)) {
       return;
     }
 
@@ -43,7 +44,7 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
       {
         onSuccess: () =>
           void navigate(
-            slug && line
+            nonEmpty(slug) && line
               ? linePath(slug, teamId, line.id)
               : teamPath(slug ?? '', teamId),
           ),
@@ -67,7 +68,11 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
           hold && (
             <OnHoldPill
               hold={hold}
-              to={slug && teamId ? holdPathOf(slug, teamId, hold) : undefined}
+              to={
+                nonEmpty(slug) && nonEmpty(teamId)
+                  ? holdPathOf(slug, teamId, hold)
+                  : undefined
+              }
             />
           )
         }
@@ -78,7 +83,7 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
           <main className="flex min-w-0 flex-col gap-3">
             <PageTitle>{task.title}</PageTitle>
 
-            {task.description ? (
+            {nonEmpty(task.description) ? (
               <MarkdownEditor
                 readOnly
                 initialValue={task.description}

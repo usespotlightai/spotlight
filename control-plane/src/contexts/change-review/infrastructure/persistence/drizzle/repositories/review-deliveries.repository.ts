@@ -13,6 +13,7 @@ import { reviewDelivery } from '@change-review/infrastructure/persistence/drizzl
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, isNull, lte, sql } from 'drizzle-orm';
@@ -65,18 +66,20 @@ export class DrizzleReviewDeliveries implements ReviewDeliveriesPort {
     leaseUntil: Date,
   ): Promise<LeasedReviewDelivery | null> {
     const found = await this.context.inTransaction(async () => {
-      const [due] = await this.context.db
-        .select()
-        .from(reviewDelivery)
-        .where(
-          and(
-            eq(reviewDelivery.state, 'pending'),
-            lte(reviewDelivery.dueAt, now),
-          ),
-        )
-        .orderBy(asc(reviewDelivery.dueAt))
-        .limit(1)
-        .for('update', { skipLocked: true });
+      const due = firstOf(
+        await this.context.db
+          .select()
+          .from(reviewDelivery)
+          .where(
+            and(
+              eq(reviewDelivery.state, 'pending'),
+              lte(reviewDelivery.dueAt, now),
+            ),
+          )
+          .orderBy(asc(reviewDelivery.dueAt))
+          .limit(1)
+          .for('update', { skipLocked: true }),
+      );
 
       if (due) {
         await this.context.db

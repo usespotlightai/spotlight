@@ -7,6 +7,7 @@ import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -68,7 +69,7 @@ const resolving = (configured = '{}') => {
       }),
       inWorkspace: async () => [],
     } satisfies TeamDirectoryPort,
-    { now: () => new Date('2026-10-05T10:00:00.000Z') } as ClockPort,
+    partial<ClockPort>({ now: () => new Date('2026-10-05T10:00:00.000Z') }),
     'https://app.example/api/integrations/oauth/callback',
     logger,
     { sentTo },

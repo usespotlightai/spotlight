@@ -37,6 +37,8 @@ import { subscribing } from '@shared-kernel/application/ports/domain-event-subsc
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import {
   actorFor,
   changeActorIn,
@@ -155,7 +157,7 @@ const outboxWith = (
       new DrizzleSignupSurveys(context),
     ),
   );
-  const clock = { now: () => now } as ClockPort;
+  const clock = partial<ClockPort>({ now: () => now });
   const outbox = new EventOutbox(
     context,
     subscribers,
@@ -200,7 +202,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 describe('the event outbox', () => {
@@ -349,10 +351,12 @@ describe('the event outbox', () => {
 
   describe('a subscriber that calls out', () => {
     const deliveryOf = async (eventId: string) => {
-      const [row] = await database.db
-        .select()
-        .from(eventDelivery)
-        .where(eq(eventDelivery.eventId, eventId));
+      const row = firstOf(
+        await database.db
+          .select()
+          .from(eventDelivery)
+          .where(eq(eventDelivery.eventId, eventId)),
+      );
 
       return row;
     };
@@ -533,7 +537,7 @@ describe('the rows the event outbox keeps', () => {
       await database.db.insert(eventOutbox).values({
         id,
         kind,
-        payload: {},
+        payload: { kind },
         recordedAt,
       });
       for (const [index, each] of deliveries.entries()) {
@@ -578,7 +582,7 @@ describe('the rows the event outbox keeps', () => {
 
     const deleted = await new OutboxRetention(
       context,
-      { now: () => at } as ClockPort,
+      partial<ClockPort>({ now: () => at }),
       registered,
     ).sweep();
 
@@ -627,7 +631,7 @@ describe('the rows the event outbox keeps', () => {
       const id = randomUUID();
       await database.db
         .insert(eventOutbox)
-        .values({ id, kind, payload: {}, recordedAt });
+        .values({ id, kind, payload: { kind }, recordedAt });
       await database.db.insert(eventDelivery).values({
         eventId: id,
         subscriber,
@@ -668,7 +672,7 @@ describe('the rows the event outbox keeps', () => {
       context,
       outbox,
       registered,
-      { now: () => queuedAt } as ClockPort,
+      partial<ClockPort>({ now: () => queuedAt }),
       logger,
       causation,
       { report: vi.fn() },
@@ -709,7 +713,7 @@ describe('the rows the event outbox keeps', () => {
   ) => {
     await database.db
       .insert(eventOutbox)
-      .values({ id, kind, payload: {}, recordedAt });
+      .values({ id, kind, payload: { kind }, recordedAt });
     await database.db.insert(eventDelivery).values({
       eventId: id,
       subscriber,
@@ -744,7 +748,7 @@ describe('the rows the event outbox keeps', () => {
       context,
       outbox,
       elsewhere,
-      { now: () => new Date() } as ClockPort,
+      partial<ClockPort>({ now: () => new Date() }),
       logger,
       causation,
       { report: vi.fn() },
@@ -770,7 +774,7 @@ describe('the rows the event outbox keeps', () => {
     let swept = false;
     const sweeping = new OutboxRetention(
       context,
-      { now: () => at } as ClockPort,
+      partial<ClockPort>({ now: () => at }),
       new EventSubscribers(),
     )
       .sweep()
@@ -809,9 +813,12 @@ describe('the rows the event outbox keeps', () => {
       [abandoned, 'test.removed'],
       [heard, 'test.here'],
     ] as const) {
-      await database.db
-        .insert(eventOutbox)
-        .values({ id, kind: 'bell.abandoned', payload: {}, recordedAt: old });
+      await database.db.insert(eventOutbox).values({
+        id,
+        kind: 'bell.abandoned',
+        payload: { kind: 'bell.abandoned' },
+        recordedAt: old,
+      });
       await database.db.insert(eventDelivery).values({
         eventId: id,
         subscriber,
@@ -826,7 +833,7 @@ describe('the rows the event outbox keeps', () => {
     expect(
       await new OutboxRetention(
         context,
-        { now: () => at } as ClockPort,
+        partial<ClockPort>({ now: () => at }),
         here,
       ).sweep(),
     ).toBe(1);
@@ -851,7 +858,7 @@ describe('the rows the event outbox keeps', () => {
     ]);
     const retention = new OutboxRetention(
       context,
-      { now: () => at } as ClockPort,
+      partial<ClockPort>({ now: () => at }),
       registered,
       { batch: 2, batches: 1 },
     );
@@ -913,9 +920,12 @@ describe('the lanes of event delivery', () => {
   it('leaves a delivery that only a newer instance can handle to that instance', async () => {
     const id = randomUUID();
     const recordedAt = new Date(now.getTime() - 60_000);
-    await database.db
-      .insert(eventOutbox)
-      .values({ id, kind: 'bell.newer', payload: {}, recordedAt });
+    await database.db.insert(eventOutbox).values({
+      id,
+      kind: 'bell.newer',
+      payload: { kind: 'bell.newer' },
+      recordedAt,
+    });
     await database.db.insert(eventDelivery).values({
       eventId: id,
       subscriber: 'test.newer',
@@ -928,7 +938,7 @@ describe('the lanes of event delivery', () => {
         context,
         outbox,
         subscribers,
-        { now: () => now } as ClockPort,
+        partial<ClockPort>({ now: () => now }),
         logger,
         causation,
         { report: vi.fn() },
@@ -943,7 +953,7 @@ describe('the lanes of event delivery', () => {
       }),
     ]);
     const rowOf = async () =>
-      (
+      firstOf(
         await database.db
           .select({
             attempts: eventDelivery.attempts,
@@ -951,8 +961,8 @@ describe('the lanes of event delivery', () => {
             deadLetteredAt: eventDelivery.deadLetteredAt,
           })
           .from(eventDelivery)
-          .where(eq(eventDelivery.eventId, id))
-      )[0];
+          .where(eq(eventDelivery.eventId, id)),
+      );
 
     await instance(older).processDue('contexts');
 
@@ -974,7 +984,7 @@ describe('the lanes of event delivery', () => {
     const recordedAt = new Date(now.getTime() - 60_000);
     await database.db
       .insert(eventOutbox)
-      .values({ id, kind, payload: {}, recordedAt });
+      .values({ id, kind, payload: { kind }, recordedAt });
     await database.db.insert(eventDelivery).values({
       eventId: id,
       subscriber,
@@ -984,7 +994,7 @@ describe('the lanes of event delivery', () => {
   };
 
   const stateOf = async (id: string) =>
-    (
+    firstOf(
       await database.db
         .select({
           attempts: eventDelivery.attempts,
@@ -992,15 +1002,15 @@ describe('the lanes of event delivery', () => {
           deadLettered: sql<boolean>`${eventDelivery.deadLetteredAt} is not null`,
         })
         .from(eventDelivery)
-        .where(eq(eventDelivery.eventId, id))
-    )[0];
+        .where(eq(eventDelivery.eventId, id)),
+    );
 
   const instanceWith = (subscribers: EventSubscribers) =>
     new EventDelivery(
       context,
       outboxWith().outbox,
       subscribers,
-      { now: () => now } as ClockPort,
+      partial<ClockPort>({ now: () => now }),
       logger,
       causation,
       { report: vi.fn() },
@@ -1079,8 +1089,8 @@ describe('the lanes of event delivery', () => {
     here.register([subscribing('test.gauge', ['bell.gauge'], async () => [])]);
     const gauges = new OutboxGauges(
       database.db,
-      { now: () => now } as ClockPort,
-      { held: () => true } as unknown as Leadership,
+      partial<ClockPort>({ now: () => now }),
+      partial<Leadership>({ held: () => true }),
       here,
     );
     const due = async () =>

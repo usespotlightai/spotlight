@@ -34,6 +34,6 @@ export class IntegrationLogo {
   }
 
   equals(other: IntegrationLogo): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof IntegrationLogo && this.value === other.value;
   }
 }

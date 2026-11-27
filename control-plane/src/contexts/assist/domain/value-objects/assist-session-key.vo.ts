@@ -22,6 +22,6 @@ export class AssistSessionKey {
   }
 
   equals(other: AssistSessionKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof AssistSessionKey && this.value === other.value;
   }
 }

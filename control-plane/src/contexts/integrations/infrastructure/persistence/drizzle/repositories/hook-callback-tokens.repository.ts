@@ -6,6 +6,7 @@ import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { hookCallback } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -40,11 +41,13 @@ export class DrizzleHookCallbackTokens implements HookCallbackTokenRepository {
   }
 
   async withToken(hash: TokenHash): Promise<HookCallbackToken | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(hookCallback)
-      .where(eq(hookCallback.tokenHash, hash.value))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(hookCallback)
+        .where(eq(hookCallback.tokenHash, hash.value))
+        .limit(1),
+    );
 
     return found ? toToken(found) : null;
   }

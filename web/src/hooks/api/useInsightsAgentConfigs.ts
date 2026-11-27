@@ -2,6 +2,7 @@ import {
   keepPreviousData,
   queryOptions,
   useQuery,
+  type UseQueryResult,
 } from '@tanstack/react-query';
 
 import { readInsightsAgentConfigs } from '@/lib/api';
@@ -10,6 +11,8 @@ import type {
   AgentConfigsNarrowed,
   InsightsAgentConfigs,
 } from '@/lib/insights-changes';
+import { nonEmpty } from '@/lib/non-empty';
+import { required } from '@/lib/required';
 
 const insightsAgentConfigsKeys = {
   forTeam: (
@@ -37,11 +40,13 @@ const insightsAgentConfigsQuery = (
     enabled: Boolean(teamId),
     queryFn: async (): Promise<InsightsAgentConfigs> => {
       const { data } = await readInsightsAgentConfigs({
-        path: { teamId: teamId as string },
+        path: { teamId: required(teamId) },
         query: {
           period,
-          ...(narrowed.stationId ? { stationId: narrowed.stationId } : {}),
-          ...(narrowed.size ? { size: narrowed.size } : {}),
+          ...(nonEmpty(narrowed.stationId)
+            ? { stationId: narrowed.stationId }
+            : {}),
+          ...(narrowed.size !== null ? { size: narrowed.size } : {}),
         },
         throwOnError: true,
       });
@@ -53,7 +58,7 @@ export function useInsightsAgentConfigs(
   teamId: string | undefined,
   period: InsightsPeriod,
   narrowed: AgentConfigsNarrowed,
-) {
+): UseQueryResult<InsightsAgentConfigs> {
   return useQuery({
     ...insightsAgentConfigsQuery(teamId, period, narrowed),
     placeholderData: keepPreviousData,

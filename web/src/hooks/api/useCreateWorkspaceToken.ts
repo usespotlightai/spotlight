@@ -1,8 +1,14 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { tokenKeys } from '@/hooks/api/useWorkspaceTokens';
 import { createWorkspaceToken } from '@/lib/api';
 import { messageOf } from '@/lib/error';
+import { nonEmpty } from '@/lib/non-empty';
+import { required } from '@/lib/required';
 import type { TokenSpec } from '@/lib/token';
 
 const WORKSPACE_TOKEN_HEADER = 'Spotlight-Workspace-Token';
@@ -12,7 +18,9 @@ export type CreatedWorkspaceToken = {
   token: string;
 };
 
-export function useCreateWorkspaceToken(workspaceId: string | undefined) {
+export function useCreateWorkspaceToken(
+  workspaceId: string | undefined,
+): UseMutationResult<CreatedWorkspaceToken, Error, TokenSpec> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -20,14 +28,14 @@ export function useCreateWorkspaceToken(workspaceId: string | undefined) {
     meta: { quiet: true },
     mutationFn: async (spec: TokenSpec): Promise<CreatedWorkspaceToken> => {
       const { data, error, response } = await createWorkspaceToken({
-        path: { workspaceId: workspaceId as string },
+        path: { workspaceId: required(workspaceId) },
         headers: { 'Idempotency-Key': crypto.randomUUID() },
         body: spec,
       });
 
       const token = response?.headers.get(WORKSPACE_TOKEN_HEADER);
 
-      if (data && token) {
+      if (data && nonEmpty(token)) {
         return { name: data.name, token };
       }
 

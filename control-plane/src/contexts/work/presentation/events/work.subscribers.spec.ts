@@ -1,7 +1,17 @@
-import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
-import { PULL_REQUEST_UPDATED } from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
-import { RUN_SUSPENDED } from '@shared-kernel/application/integration-events/run-suspended.integration-event';
+import {
+  PULL_REQUEST_CLOSED,
+  type PullRequestClosedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
+import {
+  PULL_REQUEST_UPDATED,
+  type PullRequestUpdatedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
+import {
+  RUN_SUSPENDED,
+  type RunSuspendedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-suspended.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -16,14 +26,16 @@ import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
 import { describe, expect, it, vi } from 'vitest';
 
+type Reactions = Parameters<typeof workSubscribers>[0];
+
 describe('workSubscribers', () => {
   it('reconciles the setup list of the team whose setup chat opened its pull request', async () => {
     const forTeam = vi.fn(async () => undefined);
-    const reconciling = workSubscribers({
-      setup: { forTeam },
-    } as unknown as Parameters<typeof workSubscribers>[0]).find(
-      (each) => each.name === 'work.reconcile-setup-on-pull-request',
-    );
+    const reconciling = workSubscribers(
+      partial<Reactions>({
+        setup: partial<Reactions['setup']>({ forTeam }),
+      }),
+    ).find((each) => each.name === 'work.reconcile-setup-on-pull-request');
 
     await reconciling?.handle(
       new SetupPullRequestOpened(
@@ -43,11 +55,11 @@ describe('workSubscribers', () => {
 
   it('retires the sandbox of a chat when it is resolved, when its run ends and when it is deleted', async () => {
     const chatSandbox = { on: vi.fn(async () => {}) };
-    const retiring = workSubscribers({
-      chatSandbox,
-    } as unknown as Parameters<typeof workSubscribers>[0]).find(
-      (each) => each.name === 'work.retire-sandbox-of-resolved-chat',
-    );
+    const retiring = workSubscribers(
+      partial<Reactions>({
+        chatSandbox: partial<Reactions['chatSandbox']>(chatSandbox),
+      }),
+    ).find((each) => each.name === 'work.retire-sandbox-of-resolved-chat');
     const resolved = new ChatResolved(
       ChatId.of('chat_1'),
       WorkspaceId.of('ws_1'),
@@ -66,12 +78,12 @@ describe('workSubscribers', () => {
   });
 
   it('takes up the run a person answered, whichever way the answer came', async () => {
-    const answeredRuns = { on: vi.fn(async () => {}) };
-    const taking = workSubscribers({
-      answeredRuns,
-    } as unknown as Parameters<typeof workSubscribers>[0]).find(
-      (each) => each.name === 'work.take-up-the-run-a-person-answered',
-    );
+    const on = vi.fn(async () => {});
+    const taking = workSubscribers(
+      partial<Reactions>({
+        answeredRuns: partial<Reactions['answeredRuns']>({ on }),
+      }),
+    ).find((each) => each.name === 'work.take-up-the-run-a-person-answered');
     const answered = new TaskAnswered(
       TaskId.of('task_1'),
       WorkspaceId.of('ws_1'),
@@ -83,50 +95,51 @@ describe('workSubscribers', () => {
 
     expect(taking?.kinds).toEqual(['task.answered']);
     expect(taking?.callsOut).toBe(true);
-    expect(answeredRuns.on).toHaveBeenCalledWith(answered);
+    expect(on).toHaveBeenCalledWith(answered);
   });
 
   it('decides the turn of a run that suspended, outside the transaction that suspended it', async () => {
-    const turns = { take: vi.fn(async () => {}) };
-    const taking = workSubscribers({
-      turns,
-    } as unknown as Parameters<typeof workSubscribers>[0]).find(
-      (each) => each.name === 'work.take-turn',
-    );
+    const take = vi.fn(async () => {});
+    const taking = workSubscribers(
+      partial<Reactions>({
+        turns: partial<Reactions['turns']>({ take }),
+      }),
+    ).find((each) => each.name === 'work.take-turn');
+    const suspended: RunSuspendedIntegrationEvent = {
+      kind: RUN_SUSPENDED,
+      runId: 'run_1',
+      workspaceId: 'ws_1',
+      requester: requestedBy.task('task_1', 0),
+      attempt: 2,
+      at: '2026-11-07T10:00:00.000Z',
+    };
 
-    await taking?.handle(
-      {
-        kind: RUN_SUSPENDED,
-        runId: 'run_1',
-        workspaceId: 'ws_1',
-        requester: requestedBy.task('task_1', 0),
-        attempt: 2,
-        at: '2026-11-07T10:00:00.000Z',
-      } as never,
-      anOutboxRecord(),
-    );
+    await taking?.handle(suspended, anOutboxRecord());
 
     expect(taking?.kinds).toEqual(['runs.run-suspended.v1']);
     expect(taking?.callsOut).toBe(true);
-    expect(turns.take).toHaveBeenCalledWith(RunId.of('run_1'), 2);
+    expect(take).toHaveBeenCalledWith(RunId.of('run_1'), 2);
   });
 
   it('hands each update of a pull request, with its branch and whether it is open, to the task pull requests', async () => {
     const updated = vi.fn(async () => {});
-    const tracking = workSubscribers({
-      taskPullRequests: { updated },
-    } as unknown as Parameters<typeof workSubscribers>[0]).find(
-      (each) => each.name === 'work.track-pull-request-from-task-branch',
-    );
-    const updateOf = (state: string, branch: string | null) =>
-      ({
+    const tracking = workSubscribers(
+      partial<Reactions>({
+        taskPullRequests: partial<Reactions['taskPullRequests']>({ updated }),
+      }),
+    ).find((each) => each.name === 'work.track-pull-request-from-task-branch');
+    const updateOf = (
+      state: PullRequestUpdatedIntegrationEvent['state'],
+      branch: string | null,
+    ) =>
+      partial<PullRequestUpdatedIntegrationEvent>({
         kind: PULL_REQUEST_UPDATED,
         workspaceId: 'ws_1',
         pullRequest: 'https://github.com/acme/api/pull/8',
         repository: 'acme/api',
         state,
         branch,
-      }) as never;
+      });
 
     await tracking?.handle(
       updateOf('open', 'feat/retry-uploads-1a2b3c4d'),
@@ -158,25 +171,24 @@ describe('workSubscribers', () => {
 
   it('tells the setup chats of the workspace that a pull request closed', async () => {
     const setupPullRequests = { closed: vi.fn(async () => {}) };
-    const resolving = workSubscribers({
-      setupPullRequests,
-    } as unknown as Parameters<typeof workSubscribers>[0]).find(
-      (each) => each.name === 'work.resolve-merged-setup-chat',
-    );
+    const resolving = workSubscribers(
+      partial<Reactions>({
+        setupPullRequests:
+          partial<Reactions['setupPullRequests']>(setupPullRequests),
+      }),
+    ).find((each) => each.name === 'work.resolve-merged-setup-chat');
+    const closed: PullRequestClosedIntegrationEvent = {
+      kind: PULL_REQUEST_CLOSED,
+      workspaceId: 'ws_1',
+      pullRequest: 'https://github.com/acme/infra/pull/12',
+      repository: 'acme/infra',
+      gitHubId: 12,
+      closedAt: '2026-11-07T10:00:00.000Z',
+      merged: true,
+      mergeCommit: 'abc123',
+    };
 
-    await resolving?.handle(
-      {
-        kind: PULL_REQUEST_CLOSED,
-        workspaceId: 'ws_1',
-        pullRequest: 'https://github.com/acme/infra/pull/12',
-        repository: 'acme/infra',
-        gitHubId: 12,
-        closedAt: '2026-11-07T10:00:00.000Z',
-        merged: true,
-        mergeCommit: 'abc123',
-      } as never,
-      anOutboxRecord(),
-    );
+    await resolving?.handle(closed, anOutboxRecord());
 
     expect(resolving?.kinds).toEqual([PULL_REQUEST_CLOSED]);
     expect(setupPullRequests.closed).toHaveBeenCalledWith(

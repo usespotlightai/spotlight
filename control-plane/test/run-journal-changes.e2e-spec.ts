@@ -9,6 +9,8 @@ import type { JournalEntry } from '@runs/application/ports/run-journal.port';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/readers/run-journals';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -16,6 +18,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { TouchedFiles } from '@work/application/services/touched-files';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzle/readers/run-journal.reader';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -48,7 +51,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const API = Repository.of('acme/api');
@@ -227,12 +230,14 @@ describe('reading what a task’s runs changed', () => {
       ),
     );
 
-    const [read] = await reader.changesOfTask(TaskId.of(taskId));
-    const [full] = await new DrizzleRunJournals(db).ofRuns([runId]);
+    const read = firstOf(await reader.changesOfTask(TaskId.of(taskId)));
+    const full = firstOf(await new DrizzleRunJournals(db).ofRuns([runId]));
 
     expect(read?.paths).toEqual(
       full?.steps.flatMap((step) =>
-        step.change?.path ? [step.change.path] : [],
+        step.change !== null && step.change.path !== ''
+          ? [step.change.path]
+          : [],
       ),
     );
   });
@@ -272,18 +277,20 @@ describe('reading what a task’s runs changed', () => {
 
     const touched = await new TouchedFiles(
       reader,
-      { changedIn: async () => [] } as unknown as PullRequestPort,
+      partial<PullRequestPort>({ changedIn: async () => [] }),
       { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
       { now: () => new Date(), sleep: () => new Promise(() => {}) },
       runJournalReadings(),
     ).onTask(
-      {
+      partial<Task>({
         id: TaskId.of(taskId),
         workspaceId: WorkspaceId.of('ws_1'),
         reviewedHead: null,
         pullRequests: [],
-      } as unknown as Task,
-      { repositories: { all: [API, WEB] } } as unknown as LineMap,
+      }),
+      partial<LineMap>({
+        repositories: partial<LineRepositories>({ all: [API, WEB] }),
+      }),
     );
 
     expect(

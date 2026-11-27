@@ -1,10 +1,17 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+
+const trimmedOrNull = (raw: string | null | undefined): string | null => {
+  const trimmed = raw?.trim();
+
+  return !nonEmpty(trimmed) ? null : trimmed;
+};
 
 export interface LaidOutLine {
   readonly id: LineId;
@@ -33,32 +40,35 @@ export class TeamLayout {
   }
 
   scopeOf(written: WrittenScope): MemoryScope {
-    const lineNamed = written.lineId?.trim() || null;
-    const stationNamed = written.stationId?.trim() || null;
-    const line = lineNamed
-      ? this.lines.find((each) => each.id.value === lineNamed)
-      : null;
+    const lineNamed = trimmedOrNull(written.lineId);
+    const stationNamed = trimmedOrNull(written.stationId);
+    const line =
+      lineNamed !== null
+        ? this.lines.find((each) => each.id.value === lineNamed)
+        : null;
 
-    if (lineNamed && !line) {
+    if (lineNamed !== null && !line) {
       throw new InvalidMemoryError('must be at a line of its team');
     }
 
-    const station = stationNamed
-      ? line?.stations.find((each) => each.value === stationNamed)
-      : null;
+    const station =
+      stationNamed !== null
+        ? line?.stations.find((each) => each.value === stationNamed)
+        : null;
 
-    if (stationNamed && !station) {
+    if (stationNamed !== null && !station) {
       throw new InvalidMemoryError('must be at a station of its line');
     }
 
-    const named = written.repository?.trim() || null;
-    const repository = named
-      ? (line ? [line] : this.lines)
-          .flatMap((each) => each.repositories)
-          .find((each) => each.value === named)
-      : null;
+    const named = trimmedOrNull(written.repository);
+    const repository =
+      named !== null
+        ? (line ? [line] : this.lines)
+            .flatMap((each) => each.repositories)
+            .find((each) => each.value === named)
+        : null;
 
-    if (named && !repository) {
+    if (named !== null && !repository) {
       throw new InvalidMemoryError(
         'can only name a repository its team or line works in',
       );

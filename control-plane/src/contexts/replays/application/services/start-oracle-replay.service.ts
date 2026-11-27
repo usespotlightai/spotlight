@@ -56,7 +56,12 @@ export class StartOracleReplay {
     const set = await this.sets.find(baseline.setId);
     const answered = set && (await this.answeredIn(set, baseline.originals));
 
-    if (!set || set.isAtGoneStation || !answered?.length) {
+    if (
+      !set ||
+      set.isAtGoneStation ||
+      answered?.length === undefined ||
+      answered.length === 0
+    ) {
       return;
     }
 

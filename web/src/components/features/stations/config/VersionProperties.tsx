@@ -9,6 +9,7 @@ import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { useStationInsights } from '@/hooks/api/useStationInsights';
 import { formatDay } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { configFingerprint } from '@/lib/station-insights';
 
@@ -44,11 +45,13 @@ export function VersionProperties({
             <Property label="Since">
               <WithTooltip tooltip={`Config ${live.fingerprint}`}>
                 <span>
-                  {live.since ? formatDay(live.since) : 'No run ended yet'}
+                  {nonEmpty(live.since)
+                    ? formatDay(live.since)
+                    : 'No run ended yet'}
                 </span>
               </WithTooltip>
             </Property>
-            {live.pullRequest && (
+            {nonEmpty(live.pullRequest) && (
               <Property label="Change">
                 <a
                   href={live.pullRequest}

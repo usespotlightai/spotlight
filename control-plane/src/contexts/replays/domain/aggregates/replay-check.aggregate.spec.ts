@@ -23,6 +23,7 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import { ReusedReplays } from '@replays/domain/value-objects/reused-replays.vo';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -76,7 +77,7 @@ describe('ReplayCheck', () => {
     const [event] = check.pullEvents();
 
     expect(event).toBeInstanceOf(ReplayCheckStarted);
-    expect((event as ReplayCheckStarted).change).toMatchObject({
+    expect(instanceOf(ReplayCheckStarted, event).change).toMatchObject({
       resource: 'replay-check',
       action: 'created',
       key: 'PR #42',
@@ -425,7 +426,7 @@ describe('ReplayCheck', () => {
 });
 
 describe('ReplayCheck, reusing a search’s replays', () => {
-  const [FIRST, SECOND] = SET.runs as [RunId, RunId];
+  const [FIRST, SECOND] = SET.runs;
   const reusing = (...runs: RunId[]) =>
     ReusedReplays.of({
       seed: ReplayId.of('replay_seed'),

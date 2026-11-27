@@ -52,10 +52,11 @@ describe('useMessagesInFlight', () => {
     const result = setUp(['run_1', 'run_2']);
 
     act(() => result.current.send.mutate(message));
+    const anyTime: unknown = expect.any(Number);
 
     await waitFor(() =>
       expect(result.current.inFlight).toEqual([
-        { ...message, sentAt: expect.any(Number) as number },
+        { ...message, sentAt: anyTime },
       ]),
     );
   });

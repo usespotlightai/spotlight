@@ -1,6 +1,7 @@
 import { SkillMainFileMissingError } from '@configuration/domain/exceptions/skill-main-file-missing.error';
 import type { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export const SKILL_MAIN_FILE = 'SKILL.md';
 
@@ -29,7 +30,7 @@ export class SkillFiles {
     for (const path of Object.keys(files)) {
       const problem = skillFileProblem(path);
 
-      if (problem) {
+      if (nonEmpty(problem)) {
         throw new InvalidIdentifierError('skill file', problem);
       }
     }
@@ -57,7 +58,7 @@ export class SkillFiles {
 
   equals(other: SkillFiles): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof SkillFiles &&
       JSON.stringify([...this.byPath]) === JSON.stringify([...other.byPath])
     );
   }

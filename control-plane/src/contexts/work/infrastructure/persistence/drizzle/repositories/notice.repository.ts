@@ -8,6 +8,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -114,11 +115,13 @@ export class DrizzleNoticeRepository implements NoticeRepository {
   }
 
   async find(id: NoticeId): Promise<Notice | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(notice)
-      .where(eq(notice.id, id.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(notice)
+        .where(eq(notice.id, id.value))
+        .limit(1),
+    );
 
     return row ? toNotice(row) : null;
   }
@@ -129,20 +132,22 @@ export class DrizzleNoticeRepository implements NoticeRepository {
     form: NoticeForm,
     subject: NoticeSubject,
   ): Promise<Notice | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(notice)
-      .where(
-        and(
-          eq(notice.teamId, teamId.value),
-          addressee === null
-            ? isNull(notice.addresseeId)
-            : eq(notice.addresseeId, addressee.value),
-          eq(notice.form, form),
-          eq(notice.subject, subject.value),
-        ),
-      )
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(notice)
+        .where(
+          and(
+            eq(notice.teamId, teamId.value),
+            addressee === null
+              ? isNull(notice.addresseeId)
+              : eq(notice.addresseeId, addressee.value),
+            eq(notice.form, form),
+            eq(notice.subject, subject.value),
+          ),
+        )
+        .limit(1),
+    );
 
     return row ? toNotice(row) : null;
   }

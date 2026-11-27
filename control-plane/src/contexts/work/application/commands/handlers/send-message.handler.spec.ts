@@ -1,6 +1,8 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -22,6 +24,7 @@ import { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import { MessageSending } from '@work/application/services/message-sending.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
+import type { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
@@ -140,44 +143,53 @@ const sendMessage = (
   const dispatch: TaskDispatching = {
     runIdFor: async ({ task: wanting }) => {
       dispatched.push(wanting);
-      return runnerFor ? RunId.of(runnerFor) : null;
+      return nonEmpty(runnerFor) ? RunId.of(runnerFor) : null;
     },
   };
 
-  const files = {
+  const files = partial<FilesLoader>({
     handedOver: async () => [],
     takenIn: async () => undefined,
-  } as unknown as FilesLoader;
-  const drafts = new DraftSending(access, live, {
-    warn: () => undefined,
-  } as unknown as LoggerPort);
-  const tasks = {
+  });
+  const drafts = new DraftSending(
+    access,
+    live,
+    partial<LoggerPort>({
+      warn: () => undefined,
+    }),
+  );
+  const tasks = partial<TaskRepository>({
     find: vi.fn(async () => task),
     save: vi.fn(async (each: Task) => {
       saved = each;
     }),
-  } as unknown as TaskRepository;
+  });
 
   return new SendMessageHandler(
-    {
-      find: vi.fn(async () => ({
-        workspaceId: WorkspaceId.of('ws_1'),
-        subject: {
-          kind: 'task',
-          taskId: TaskId.of('task_1'),
-          revision: TaskRevision.of(0),
-          stationId: REVIEW,
-        },
-      })),
-    } as unknown as DispatchRepository,
+    partial<DispatchRepository>({
+      find: vi.fn(async () =>
+        partial<Dispatch>({
+          workspaceId: WorkspaceId.of('ws_1'),
+          subject: {
+            kind: 'task',
+            taskId: TaskId.of('task_1'),
+            revision: TaskRevision.of(0),
+            stationId: REVIEW,
+            driver: 'line',
+          },
+        }),
+      ),
+    }),
     { inTransaction: (work) => work() } satisfies TransactionPort,
     files,
     drafts,
     new MessageSending(
       tasks,
-      { findByStation: vi.fn(async () => line) } as unknown as LineMapsPort,
+      partial<LineMapsPort>({
+        findByStation: vi.fn(async () => line),
+      }),
       dispatch,
-      { now: () => NOW } as ClockPort,
+      partial<ClockPort>({ now: () => NOW }),
       files,
       access,
       drafts,

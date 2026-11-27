@@ -20,8 +20,8 @@ import type {
 } from '@runs/domain/value-objects/claimant';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandedOverFile } from '@runs/domain/value-objects/handed-over-file.vo';
-import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
+import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
 import { RequeueCount } from '@runs/domain/value-objects/requeue-count.vo';
 import { RunApiGrant } from '@runs/domain/value-objects/run-api-grant.vo';
@@ -35,7 +35,6 @@ import { LEASED_RUN_STATES } from '@runs/domain/value-objects/run-state';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
 import { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
-import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { TimeSpent } from '@runs/domain/value-objects/time-spent.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
@@ -52,6 +51,9 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
@@ -123,7 +125,10 @@ const awaitingProvisionAt = (now: Date) =>
   and(
     eq(run.state, 'queued'),
     isNull(run.reservedFor),
-    or(isNull(run.nextProvisionAttemptAt), lte(run.nextProvisionAttemptAt, now)),
+    or(
+      isNull(run.nextProvisionAttemptAt),
+      lte(run.nextProvisionAttemptAt, now),
+    ),
     or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
   );
 
@@ -274,15 +279,17 @@ export class DrizzleRunRepository implements RunRepository {
     workspaceId: WorkspaceId,
     key: WorkingCopyKey,
   ): Promise<Run | null> {
-    const [row] = await this.selected()
-      .where(
-        and(
-          eq(run.workspaceId, workspaceId.value),
-          eq(run.workingCopyKey, key.value),
-        ),
-      )
-      .orderBy(desc(run.createdAt), desc(run.id))
-      .limit(1);
+    const row = firstOf(
+      await this.selected()
+        .where(
+          and(
+            eq(run.workspaceId, workspaceId.value),
+            eq(run.workingCopyKey, key.value),
+          ),
+        )
+        .orderBy(desc(run.createdAt), desc(run.id))
+        .limit(1),
+    );
 
     return row ? toRun(row) : null;
   }
@@ -333,7 +340,9 @@ export class DrizzleRunRepository implements RunRepository {
   }
 
   async findById(id: RunId): Promise<Run | null> {
-    const [row] = await this.selected().where(eq(run.id, id.value)).limit(1);
+    const row = firstOf(
+      await this.selected().where(eq(run.id, id.value)).limit(1),
+    );
 
     return row ? toRun(row) : null;
   }
@@ -398,9 +407,11 @@ export class DrizzleRunRepository implements RunRepository {
   }
 
   async reservedFor(runner: RunnerId): Promise<Run | null> {
-    const [found] = await this.selected()
-      .where(and(eq(run.state, 'queued'), eq(run.reservedFor, runner.value)))
-      .limit(1);
+    const found = firstOf(
+      await this.selected()
+        .where(and(eq(run.state, 'queued'), eq(run.reservedFor, runner.value)))
+        .limit(1),
+    );
 
     return found ? toRun(found) : null;
   }
@@ -431,7 +442,9 @@ export class DrizzleRunRepository implements RunRepository {
     return this.queuedRunsOf(rows.map(toRun));
   }
 
-  async workspacesAwaitingProvision(now: Date): Promise<readonly WorkspaceId[]> {
+  async workspacesAwaitingProvision(
+    now: Date,
+  ): Promise<readonly WorkspaceId[]> {
     const rows = await this.context.db
       .selectDistinct({ workspaceId: run.workspaceId })
       .from(run)
@@ -572,7 +585,7 @@ const reservationOf = (saving: Run) => ({
 });
 
 const reservationFrom = (row: Row): RunnerReservation | null =>
-  row.reservedFor && row.reservedPool && row.reservedUntil
+  nonEmpty(row.reservedFor) && nonEmpty(row.reservedPool) && row.reservedUntil
     ? RunnerReservation.of(
         RunnerId.of(row.reservedFor),
         PoolId.of(row.reservedPool),
@@ -665,7 +678,10 @@ const turnFrom = (row: Row): RunTurn | null => {
             ),
           })
         : null,
-      session: session ? HarnessSession.of(session) : null,
+      session:
+        typeof session === 'string' && session !== ''
+          ? HarnessSession.of(session)
+          : null,
       heads: heads.map((each) => CheckoutHead.rehydrate(each)),
     }),
     reportedBy: RunnerId.of(reportedBy),
@@ -696,7 +712,7 @@ export const toRun = ({ run: row }: Selected): Run =>
       kind: row.requesterKind,
       id: row.requesterId,
       token: row.requesterToken,
-      team: row.teamId ? TeamId.of(row.teamId) : null,
+      team: nonEmpty(row.teamId) ? TeamId.of(row.teamId) : null,
     }),
     policy: RunPolicy.of({
       holdsTurn: row.holdsTurn,
@@ -707,7 +723,7 @@ export const toRun = ({ run: row }: Selected): Run =>
       exclusive: row.exclusive,
     }),
     workingCopy: workingCopyFrom(row),
-    restore: row.restoreArchiveId
+    restore: nonEmpty(row.restoreArchiveId)
       ? WorkingCopyArchiveId.of(row.restoreArchiveId)
       : null,
     extensions: storedAs(row.id, () => RunExtensions.of(row.extensions)),
@@ -721,10 +737,10 @@ export const toRun = ({ run: row }: Selected): Run =>
     spec: RunSpecPersistence.fromRow(row.spec),
     placement: RunnerPlacement.ofLabelGroups(
       row.placement,
-      row.placementImage ? RunnerImage.of(row.placementImage) : null,
+      nonEmpty(row.placementImage) ? RunnerImage.of(row.placementImage) : null,
     ),
     state: row.state,
-    claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
+    claimedBy: nonEmpty(row.claimedBy) ? RunnerId.of(row.claimedBy) : null,
     leaseExpiresAt: row.leaseExpiresAt,
     stopRequestedAt: row.stopRequestedAt,
     reservation: reservationFrom(row),
@@ -737,14 +753,14 @@ export const toRun = ({ run: row }: Selected): Run =>
         ? null
         : RunOutcome.rehydrate({
             exitCode: ExitCode.of(row.exitCode),
-            failure: row.failure ? RunFailure.of(row.failure) : null,
+            failure: nonEmpty(row.failure) ? RunFailure.of(row.failure) : null,
             detail: row.detail,
             attempts: row.failureAttempts,
             stopped: row.stopped,
           }),
     attempt: row.attempt,
     requeueCount: RequeueCount.rehydrate(row.requeueCount, row.claimableFrom),
-    ranIn: row.ranIn ? RunnerImage.of(row.ranIn) : null,
+    ranIn: nonEmpty(row.ranIn) ? RunnerImage.of(row.ranIn) : null,
     suspendedAttempts: row.suspendedAttempts,
     startedAt: row.startedAt,
     startedFrom: startFrom(row),

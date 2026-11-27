@@ -70,7 +70,7 @@ export function MemoryUpkeepReview({
           teamId={teamId}
           proposal={proposal}
           pending={
-            decide.isPending && decide.variables?.proposalId === proposal.id
+            decide.isPending && decide.variables.proposalId === proposal.id
           }
           onDecide={(decision) =>
             decide.mutate({

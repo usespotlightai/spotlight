@@ -1,6 +1,7 @@
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -36,17 +37,17 @@ const handling = (
 ) => {
   const saved: Chat[] = [];
   const debug = vi.fn();
-  const chats = {
+  const chats = partial<ChatRepository>({
     find: vi.fn(async () => chat),
     save: vi.fn(async (each: Chat) => {
       saved.push(each);
     }),
-  } as unknown as ChatRepository;
+  });
   const handler = new ResolveChatHandler(
     new ChatLoader(chats, access),
     chats,
     clock,
-    { debug } as unknown as LoggerPort,
+    partial<LoggerPort>({ debug }),
   );
 
   return { handler, saved, debug };

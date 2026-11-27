@@ -152,9 +152,7 @@ describe('pendingIn', () => {
   it('finds the one a person has not answered yet', () => {
     expect(
       pendingIn(
-        ['passed', 'asked', 'message'].map((kind) =>
-          note(kind as TaskNoteKind),
-        ),
+        (['passed', 'asked', 'message'] satisfies TaskNoteKind[]).map(note),
       ),
     ).toEqual({
       from: at(1),
@@ -164,15 +162,13 @@ describe('pendingIn', () => {
 
   it('finds nothing pending where the person already answered', () => {
     expect(
-      pendingIn(
-        ['asked', 'answered'].map((kind) => note(kind as TaskNoteKind)),
-      ),
+      pendingIn((['asked', 'answered'] satisfies TaskNoteKind[]).map(note)),
     ).toBeNull();
   });
 
   it('finds nothing pending where the task has moved on since', () => {
     expect(
-      pendingIn(['asked', 'passed'].map((kind) => note(kind as TaskNoteKind))),
+      pendingIn((['asked', 'passed'] satisfies TaskNoteKind[]).map(note)),
     ).toBeNull();
   });
 
@@ -267,7 +263,7 @@ describe('reviewsIn', () => {
         note('answered'),
         note('passed', 'run_2'),
         note('asked', 'run_3'),
-      ]) as [string, unknown][],
+      ]),
     );
 
     expect(reviews.get('run_1')).toEqual({ from: at(0), state: 'answered' });

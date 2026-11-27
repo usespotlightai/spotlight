@@ -8,6 +8,9 @@ import {
 } from '@insights/application/ports/session-outcomes';
 import { ChangeJudgments } from '@insights/application/services/change-judgments.service';
 import type { Verdict } from '@insights/domain/services/grounded-verdict';
+import type { JudgingRound } from '@insights/domain/value-objects/judging-round.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -89,7 +92,7 @@ const judging = async (
       roundOf: (session) =>
         session.key === 'mine'
           ? { of: 'change', round: ROUND }
-          : { of: 'judging', round: {} as never },
+          : { of: 'judging', round: partial<JudgingRound>({}) },
     },
   );
   const reference =
@@ -98,7 +101,7 @@ const judging = async (
     workspaceId: 'workspace_1',
     round: ROUND,
     criteria: options.criteria ?? CRITERIA,
-    reference: reference ? RunId.of(reference) : null,
+    reference: nonEmpty(reference) ? RunId.of(reference) : null,
     guidanceRequested: options.guidanceRequested ?? true,
     effectsBlocked: options.effectsBlocked ?? true,
   });
@@ -106,9 +109,19 @@ const judging = async (
   return {
     requests,
     answered,
-    judgment: answered as ChangeJudgment,
+    get judgment() {
+      return settled(answered);
+    },
     judgments,
   };
+};
+
+const settled = (answer: ChangeJudgment | SessionWaiting): ChangeJudgment => {
+  if ('status' in answer) {
+    throw new Error('expected a settled judgment');
+  }
+
+  return answer;
 };
 
 describe('ChangeJudgments', () => {

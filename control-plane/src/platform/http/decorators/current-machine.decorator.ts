@@ -1,4 +1,5 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export const REQUEST_MACHINE = Symbol('REQUEST_MACHINE');
 
@@ -10,7 +11,7 @@ export const CurrentMachine = createParamDecorator(
       REQUEST_MACHINE
     ];
 
-    if (!machineId) {
+    if (!nonEmpty(machineId)) {
       throw new Error(
         'No machine on the request. Is the route @MachineOnly()?',
       );

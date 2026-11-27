@@ -23,15 +23,11 @@ import { ApiProblemResponse } from '@platform/http/resources/conventional-api';
 import { ProblemFilter } from '@platform/http/resources/problem.filter';
 import { RecordFailureCauseCommand } from '@replays/application/commands/record-failure-cause.command';
 import type { FailureCauseRecorded } from '@replays/application/dto/replay-outcomes.dto';
+import { fieldsOf } from '@replays/presentation/http/controllers/requests';
 import {
   FailureCauseRecordedResponseDto,
   RecordFailureCauseRequestDto,
 } from '@replays/presentation/http/dto/searches.response.dto';
-
-const fieldsOf = (body: unknown): Record<string, unknown> =>
-  typeof body === 'object' && body !== null && !Array.isArray(body)
-    ? (body as Record<string, unknown>)
-    : {};
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({

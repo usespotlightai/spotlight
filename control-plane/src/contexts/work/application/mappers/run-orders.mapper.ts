@@ -107,8 +107,15 @@ const present = <K extends string, T>(
   key: K,
   value: JsonValue | undefined,
   decode: (value: JsonValue) => T,
-): { [P in K]?: T } =>
-  (value === undefined ? {} : { [key]: decode(value) }) as { [P in K]?: T };
+): { [P in K]?: T } => {
+  const shaped: { [P in K]?: T } = {};
+
+  if (value !== undefined) {
+    shaped[key] = decode(value);
+  }
+
+  return shaped;
+};
 
 const runCheckoutOf = (value: JsonValue): RunCheckoutShape => {
   const checkout = objectAt(value, 'spec checkout');
@@ -589,8 +596,10 @@ export const RunOrdersMapper = {
   },
 
   blockedToolsOf(order: DispatchOrder): string[] {
-    const stored = order.snapshot.blockedTools;
+    const stored = order.snapshot;
 
-    return stored === undefined ? [] : textsAt(stored, 'blocked tools');
+    return 'blockedTools' in stored
+      ? textsAt(stored.blockedTools, 'blocked tools')
+      : [];
   },
 };

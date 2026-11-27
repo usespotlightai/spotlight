@@ -4,6 +4,8 @@ import type {
 } from '@runs/application/ports/run-usage-reader.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -34,7 +36,7 @@ import {
 import type { HistoryAccess } from '@work/domain/value-objects/history-access.vo';
 
 const sinceOf = (written: string | null): Date | null => {
-  if (!written) {
+  if (!nonEmpty(written)) {
     return null;
   }
 
@@ -80,9 +82,9 @@ export class ReadRunnerHistoryHandler implements QueryHandlerPort<
           wanted.line,
         )
       ).filter((each) => access.seesRunAt(StationId.of(each.stationId)));
-      const [only] = keyed;
+      const only = firstOf(keyed);
 
-      if (!only) {
+      if (only === undefined) {
         return { kind: 'unknown' };
       }
 
@@ -99,7 +101,7 @@ export class ReadRunnerHistoryHandler implements QueryHandlerPort<
           fingerprint: wanted.fingerprint,
           since: sinceOf(wanted.since),
           until: access.asOf,
-          max: wanted.outcome ? HISTORY_RUNS.matched : last,
+          max: nonEmpty(wanted.outcome) ? HISTORY_RUNS.matched : last,
           excluding: access.hiddenTaskIds.map((each) => each.value),
         })
       ).filter((each) => !access.hides(TaskId.of(each.taskId)));
@@ -110,7 +112,7 @@ export class ReadRunnerHistoryHandler implements QueryHandlerPort<
       const filtered = ended
         .filter(
           (each) =>
-            !wanted.outcome ||
+            !nonEmpty(wanted.outcome) ||
             turnedOut(outcomes.get(each.runId) ?? null, wanted.outcome),
         )
         .slice(0, last);

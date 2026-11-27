@@ -5,13 +5,14 @@ import { TeamInsights } from '@/components/features/insights/TeamInsights';
 import { TracesFilters } from '@/components/features/insights/TracesFilters';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
 import { insightsCrumbs, viewOf } from '@/lib/insights';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function Insights() {
   const { slug, teamId } = useParams();
   const [params] = useSearchParams();
   const view = viewOf(params);
 
-  if (!slug || !teamId) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId)) {
     return null;
   }
 

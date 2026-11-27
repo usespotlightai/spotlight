@@ -12,6 +12,7 @@ import { DecisionMerge } from '@change-review/domain/value-objects/decision-merg
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { DecisionStatus } from '@change-review/domain/value-objects/decision-status.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -487,7 +488,10 @@ describe('a decision set, disputed', () => {
 
   it('records who disputes a decision, and why', () => {
     const set = decided();
-    const [first, second] = set.decisions;
+    const [first, second] = optionalItems(set.decisions);
+    if (first === undefined || second === undefined) {
+      throw new Error('expected two decisions');
+    }
     const disputed = dispute(set);
 
     expect(disputed.decisions[1]?.disputes.map((each) => each.reason)).toEqual([
@@ -497,11 +501,11 @@ describe('a decision set, disputed', () => {
     expect(disputed.pullEvents()).toContainEqual(
       expect.objectContaining({
         kind: 'decision-set.disputed',
-        decisionId: second?.id,
+        decisionId: second.id,
         path: FilePath.of('src/uploads.ts'),
       }),
     );
-    expect(first?.id.equals(second?.id)).toBe(false);
+    expect(first.id.equals(second.id)).toBe(false);
   });
 
   it('records every dispute, as a thread of replies', () => {

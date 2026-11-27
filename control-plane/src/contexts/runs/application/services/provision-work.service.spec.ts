@@ -28,6 +28,7 @@ import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
@@ -183,7 +184,7 @@ const provisioning = (
     note: vi.fn<RunWaitsPort['note']>(async () => {}),
     clear: vi.fn<RunWaitsPort['clear']>(async () => {}),
   } satisfies RunWaitsPort;
-  const runs = {
+  const runs = partial<RunRepository>({
     findById: async (id: RunId) => stored.get(id.value) ?? null,
     save: async (run: Run) => {
       recorded.push(...run.pullEvents());
@@ -199,7 +200,7 @@ const provisioning = (
     ],
     withExpiredReservations: async (at: Date) =>
       [...stored.values()].filter((each) => each.reservationExpiredAt(at)),
-  } as unknown as RunRepository;
+  });
   const provision = vi.fn(
     async (request: ProvisionRequest): Promise<ProvisionedRunner> =>
       answers[request.poolId] ?? { outcome: 'provisioned' },
@@ -247,11 +248,19 @@ const provisioning = (
     recorded,
     checks,
     awaitingProvision,
-    run: (id: string) => stored.get(id) as Run,
+    run: (id: string): Run => {
+      const found = stored.get(id);
+
+      if (found === undefined) {
+        throw new Error(`expected run ${id} to be stored`);
+      }
+
+      return found;
+    },
     provisioner: new ProvisionWork(
       runs,
       checks,
-      {
+      partial<RunnerPoolsPort>({
         offersIn: offering,
         roomIn: async (poolId: string) => {
           const maxRuns =
@@ -259,11 +268,11 @@ const provisioning = (
 
           return maxRuns === null ? null : Math.max(0, maxRuns - running);
         },
-      } as unknown as RunnerPoolsPort,
-      { provision, release } as unknown as RunnersPort,
-      {
+      }),
+      partial<RunnersPort>({ provision, release }),
+      partial<SandboxesPort>({
         liveKeysIn: vi.fn(async () => liveKeys),
-      } as unknown as SandboxesPort,
+      }),
       failures,
       {
         generate: () => {
@@ -271,7 +280,7 @@ const provisioning = (
           return `pooled_${generated}`;
         },
       },
-      { now: () => now } as ClockPort,
+      partial<ClockPort>({ now: () => now }),
       logger,
       waits,
     ),

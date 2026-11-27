@@ -43,12 +43,6 @@ export type InboxConversation = Omit<
   'lastNote' | 'answerable' | 'resolvable' | Shown
 >;
 
-type ShownConversation<T> = T extends InboxConversation
-  ? Pick<InboxItemViewResponseDto, 'answerable' | 'resolvable'>
-  : T extends StoredNotice
-    ? Pick<InboxNoticeResponseDto, 'resolvable'>
-    : unknown;
-
 const answers = (entry: InboxConversation): boolean =>
   entry.standing === 'assignee' ||
   entry.standing === 'asked' ||
@@ -95,7 +89,7 @@ const reopenableOf = (entry: InboxEntry): boolean => {
     return true;
   }
 
-  const closing = entry.notes[entry.notes.length - 1];
+  const closing = entry.notes.at(-1);
 
   return (
     answers(entry) && closing?.form === 'resolved' && closing.voice === 'person'
@@ -111,18 +105,42 @@ const resolvableOf = (entry: InboxConversation): boolean =>
 const answerableOf = (entry: InboxConversation): boolean =>
   !entry.resolved && entry.inboxRequest === null && answers(entry);
 
-export const shown = <T extends InboxEntry>(
-  entry: T,
-): T & Pick<InboxNoticeResponseDto, Shown> & ShownConversation<T> =>
-  ({
-    ...entry,
-    section: sectionOf(entry),
-    reopenable: reopenableOf(entry),
-    ...(entry.kind === 'task'
-      ? { answerable: answerableOf(entry), resolvable: resolvableOf(entry) }
-      : {}),
-    ...(entry.kind === 'notice' ? { resolvable: !entry.resolved } : {}),
-  }) as T & Pick<InboxNoticeResponseDto, Shown> & ShownConversation<T>;
+type Showing = Pick<InboxNoticeResponseDto, Shown>;
+
+export type ShownConversation = InboxConversation &
+  Showing &
+  Pick<InboxItemViewResponseDto, 'answerable' | 'resolvable'>;
+
+type ShownEntry =
+  | ShownConversation
+  | (StoredNotice & Showing & Pick<InboxNoticeResponseDto, 'resolvable'>)
+  | (StoredRun & Showing)
+  | (StoredChat & Showing);
+
+const showing = (entry: InboxEntry): Showing => ({
+  section: sectionOf(entry),
+  reopenable: reopenableOf(entry),
+});
+
+export const shownConversation = (
+  entry: InboxConversation,
+): ShownConversation => ({
+  ...entry,
+  ...showing(entry),
+  answerable: answerableOf(entry),
+  resolvable: resolvableOf(entry),
+});
+
+export const shown = (entry: InboxEntry): ShownEntry => {
+  if (entry.kind === 'task') {
+    return shownConversation(entry);
+  }
+  if (entry.kind === 'notice') {
+    return { ...entry, ...showing(entry), resolvable: !entry.resolved };
+  }
+
+  return { ...entry, ...showing(entry) };
+};
 
 export const MEMORIES_REQUEST_ID = 'request_retries_memories';
 export const ALERT_REQUEST_ID = 'request_sent_back_alert';
@@ -439,8 +457,7 @@ const RESOLVED_CONVERSATIONS = (): InboxConversation[] => [
   }),
 ];
 
-const firedAtOf = ({ run }: AlertFiring) =>
-  minutesAfter(run.endedAt ?? new Date(run.at).toISOString(), 2);
+const firedAtOf = ({ run }: AlertFiring) => minutesAfter(run.endedAt, 2);
 
 const alertInboxRequest = (
   id: string,

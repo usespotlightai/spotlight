@@ -6,7 +6,7 @@ import {
 import { PullRequestBaseMoved } from '@github/domain/events/pull-request-base-moved.event';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { PullRequestConflicted } from '@github/domain/events/pull-request-conflicted.event';
-import type { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
+import { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import { BotComment } from '@github/domain/value-objects/bot-comment.vo';
 import { MergeabilityRead } from '@github/domain/value-objects/mergeability-read.vo';
@@ -136,13 +136,11 @@ const kinds = (pullRequest: PullRequest) =>
   pullRequest.pullEvents().map((each) => each.kind);
 
 const updated = (pullRequest: PullRequest) =>
-  (
-    pullRequest
-      .pullEvents()
-      .find((each) => each.kind === 'pull-request.updated') as
-      | PullRequestUpdated
-      | undefined
-  )?.updated;
+  pullRequest
+    .pullEvents()
+    .find(
+      (each): each is PullRequestUpdated => each instanceof PullRequestUpdated,
+    )?.updated;
 
 describe('PullRequest', () => {
   it('records what it received about a pull request, whether or not a task owns it', () => {
@@ -169,11 +167,10 @@ describe('PullRequest', () => {
 
     expect(events.map((each) => each.kind)).toEqual(['pull-request.updated']);
     expect(
-      (
-        events.find(
-          (each) => each.kind === 'pull-request.updated',
-        ) as PullRequestUpdated
-      ).updated,
+      events.find(
+        (each): each is PullRequestUpdated =>
+          each instanceof PullRequestUpdated,
+      )?.updated,
     ).toMatchObject({
       reviews: [review(1, 'commented', 9), review(2, 'approved', 10)],
       version: 1,

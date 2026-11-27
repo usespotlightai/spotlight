@@ -27,6 +27,6 @@ export class MaxRuns {
   }
 
   equals(other: MaxRuns): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof MaxRuns && this.value === other.value;
   }
 }

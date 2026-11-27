@@ -5,7 +5,7 @@ import { NoStackWithoutCheckoutsError } from '@change-review/domain/exceptions/n
 import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import type { HunkLink } from '@change-review/domain/services/diff-facts';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import {
   Diff,
   type DiffFile,
@@ -29,6 +29,7 @@ import {
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { StackProblem } from '@change-review/domain/value-objects/stack-problem.vo';
 import { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import {
@@ -243,7 +244,7 @@ describe('ChangeStack', () => {
   });
 
   describe('from a push to its task’s pull request', () => {
-    const HEAD = CommitSha.parsed('b'.repeat(40)) as CommitSha;
+    const HEAD = commitSha('b');
 
     const pushed = (
       over: {
@@ -715,9 +716,10 @@ describe('ChangeStack with facts from the code', () => {
           LATER,
         );
       } catch (error) {
-        return (error as InvalidChangeStackError).problems.map(
-          (each) => each.message,
-        );
+        if (!(error instanceof InvalidChangeStackError)) {
+          throw error;
+        }
+        return error.problems.map((each) => each.message);
       }
       return [];
     };
@@ -768,7 +770,7 @@ describe('ChangeStack with facts from the code', () => {
       LATER,
     );
 
-    const [, api, ui] = ready.cohorts[0]?.layers ?? [];
+    const [, api, ui] = optionalItems(ready.cohorts[0]?.layers ?? []);
 
     expect(api?.dependsOn).toEqual([
       { layer: 'c1.l1', because: ['createInvitation', 'Invitation'] },
@@ -926,10 +928,7 @@ describe('ChangeStack read back from what was stored', () => {
   });
 
   it('takes back a stack from a push of its task, and refuses one with no task', () => {
-    const origin = StackOrigin.push(
-      CommitSha.parsed('c'.repeat(40)) as CommitSha,
-      null,
-    );
+    const origin = StackOrigin.push(commitSha('c'), null);
 
     expect(
       stored({ origin, taskId: TaskId.of('task-1'), teamId: null }).runId,
@@ -944,8 +943,11 @@ describe('ChangeStack read back from what was stored', () => {
   });
 
   it('rejects a ready stack that leaves a hunk out, or assigns one twice', () => {
-    const [cohort] = ready().cohorts;
-    const withoutUI = [{ ...cohort, layers: cohort?.layers.slice(0, 2) }];
+    const [cohort] = optionalItems(ready().cohorts);
+    if (cohort === undefined) {
+      throw new Error('expected a ready cohort');
+    }
+    const withoutUI = [{ ...cohort, layers: cohort.layers.slice(0, 2) }];
 
     expect(() => stored({ cohorts: withoutUI })).toThrow(
       InconsistentStateError,
@@ -955,7 +957,7 @@ describe('ChangeStack read back from what was stored', () => {
     const twice = [
       {
         ...cohort,
-        layers: [...(cohort?.layers ?? []), cohort?.layers[0]],
+        layers: [...cohort.layers, cohort.layers[0]],
       },
     ];
 

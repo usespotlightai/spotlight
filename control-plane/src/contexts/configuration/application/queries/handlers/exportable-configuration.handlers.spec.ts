@@ -24,7 +24,10 @@ import type {
   TeamDirectoryPort,
   TeamProfile,
 } from '@identity/application/ports/team-directory.port';
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type {
+  WorkspaceAccessPort,
+  WorkspacePermissions,
+} from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type {
   LineRecord,
@@ -32,6 +35,7 @@ import type {
 } from '@lines/application/ports/line-resources.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
@@ -120,27 +124,27 @@ const DECLARED = {
 };
 
 const handlers = (over: { permitted?: boolean } = {}) => {
-  const access = {
+  const access = partial<WorkspaceAccessPort>({
     permissionsIn: vi.fn(async () =>
       over.permitted === false
         ? null
-        : {
+        : partial<WorkspacePermissions>({
             workspaceId: WORKSPACE,
             slug: 'acme',
             configures: false,
             scopes: new Set(),
             isAdmin: false,
-          },
+          }),
     ),
-  } as unknown as WorkspaceAccessPort;
-  const workspaces = {
+  });
+  const workspaces = partial<WorkspaceReaderPort>({
     profileOf: vi.fn(async () => ({
       id: WORKSPACE.value,
       name: 'Acme',
       slug: 'acme',
       outboundHosts: [],
     })),
-  } as unknown as WorkspaceReaderPort;
+  });
   const teams = {
     find: vi.fn(
       async (id: TeamId) =>
@@ -279,7 +283,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
         : [],
     ),
   } satisfies HarnessProfileResourcesPort;
-  const profileViews = {
+  const profileViews = partial<HarnessProfileViews>({
     exported: vi.fn((record: HarnessProfileRecord, teamKey: string) => ({
       id: record.id,
       version: record.version,
@@ -294,7 +298,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
       secretReferences: [],
       warnings: [],
     })),
-  } as unknown as HarnessProfileViews;
+  });
   const secrets = {
     in: vi.fn(async () => [
       secretOf('secret_2', 'SLACK_TOKEN'),

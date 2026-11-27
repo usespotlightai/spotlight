@@ -10,6 +10,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export class LiveCandidates {
   constructor(
@@ -39,7 +40,7 @@ export class LiveCandidates {
     }
 
     const teamKey = await this.people.teamKey(set.teamId);
-    const address = teamKey
+    const address = nonEmpty(teamKey)
       ? StationPath.of(teamKey, config.lineKey, config.block.key)
       : null;
 

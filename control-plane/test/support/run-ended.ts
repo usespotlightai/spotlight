@@ -3,6 +3,7 @@ import {
   type RunState,
   TERMINAL_RUN_STATES,
 } from '@runs/domain/value-objects/run-state';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 import { requestedBySpec, requestedByTask } from './runs';
 import * as schema from './schema';
@@ -10,7 +11,14 @@ import * as schema from './schema';
 const endedAtFor = (state: RunState, at = new Date()): Date | null =>
   (TERMINAL_RUN_STATES as readonly RunState[]).includes(state) ? at : null;
 
-export const endingFor = (state: RunState, at = new Date()) => ({
+export interface RunEnding {
+  readonly endedAt: Date | null;
+  readonly exitCode?: number;
+  readonly failure?: 'exited' | 'cancelled';
+  readonly detail?: string;
+}
+
+export const endingFor = (state: RunState, at = new Date()): RunEnding => ({
   endedAt: endedAtFor(state, at),
   ...(state === 'completed' || state === 'suspended'
     ? { exitCode: 0 }
@@ -40,7 +48,9 @@ export const aRunOf = async (
     id: run.id,
     workspaceId: run.workspaceId,
     harness: 'dev',
-    ...(run.taskId ? requestedByTask(run.taskId) : requestedBySpec(run.id)),
+    ...(nonEmpty(run.taskId)
+      ? requestedByTask(run.taskId)
+      : requestedBySpec(run.id)),
     state,
     ...endingFor(state),
     spec: {

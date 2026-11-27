@@ -1,3 +1,5 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -136,7 +138,9 @@ export class BriefedTask {
       stationId: StationId.of(parts.stationId),
       title: parts.title,
       description: parts.description,
-      reviewing: parts.reviewing ? Repository.of(parts.reviewing) : null,
+      reviewing: nonEmpty(parts.reviewing)
+        ? Repository.of(parts.reviewing)
+        : null,
       attachments: parts.attachments.map(Attachment.rehydrate),
       notes: parts.notes.map((each) => ({
         station: each.station,
@@ -189,7 +193,7 @@ export class BriefedTask {
       sameAttachments(this.attachments, other.attachments) &&
       this.notes.length === other.notes.length &&
       this.notes.every((each, at) => {
-        const theirs = other.notes[at];
+        const theirs = itemAt(other.notes, at);
         return (
           theirs !== undefined &&
           each.station === theirs.station &&
@@ -199,7 +203,7 @@ export class BriefedTask {
       }) &&
       this.openReviewComments.length === other.openReviewComments.length &&
       this.openReviewComments.every((each, at) => {
-        const theirs = other.openReviewComments[at];
+        const theirs = itemAt(other.openReviewComments, at);
         return (
           theirs !== undefined &&
           each.at.equals(theirs.at) &&

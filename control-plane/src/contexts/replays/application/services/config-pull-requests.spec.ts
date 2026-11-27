@@ -65,6 +65,7 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -133,7 +134,10 @@ class FakeConfigs implements ConfigRepositoryPort {
     };
   }
 
-  async statusOf(_workspace: unknown, at: ConfigPullRequestAt) {
+  async statusOf(
+    _workspace: unknown,
+    at: ConfigPullRequestAt,
+  ): Promise<ConfigPullRequestStatus> {
     this.statusChecks.push(at.number);
 
     if (this.closeFailing) {
@@ -345,10 +349,11 @@ const opened = async () => {
 };
 
 const only = (): ConfigPullRequest => {
-  const [pullRequest, ...rest] = pullRequests.stored.values();
+  const stored = [...pullRequests.stored.values()];
+  const pullRequest = firstOf(stored);
 
-  if (!pullRequest || rest.length > 0) {
-    throw new Error(`expected one pull request, found ${rest.length + 1}`);
+  if (pullRequest === undefined || stored.length > 1) {
+    throw new Error(`expected one pull request, found ${stored.length}`);
   }
 
   return pullRequest;
@@ -377,7 +382,7 @@ describe('picking a search candidate', () => {
     await pick();
     await pick();
 
-    expect(only()?.repository?.value).toBe('acme/platform');
+    expect(only().repository?.value).toBe('acme/platform');
     expect(only()).toMatchObject({
       current: 'opening',
       path: 'teams/core/delivery.tf',
@@ -392,7 +397,7 @@ describe('picking a search candidate', () => {
     await opening().processDue();
     await opening().processDue();
 
-    expect(only()?.url?.value).toBe('https://github.com/acme/platform/pull/1');
+    expect(only().url?.value).toBe('https://github.com/acme/platform/pull/1');
     expect(only()).toMatchObject({
       current: 'opened',
       lastCommit: 'commit_1',
@@ -600,7 +605,7 @@ describe('following a config pull request after it opened', () => {
   it('records the canonical repository, GitHub id and number, and the live config it was based on', async () => {
     await opened();
 
-    expect(only()?.repository?.value).toBe('Acme/Platform');
+    expect(only().repository?.value).toBe('Acme/Platform');
     expect(only()).toMatchObject({
       current: 'opened',
       number: 1,

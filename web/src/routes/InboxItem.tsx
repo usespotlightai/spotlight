@@ -21,6 +21,7 @@ import {
   runsShownFirst,
 } from '@/lib/inbox';
 import { JournalDemandContext } from '@/lib/journal-demand';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, type Loadable, loading } from '@/lib/query';
 import { useTrail } from '@/lib/trail';
 
@@ -76,7 +77,7 @@ export function InboxItem() {
     );
   }
 
-  if (!item || !slug) {
+  if (!item || !nonEmpty(slug)) {
     return <InboxGone />;
   }
 

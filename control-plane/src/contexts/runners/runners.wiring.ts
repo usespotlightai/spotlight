@@ -246,6 +246,7 @@ import {
   WORKLOAD_TOKENS,
   type WorkloadTokensPort,
 } from '@shared-kernel/application/ports/workload-tokens.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -261,7 +262,8 @@ const PLATFORM_EGRESS = Symbol('PLATFORM_EGRESS');
 const PLATFORM_POOL = Symbol('PLATFORM_POOL');
 
 const platformPoolOf = (env: Env): PlatformPoolSettings | null =>
-  env.SPOTLIGHT_PLATFORM_POOL_URL && env.SPOTLIGHT_PLATFORM_POOL_SECRET
+  nonEmpty(env.SPOTLIGHT_PLATFORM_POOL_URL) &&
+  nonEmpty(env.SPOTLIGHT_PLATFORM_POOL_SECRET)
     ? {
         url: ProvisionUrl.of(env.SPOTLIGHT_PLATFORM_POOL_URL),
         secret: SigningSecret.of(env.SPOTLIGHT_PLATFORM_POOL_SECRET),
@@ -306,7 +308,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       env: Env,
       tokens: TokenIssuer,
     ): PlatformEgressSettings | null =>
-      env.SPOTLIGHT_PLATFORM_EGRESS_URL && env.SPOTLIGHT_PLATFORM_EGRESS_TOKEN
+      nonEmpty(env.SPOTLIGHT_PLATFORM_EGRESS_URL) &&
+      nonEmpty(env.SPOTLIGHT_PLATFORM_EGRESS_TOKEN)
         ? {
             url: EgressUrl.of(env.SPOTLIGHT_PLATFORM_EGRESS_URL),
             tokenHash: TokenHash.of(

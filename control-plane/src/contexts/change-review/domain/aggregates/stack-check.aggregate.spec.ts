@@ -1300,7 +1300,10 @@ describe('StackCheck, rechecked', () => {
     expect(
       found.pullEvents().map((event) => ({
         kind: event.kind,
-        recheck: (event as { checkId?: StackCheckId }).checkId?.recheck,
+        recheck:
+          'checkId' in event && event.checkId instanceof StackCheckId
+            ? event.checkId.recheck
+            : undefined,
       })),
     ).toEqual([{ kind: 'stack-check.checked', recheck: true }]);
   });

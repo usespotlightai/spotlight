@@ -5,6 +5,7 @@ import type {
   StationSearchOverride,
 } from '@lines/domain/value-objects/search-policy.vo';
 import { repeatedIn } from '@shared-kernel/domain/distinct';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -59,7 +60,7 @@ export const stationsProblem = <R extends Reference<R>>(
 
   const twice = repeatedIn(stations.map((each) => each.key.value));
 
-  if (twice) {
+  if (nonEmpty(twice)) {
     return {
       reason: `must have unique keys, but ${twice} repeats`,
       flaw: STATIONS,

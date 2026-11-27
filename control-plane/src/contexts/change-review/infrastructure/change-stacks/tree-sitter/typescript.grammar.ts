@@ -10,6 +10,8 @@ import {
   dirname as parentOf,
   unquoted,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs'];
@@ -57,7 +59,7 @@ const embeddedScript = (text: string): EmbeddedScript => {
   const tagsBetween = (from: number, to: number) => {
     for (const tag of text.slice(from, to).matchAll(COMPONENT_TAG)) {
       references.push({
-        name: pascalCase(tag[1] ?? ''),
+        name: pascalCase(itemAt(tag, 1) ?? ''),
         line: lineAt(from + tag.index),
         through: null,
       });
@@ -67,8 +69,8 @@ const embeddedScript = (text: string): EmbeddedScript => {
   let at = 0;
 
   for (const match of text.matchAll(SCRIPT)) {
-    const start = match.index + (match[1]?.length ?? 0);
-    const body = match[2] ?? '';
+    const start = match.index + (itemAt(match, 1)?.length ?? 0);
+    const body = itemAt(match, 2) ?? '';
 
     tagsBetween(at, match.index);
     script += blanked(text.slice(at, start)) + body;
@@ -131,7 +133,7 @@ const importsOf = (node: Node): GrammarImport[] | null => {
     );
     const named = (clause?.namedChildren ?? []).flatMap((each) => {
       const name = each ? field(each, 'name')?.text : undefined;
-      return name ? [{ local: '', imported: name, specifier }] : [];
+      return nonEmpty(name) ? [{ local: '', imported: name, specifier }] : [];
     });
 
     return named.length > 0 ? named : [{ local: '', imported: '*', specifier }];
@@ -155,14 +157,16 @@ const importsOf = (node: Node): GrammarImport[] | null => {
     }
     if (part.type === 'namespace_import') {
       const local = part.namedChildren[0]?.text;
-      return local ? [{ local, imported: '*', specifier }] : [];
+      return nonEmpty(local) ? [{ local, imported: '*', specifier }] : [];
     }
 
     return part.namedChildren.flatMap((each): GrammarImport[] => {
       const name = each ? field(each, 'name')?.text : undefined;
       const alias = each ? field(each, 'alias')?.text : undefined;
 
-      return name ? [{ local: alias ?? name, imported: name, specifier }] : [];
+      return nonEmpty(name)
+        ? [{ local: alias ?? name, imported: name, specifier }]
+        : [];
     });
   });
 };
@@ -187,9 +191,9 @@ const resolve = (
 
   const [scope, ...rest] = bare.split('/');
   const aliased =
-    scope === '@' || scope === '~' || scope?.startsWith('#')
+    scope === '@' || scope === '~' || scope.startsWith('#')
       ? rest
-      : scope?.startsWith('@') &&
+      : scope.startsWith('@') &&
           rest.length >= 2 &&
           paths.some((path) => path.split('/').includes(scope.slice(1)))
         ? [scope.slice(1), ...rest]
@@ -240,7 +244,7 @@ const aliases = (node: Node): [string, string][] => {
     const name = each ? field(each, 'name')?.text : undefined;
     const alias = each ? field(each, 'alias')?.text : undefined;
 
-    return name ? [[name, alias ?? name]] : [];
+    return nonEmpty(name) ? [[name, alias ?? name]] : [];
   });
 };
 

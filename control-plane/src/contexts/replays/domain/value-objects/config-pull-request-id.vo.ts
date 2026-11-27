@@ -13,7 +13,7 @@ export class ConfigPullRequestId {
   }
 
   equals(other: ConfigPullRequestId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof ConfigPullRequestId && this.value === other.value;
   }
 
   toString(): string {

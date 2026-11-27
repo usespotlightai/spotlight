@@ -10,6 +10,8 @@ import type {
 import { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { SpecReaders } from '@integrations/infrastructure/specs/spec-readers';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const UNREAD: SpecRead = { kind: 'unread', problem: 'unused' };
@@ -24,9 +26,9 @@ const recording = (seen: boolean[]): SpecReaderPort => ({
   },
 });
 
-const CALL_AUTH = {
-  workspace: async () => 'ws_1',
-} as unknown as CallAuth;
+const CALL_AUTH = partial<CallAuth>({
+  workspace: async () => WorkspaceId.of('ws_1'),
+});
 
 describe('SpecReaders', () => {
   it.each([

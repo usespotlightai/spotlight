@@ -1,6 +1,7 @@
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import type { LineResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { linePath, teamPath } from '@/lib/team';
 
 type TaskTrailParams = {
@@ -18,7 +19,7 @@ export function useTaskTrail({
 }: TaskTrailParams): BreadcrumbSegment[] {
   const { data: workspace } = useWorkspace(slug);
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
-  const known = slug && teamId ? { slug, teamId } : null;
+  const known = nonEmpty(slug) && nonEmpty(teamId) ? { slug, teamId } : null;
 
   return [
     ...(team

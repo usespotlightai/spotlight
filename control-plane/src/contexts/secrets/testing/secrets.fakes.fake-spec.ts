@@ -1,4 +1,7 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type {
+  WorkspaceAccessPort,
+  WorkspacePermissions,
+} from '@identity/application/ports/workspace-access.port';
 import { UnreadableSecretError } from '@secrets/application/errors/unreadable-secret.error';
 import type {
   SecretReference,
@@ -34,6 +37,8 @@ import type {
 } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -51,20 +56,21 @@ export const SLUG = 'acme';
 export const accessFor = (
   managesSecrets: () => boolean,
 ): WorkspaceAccessPort => {
-  const permissions = () => ({
+  const permissions = (): WorkspacePermissions => ({
     workspaceId: WORKSPACE,
     slug: SLUG,
+    plans: false,
     configures: true,
     scopes: new Set(managesSecrets() ? (['secrets'] as const) : []),
     isAdmin: false,
   });
 
-  return {
+  return partial<WorkspaceAccessPort>({
     permissionsIn: async (workspaceId: WorkspaceId) =>
       workspaceId.equals(WORKSPACE) ? permissions() : null,
     permissionsInSlug: async (slug: string) =>
       slug === SLUG ? permissions() : null,
-  } as unknown as WorkspaceAccessPort;
+  });
 };
 
 // Reaches for the secrets of WORKSPACE: a harness profile uses the secrets that `used` names, and a runner has egress while `egressRunners` says so.
@@ -108,7 +114,7 @@ export class InMemoryCreates implements IdempotentCreatesPort {
       return { kind: 'new' };
     }
 
-    return stored.request === request && stored.id
+    return stored.request === request && nonEmpty(stored.id)
       ? { kind: 'already-created', createdId: stored.id }
       : { kind: 'key-reused' };
   }
@@ -336,7 +342,9 @@ export class InMemoryGrants implements RunGrantsRepository {
   async save(grants: RunGrants): Promise<void> {
     const record = this.#records.get(grants.runId.value);
 
-    if (grants.isNew ? record : record?.version !== grants.version) {
+    if (
+      grants.isNew ? record !== undefined : record?.version !== grants.version
+    ) {
       throw new RunGrantsVersionConflictError(grants.runId.value);
     }
 

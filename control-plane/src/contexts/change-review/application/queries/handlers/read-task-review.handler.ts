@@ -20,6 +20,7 @@ import type { DeliveryFailureCode } from '@change-review/domain/value-objects/de
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -30,8 +31,8 @@ const authorOf = (view: {
   readonly authorName: string | null;
 }): ReviewAuthor =>
   ReviewAuthor.rehydrate({
-    userId: view.authorId ? UserId.of(view.authorId) : null,
-    runId: view.authorRunId ? RunId.of(view.authorRunId) : null,
+    userId: nonEmpty(view.authorId) ? UserId.of(view.authorId) : null,
+    runId: nonEmpty(view.authorRunId) ? RunId.of(view.authorRunId) : null,
     login: view.authorLogin ?? null,
     name: AuthorName.of(view.authorName),
   });
@@ -100,7 +101,7 @@ export class ReadTaskReviewHandler implements QueryHandlerPort<
       const imageOf = (author: ReviewAuthor): string | null =>
         author.userId
           ? (images.get(author.userId.value) ?? null)
-          : author.login
+          : nonEmpty(author.login)
             ? this.avatars.pictureOf(author.login)
             : null;
 

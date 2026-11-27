@@ -152,9 +152,9 @@ export const byAge = <T extends { startedAt: string }>(
 
   for (const run of runs) {
     const label = aged(run.startedAt);
-    const last = grouped[grouped.length - 1];
+    const last = grouped.at(-1);
 
-    if (last && last[0] === label) {
+    if (last !== undefined && last[0] === label) {
       last[1].push(run);
     } else {
       grouped.push([label, [run]]);
@@ -174,9 +174,7 @@ export type RunFilter = (typeof RUN_FILTERS)[number]['id'];
 export const ALL_RUNS: RunFilter = 'all';
 
 export const asRunFilter = (raw: string): RunFilter =>
-  RUN_FILTERS.some((filter) => filter.id === raw)
-    ? (raw as RunFilter)
-    : ALL_RUNS;
+  RUN_FILTERS.find((filter) => filter.id === raw)?.id ?? ALL_RUNS;
 
 export const inRunFilter = (
   filter: RunFilter,

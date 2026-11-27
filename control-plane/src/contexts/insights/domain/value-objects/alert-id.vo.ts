@@ -13,7 +13,7 @@ export class AlertId {
   }
 
   equals(other: AlertId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof AlertId && this.value === other.value;
   }
 
   toString(): string {

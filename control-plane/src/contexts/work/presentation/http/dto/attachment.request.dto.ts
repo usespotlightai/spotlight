@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class GrantAttachmentUploadRequestDto {
   @ApiProperty({ example: 'queue-stuck.png' })
-  readonly name!: string;
+  readonly name?: string;
 
   @ApiPropertyOptional({
     example: 'image/png',

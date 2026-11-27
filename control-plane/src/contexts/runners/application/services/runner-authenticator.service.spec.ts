@@ -14,6 +14,7 @@ import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggreg
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { ExpectedWorkload } from '@shared-kernel/application/ports/workload-tokens.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
@@ -60,14 +61,14 @@ const authenticating = (
   const isOpen = vi.fn(async () => input.open ?? true);
 
   const authenticator = new RunnerAuthenticator(
-    { findByTokenHash } as unknown as RunnerPoolRepository,
-    {
+    partial<RunnerPoolRepository>({ findByTokenHash }),
+    partial<RunnerTrustRepository>({
       find: vi.fn(async () =>
         input.trust === undefined ? aTrust() : input.trust,
       ),
-    } as unknown as RunnerTrustRepository,
+    }),
     { verify },
-    { isOpen } as unknown as WorkspaceReaderPort,
+    partial<WorkspaceReaderPort>({ isOpen }),
     {
       issue: () => ({ token: 'unused', hash: 'unused' }),
       hash: (token: string) =>

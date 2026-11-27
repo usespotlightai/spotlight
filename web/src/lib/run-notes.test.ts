@@ -6,6 +6,9 @@ import {
   type RunNotes,
   withMessagesInFlight,
 } from '@/lib/run-notes';
+import { partial } from '@/test/partial';
+
+type Note = RunNotes['notes'][number];
 
 describe('lastNoteOf', () => {
   it('finds the last note of a run, so its thread opens there', () => {
@@ -22,12 +25,18 @@ describe('lastNoteOf', () => {
 });
 
 describe('withMessagesInFlight', () => {
-  const thread = {
+  const thread = partial<RunNotes>({
     runId: 'run_1',
-    station: { name: 'Implementation', color: '#5c66d9', position: 2 },
+    station: partial<RunNotes['station']>({
+      name: 'Implementation',
+      color: '#5c66d9',
+      position: 2,
+    }),
     progress: null,
-    notes: [{ position: 4, runId: 'run_1', body: 'The tests failed.' }],
-  } as unknown as RunNotes;
+    notes: [
+      partial<Note>({ position: 4, runId: 'run_1', body: 'The tests failed.' }),
+    ],
+  });
 
   const sam = { id: 'user_1', name: 'Sam', image: null };
 
@@ -75,39 +84,39 @@ describe('withMessagesInFlight', () => {
   });
 
   it('leaves out a message once the thread has it from the server', () => {
-    const arrived = {
+    const arrived = partial<RunNotes>({
       ...thread,
       notes: [
         ...thread.notes,
-        {
+        partial<Note>({
           position: 5,
           voice: 'person',
           body: 'try again',
           author: sam,
           attachments: [],
           at: '2026-10-20T10:00:01.000Z',
-        },
+        }),
       ],
-    } as unknown as RunNotes;
+    });
 
     expect(withMessagesInFlight(arrived, [outgoing()], sam)).toBe(arrived);
   });
 
   it('matches each message from the server to one message on its way', () => {
-    const once = {
+    const once = partial<RunNotes>({
       ...thread,
       notes: [
         ...thread.notes,
-        {
+        partial<Note>({
           position: 5,
           voice: 'person',
           body: 'ok',
           author: sam,
           attachments: [],
           at: '2026-10-20T10:00:01.000Z',
-        },
+        }),
       ],
-    } as unknown as RunNotes;
+    });
 
     expect(
       withMessagesInFlight(
@@ -125,20 +134,20 @@ describe('withMessagesInFlight', () => {
       contentType: 'text/plain',
       size: 12,
     };
-    const arrived = {
+    const arrived = partial<RunNotes>({
       ...thread,
       notes: [
         ...thread.notes,
-        {
+        partial<Note>({
           position: 5,
           voice: 'person',
           body: '',
           author: sam,
           attachments: [file],
           at: '2026-10-20T10:00:01.000Z',
-        },
+        }),
       ],
-    } as unknown as RunNotes;
+    });
     const sent = outgoing({ body: '', attachments: ['att_1'], files: [file] });
 
     expect(withMessagesInFlight(arrived, [sent], sam)).toBe(arrived);
@@ -149,20 +158,20 @@ describe('withMessagesInFlight', () => {
   });
 
   it('keeps a message that only repeats an older one', () => {
-    const older = {
+    const older = partial<RunNotes>({
       ...thread,
       notes: [
         ...thread.notes,
-        {
+        partial<Note>({
           position: 5,
           voice: 'person',
           body: 'try again',
           author: sam,
           attachments: [],
           at: '2026-10-20T08:00:00.000Z',
-        },
+        }),
       ],
-    } as unknown as RunNotes;
+    });
 
     expect(withMessagesInFlight(older, [outgoing()], sam).notes).toHaveLength(
       3,

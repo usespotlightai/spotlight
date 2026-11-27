@@ -3,8 +3,12 @@ import type { RunConnectionsPort } from '@runs/application/ports/run-connections
 import type { RunJournalEntryReaderPort } from '@runs/application/ports/run-journal-entry-reader.port';
 import { ReadRunNetworkHandler } from '@runs/application/queries/handlers/read-run-network.handler';
 import { ReadRunNetworkQuery } from '@runs/application/queries/read-run-network.query';
-import type { RunViewing } from '@runs/application/services/run-viewing.service';
+import type {
+  RunViewing,
+  WatchedRun,
+} from '@runs/application/services/run-viewing.service';
 import { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -29,10 +33,10 @@ const reading = (
   team: string | null = 'team_1',
 ) => {
   const read: number[] = [];
-  const runs = {
+  const runs = partial<RunViewing>({
     watchedBy: async (runId: RunId) =>
       visible
-        ? {
+        ? partial<WatchedRun>({
             runId,
             attempt: 2,
             requester: {
@@ -42,9 +46,9 @@ const reading = (
               token: null,
               team,
             },
-          }
+          })
         : null,
-  } as unknown as RunViewing;
+  });
   const events = {
     entriesSince: async () => [],
     egressEnforcementOf: async (_runId: RunId, attempt: number) => {

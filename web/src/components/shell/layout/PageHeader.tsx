@@ -26,7 +26,7 @@ export function PageHeader({
         bordered && 'border-b-[0.5px] border-border',
       )}
     >
-      {title && (
+      {Boolean(title) && (
         <Title
           aria-label={heading ? undefined : 'Breadcrumb'}
           className="flex min-w-0 items-center gap-1.5 overflow-hidden font-medium text-foreground text-sm"
@@ -35,7 +35,7 @@ export function PageHeader({
         </Title>
       )}
       {trailing}
-      {actions && (
+      {Boolean(actions) && (
         <div className="ml-auto flex items-center justify-end gap-2">
           {actions}
         </div>

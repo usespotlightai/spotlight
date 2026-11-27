@@ -7,11 +7,11 @@ export class ToolActingAs {
   ) {}
 
   static team(linkedAccount: string | null): ToolActingAs {
-    return new ToolActingAs(null, linkedAccount?.trim() || null);
+    return new ToolActingAs(null, (linkedAccount?.trim() ?? '') || null);
   }
 
   static person(personId: UserId, linkedAccount: string | null): ToolActingAs {
-    return new ToolActingAs(personId, linkedAccount?.trim() || null);
+    return new ToolActingAs(personId, (linkedAccount?.trim() ?? '') || null);
   }
 
   get actsAs(): 'team' | 'requester' {

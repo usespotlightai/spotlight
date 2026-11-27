@@ -12,7 +12,9 @@ import {
   showOf,
   suspendedMembers,
   visibleMembers,
+  type WorkspaceMember,
 } from '@/lib/members';
+import { partial } from '@/test/partial';
 
 const NOW = Date.parse('2026-10-10T12:00:00.000Z');
 
@@ -78,10 +80,10 @@ describe('sameAddress', () => {
 
 describe('the members filter', () => {
   const people = [
-    { role: 'owner', suspendedAt: null },
-    { role: 'admin', suspendedAt: null },
-    { role: 'member', suspendedAt: null },
-  ] as never[];
+    partial<WorkspaceMember>({ role: 'owner', suspendedAt: null }),
+    partial<WorkspaceMember>({ role: 'admin', suspendedAt: null }),
+    partial<WorkspaceMember>({ role: 'member', suspendedAt: null }),
+  ];
 
   it('reads only the filters it knows', () => {
     expect(showOf(new URLSearchParams('show=admin'))).toBe('admin');
@@ -90,7 +92,10 @@ describe('the members filter', () => {
   });
 
   it('keeps suspended members out of the members', () => {
-    const suspended = { role: 'admin', suspendedAt: '2026-11-01' } as never;
+    const suspended = partial<WorkspaceMember>({
+      role: 'admin',
+      suspendedAt: '2026-11-01',
+    });
 
     expect(visibleMembers([...people, suspended], null)).toHaveLength(3);
     expect(visibleMembers([...people, suspended], 'admin')).toEqual([

@@ -2,6 +2,7 @@ import type {
   RunFacts,
   RunFactsPort,
 } from '@runs/application/ports/run-facts.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -35,7 +36,9 @@ const onLineOf = (
           line,
           run.startedFrom.checkouts,
         ),
-        reviewing: ran.reviewing ? Repository.of(ran.reviewing) : null,
+        reviewing: nonEmpty(ran.reviewing)
+          ? Repository.of(ran.reviewing)
+          : null,
         line,
       }
     : null;

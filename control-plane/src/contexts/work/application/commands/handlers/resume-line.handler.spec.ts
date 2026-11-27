@@ -1,6 +1,7 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -14,6 +15,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ResumeLineHandler } from '@work/application/commands/handlers/resume-line.handler';
 import { ResumeLineCommand } from '@work/application/commands/resume-line.command';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { leasedRun } from '@work/application/ports/runs.fake-spec';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
@@ -135,12 +137,12 @@ const resumeLine = async (
 ): Promise<{ saved: Task | undefined; dispatched: boolean }> => {
   let saved: Task | undefined;
   let dispatched = false;
-  const tasks = {
+  const tasks = partial<TaskRepository>({
     find: vi.fn(async () => found()),
     save: vi.fn(async (task: Task) => {
       saved = task;
     }),
-  } as unknown as TaskRepository;
+  });
   const dispatch: TaskDispatching = {
     runIdFor: async () => {
       dispatched = true;
@@ -153,10 +155,10 @@ const resumeLine = async (
   const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
   const lines = new LineLoader(
     workAccessSeeing(() => true),
-    {
+    partial<LineMapsPort>({
       find: async () => line,
       findByStation: async () => line,
-    } as never,
+    }),
   );
   const facts = {
     of: async () => [

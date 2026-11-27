@@ -14,7 +14,7 @@ const encoded = (text: string) => Buffer.from(text, 'utf8').toString('base64');
 
 const checking = () => {
   const journal = {
-    append: vi.fn(async () => undefined),
+    append: vi.fn(async () => {}),
     appendControlPlaneEntry: vi.fn(async () => ({
       seq: 1,
       type: 'run.paused',

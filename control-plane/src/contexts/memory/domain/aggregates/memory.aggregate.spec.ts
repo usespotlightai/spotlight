@@ -256,9 +256,12 @@ describe('Memory', () => {
     expect(original.pullEvents()).toEqual([]);
     expect(successor.supersedes?.equals(NEW)).toBe(true);
     expect(successor.source).toBe('person');
-    expect(
-      successor.provenance?.equals(original.provenance as MemoryProvenance),
-    ).toBe(true);
+    const { provenance } = original;
+
+    if (provenance === null) {
+      throw new Error('expected a provenance');
+    }
+    expect(successor.provenance?.equals(provenance)).toBe(true);
     expect(successor.pullEvents()).toEqual([
       new MemoryCreated(OLD, NEW, TEAM, WorkspaceId.of('ws_1'), 'corrected'),
     ]);

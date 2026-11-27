@@ -1,17 +1,23 @@
-import { type INestApplication, RequestMethod } from '@nestjs/common';
-import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
-import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
+import type { INestApplication } from '@nestjs/common';
+import { PATH_METADATA } from '@nestjs/common/constants';
+import { Reflector } from '@nestjs/core';
 import type { OpenAPIObject } from '@nestjs/swagger';
+import {
+  controllerMethodsOf,
+  pathsOf,
+  requestMethodOf,
+} from '@platform/http/controller-routes';
 import { ADMIN_ONLY } from '@platform/http/decorators/admin-only.decorator';
 import { ALLOW_ANONYMOUS } from '@platform/http/decorators/allow-anonymous.decorator';
 import { ALLOW_WORKSPACE_TOKENS } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import {
-  AUDIENCES,
   type Audience,
+  perAudience,
   IN_AUDIENCE,
 } from '@platform/http/decorators/in-audience.decorator';
 import { MACHINE_ONLY } from '@platform/http/decorators/machine-only.decorator';
 import { ADMIN } from '@platform/http/routes';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 type Credential =
   | 'session'
@@ -55,7 +61,7 @@ const securitySchemesFor = (
   const bearer = schemes?.bearer;
   const description = BEARER_TOKENS[audience];
 
-  return bearer && description && !('$ref' in bearer)
+  return bearer && nonEmpty(description) && !('$ref' in bearer)
     ? { ...schemes, bearer: { ...bearer, description } }
     : schemes;
 };
@@ -98,68 +104,38 @@ const joined = (...parts: string[]): string =>
     .map((part) => (part.startsWith(':') ? `{${part.slice(1)}}` : part))
     .join('/')}`;
 
-const pathsOf = (metadata: unknown): string[] => {
-  if (Array.isArray(metadata)) {
-    return metadata as string[];
-  }
-
-  return [typeof metadata === 'string' ? metadata : ''];
-};
-
 export const routesOf = (app: INestApplication): Route[] => {
   const reflector = app.get(Reflector);
-  const scanner = app.get(MetadataScanner);
 
-  return app
-    .get(DiscoveryService)
-    .getControllers()
-    .flatMap(({ metatype }) => {
-      if (!metatype) {
-        return [];
-      }
+  return controllerMethodsOf(app).flatMap((each) => {
+    const { controller, name, handler, own } = each;
+    const marked = MARKERS.filter(([marker]) =>
+      reflector.getAllAndOverride<boolean>(marker, [handler, controller]),
+    ).map(([, credential]) => credential);
 
-      const controller = metatype as new (...args: never[]) => unknown;
-      const prototype = controller.prototype as Record<string, () => unknown>;
+    if (marked.length > 1) {
+      throw new Error(
+        `${controller.name}.${name} is marked ${marked.join(' and ')}; a route takes one kind of credential.`,
+      );
+    }
 
-      return scanner.getAllMethodNames(prototype).flatMap((name) => {
-        const handler = prototype[name];
-        const own: unknown = Reflect.getMetadata(PATH_METADATA, handler);
+    const audience =
+      reflector.getAllAndOverride<Audience | undefined>(IN_AUDIENCE, [
+        handler,
+        controller,
+      ]) ?? null;
+    const method = requestMethodOf(each);
 
-        if (own === undefined) {
-          return [];
-        }
-
-        const marked = MARKERS.filter(([marker]) =>
-          reflector.getAllAndOverride<boolean>(marker, [handler, controller]),
-        ).map(([, credential]) => credential);
-
-        if (marked.length > 1) {
-          throw new Error(
-            `${controller.name}.${name} is marked ${marked.join(' and ')}; a route takes one kind of credential.`,
-          );
-        }
-
-        const audience =
-          reflector.getAllAndOverride<Audience | undefined>(IN_AUDIENCE, [
-            handler,
-            controller,
-          ]) ?? null;
-        const method =
-          RequestMethod[
-            Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod
-          ].toLowerCase();
-
-        return pathsOf(Reflect.getMetadata(PATH_METADATA, controller)).flatMap(
-          (base) =>
-            pathsOf(own).map((path) => ({
-              method,
-              path: joined(base, path),
-              credential: marked[0] ?? 'session',
-              audience,
-            })),
-        );
-      });
-    });
+    return pathsOf(Reflect.getMetadata(PATH_METADATA, controller)).flatMap(
+      (base) =>
+        pathsOf(own).map((path) => ({
+          method,
+          path: joined(base, path),
+          credential: marked[0] ?? 'session',
+          audience,
+        })),
+    );
+  });
 };
 
 const refsIn = (value: unknown, into: Set<string>): Set<string> => {
@@ -167,7 +143,7 @@ const refsIn = (value: unknown, into: Set<string>): Set<string> => {
     for (const each of value) {
       refsIn(each, into);
     }
-  } else if (value && typeof value === 'object') {
+  } else if (typeof value === 'object' && value !== null) {
     for (const [key, each] of Object.entries(value)) {
       if (key === '$ref' && typeof each === 'string') {
         into.add(each);
@@ -182,15 +158,14 @@ const refsIn = (value: unknown, into: Set<string>): Set<string> => {
 
 const SCHEMA_REF = '#/components/schemas/';
 
-const schemasReachedFrom = (
+const schemasReachedFrom = <Schema>(
   paths: OpenAPIObject['paths'],
-  schemas: Record<string, unknown>,
-): Record<string, unknown> => {
+  schemas: Record<string, Schema>,
+): Record<string, Schema> => {
   const reached = new Set<string>();
   const pending = [...refsIn(paths, new Set())];
 
-  while (pending.length > 0) {
-    const ref = pending.pop() as string;
+  for (let ref = pending.pop(); ref !== undefined; ref = pending.pop()) {
     const name = ref.startsWith(SCHEMA_REF) ? ref.slice(SCHEMA_REF.length) : '';
 
     if (name === '' || reached.has(name) || !(name in schemas)) {
@@ -213,9 +188,7 @@ export const documentsByAudience = (
   const byOperation = new Map(
     routes.map((route) => [`${route.method} ${route.path}`, route]),
   );
-  const paths = Object.fromEntries(
-    AUDIENCES.map((audience) => [audience, {}]),
-  ) as Record<Audience, OpenAPIObject['paths']>;
+  const paths = perAudience((): OpenAPIObject['paths'] => ({}));
 
   for (const [path, operations] of Object.entries(document.paths)) {
     for (const [method, operation] of Object.entries(operations) as [
@@ -235,36 +208,28 @@ export const documentsByAudience = (
     }
   }
 
-  return Object.fromEntries(
-    AUDIENCES.map((audience) => {
-      const used = paths[audience];
-      const tags = new Set(
-        Object.values(used).flatMap((operations) =>
-          Object.values(operations).flatMap(
-            (operation: { tags?: string[] }) => operation.tags ?? [],
-          ),
+  return perAudience((audience): OpenAPIObject => {
+    const used = paths[audience];
+    const tags = new Set(
+      Object.values(used).flatMap((operations) =>
+        Object.values(operations).flatMap(
+          (operation: { tags?: string[] }) => operation.tags ?? [],
         ),
-      );
+      ),
+    );
 
-      return [
-        audience,
-        {
-          ...document,
-          tags: document.tags?.filter((tag) => tags.has(tag.name)),
-          paths: used,
-          components: {
-            ...document.components,
-            securitySchemes: securitySchemesFor(
-              audience,
-              document.components?.securitySchemes,
-            ),
-            schemas: schemasReachedFrom(
-              used,
-              document.components?.schemas ?? {},
-            ),
-          },
-        },
-      ];
-    }),
-  ) as Record<Audience, OpenAPIObject>;
+    return {
+      ...document,
+      tags: document.tags?.filter((tag) => tags.has(tag.name)),
+      paths: used,
+      components: {
+        ...document.components,
+        securitySchemes: securitySchemesFor(
+          audience,
+          document.components?.securitySchemes,
+        ),
+        schemas: schemasReachedFrom(used, document.components?.schemas ?? {}),
+      },
+    };
+  });
 };

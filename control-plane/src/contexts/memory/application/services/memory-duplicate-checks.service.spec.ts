@@ -21,6 +21,7 @@ import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { MAX_WAIT_MS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -119,14 +120,14 @@ const checking = (input: {
   const questionsAtRequest: boolean[] = [];
   let linesRead = 0;
 
-  const checks = {
+  const checks = partial<DuplicateCheckRepository>({
     of: async () => stored,
     nextDue: async (at: Date) => (stored?.isDue(at) ? stored : null),
     save: async (check: DuplicateCheck) => {
       saved.push(check);
       stored = check.isDeleted ? null : check;
     },
-  } as unknown as DuplicateCheckRepository;
+  });
   const comparer: ProposalComparerPort = {
     compare: async (request) => {
       requests.push(request);
@@ -142,8 +143,8 @@ const checking = (input: {
 
   const loop = new MemoryDuplicateChecks(
     checks,
-    { forTask: async () => set } as unknown as MemoryProposalSetRepository,
-    { ofTeam: async () => memories } as unknown as MemoryRepository,
+    partial<MemoryProposalSetRepository>({ forTask: async () => set }),
+    partial<MemoryRepository>({ ofTeam: async () => memories }),
     {
       ofTeam: async () => {
         linesRead += 1;

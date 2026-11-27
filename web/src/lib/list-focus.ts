@@ -1,7 +1,8 @@
 const LIST_ITEM = 'data-list-item';
 
 const shown = (item: HTMLElement) =>
-  item.closest('[inert]') === null && (item.checkVisibility?.() ?? true);
+  item.closest('[inert]') === null &&
+  (!('checkVisibility' in item) || item.checkVisibility());
 
 const listItems = (container: HTMLElement): HTMLElement[] =>
   [...container.querySelectorAll<HTMLElement>(`[${LIST_ITEM}]`)].filter(shown);
@@ -23,15 +24,17 @@ export const focusNext = (container: HTMLElement, step: 1 | -1): void => {
   const at = current ? items.indexOf(current) : -1;
   const next =
     at === -1
-      ? items[step > 0 ? 0 : items.length - 1]
-      : items[Math.min(items.length - 1, Math.max(0, at + step))];
+      ? items.at(step > 0 ? 0 : items.length - 1)
+      : items.at(Math.min(items.length - 1, Math.max(0, at + step)));
 
-  if (!next) {
+  if (next === undefined) {
     return;
   }
 
   focusTargetOf(next).focus();
-  next.scrollIntoView?.({ block: 'nearest' });
+  if ('scrollIntoView' in next) {
+    next.scrollIntoView({ block: 'nearest' });
+  }
 };
 
 export const checkboxOf = (item: HTMLElement | null): HTMLElement | null =>

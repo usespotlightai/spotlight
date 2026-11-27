@@ -1,6 +1,8 @@
 import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -132,8 +134,8 @@ const run = (failed: boolean, reported: Reported = {}) =>
       reported.next === undefined && reported.note === undefined
         ? null
         : {
-            next: reported.next || null,
-            note: reported.note || null,
+            next: (reported.next ?? '') || null,
+            note: (reported.note ?? '') || null,
             suggest: reported.suggest ?? null,
             files: [],
           },
@@ -194,21 +196,17 @@ const dispatch: TaskDispatching = {
 
 const handOver = async (
   ended = run(false),
-  stored: TaskRepository = tasks(),
+  stored: TaskRepository & TaskPlacementsPort = tasks(),
   lastWords: string | null = null,
 ) => {
-  const routing = new RunRouting(
-    stored as TaskRepository & TaskPlacementsPort,
-    dispatch,
-    clock,
-  );
+  const routing = new RunRouting(stored, dispatch, clock);
   const handler = new HandOver(
     stored,
     lines(),
     routing,
-    {
+    partial<RunJournalReaderPort>({
       attemptsOfRun: async () => [],
-    } as unknown as RunJournalReaderPort,
+    }),
     runJournalReadings({ lastWordsIn: () => lastWords }),
   );
   if (ended.handsOver) {
@@ -245,7 +243,7 @@ const routedAsItsTurn = async (
     ? task.recordSession(
         runId,
         session,
-        ended.claimedBy ? RunnerId.of(ended.claimedBy) : null,
+        nonEmpty(ended.claimedBy) ? RunnerId.of(ended.claimedBy) : null,
       )
     : task;
 

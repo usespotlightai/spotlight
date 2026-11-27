@@ -1,6 +1,7 @@
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 const PATH = /[\w@.-]+(?:\/[\w@.-]+)+\.[a-z]{1,5}/g;
 
@@ -64,10 +65,11 @@ export const redraftRequestOf = (
       const cohortAt = stack.cohorts.findIndex((cohort) =>
         cohort.layers.some((layer) => layer.id === checked.step),
       );
-      const cohort = stack.cohorts[cohortAt];
+      const cohort = itemAt(stack.cohorts, cohortAt);
       const layerAt =
         cohort?.layers.findIndex((layer) => layer.id === checked.step) ?? -1;
-      const layer = cohort?.layers[layerAt];
+      const layer =
+        cohort === undefined ? undefined : itemAt(cohort.layers, layerAt);
 
       if (!cohort || !layer) {
         return [];

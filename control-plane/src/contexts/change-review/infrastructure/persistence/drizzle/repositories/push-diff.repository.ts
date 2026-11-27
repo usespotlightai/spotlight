@@ -2,32 +2,34 @@ import { PushDiff } from '@change-review/domain/aggregates/push-diff.aggregate';
 import { PushAlreadyWaitingError } from '@change-review/domain/exceptions/push-already-waiting.error';
 import { PushDiffVersionConflictError } from '@change-review/domain/exceptions/push-diff-version-conflict.error';
 import type { PushDiffRepository } from '@change-review/domain/repositories/push-diff.repository';
-import { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
-import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
+import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import { RunnerClaim } from '@change-review/domain/value-objects/runner-claim.vo';
 import { pushDiff } from '@change-review/infrastructure/persistence/drizzle/schemas/push-diff.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  UNIQUE_VIOLATION,
+  violates,
+} from '@platform/persistence/drizzle/violations';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
-import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  UNIQUE_VIOLATION,
-  violates,
-} from '@platform/persistence/drizzle/violations';
 import { and, asc, eq, isNotNull, isNull, lte, or } from 'drizzle-orm';
 
 const isHeadWaiting = (error: unknown): boolean =>
@@ -60,18 +62,20 @@ const toPushDiff = (row: Row): PushDiff =>
     },
     placement: RunnerPlacement.ofLabelGroups(
       row.placement,
-      row.placementImage ? RunnerImage.of(row.placementImage) : null,
+      nonEmpty(row.placementImage) ? RunnerImage.of(row.placementImage) : null,
     ),
     status: row.status,
     failure: row.failure,
     claim: RunnerClaim.rehydrate({
-      claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
+      claimedBy: nonEmpty(row.claimedBy) ? RunnerId.of(row.claimedBy) : null,
       attempts: row.attempts,
       leaseExpiresAt: row.leaseExpiresAt,
       claimedAt: row.claimedAt,
     }),
     reservation:
-      row.reservedFor && row.reservedPool && row.reservedUntil
+      nonEmpty(row.reservedFor) &&
+      nonEmpty(row.reservedPool) &&
+      row.reservedUntil
         ? RunnerReservation.of(
             RunnerId.of(row.reservedFor),
             PoolId.of(row.reservedPool),
@@ -146,7 +150,10 @@ export class DrizzlePushDiffRepository implements PushDiffRepository {
         .update(pushDiff)
         .set({ version: saved.version + 1, ...valuesOf(saved) })
         .where(
-          and(eq(pushDiff.id, saved.id.value), eq(pushDiff.version, saved.version)),
+          and(
+            eq(pushDiff.id, saved.id.value),
+            eq(pushDiff.version, saved.version),
+          ),
         )
         .returning({ id: pushDiff.id });
 
@@ -159,11 +166,13 @@ export class DrizzlePushDiffRepository implements PushDiffRepository {
   }
 
   async find(id: PushDiffId): Promise<PushDiff | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(pushDiff)
-      .where(eq(pushDiff.id, id.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(pushDiff)
+        .where(eq(pushDiff.id, id.value))
+        .limit(1),
+    );
 
     return row ? toPushDiff(row) : null;
   }

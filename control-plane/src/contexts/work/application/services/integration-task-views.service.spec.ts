@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -26,6 +27,7 @@ import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -73,20 +75,24 @@ const task = () =>
     newId: () => 'task_1',
   }).markedBy(Mark.of('slack.thread', '170.1'), new Date(0));
 
-const line = {
+const line = partial<LineMap>({
   teamId: TeamId.of('team_1'),
-  key: { value: 'delivery' },
-  stationAt: () => ({ name: { value: 'Triage' }, key: { value: 'triage' } }),
-} as unknown as LineMap;
+  key: LineKey.of('delivery'),
+  stationAt: () =>
+    partial<Station>({
+      name: StationName.of('Triage'),
+      key: StationKey.of('triage'),
+    }),
+});
 
 const taskViews = (
   found: LineMap | null = line,
   ambient: readonly Mark[] = [],
 ) =>
   new IntegrationTaskViews(
-    {
+    partial<LineMapsPort>({
       findByStation: async () => found,
-    } as unknown as LineMapsPort,
+    }),
     { ambientOf: async () => ambient } satisfies ChatMarksPort,
   );
 

@@ -29,17 +29,16 @@ const overlap = (one: Bounds, other: Bounds) => ({
     Math.max(one.y, other.y),
 });
 
-const isBounds = (value: unknown): value is Bounds => {
-  const bounds = value as Partial<Bounds> | null;
-
-  return (
-    typeof bounds === 'object' &&
-    bounds !== null &&
-    [bounds.x, bounds.y, bounds.width, bounds.height].every(
-      (each) => typeof each === 'number' && Number.isFinite(each),
-    )
+const isBounds = (value: unknown): value is Bounds =>
+  typeof value === 'object' &&
+  value !== null &&
+  'x' in value &&
+  'y' in value &&
+  'width' in value &&
+  'height' in value &&
+  [value.x, value.y, value.width, value.height].every(
+    (each) => typeof each === 'number' && Number.isFinite(each),
   );
-};
 
 export const restorable = (
   state: WindowState | null,
@@ -71,19 +70,22 @@ export class WindowStateFile {
 
   read(): WindowState | null {
     try {
-      const stored = JSON.parse(readFileSync(this.path, 'utf8')) as {
-        bounds?: unknown;
-        maximized?: unknown;
-        fullScreen?: unknown;
-      };
+      const stored: unknown = JSON.parse(readFileSync(this.path, 'utf8'));
 
-      return isBounds(stored.bounds)
-        ? {
-            bounds: stored.bounds,
-            maximized: stored.maximized === true,
-            fullScreen: stored.fullScreen === true,
-          }
-        : null;
+      if (
+        typeof stored !== 'object' ||
+        stored === null ||
+        !('bounds' in stored) ||
+        !isBounds(stored.bounds)
+      ) {
+        return null;
+      }
+
+      return {
+        bounds: stored.bounds,
+        maximized: 'maximized' in stored && stored.maximized === true,
+        fullScreen: 'fullScreen' in stored && stored.fullScreen === true,
+      };
     } catch {
       return null;
     }

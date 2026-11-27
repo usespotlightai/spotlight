@@ -2,6 +2,7 @@ import { Eye, EyeOff } from 'lucide-react';
 
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { ScoreVisibility } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 export function ScoreVisibilityLine({
@@ -26,7 +27,9 @@ export function ScoreVisibilityLine({
       />
       <span className="flex items-center gap-1.5">
         {visibility.text}
-        {visibility.reason && <InfoTooltip tooltip={visibility.reason} />}
+        {nonEmpty(visibility.reason) && (
+          <InfoTooltip tooltip={visibility.reason} />
+        )}
       </span>
     </p>
   );

@@ -1,3 +1,5 @@
+import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
+import type { OperationRow } from '@integrations/infrastructure/persistence/drizzle/spec-operation-rows';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
 import {
@@ -143,7 +145,7 @@ export const integrationDefinition = pgTable(
 
 export const specDocument = pgTable('spec_document', {
   hash: text('hash').primaryKey(),
-  kind: text('kind').notNull(),
+  kind: text('kind').$type<ApiSpecKind>().notNull(),
   operations: integer('operations').notNull(),
   skipped: jsonb('skipped').$type<string[]>().notNull(),
   readAt: timestamptz('read_at').notNull(),
@@ -158,7 +160,7 @@ export const specOperation = pgTable(
       .references(() => specDocument.hash, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     position: integer('position').notNull(),
-    operation: jsonb('operation').$type<Record<string, unknown>>().notNull(),
+    operation: jsonb('operation').$type<OperationRow>().notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.hash, table.name] }),

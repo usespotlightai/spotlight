@@ -198,10 +198,11 @@ export class TeamMemoryController {
   @ApiUnprocessableEntityResponse({
     description: 'The reason is missing or too long',
   })
+  @ApiBody({ type: RetireMemoryRequestDto })
   async retire(
     @Param('teamId') teamId: string,
     @Param('memoryId') memoryId: string,
-    @Body() body: RetireMemoryRequestDto,
+    @Body() body: RetireMemoryRequestDto | undefined,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TeamMemoryDetailResponseDto> {
     await this.commandBus.execute<RetireMemoryCommand, void>(

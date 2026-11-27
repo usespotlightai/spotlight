@@ -53,6 +53,6 @@ export class ProvisionUrl {
   }
 
   equals(other: ProvisionUrl): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof ProvisionUrl && this.value === other.value;
   }
 }

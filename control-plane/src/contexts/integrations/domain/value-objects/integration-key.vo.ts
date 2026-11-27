@@ -71,7 +71,7 @@ export class IntegrationKey {
   }
 
   equals(other: IntegrationKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof IntegrationKey && this.value === other.value;
   }
 
   toString(): string {

@@ -11,7 +11,11 @@ import type {
 import type { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import { DecisionSetVersionConflictError } from '@change-review/domain/exceptions/decision-set-version-conflict.error';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
-import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
+import type {
+  LeasedRunFacts,
+  RunLeasesPort,
+} from '@runs/application/ports/run-leases.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -84,15 +88,16 @@ const recording = (
     forTask: async () => stored,
     add: write,
     save: write,
-    remove: async () => undefined,
+    remove: async () => {},
   } satisfies DecisionSetRepository;
 
   return {
     handler: new RecordRunDecisionsHandler(
       work,
-      {
-        leasedBy: async () => (over.leased === false ? null : {}),
-      } as unknown as RunLeasesPort,
+      partial<RunLeasesPort>({
+        leasedBy: async () =>
+          over.leased === false ? null : partial<LeasedRunFacts>({}),
+      }),
       sets,
       { inTransaction: (work) => work() },
       { generate: () => `id_${(next += 1)}` },

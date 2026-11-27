@@ -15,6 +15,7 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -24,36 +25,42 @@ export class DrizzleWorkspaceRecords implements WorkspaceRecordsPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
   async idForSlug(slug: string): Promise<string | null> {
-    const [found] = await this.db
-      .select({ id: workspace.id })
-      .from(workspace)
-      .where(eq(workspace.slug, slug))
-      .limit(1);
+    const found = firstOf(
+      await this.db
+        .select({ id: workspace.id })
+        .from(workspace)
+        .where(eq(workspace.slug, slug))
+        .limit(1),
+    );
 
     return found?.id ?? null;
   }
 
   async slugOf(workspaceId: string): Promise<string | null> {
-    const [found] = await this.db
-      .select({ slug: workspace.slug })
-      .from(workspace)
-      .where(eq(workspace.id, workspaceId))
-      .limit(1);
+    const found = firstOf(
+      await this.db
+        .select({ slug: workspace.slug })
+        .from(workspace)
+        .where(eq(workspace.id, workspaceId))
+        .limit(1),
+    );
 
     return found?.slug ?? null;
   }
 
   async profileOf(workspaceId: string): Promise<WorkspaceProfile | null> {
-    const [found] = await this.db
-      .select({
-        id: workspace.id,
-        name: workspace.name,
-        slug: workspace.slug,
-        outboundHosts: workspace.outboundHosts,
-      })
-      .from(workspace)
-      .where(eq(workspace.id, workspaceId))
-      .limit(1);
+    const found = firstOf(
+      await this.db
+        .select({
+          id: workspace.id,
+          name: workspace.name,
+          slug: workspace.slug,
+          outboundHosts: workspace.outboundHosts,
+        })
+        .from(workspace)
+        .where(eq(workspace.id, workspaceId))
+        .limit(1),
+    );
 
     return found ?? null;
   }
@@ -62,12 +69,14 @@ export class DrizzleWorkspaceRecords implements WorkspaceRecordsPort {
     slug: string,
     teamKey: string,
   ): Promise<{ workspaceId: string; teamId: string } | null> {
-    const [found] = await this.db
-      .select({ workspaceId: workspace.id, teamId: team.id })
-      .from(team)
-      .innerJoin(workspace, eq(workspace.id, team.workspaceId))
-      .where(and(eq(workspace.slug, slug), eq(team.key, teamKey)))
-      .limit(1);
+    const found = firstOf(
+      await this.db
+        .select({ workspaceId: workspace.id, teamId: team.id })
+        .from(team)
+        .innerJoin(workspace, eq(workspace.id, team.workspaceId))
+        .where(and(eq(workspace.slug, slug), eq(team.key, teamKey)))
+        .limit(1),
+    );
 
     return found ?? null;
   }
@@ -100,20 +109,25 @@ export class DrizzleWorkspaceRecords implements WorkspaceRecordsPort {
       .from(team)
       .leftJoin(
         avatar,
-        and(eq(avatar.workspaceId, team.workspaceId), eq(avatar.teamId, team.id)),
+        and(
+          eq(avatar.workspaceId, team.workspaceId),
+          eq(avatar.teamId, team.id),
+        ),
       )
       .where(eq(team.workspaceId, workspaceId.value))
       .orderBy(team.createdAt);
   }
 
   async avatarDigestOf(workspaceId: WorkspaceId): Promise<string | null> {
-    const [found] = await this.db
-      .select({ digest: avatar.digest })
-      .from(avatar)
-      .where(
-        and(eq(avatar.workspaceId, workspaceId.value), isNull(avatar.teamId)),
-      )
-      .limit(1);
+    const found = firstOf(
+      await this.db
+        .select({ digest: avatar.digest })
+        .from(avatar)
+        .where(
+          and(eq(avatar.workspaceId, workspaceId.value), isNull(avatar.teamId)),
+        )
+        .limit(1),
+    );
 
     return found?.digest ?? null;
   }

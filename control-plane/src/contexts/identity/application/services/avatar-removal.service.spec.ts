@@ -10,8 +10,10 @@ import type { Avatar } from '@identity/domain/aggregates/avatar.aggregate';
 import { AvatarRemoved } from '@identity/domain/events/avatar-removed.event';
 import { AvatarReplaced } from '@identity/domain/events/avatar-replaced.event';
 import type { TeamDeleted } from '@identity/domain/events/team-deleted.event';
+import type { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import { AvatarVersionConflictError } from '@identity/domain/exceptions/avatar-version-conflict.error';
 import { AvatarDigest } from '@identity/domain/value-objects/avatar-digest.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -54,10 +56,12 @@ describe('AvatarRemoval', () => {
   it('removes every image of a deleted team', async () => {
     const { service, removeAllOfTeam } = removal(null);
 
-    await service.imagesOfTeam({
-      workspaceId: OWNER.workspaceId,
-      teamId: TEAM,
-    } as TeamDeleted);
+    await service.imagesOfTeam(
+      partial<TeamDeleted>({
+        workspaceId: OWNER.workspaceId,
+        teamId: TEAM,
+      }),
+    );
 
     expect(removeAllOfTeam).toHaveBeenCalledWith(OWNER.workspaceId, TEAM);
   });
@@ -65,7 +69,9 @@ describe('AvatarRemoval', () => {
   it('removes the avatars of a deleted workspace', async () => {
     const { service, save } = removal(storedAvatar(OLD));
 
-    await service.ofWorkspace({ workspaceId: OWNER.workspaceId } as never);
+    await service.ofWorkspace(
+      partial<WorkspaceDeleted>({ workspaceId: OWNER.workspaceId }),
+    );
 
     expect(save.mock.calls[0]?.[0].isRemoved).toBe(true);
   });
@@ -73,9 +79,9 @@ describe('AvatarRemoval', () => {
   it('removes every image of a deleted workspace', async () => {
     const { service, removeAllIn } = removal(null);
 
-    await service.imagesOfWorkspace({
-      workspaceId: OWNER.workspaceId,
-    } as never);
+    await service.imagesOfWorkspace(
+      partial<WorkspaceDeleted>({ workspaceId: OWNER.workspaceId }),
+    );
 
     expect(removeAllIn).toHaveBeenCalledWith(OWNER.workspaceId);
   });
@@ -86,7 +92,9 @@ describe('AvatarRemoval', () => {
       new AvatarVersionConflictError('workspace ws_1'),
     );
 
-    await service.ofWorkspace({ workspaceId: OWNER.workspaceId } as never);
+    await service.ofWorkspace(
+      partial<WorkspaceDeleted>({ workspaceId: OWNER.workspaceId }),
+    );
 
     expect(save).toHaveBeenCalledTimes(2);
     expect(save.mock.calls[1]?.[0].isRemoved).toBe(true);
@@ -97,10 +105,12 @@ describe('AvatarRemoval', () => {
     save.mockRejectedValue(new AvatarVersionConflictError('workspace ws_1'));
 
     await expect(
-      service.ofTeam({
-        workspaceId: OWNER.workspaceId,
-        teamId: TEAM,
-      } as TeamDeleted),
+      service.ofTeam(
+        partial<TeamDeleted>({
+          workspaceId: OWNER.workspaceId,
+          teamId: TEAM,
+        }),
+      ),
     ).rejects.toThrow(AvatarVersionConflictError);
     expect(save).toHaveBeenCalledTimes(3);
   });
@@ -108,10 +118,12 @@ describe('AvatarRemoval', () => {
   it('removes nothing when the avatar is already gone', async () => {
     const { service, save } = removal(null);
 
-    await service.ofTeam({
-      workspaceId: OWNER.workspaceId,
-      teamId: TEAM,
-    } as TeamDeleted);
+    await service.ofTeam(
+      partial<TeamDeleted>({
+        workspaceId: OWNER.workspaceId,
+        teamId: TEAM,
+      }),
+    );
 
     expect(save).not.toHaveBeenCalled();
   });

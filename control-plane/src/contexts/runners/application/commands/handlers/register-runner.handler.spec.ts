@@ -7,6 +7,7 @@ import type { RunnerRepository } from '@runners/domain/repositories/runner.repos
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const ID = '123e4567-e89b-42d3-a456-426614174000';
@@ -24,8 +25,8 @@ const registering = (
   );
 
   const handler = new RegisterRunnerHandler(
-    { find, save } as unknown as RunnerRepository,
-    { now: () => NOW } as ClockPort,
+    partial<RunnerRepository>({ find, save }),
+    partial<ClockPort>({ now: () => NOW }),
   );
 
   return { handler, save, find };

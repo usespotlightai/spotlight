@@ -15,6 +15,7 @@ import {
   layersOf,
   linesOf,
 } from '@/lib/change-stack';
+import { nonEmpty } from '@/lib/non-empty';
 
 type LayerDetailProps = {
   stack: ChangeStack;
@@ -49,8 +50,8 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
   const { layer } = located;
   const layers = layersOf(stack);
   const at = layers.findIndex((each) => each.layer.id === layer.id);
-  const previous = layers[at - 1];
-  const next = layers[at + 1];
+  const previous = at > 0 ? layers.at(at - 1) : undefined;
+  const next = layers.at(at + 1);
   const files = filesOf(stack, layer);
   const content = useRef<HTMLDivElement>(null);
   const [collapsedFiles, setCollapsedFiles] = useState<CollapsedFiles>(() =>
@@ -84,7 +85,7 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
   };
 
   const reveal = (place: CitedPlace) => {
-    if (place.layerId && place.layerId !== layer.id) {
+    if (nonEmpty(place.layerId) && place.layerId !== layer.id) {
       onPick(place.layerId);
       return;
     }
@@ -144,7 +145,7 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
         aria-label="Layers"
         className="flex items-center justify-between gap-2"
       >
-        {previous ? (
+        {previous !== undefined ? (
           <Button
             variant="outline"
             size="sm"
@@ -159,7 +160,7 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
           <span />
         )}
 
-        {next && (
+        {next !== undefined && (
           <Button
             variant="outline"
             size="sm"

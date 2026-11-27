@@ -3,9 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { ShortcutSheet } from '@/components/shell/command/ShortcutSheet';
+import { htmlElement } from '@/test/elements';
 
 const rowOf = (title: string) =>
-  screen.getByText(title).closest('[data-slot="shortcut-row"]') as HTMLElement;
+  htmlElement(screen.getByText(title).closest('[data-slot="shortcut-row"]'));
 
 describe('ShortcutSheet', () => {
   afterEach(() => {

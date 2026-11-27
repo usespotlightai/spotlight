@@ -5,6 +5,7 @@ import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { Credential } from '@secrets/application/contracts/credential.contract';
 import type { SandboxEnvReveal } from '@secrets/application/contracts/sandbox-env.contract';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -23,9 +24,9 @@ const setUp = (
 ) => {
   const asked: SandboxEnvReveal[] = [];
   const stored = new Map<string, Run>([[run.id.value, run]]);
-  const runs = {
+  const runs = partial<RunRepository>({
     findById: async (id: { value: string }) => stored.get(id.value) ?? null,
-  } as unknown as RunRepository;
+  });
 
   return {
     asked,

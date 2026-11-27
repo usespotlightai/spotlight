@@ -10,6 +10,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -43,9 +44,7 @@ const columnsOf = (shape: TaskChangeShape) => ({
 });
 
 @Injectable()
-export class DrizzleTaskChangeShapeRepository
-  implements TaskChangeShapeRepository
-{
+export class DrizzleTaskChangeShapeRepository implements TaskChangeShapeRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -53,11 +52,13 @@ export class DrizzleTaskChangeShapeRepository
   ) {}
 
   async forTask(taskId: TaskId): Promise<TaskChangeShape | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(taskChangeShape)
-      .where(eq(taskChangeShape.taskId, taskId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(taskChangeShape)
+        .where(eq(taskChangeShape.taskId, taskId.value))
+        .limit(1),
+    );
 
     return row ? toShape(row) : null;
   }

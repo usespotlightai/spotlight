@@ -2,6 +2,7 @@ import { Inbox } from 'lucide-react';
 
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { inboxItemPath } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import type { Review } from '@/lib/run';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
@@ -23,7 +24,11 @@ export function ReviewMarker({ slug, review, runId, at }: ReviewMarkerProps) {
   return (
     <li>
       <TrailLink
-        to={slug ? inboxItemPath(slug, review.conversationId, runId) : ''}
+        to={
+          nonEmpty(slug)
+            ? inboxItemPath(slug, review.conversationId, runId)
+            : ''
+        }
         className={cn(
           'flex h-9 min-w-0 items-center gap-2 rounded-md px-2 text-sm outline-none transition-colors hover:bg-accent',
           review.state === 'pending'

@@ -2,6 +2,7 @@ import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const DIFF = [
@@ -83,7 +84,7 @@ describe('GitDiffReader', () => {
   });
 
   it('records where each hunk sits and its lines', () => {
-    const [, second, third] = diff.hunks;
+    const [, second, third] = optionalItems(diff.hunks);
 
     expect(second).toMatchObject({
       oldStart: 1,

@@ -6,7 +6,10 @@ const never = () => new Promise<void>(() => undefined);
 describe('ReadinessChecks', () => {
   it('reports every check that answers as ok', async () => {
     const checks = new ReadinessChecks();
-    checks.register({ name: 'postgres', check: async () => undefined });
+    checks.register({
+      name: 'postgres',
+      check: async () => undefined,
+    });
     checks.register({ name: 's3', check: async () => undefined });
 
     expect(await checks.run()).toEqual([
@@ -65,10 +68,16 @@ describe('ReadinessChecks', () => {
 
   it('refuses two checks with the same name', () => {
     const checks = new ReadinessChecks();
-    checks.register({ name: 'postgres', check: async () => undefined });
+    checks.register({
+      name: 'postgres',
+      check: async () => undefined,
+    });
 
     expect(() =>
-      checks.register({ name: 'postgres', check: async () => undefined }),
+      checks.register({
+        name: 'postgres',
+        check: async () => undefined,
+      }),
     ).toThrow('postgres');
   });
 });

@@ -42,6 +42,8 @@ import { StationChanges } from '@replays/domain/value-objects/station-changes.vo
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { StationPath } from '@replays/domain/value-objects/station-path.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -81,7 +83,7 @@ export const LIVE_HASHES = StationHashes.of({
   scoring: 'e'.repeat(64),
 });
 
-export const AT = StationPath.of('core', 'delivery', 'build') as StationPath;
+export const AT = present(StationPath.of('core', 'delivery', 'build'));
 
 export const BY = changeActorIn(STATION.workspaceId);
 
@@ -133,7 +135,7 @@ export const candidateOf = (
             },
           }
         : {}),
-      ...(check ? { diffs: true, check } : {}),
+      ...(nonEmpty(check) ? { diffs: true, check } : {}),
     }),
     fingerprint,
     hashes: kind === 'live' ? LIVE_HASHES : HASHES,
@@ -271,7 +273,7 @@ export const aReplay = (
     ...(input.searchId ? { searchId: input.searchId } : {}),
     ...(input.repeats === undefined ? {} : { repeats: input.repeats }),
     ...(input.calibration ? { calibration: true } : {}),
-    ...(input.pairwiseReferenceId
+    ...(nonEmpty(input.pairwiseReferenceId)
       ? { pairwiseReferenceId: ReplayId.of(input.pairwiseReferenceId) }
       : {}),
   });
@@ -354,8 +356,12 @@ export const aBudget = (
     iterations: input.iterations ?? 3,
     perIteration: input.perIteration ?? 2,
     ceiling: Money.ceiling(input.ceiling ?? 100, 'USD'),
-    ...(input.concurrency ? { concurrency: input.concurrency } : {}),
-    ...(input.repeats ? { repeats: input.repeats } : {}),
+    ...(input.concurrency !== undefined && input.concurrency !== 0
+      ? { concurrency: input.concurrency }
+      : {}),
+    ...(input.repeats !== undefined && input.repeats !== 0
+      ? { repeats: input.repeats }
+      : {}),
   });
 
 export const aSearch = (
@@ -370,7 +376,7 @@ export const aSearch = (
   } = {},
 ): Search => {
   const set = input.set ?? aSet(input.count ?? 10);
-  const id = input.id ? SearchId.of(input.id) : SEARCH_ID;
+  const id = nonEmpty(input.id) ? SearchId.of(input.id) : SEARCH_ID;
   const started = Search.start({
     id,
     set: set.snapshot,
@@ -387,8 +393,8 @@ export const aSearch = (
       candidate: candidateOf('live').asSeed,
       replayId: ReplayId.of('replay_seed'),
     },
-    trigger: input.requestedBy ? 'request' : 'schedule',
-    requests: input.requestedBy
+    trigger: nonEmpty(input.requestedBy) ? 'request' : 'schedule',
+    requests: nonEmpty(input.requestedBy)
       ? [
           SearchRequest.of({
             candidateId: CandidateId.of('candidate_asked'),
@@ -444,7 +450,7 @@ export const replayFor = (
     ...(searchId ? { searchId } : {}),
     repeats,
     ...(runSubset ? { runSubset } : {}),
-    ...(pairwiseReferenceId
+    ...(nonEmpty(pairwiseReferenceId)
       ? { pairwiseReferenceId: ReplayId.of(pairwiseReferenceId) }
       : {}),
   });
@@ -463,7 +469,7 @@ export const replayedAs = (
   const reserved = replay.reserving(slots(replay.entries.length), runIds());
 
   return reserved.entries.reduce((built, entry) => {
-    const run = entry.run as RunId;
+    const run = present(entry.run);
 
     return built
       .confirm(run, FINGERPRINT, NOW)
@@ -493,7 +499,7 @@ export const CONCLUDING_VERDICT = JudgeVerdict.of({
   guidance: null,
 });
 
-export const runOf = (replay: string, at: number) =>
+export const runOf = (replay: string, at: number): RunId =>
   RunId.of(`${replay}_run_${at}`);
 
 export const concludedAll = (
@@ -516,7 +522,7 @@ export const concludedAll = (
   );
 
   for (const entry of built.entries) {
-    const run = entry.run as RunId;
+    const run = present(entry.run);
     built = built
       .confirm(run, FINGERPRINT, NOW)
       .recordRunEnd(run, endOf('completed'))

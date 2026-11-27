@@ -3,6 +3,9 @@ import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -51,12 +54,11 @@ const TEAMMATES = {
   membersOf: async () => TeamMembers.of([UserId.of('user_9')]),
 };
 
-const NO_RUNS = { of: async () => [] } as unknown as RunFactsPort;
+const NO_RUNS = partial<RunFactsPort>({ of: async () => [] });
 
-const channels = {
+const channels = partial<ChannelChats>({
   reached: async () => null,
-  refuse: async () => {},
-} as unknown as ChannelChats;
+});
 
 const NOW = new Date('2026-09-18T12:00:00.000Z');
 const PULL = 'https://github.com/acme/api/pull/7';
@@ -134,7 +136,7 @@ const requested = (
     answers: trigger === 'mentioned',
     state: 'raised',
     correlationKeys: { branch: null, marks },
-    message: over.body ? { body: over.body } : null,
+    message: nonEmpty(over.body) ? { body: over.body } : null,
     ourOwn: false,
     opens: {
       lineRole: 'review',
@@ -264,7 +266,7 @@ describe('ReactToHappenings, with a review request', () => {
     await react(requested('opened'));
 
     expect(added).toHaveLength(1);
-    const [task] = added;
+    const task = firstOf(added);
     expect(task?.stationId.value).toBe(line.entry?.id.value);
     expect(task?.title.value).toBe('Retry uploads');
     expect(task?.reviewing).toBe(true);

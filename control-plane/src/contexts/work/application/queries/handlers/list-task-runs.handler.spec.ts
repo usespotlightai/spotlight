@@ -1,3 +1,5 @@
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
   RunReaderPort,
@@ -62,11 +64,13 @@ describe('ListTaskRunsHandler', () => {
   it('carries the station a run worked, not the one its task is at now', async () => {
     const { runs } = reading([summary()]);
 
-    const [only] = await new ListTaskRunsHandler(
-      runs,
-      runAccessWhere(true),
-      linesWhere(),
-    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
+    const only = firstOf(
+      await new ListTaskRunsHandler(
+        runs,
+        runAccessWhere(true),
+        linesWhere(),
+      ).execute(new ListTaskRunsQuery('task_1', 'user_1')),
+    );
 
     expect(only?.station).toEqual({
       id: 'station_3',
@@ -82,11 +86,13 @@ describe('ListTaskRunsHandler', () => {
     const pinned = `ghcr.io/acme/widgets@sha256:${'a'.repeat(64)}`;
     const { runs } = reading([summary({ image: pinned }), summary()]);
 
-    const [ran, unreported] = await new ListTaskRunsHandler(
+    const listed = await new ListTaskRunsHandler(
       runs,
       runAccessWhere(true),
       linesWhere(),
     ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
+    const ran = firstOf(listed);
+    const unreported = itemAt(listed, 1);
 
     expect(ran?.image).toBe(pinned);
     expect(unreported?.image).toBeNull();
@@ -104,11 +110,13 @@ describe('ListTaskRunsHandler', () => {
       }),
     ]);
 
-    const [ran, queued] = await new ListTaskRunsHandler(
+    const listed = await new ListTaskRunsHandler(
       runs,
       runAccessWhere(true),
       linesWhere(),
     ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
+    const ran = firstOf(listed);
+    const queued = itemAt(listed, 1);
 
     expect(ran?.ranOn).toEqual({
       kind: 'pool',
@@ -125,11 +133,13 @@ describe('ListTaskRunsHandler', () => {
   it('says whether the line or a person who took the task over drove each run', async () => {
     const { runs } = reading([summary({ driver: 'person' }), summary()]);
 
-    const [turn, line] = await new ListTaskRunsHandler(
+    const listed = await new ListTaskRunsHandler(
       runs,
       runAccessWhere(true),
       linesWhere(),
     ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
+    const turn = firstOf(listed);
+    const line = itemAt(listed, 1);
 
     expect(turn?.driver).toBe('person');
     expect(line?.driver).toBe('line');
@@ -138,11 +148,13 @@ describe('ListTaskRunsHandler', () => {
   it('leaves a run dispatched to no station without one', async () => {
     const { runs } = reading([summary({ station: null })]);
 
-    const [only] = await new ListTaskRunsHandler(
-      runs,
-      runAccessWhere(true),
-      linesWhere(),
-    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
+    const only = firstOf(
+      await new ListTaskRunsHandler(
+        runs,
+        runAccessWhere(true),
+        linesWhere(),
+      ).execute(new ListTaskRunsQuery('task_1', 'user_1')),
+    );
 
     expect(only?.station).toBeNull();
   });
@@ -156,8 +168,9 @@ describe('ListTaskRunsHandler', () => {
       linesWhere(),
     ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
 
-    const [taskId] = listForTask.mock.calls[0] as [{ value: string }];
-    expect(taskId.value).toBe('task_1');
+    expect(firstOf(listForTask.mock.calls)?.[0]).toMatchObject({
+      value: 'task_1',
+    });
   });
 
   it('lists no runs to a viewer who cannot see the workspace of the task', async () => {
@@ -175,11 +188,13 @@ describe('ListTaskRunsHandler', () => {
   it('carries the times as ISO strings', async () => {
     const { runs } = reading([summary()]);
 
-    const [found] = await new ListTaskRunsHandler(
-      runs,
-      runAccessWhere(true),
-      linesWhere(),
-    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
+    const found = firstOf(
+      await new ListTaskRunsHandler(
+        runs,
+        runAccessWhere(true),
+        linesWhere(),
+      ).execute(new ListTaskRunsQuery('task_1', 'user_1')),
+    );
 
     expect(found?.startedAt).toBe('2026-08-28T16:32:47.877Z');
     expect(found?.updatedAt).toBe('2026-08-28T16:33:25.712Z');
@@ -188,11 +203,13 @@ describe('ListTaskRunsHandler', () => {
   it('keeps a missing exit code missing', async () => {
     const { runs } = reading([summary({ state: 'queued', exitCode: null })]);
 
-    const [found] = await new ListTaskRunsHandler(
-      runs,
-      runAccessWhere(true),
-      linesWhere(),
-    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
+    const found = firstOf(
+      await new ListTaskRunsHandler(
+        runs,
+        runAccessWhere(true),
+        linesWhere(),
+      ).execute(new ListTaskRunsQuery('task_1', 'user_1')),
+    );
 
     expect(found?.exitCode).toBeNull();
   });
@@ -202,11 +219,13 @@ describe('ListTaskRunsHandler', () => {
       summary({ review: { state: 'pending', conversationId: 'task_1:5' } }),
     ]);
 
-    const [found] = await new ListTaskRunsHandler(
-      runs,
-      runAccessWhere(true),
-      linesWhere(),
-    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
+    const found = firstOf(
+      await new ListTaskRunsHandler(
+        runs,
+        runAccessWhere(true),
+        linesWhere(),
+      ).execute(new ListTaskRunsQuery('task_1', 'user_1')),
+    );
 
     expect(found?.review).toEqual({
       state: 'pending',
@@ -245,7 +264,7 @@ describe('ListTaskRunsHandler', () => {
           task: {
             running: true,
             pending: {
-              assignee: assignee ? UserId.of(assignee) : null,
+              assignee: nonEmpty(assignee) ? UserId.of(assignee) : null,
               ask: ask && { ...ask, connectionAsk: null },
             },
           },
@@ -258,11 +277,13 @@ describe('ListTaskRunsHandler', () => {
       standing: TeamStanding = MEMBER,
     ) => {
       const { runs } = reading([run]);
-      const [found] = await new ListTaskRunsHandler(
-        runs,
-        runAccessWhere(true, standing),
-        linesWhere(),
-      ).execute(new ListTaskRunsQuery('task_1', viewer));
+      const found = firstOf(
+        await new ListTaskRunsHandler(
+          runs,
+          runAccessWhere(true, standing),
+          linesWhere(),
+        ).execute(new ListTaskRunsQuery('task_1', viewer)),
+      );
 
       return {
         waitingForYou: found?.waitingForYou,
@@ -354,11 +375,13 @@ describe('ListTaskRunsHandler', () => {
       const { runs } = reading([
         summary({ audience: audienceOf({ to: { atTaskStation: true } }) }),
       ]);
-      const [found] = await new ListTaskRunsHandler(
-        runs,
-        runAccessWhere(true, ADMIN_OFF_THE_TEAM),
-        linesWhere([]),
-      ).execute(new ListTaskRunsQuery('task_1', 'user_admin'));
+      const found = firstOf(
+        await new ListTaskRunsHandler(
+          runs,
+          runAccessWhere(true, ADMIN_OFF_THE_TEAM),
+          linesWhere([]),
+        ).execute(new ListTaskRunsQuery('task_1', 'user_admin')),
+      );
 
       expect(found?.yourMessage).toBe('message');
     });
@@ -369,7 +392,7 @@ describe('ListTaskRunsHandler', () => {
           audience: audienceOf({
             task: {
               pending: {
-                assignee: assignee ? UserId.of(assignee) : null,
+                assignee: nonEmpty(assignee) ? UserId.of(assignee) : null,
                 ask: null,
               },
             },
@@ -407,11 +430,13 @@ describe('ListTaskRunsHandler', () => {
       standing: TeamStanding = MEMBER,
     ) => {
       const { runs } = reading([run]);
-      const [found] = await new ListTaskRunsHandler(
-        runs,
-        runAccessWhere(true, standing),
-        linesWhere(),
-      ).execute(new ListTaskRunsQuery('task_1', viewer));
+      const found = firstOf(
+        await new ListTaskRunsHandler(
+          runs,
+          runAccessWhere(true, standing),
+          linesWhere(),
+        ).execute(new ListTaskRunsQuery('task_1', viewer)),
+      );
 
       return found?.stoppableByYou;
     };

@@ -4,6 +4,7 @@ import type {
 } from '@identity/infrastructure/mail/mail.transport';
 import { MemberByMail } from '@identity/infrastructure/mail/member.mail';
 import type { Env } from '@platform/config/env.schema';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const sending = () => {
@@ -15,9 +16,12 @@ const sending = () => {
   };
 
   return {
-    mail: new MemberByMail(transport, {
-      BETTER_AUTH_URL: 'https://app.example.com',
-    } as Env),
+    mail: new MemberByMail(
+      transport,
+      partial<Env>({
+        BETTER_AUTH_URL: 'https://app.example.com',
+      }),
+    ),
     delivered,
   };
 };

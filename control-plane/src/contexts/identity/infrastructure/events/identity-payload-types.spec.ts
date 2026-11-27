@@ -64,6 +64,9 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
+const MODULE = z.record(z.string(), z.unknown());
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 const USER = UserId.of('user_1');
@@ -269,10 +272,7 @@ describe('IDENTITY_PAYLOAD_TYPES', () => {
     for (const file of readdirSync(folder).filter(
       (each) => each.endsWith('.ts') && !each.endsWith('.spec.ts'),
     )) {
-      const loaded = (await import(join(folder, file))) as Record<
-        string,
-        unknown
-      >;
+      const loaded = MODULE.parse(await import(join(folder, file)));
 
       events.push(
         ...Object.values(loaded).filter(
@@ -282,9 +282,11 @@ describe('IDENTITY_PAYLOAD_TYPES', () => {
       );
     }
 
-    const built = new Set(EVERY_EVENT.map((event) => event.constructor));
+    const built = new Set<unknown>(
+      EVERY_EVENT.map((event) => event.constructor),
+    );
 
-    expect(events.filter((each) => !built.has(each as never))).toEqual([]);
+    expect(events.filter((each) => !built.has(each))).toEqual([]);
   });
 
   it('reads back every identity event as it was written', () => {

@@ -11,14 +11,15 @@ import {
   markerOf,
   sizeHintOf,
 } from '@/lib/insights-changes';
+import { partial } from '@/test/partial';
 
 const agentConfig = (over: Partial<AgentConfigOutcome>): AgentConfigOutcome =>
-  ({
+  partial<AgentConfigOutcome>({
     harness: 'claude-code',
     model: 'sonnet',
     effort: null,
     profileKey: null,
-    tally: { runs: 5 },
+    tally: partial<AgentConfigOutcome['tally']>({ runs: 5 }),
     costPerRun: 1,
     currency: 'USD',
     priced: true,
@@ -33,7 +34,7 @@ const agentConfig = (over: Partial<AgentConfigOutcome>): AgentConfigOutcome =>
     judge: { mean: null, judged: 0 },
     frontier: [],
     ...over,
-  }) as AgentConfigOutcome;
+  });
 
 const HARNESSES = [
   {
@@ -139,13 +140,13 @@ describe('sizeHintOf', () => {
 
 describe('markerOf', () => {
   it('finds a change by the run it took effect in, though its config returns later', () => {
-    const changes = {
+    const changes = partial<InsightsChanges>({
       markers: [
         { stationId: 'station_1', fingerprint: 'b', runId: 'run_2' },
         { stationId: 'station_1', fingerprint: 'a', runId: 'run_3' },
         { stationId: 'station_1', fingerprint: 'b', runId: 'run_4' },
-      ],
-    } as unknown as InsightsChanges;
+      ].map((marker) => partial<InsightsChanges['markers'][number]>(marker)),
+    });
 
     expect(markerOf(changes, { stationId: 'station_1', runId: 'run_4' })).toBe(
       changes.markers[2],

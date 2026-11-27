@@ -1,5 +1,6 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
@@ -58,7 +59,7 @@ export class TaskNotesFromHooks implements TaskNotesFromHooksPort {
       }
 
       if (
-        receivedAs &&
+        nonEmpty(receivedAs) &&
         !(await this.processed.markProcessed(
           task.workspaceId,
           receivedAs,

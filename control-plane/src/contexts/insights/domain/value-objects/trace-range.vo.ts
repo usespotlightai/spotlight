@@ -27,7 +27,10 @@ const STRETCHES = {
 
 export type TraceRangeName = keyof typeof STRETCHES;
 
-export const TRACE_RANGES = Object.keys(STRETCHES) as TraceRangeName[];
+const isTraceRangeName = (name: string): name is TraceRangeName =>
+  name in STRETCHES;
+
+export const TRACE_RANGES = Object.keys(STRETCHES).filter(isTraceRangeName);
 
 export const DEFAULT_TRACE_RANGE: TraceRangeName = '30d';
 

@@ -6,8 +6,11 @@ import {
   journalKeys,
   prefetchJournals,
   useRunJournals,
+  type RunJournals,
 } from '@/hooks/api/useRunJournals';
 import { listChatJournalRuns, readChatJournal } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
+import { required } from '@/lib/required';
 
 const CHAT_RUNS_SHOWN_FIRST = 3;
 
@@ -16,17 +19,17 @@ const chatJournalSource = (
   chatId: string | undefined,
 ): JournalSource => ({
   runsKey: journalKeys.runsOfChat(chatId),
-  enabled: Boolean(teamId && chatId),
+  enabled: nonEmpty(teamId) && nonEmpty(chatId),
   runs: async () => {
     const { data } = await listChatJournalRuns({
-      path: { teamId: teamId as string, chatId: chatId as string },
+      path: { teamId: required(teamId), chatId: required(chatId) },
       throwOnError: true,
     });
     return data;
   },
   journal: async (runId) => {
     const { data } = await readChatJournal({
-      path: { teamId: teamId as string, chatId: chatId as string, runId },
+      path: { teamId: required(teamId), chatId: required(chatId), runId },
       throwOnError: true,
     });
     return data;
@@ -37,7 +40,7 @@ export function useChatJournal(
   teamId: string | undefined,
   chatId: string | undefined,
   eager: readonly (string | null | undefined)[] = [],
-) {
+): RunJournals {
   return useRunJournals(
     chatJournalSource(teamId, chatId),
     eager,
@@ -45,7 +48,10 @@ export function useChatJournal(
   );
 }
 
-export function usePrefetchChatJournal() {
+export function usePrefetchChatJournal(): (
+  teamId: string,
+  chatId: string,
+) => undefined {
   const client = useContext(QueryClientContext);
 
   return useCallback(

@@ -6,6 +6,7 @@ import {
 } from '@/components/features/runs/RunComposer';
 import { RunNotStartedNotice } from '@/components/features/runs/RunNotStartedNotice';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
+import { nonEmpty } from '@/lib/non-empty';
 import { messageRefusal, stoppable, type TeamRun } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
@@ -58,7 +59,7 @@ export function RunFooter({
           station={current.name}
           harness={task.runNotStarted.harness}
         />
-        {refusedHere ? (
+        {nonEmpty(refusedHere) ? (
           closed(current.name, refusedHere)
         ) : (
           <RunComposer
@@ -91,7 +92,7 @@ export function RunFooter({
 
   const refused = messageRefusal(latest.yourMessage);
 
-  if (refused) {
+  if (nonEmpty(refused)) {
     return closed(
       run.station?.name ?? 'the agent',
       refused,

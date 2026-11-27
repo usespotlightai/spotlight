@@ -12,6 +12,7 @@ import type { Citation } from '@insights/domain/value-objects/citation.vo';
 import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
 import type { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import type { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const citationOf = (citation: Citation, seen: SeenEvidence): CitationDto => {
@@ -68,9 +69,12 @@ export class RunScoresViews {
   ) {}
 
   async of(access: ViewedTeam, runId: string): Promise<RunScoresDto> {
-    const [run] = await this.facts.ofRuns([RunId.of(runId)]);
+    const run = firstOf(await this.facts.ofRuns([RunId.of(runId)]));
 
-    if (!run || !access.covers(run.workspaceId, run.end.location.teamId)) {
+    if (
+      run === undefined ||
+      !access.covers(run.workspaceId, run.end.location.teamId)
+    ) {
       throw new UnknownRunError(runId);
     }
 

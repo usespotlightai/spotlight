@@ -7,6 +7,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { createTeam } from './support/team';
 
 let app: INestApplication;
@@ -20,13 +21,11 @@ const post = (path: string, body: object) =>
     .send(body);
 
 const started = async (): Promise<string> =>
-  (
-    (
-      await post('', {
-        harness: 'claude-code',
-        body: 'Plan the retries.',
-      }).expect(201)
-    ).body as { readonly id: string }
+  bodyOf<{ readonly id: string }>(
+    await post('', {
+      harness: 'claude-code',
+      body: 'Plan the retries.',
+    }).expect(201),
   ).id;
 
 beforeAll(async () => {
@@ -40,7 +39,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('choosing the agent’s model and effort in a chat', () => {
@@ -76,12 +75,12 @@ describe('choosing the agent’s model and effort in a chat', () => {
       effort: 'high',
     }).expect(204);
 
-    const read = (
+    const read = bodyOf<{ model: string | null; effort: string | null }>(
       await served(app)
         .get(`/api/teams/${team.teamId.value}/chats/${chatId}`)
         .set(TEST_USER_HEADER, team.owner.value)
-        .expect(200)
-    ).body as { model: string | null; effort: string | null };
+        .expect(200),
+    );
 
     expect(read).toMatchObject({ model: 'opus', effort: 'high' });
   });

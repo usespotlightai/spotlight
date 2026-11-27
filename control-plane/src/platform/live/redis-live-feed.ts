@@ -1,10 +1,12 @@
 import type { OnApplicationShutdown } from '@nestjs/common';
+import { fieldOf } from '@platform/json/field-of';
 import { InMemoryLiveFeed } from '@platform/live/in-memory-live-feed';
-import type {
-  LiveChannel,
-  LiveFeedPort,
-  LiveListener,
-  LiveMessage,
+import {
+  isLiveChannel,
+  type LiveChannel,
+  type LiveFeedPort,
+  type LiveListener,
+  type LiveMessage,
 } from '@platform/live/live-feed.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
@@ -26,23 +28,20 @@ export interface LiveSubscriber {
   on(event: 'ready', listener: () => void): unknown;
 }
 
-const isLiveChannel = (channel: string): channel is LiveChannel =>
-  /^(workspace|person):.+$/.test(channel);
+const isLiveMessage = (value: unknown): value is LiveMessage => {
+  const data = fieldOf(value, 'data');
+
+  return (
+    typeof fieldOf(value, 'type') === 'string' &&
+    typeof data === 'object' &&
+    data !== null
+  );
+};
 
 const messageOf = (text: string): LiveMessage | null => {
   const parsed: unknown = JSON.parse(text);
 
-  if (
-    typeof parsed !== 'object' ||
-    parsed === null ||
-    typeof (parsed as { type?: unknown }).type !== 'string' ||
-    typeof (parsed as { data?: unknown }).data !== 'object' ||
-    (parsed as { data?: unknown }).data === null
-  ) {
-    return null;
-  }
-
-  return parsed as LiveMessage;
+  return isLiveMessage(parsed) ? parsed : null;
 };
 
 export class RedisLiveFeed implements LiveFeedPort, OnApplicationShutdown {
@@ -177,7 +176,7 @@ export class RedisLiveFeed implements LiveFeedPort, OnApplicationShutdown {
         },
       );
     }, this.retryMs);
-    this.#owingResync.unref?.();
+    this.#owingResync.unref();
   }
 
   private watch(channel: LiveChannel): void {
@@ -225,7 +224,7 @@ export class RedisLiveFeed implements LiveFeedPort, OnApplicationShutdown {
             void this.subscribed(prefixed, wanted, recovered, true);
           }
         }, this.retryMs);
-        again.unref?.();
+        again.unref();
         this.#retries.set(prefixed, again);
       },
     );

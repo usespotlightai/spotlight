@@ -1,6 +1,7 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -208,7 +209,7 @@ const tasks = (found: Task) =>
     find: vi.fn(async () => found),
     remove: vi.fn(),
     placementsAt: vi.fn(async () => []),
-    findByCorrelation: vi.fn(async () => (found ? [found] : [])),
+    findByCorrelation: vi.fn(async () => [found]),
     owningPullRequest: vi.fn(async () => null),
     reviewingPullRequest: vi.fn(async () => null),
     holdingMark: vi.fn(async () => []),
@@ -264,7 +265,7 @@ const sending = (access: WorkAccess) =>
       writers: async () => [UserId.of('user_2')],
       sent: async () => undefined,
     },
-    { warn: () => undefined } as unknown as LoggerPort,
+    partial<LoggerPort>({ warn: () => undefined }),
   );
 
 const answer = (

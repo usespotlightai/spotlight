@@ -11,6 +11,7 @@ import { useTaskReview } from '@/hooks/api/useTaskReview';
 import { useTask } from '@/hooks/api/useTasks';
 import { useTaskTrail } from '@/hooks/useTaskTrail';
 import { notFound } from '@/lib/error';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { taskPath } from '@/lib/task';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -27,7 +28,10 @@ export function TaskChangeStack() {
   const line = lines.data?.find((candidate) =>
     candidate.stations.some((station) => station.id === task?.stationId),
   );
-  const toTask = slug && teamId && taskId ? taskPath(slug, teamId, taskId) : '';
+  const toTask =
+    nonEmpty(slug) && nonEmpty(teamId) && nonEmpty(taskId)
+      ? taskPath(slug, teamId, taskId)
+      : '';
   const { trail, forward } = useTrail([
     ...useTaskTrail({ slug, teamId, line, title: task?.title }).map(
       (segment, index, all) =>
@@ -36,7 +40,7 @@ export function TaskChangeStack() {
     { label: 'Change stack' },
   ]);
 
-  if (!slug || !teamId || !taskId) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId) || !nonEmpty(taskId)) {
     return null;
   }
 

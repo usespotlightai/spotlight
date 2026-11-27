@@ -19,6 +19,7 @@ import {
   type SessionOption,
 } from '@runs/domain/value-objects/run-spec.vo';
 import { isJsonObject, isJsonValue } from '@shared-kernel/domain/json-value';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
 type Json = Record<string, unknown>;
@@ -41,10 +42,11 @@ const unreadable = (what: string): never => {
   throw new InvalidRunSpecError(`must describe ${what}`);
 };
 
+const isJson = (raw: unknown): raw is Json =>
+  typeof raw === 'object' && raw !== null && !Array.isArray(raw);
+
 const objectAt = (raw: unknown, what: string): Json =>
-  raw && typeof raw === 'object' && !Array.isArray(raw)
-    ? (raw as Json)
-    : unreadable(what);
+  isJson(raw) ? raw : unreadable(what);
 
 const stringAt = (raw: unknown, what: string): string =>
   typeof raw === 'string' ? raw : unreadable(what);
@@ -295,7 +297,7 @@ const parsedResume = (raw: unknown): RunResume => {
   return {
     ...(sessionId !== undefined ? { sessionId } : {}),
     ...(resumeSession ? { resumeSession } : {}),
-    ...(followUp ? { followUp } : {}),
+    ...(nonEmpty(followUp) ? { followUp } : {}),
   };
 };
 
@@ -432,8 +434,8 @@ const read = (raw: unknown): RunSpec => {
 export const RunSpecMapper = {
   ordered(raw: unknown, command: RunCommand): OrderedSpec {
     const input = objectAt(raw, 'the run');
-    const handover = input.handover as Json | undefined;
-    const resume = input.resume as Json | undefined;
+    const handover = isJson(input.handover) ? input.handover : undefined;
+    const resume = isJson(input.resume) ? input.resume : undefined;
     const ignored = UNORDERABLE.filter((field) => input[field] !== undefined);
 
     if (ignored.length > 0) {
@@ -455,7 +457,7 @@ export const RunSpecMapper = {
         },
         resume: { sessionId: resume?.sessionId },
       }),
-      key: key && key.trim() !== '' ? key.trim() : null,
+      key: key !== undefined && key.trim() !== '' ? key.trim() : null,
     };
   },
 

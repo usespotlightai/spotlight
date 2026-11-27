@@ -1,4 +1,5 @@
 import type { RunsPort } from '@runs/application/ports/runs.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -21,7 +22,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-08-31T09:00:00.000Z');
 
-const TASK = { id: TaskId.of('task_1') } as unknown as Task;
+const TASK = partial<Task>({ id: TaskId.of('task_1') });
 const ALICE = UserId.of('user_alice');
 
 const dispatched = Dispatch.ordered({
@@ -54,8 +55,8 @@ const stopping = (
       add: async () => undefined,
       save: async () => undefined,
     } satisfies DispatchRepository,
-    { find: vi.fn(async () => task) } as unknown as TaskRepository,
-    { take } as unknown as TakeTurn,
+    partial<TaskRepository>({ find: vi.fn(async () => task) }),
+    partial<TakeTurn>({ take }),
     access,
   );
 

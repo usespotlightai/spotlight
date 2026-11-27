@@ -1,5 +1,6 @@
 import type { EventType, PayloadTypes } from '@platform/events/payload-types';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { isSecret } from '@shared-kernel/domain/value-objects/secret';
 
 const TYPE = '$type';
@@ -13,6 +14,12 @@ type Encoded =
   | Encoded[]
   | { [key: string]: Encoded };
 
+const isDomainEvent = (value: unknown): value is DomainEvent =>
+  typeof value === 'object' &&
+  value !== null &&
+  'kind' in value &&
+  typeof value.kind === 'string';
+
 export class EventCodec {
   constructor(private readonly types: PayloadTypes) {}
 
@@ -21,7 +28,13 @@ export class EventCodec {
   }
 
   decode(encoded: unknown): DomainEvent {
-    return this.decoded(encoded) as DomainEvent;
+    const decoded = this.decoded(encoded);
+
+    if (!isDomainEvent(decoded)) {
+      throw new Error('An encoded event decodes to no event');
+    }
+
+    return decoded;
   }
 
   private encoded(value: unknown): Encoded {
@@ -29,8 +42,16 @@ export class EventCodec {
       return null;
     }
 
+    if (
+      typeof value === 'boolean' ||
+      typeof value === 'number' ||
+      typeof value === 'string'
+    ) {
+      return value;
+    }
+
     if (typeof value !== 'object') {
-      return value as Encoded;
+      throw new Error(`A ${typeof value} never travels in an event`);
     }
 
     if (value instanceof Date) {
@@ -47,7 +68,7 @@ export class EventCodec {
       return value.map((each) => this.encoded(each));
     }
 
-    const type = value.constructor as EventType;
+    const type: EventType = value.constructor;
     const fields: { [key: string]: Encoded } = {};
 
     for (const [key, each] of Object.entries(value)) {
@@ -60,7 +81,7 @@ export class EventCodec {
 
     const name = this.types.nameOf(type);
 
-    if (!name) {
+    if (!nonEmpty(name)) {
       throw new Error(
         `${type.name} travels in an event but was never registered as an event type`,
       );
@@ -78,28 +99,30 @@ export class EventCodec {
       return value.map((each) => this.decoded(each));
     }
 
-    const record = value as Record<string, unknown>;
+    const date: unknown = Reflect.get(value, DATE);
 
-    if (typeof record[DATE] === 'string') {
-      return new Date(record[DATE]);
+    if (typeof date === 'string') {
+      return new Date(date);
     }
 
     const fields: Record<string, unknown> = {};
 
-    for (const [key, each] of Object.entries(record)) {
+    for (const [key, each] of Object.entries(value)) {
       if (key !== TYPE) {
         fields[key] = this.decoded(each);
       }
     }
 
-    if (typeof record[TYPE] !== 'string') {
+    const typeName: unknown = Reflect.get(value, TYPE);
+
+    if (typeof typeName !== 'string') {
       return fields;
     }
 
-    const type = this.types.named(record[TYPE]);
+    const type = this.types.named(typeName);
 
     if (!type) {
-      throw new Error(`No event type is registered as ${record[TYPE]}`);
+      throw new Error(`No event type is registered as ${typeName}`);
     }
 
     return Object.assign(Object.create(type.prototype), fields);

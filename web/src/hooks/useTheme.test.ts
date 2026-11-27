@@ -135,7 +135,7 @@ describe('theme.js', () => {
   describe('script', () => {
     const runScript = () => {
       // oxlint-disable-next-line typescript/no-implied-eval -- runs the theme script as the page would
-      (new Function(script()) as () => void)();
+      Reflect.apply(new Function(script()), undefined, []);
     };
 
     it('does not override a stored light theme on OS change', () => {

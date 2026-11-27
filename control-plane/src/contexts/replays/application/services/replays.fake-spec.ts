@@ -62,7 +62,7 @@ import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate'
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
-import type { SearchReplaysPlanned } from '@replays/domain/events/search-replays-planned.event';
+import { SearchReplaysPlanned } from '@replays/domain/events/search-replays-planned.event';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import { LineSearchBudgetVersionConflictError } from '@replays/domain/exceptions/line-search-budget-version-conflict.error';
 import { ReplayCheckVersionConflictError } from '@replays/domain/exceptions/replay-check-version-conflict.error';
@@ -157,7 +157,7 @@ export class InMemoryReplays {
     this.events.push(...events);
 
     for (const each of events) {
-      if (this.startsPlannedReplays && each.kind === 'search.replays-planned') {
+      if (this.startsPlannedReplays && each instanceof SearchReplaysPlanned) {
         await new StartSearchReplays(
           this.searchRepository,
           this.replayRepository,
@@ -165,7 +165,7 @@ export class InMemoryReplays {
           this.setRepository,
           CLOCK,
           TRANSACTION,
-        ).planned(each as SearchReplaysPlanned);
+        ).planned(each);
       }
     }
   }
@@ -541,16 +541,19 @@ export class InMemoryReplays {
 export class FakeLines implements LinesPort {
   threshold: ReplayThreshold | null = null;
 
-  station = async (lineId: LineId, stationId: StationId) =>
+  station = async (
+    lineId: LineId,
+    stationId: StationId,
+  ): Promise<StationView | null> =>
     lineId.equals(STATION_VIEW.lineId) &&
     stationId.equals(STATION_VIEW.stationId)
       ? STATION_VIEW
       : null;
 
-  findStation = async (stationId: StationId) =>
+  findStation = async (stationId: StationId): Promise<StationView | null> =>
     stationId.equals(STATION_VIEW.stationId) ? STATION_VIEW : null;
 
-  keyed = async (lineId: LineId, key: string) =>
+  keyed = async (lineId: LineId, key: string): Promise<StationView | null> =>
     lineId.equals(STATION_VIEW.lineId) && key === STATION_VIEW.key
       ? STATION_VIEW
       : null;
@@ -847,20 +850,20 @@ export const CLOCK: ClockPort = { now: () => NOW, sleep: async () => {} };
 let id = 0;
 
 export const IDS = {
-  generate: () => {
+  generate: (): string => {
     id += 1;
     return `id_${id}`;
   },
 };
 
 export const TRANSACTION = {
-  inTransaction: <T>(work: () => Promise<T>) => work(),
+  inTransaction: <T>(work: () => Promise<T>): Promise<T> => work(),
 };
 
 export const usageFor = (
   memory: InMemoryReplays,
   checks: ReplayCheckRepository = new InMemoryChecks(memory.events),
-) =>
+): SetUsage =>
   new SetUsage(
     { ...memory.searchRepository },
     { ...memory.replayRepository },
@@ -871,7 +874,7 @@ export const refreshingFor = (
   memory: InMemoryReplays,
   suppliers: FakeSuppliers,
   insights: InsightsPort = new FakeInsights(),
-) =>
+): RefreshReplaySets =>
   new RefreshReplaySets(
     memory.setRepository,
     memory.searchRepository,
@@ -887,7 +890,7 @@ export const snapshotsFor = (
   memory: InMemoryReplays,
   suppliers: FakeSuppliers,
   mayPlan: boolean | null = true,
-) =>
+): LiveCandidates =>
   new LiveCandidates(
     peopleWho(mayPlan),
     suppliers.configs,
@@ -902,7 +905,7 @@ export const stepsFor = (
   memory: InMemoryReplays,
   suppliers: FakeSuppliers,
   clock: ClockPort = CLOCK,
-) =>
+): PendingSearchSteps =>
   new PendingSearchSteps(
     memory.scheduleRepository,
     memory.searchRepository,
@@ -917,14 +920,14 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
   readonly stored = new Map<string, ConfigPullRequest>();
   readonly events: DomainEvent[] = [];
 
-  async find(id: { value: string }) {
+  async find(id: { value: string }): Promise<ConfigPullRequest | null> {
     return this.stored.get(id.value) ?? null;
   }
 
   async forCandidate(
     searchId: { value: string },
     candidateId: { value: string },
-  ) {
+  ): Promise<ConfigPullRequest | null> {
     return (
       [...this.stored.values()].find(
         (each) =>
@@ -934,26 +937,28 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
     );
   }
 
-  async ofSearch(searchId: { value: string }) {
+  async ofSearch(searchId: { value: string }): Promise<ConfigPullRequest[]> {
     return [...this.stored.values()].filter(
       (each) => each.searchId.value === searchId.value,
     );
   }
 
-  async findMany(ids: readonly { value: string }[]) {
+  async findMany(
+    ids: readonly { value: string }[],
+  ): Promise<ConfigPullRequest[]> {
     return ids.flatMap((id) => {
       const found = this.stored.get(id.value);
       return found ? [found] : [];
     });
   }
 
-  async ofTeam(teamId: { value: string }) {
+  async ofTeam(teamId: { value: string }): Promise<ConfigPullRequest[]> {
     return [...this.stored.values()].filter(
       (each) => each.teamId.value === teamId.value,
     );
   }
 
-  async openAtStation(stationId: StationId) {
+  async openAtStation(stationId: StationId): Promise<boolean> {
     return [...this.stored.values()].some(
       (each) => each.station.stationId.equals(stationId) && each.isOpen,
     );
@@ -962,7 +967,7 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
   async fromHost(
     workspaceId: { value: string },
     key: { hostId: number | null; repository: string; number: number },
-  ) {
+  ): Promise<ConfigPullRequest | null> {
     return (
       [...this.stored.values()].find(
         (each) =>
@@ -975,7 +980,10 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
     );
   }
 
-  async dueForCheck(checkedBefore: Date, limit: number) {
+  async dueForCheck(
+    checkedBefore: Date,
+    limit: number,
+  ): Promise<ConfigPullRequest[]> {
     return [...this.stored.values()]
       .filter(
         (each) =>
@@ -986,19 +994,22 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
       .slice(0, limit);
   }
 
-  async openedOnLine(lineId: LineId) {
+  async openedOnLine(lineId: LineId): Promise<ConfigPullRequest[]> {
     return [...this.stored.values()].filter(
       (each) => each.station.lineId.equals(lineId) && each.current === 'opened',
     );
   }
 
-  async due(state: 'opening' | 'closing', now: Date) {
+  async due(
+    state: 'opening' | 'closing',
+    now: Date,
+  ): Promise<ConfigPullRequest[]> {
     return [...this.stored.values()].filter(
       (each) => each.current === state && each.isDue(now),
     );
   }
 
-  async add(added: ConfigPullRequest) {
+  async add(added: ConfigPullRequest): Promise<void> {
     if (
       (await this.forCandidate(added.searchId, added.candidateId)) ||
       (added.isOpen && (await this.openAtStation(added.station.stationId)))
@@ -1010,7 +1021,7 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
     this.stored.set(added.id.value, added);
   }
 
-  async save(saved: ConfigPullRequest) {
+  async save(saved: ConfigPullRequest): Promise<void> {
     const existing = this.stored.get(saved.id.value);
 
     if (!existing || existing.version !== saved.version) {
@@ -1062,37 +1073,44 @@ export class InMemoryChecks implements ReplayCheckRepository {
 
   constructor(private readonly events: DomainEvent[]) {}
 
-  find = async (id: { value: string }) => this.stored.get(id.value) ?? null;
+  find = async (id: { value: string }): Promise<ReplayCheck | null> =>
+    this.stored.get(id.value) ?? null;
 
-  ofChange = async (stationId: StationId, change: CheckedChange) =>
+  ofChange = async (
+    stationId: StationId,
+    change: CheckedChange,
+  ): Promise<ReplayCheck[]> =>
     [...this.stored.values()].filter(
       (each) =>
         each.station.stationId.equals(stationId) && each.change.equals(change),
     );
 
-  ofPullRequest = async (stationId: StationId, pullRequest: number) =>
+  ofPullRequest = async (
+    stationId: StationId,
+    pullRequest: number,
+  ): Promise<ReplayCheck[]> =>
     [...this.stored.values()].filter(
       (each) =>
         each.station.stationId.equals(stationId) &&
         each.reference.pullRequest === pullRequest,
     );
 
-  awaitingBaseline = async () =>
+  awaitingBaseline = async (): Promise<ReplayCheck[]> =>
     [...this.stored.values()].filter((each) => each.awaitsBaseline);
 
-  awaitingBaselineOfSet = async (setId: ReplaySetId) =>
+  awaitingBaselineOfSet = async (setId: ReplaySetId): Promise<ReplayCheck[]> =>
     [...this.stored.values()].filter(
       (each) => each.awaitsBaseline && each.setId.equals(setId),
     );
 
-  ofTeam = async () => [...this.stored.values()];
+  ofTeam = async (): Promise<ReplayCheck[]> => [...this.stored.values()];
 
-  ofSet = async () => [...this.stored.values()];
+  ofSet = async (): Promise<ReplayCheck[]> => [...this.stored.values()];
 
   pageOfSet = async (
     _setId: unknown,
     page: { before: { value: string } | null; limit: number },
-  ) => {
+  ): Promise<ReplayCheck[]> => {
     const newest = [...this.stored.values()].reverse();
     const from = page.before
       ? newest.findIndex((each) => each.id.value === page.before?.value) + 1
@@ -1103,12 +1121,12 @@ export class InMemoryChecks implements ReplayCheckRepository {
       : newest.slice(from, from + page.limit);
   };
 
-  add = async (check: ReplayCheck) => {
+  add = async (check: ReplayCheck): Promise<void> => {
     this.events.push(...check.pullEvents());
     this.stored.set(check.id.value, check);
   };
 
-  save = async (check: ReplayCheck) => {
+  save = async (check: ReplayCheck): Promise<void> => {
     if (this.stored.get(check.id.value)?.version !== check.version) {
       throw new ReplayCheckVersionConflictError(check.id.value);
     }
@@ -1154,19 +1172,23 @@ export class InMemoryReplayRunDecisions implements ReplayRunDecisionRepository {
   readonly deletedReplays = new Set<string>();
   now = new Date('2026-11-07T12:00:00.000Z');
 
-  find = async (runId: RunId) => this.decisions.get(runId.value) ?? null;
+  find = async (runId: RunId): Promise<ReplayRunDecision | null> =>
+    this.decisions.get(runId.value) ?? null;
 
-  ofTeam = async (teamId: TeamId) =>
+  ofTeam = async (teamId: TeamId): Promise<ReplayRunDecision[]> =>
     [...this.decisions.values()].filter((each) =>
       each.owner.teamId.equals(teamId),
     );
 
-  ofReplay = async (replayId: ReplayId) =>
+  ofReplay = async (replayId: ReplayId): Promise<ReplayRunDecision[]> =>
     [...this.decisions.values()].filter((each) =>
       each.owner.replayId.equals(replayId),
     );
 
-  ofDeletedReplays = async (decidedBefore: Date, limit: number) =>
+  ofDeletedReplays = async (
+    decidedBefore: Date,
+    limit: number,
+  ): Promise<ReplayRunDecision[]> =>
     [...this.decisions.values()]
       .filter(
         (each) =>
@@ -1175,7 +1197,7 @@ export class InMemoryReplayRunDecisions implements ReplayRunDecisionRepository {
       )
       .slice(0, limit);
 
-  add = async (decision: ReplayRunDecision) => {
+  add = async (decision: ReplayRunDecision): Promise<void> => {
     if (this.decisions.has(decision.runId.value)) {
       throw new ReplayRunDecisionVersionConflictError(decision.runId);
     }
@@ -1183,7 +1205,7 @@ export class InMemoryReplayRunDecisions implements ReplayRunDecisionRepository {
     this.decidedAt.set(decision.runId.value, this.now);
   };
 
-  save = async (decision: ReplayRunDecision) => {
+  save = async (decision: ReplayRunDecision): Promise<void> => {
     if (
       this.decisions.get(decision.runId.value)?.version !== decision.version
     ) {

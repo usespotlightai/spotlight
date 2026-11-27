@@ -21,6 +21,7 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -90,30 +91,32 @@ const resending = (
   const send = vi.fn<(sending: InviteToSend) => Promise<void>>(async () => {});
 
   const handler = new ResendInviteHandler(
-    new WorkspaceAdministration({
-      findBySlug: async () => workspace(over.role),
-    } as unknown as WorkspaceRepository),
-    {
+    new WorkspaceAdministration(
+      partial<WorkspaceRepository>({
+        findBySlug: async () => workspace(over.role),
+      }),
+    ),
+    partial<WorkspaceInviteRepository>({
       find: async () =>
         over.invite === undefined ? sentInvite() : over.invite,
       save,
-    } as unknown as WorkspaceInviteRepository,
-    { ofWorkspace: async () => [PLATFORM] } as unknown as TeamRepository,
+    }),
+    partial<TeamRepository>({ ofWorkspace: async () => [PLATFORM] }),
     new InviteSending(
-      {
+      partial<PersonReaderPort>({
         find: async (id: UserId) => ({
           id,
           name: 'Leon',
           image: null,
         }),
-      } as unknown as PersonReaderPort,
+      }),
       { send },
-      { warn: vi.fn() } as unknown as LoggerPort,
+      partial<LoggerPort>({ warn: vi.fn() }),
     ),
-    {
+    partial<TokenIssuer>({
       issue: () => ({ token: 'fresh', hash: 'f'.repeat(64) }),
-    } as unknown as TokenIssuer,
-    { now: () => NOW } as ClockPort,
+    }),
+    partial<ClockPort>({ now: () => NOW }),
   );
 
   return { handler, save, send };

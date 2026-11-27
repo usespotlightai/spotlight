@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { readRunMemories } from '@/lib/api';
+import { readRunMemories, type RunMemoriesResponseDto } from '@/lib/api';
 
 export const runMemoryKeys = {
   all: ['memories', 'run-memories'] as const,
@@ -8,7 +8,10 @@ export const runMemoryKeys = {
     ['memories', 'run-memories', teamId, runId] as const,
 };
 
-export function useRunMemories(teamId: string, runId: string) {
+export function useRunMemories(
+  teamId: string,
+  runId: string,
+): UseQueryResult<RunMemoriesResponseDto> {
   return useQuery({
     queryKey: runMemoryKeys.forRun(teamId, runId),
     queryFn: async () => {

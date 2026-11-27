@@ -1,5 +1,6 @@
 import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -53,20 +54,20 @@ const welcoming = (
   const added: Task[] = [];
   const welcomed: TeamId[] = [];
   const welcomer = new WelcomeTeam(
-    {
+    partial<LineMapsPort>({
       ofTeam: vi.fn(async () => over.lines ?? LINES),
-    } as unknown as LineMapsPort,
-    {
+    }),
+    partial<TaskRepository>({
       add: vi.fn(async (task: Task) => void added.push(task)),
-    } as unknown as TaskRepository,
+    }),
     {
       welcomed: vi.fn(async () => over.welcomed ?? false),
       record: vi.fn(async (teamId: TeamId) => void welcomed.push(teamId)),
       forget: vi.fn(),
     },
-    {
+    partial<RunnerReadinessPort>({
       hasPlatformRunners: vi.fn(async () => over.platform ?? false),
-    } as unknown as RunnerReadinessPort,
+    }),
     ids(),
     { now: () => new Date('2026-09-03T09:00:00.000Z'), sleep: async () => {} },
   );

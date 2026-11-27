@@ -16,6 +16,8 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { asc, desc, eq, inArray } from 'drizzle-orm';
@@ -57,7 +59,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
       role: invitable(row.role),
       teams: teams.get(row.id) ?? [],
       invitedBy:
-        row.inviterId && row.inviterName
+        nonEmpty(row.inviterId) && nonEmpty(row.inviterName)
           ? {
               id: row.inviterId,
               name: row.inviterName,
@@ -70,22 +72,24 @@ export class DrizzleInviteReader implements InviteReaderPort {
   }
 
   async withToken(hash: TokenHash, now: Date): Promise<InvitePreview | null> {
-    const [found] = await this.db
-      .select({
-        id: workspaceInvite.id,
-        email: workspaceInvite.email,
-        role: workspaceInvite.role,
-        workspaceName: workspace.name,
-        invitedBy: user.name,
-        acceptedAt: workspaceInvite.acceptedAt,
-        revokedAt: workspaceInvite.revokedAt,
-        expiresAt: workspaceInvite.expiresAt,
-      })
-      .from(workspaceInvite)
-      .innerJoin(workspace, eq(workspace.id, workspaceInvite.workspaceId))
-      .leftJoin(user, eq(user.id, workspaceInvite.invitedById))
-      .where(eq(workspaceInvite.tokenHash, hash.value))
-      .limit(1);
+    const found = firstOf(
+      await this.db
+        .select({
+          id: workspaceInvite.id,
+          email: workspaceInvite.email,
+          role: workspaceInvite.role,
+          workspaceName: workspace.name,
+          invitedBy: user.name,
+          acceptedAt: workspaceInvite.acceptedAt,
+          revokedAt: workspaceInvite.revokedAt,
+          expiresAt: workspaceInvite.expiresAt,
+        })
+        .from(workspaceInvite)
+        .innerJoin(workspace, eq(workspace.id, workspaceInvite.workspaceId))
+        .leftJoin(user, eq(user.id, workspaceInvite.invitedById))
+        .where(eq(workspaceInvite.tokenHash, hash.value))
+        .limit(1),
+    );
 
     if (!found) {
       return null;

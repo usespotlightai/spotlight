@@ -13,6 +13,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -100,9 +101,7 @@ const columnsOf = (stored: ClaimsRevision) => ({
 });
 
 @Injectable()
-export class DrizzleClaimsRevisionRepository
-  implements ClaimsRevisionRepository
-{
+export class DrizzleClaimsRevisionRepository implements ClaimsRevisionRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -167,39 +166,48 @@ export class DrizzleClaimsRevisionRepository
   }
 
   async find(id: ClaimsRevisionId): Promise<ClaimsRevision | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(claimsRevision)
-      .where(eq(claimsRevision.id, id.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(claimsRevision)
+        .where(eq(claimsRevision.id, id.value))
+        .limit(1),
+    );
 
     return row ? toRevision(row) : null;
   }
 
   async latestAt(stationId: StationId): Promise<ClaimsRevision | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(claimsRevision)
-      .where(eq(claimsRevision.stationId, stationId.value))
-      .orderBy(desc(claimsRevision.startedAt))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(claimsRevision)
+        .where(eq(claimsRevision.stationId, stationId.value))
+        .orderBy(desc(claimsRevision.startedAt))
+        .limit(1),
+    );
 
     return row ? toRevision(row) : null;
   }
 
   async nextDueJob(now: Date): Promise<ClaimsRevision | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(claimsRevision)
-      .where(
-        and(
-          eq(claimsRevision.pending, true),
-          or(isNull(claimsRevision.jobDueAt), lte(claimsRevision.jobDueAt, now)),
-        ),
-      )
-      .orderBy(asc(claimsRevision.startedAt))
-      .limit(1)
-      .for('update', { skipLocked: true });
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(claimsRevision)
+        .where(
+          and(
+            eq(claimsRevision.pending, true),
+            or(
+              isNull(claimsRevision.jobDueAt),
+              lte(claimsRevision.jobDueAt, now),
+            ),
+          ),
+        )
+        .orderBy(asc(claimsRevision.startedAt))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
     return row ? toRevision(row) : null;
   }

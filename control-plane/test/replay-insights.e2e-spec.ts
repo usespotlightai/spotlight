@@ -18,6 +18,10 @@ import {
   WORKING_COPY_ARCHIVE_STORE,
   type WorkingCopyArchiveStorePort,
 } from '@runs/application/ports/working-copy-archive-store.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
@@ -31,6 +35,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { type SearchPolicyTerms, searchStarted } from './support/auto-searches';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { posted, said, spent } from './support/harness-events';
 import { keptSet } from './support/kept-sets';
@@ -58,12 +63,12 @@ const CLAIMS = [
 const SCORED = /score\((\d)\)/;
 const WITHIN = 60_000;
 
-const attachmentStore = {
+const attachmentStore = partial<AttachmentStorePort>({
   received: async () => [],
   stored: async () => true,
   taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
-} as unknown as AttachmentStorePort;
+});
 
 const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
@@ -234,10 +239,12 @@ const startSearch = (
 const searchOf = (id: string) => searchReadOf(app, id);
 
 const searchRow = async (id: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.replaySearch)
-    .where(eq(schema.replaySearch.id, id));
+  const row = firstOf(
+    await db
+      .select()
+      .from(schema.replaySearch)
+      .where(eq(schema.replaySearch.id, id)),
+  );
 
   return row;
 };
@@ -245,10 +252,9 @@ const searchRow = async (id: string) => {
 const searchState = async (id: string) => (await searchRow(id))?.state;
 
 const replayRow = async (id: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.replay)
-    .where(eq(schema.replay.id, id));
+  const row = firstOf(
+    await db.select().from(schema.replay).where(eq(schema.replay.id, id)),
+  );
 
   return row;
 };
@@ -295,10 +301,10 @@ const claimed = async (): Promise<Claimed | null> => {
 
   expect(answer.status).toBe(200);
 
-  const assignment = answer.body as {
+  const assignment = bodyOf<{
     token: string;
     work: { run: { id: string } };
-  };
+  }>(answer);
 
   return { token: assignment.token, runId: assignment.work.run.id };
 };
@@ -329,10 +335,12 @@ const finished = async (
 };
 
 const entryOf = async (runId: string) => {
-  const [entry] = await db
-    .select()
-    .from(schema.replayEntry)
-    .where(eq(schema.replayEntry.runId, runId));
+  const entry = firstOf(
+    await db
+      .select()
+      .from(schema.replayEntry)
+      .where(eq(schema.replayEntry.runId, runId)),
+  );
 
   return entry;
 };
@@ -445,7 +453,7 @@ const leasedSearchRun = async (
     requesterId: searchId,
   });
 
-  return assignment as Claimed;
+  return present(assignment);
 };
 
 const endedSearchRun = async ({ token, runId }: Claimed, failed = false) => {
@@ -615,11 +623,11 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 const replayedPath = (period?: string) =>
-  `${teamPath()}/replayed-candidates${period ? `?period=${period}` : ''}`;
+  `${teamPath()}/replayed-candidates${nonEmpty(period) ? `?period=${period}` : ''}`;
 
 interface Replayed {
   period: { name: string; from: string; to: string };
@@ -672,13 +680,13 @@ describe('replayed candidates beside live runs', () => {
 
     const agent = await leasedSearchRun(id, 1);
     const block = await liveBlock();
-    const proposed = (
+    const proposed = bodyOf<{ candidateId: string; replayId: string }>(
       await proposing(agent, {
         name: 'in-order',
         hypothesis: 'Draining in order stops the stall.',
         station: { ...block, prompt: 'Build it, draining in order.' },
-      }).expect(201)
-    ).body as { candidateId: string; replayId: string };
+      }).expect(201),
+    );
 
     await endedSearchRun(agent);
     await drained(() => ({ score: 5, cost: 0.1 }));
@@ -693,14 +701,15 @@ describe('replayed candidates beside live runs', () => {
       return (await searchState(id)) === 'finished';
     }, WITHIN);
 
-    const replayed = (await owner().get(replayedPath()).expect(200))
-      .body as Replayed;
+    const replayed = bodyOf<Replayed>(
+      await owner().get(replayedPath()).expect(200),
+    );
     const searched = await searchOf(id);
     const candidate = searched.candidates.find(
       (each) => each.candidateId === proposed.candidateId,
     );
-    const [station] = replayed.stations;
-    const [set] = station?.sets ?? [];
+    const station = firstOf(replayed.stations);
+    const set = firstOf(station?.sets ?? []);
     const shown = set?.candidates.find(
       (each) => each.candidateId === proposed.candidateId,
     );
@@ -799,13 +808,14 @@ describe('replayed candidates beside live runs', () => {
 
   it('looks back over the same UTC days as the team’s insights', async () => {
     for (const period of ['7d', '30d', '90d']) {
-      const replayed = (await owner().get(replayedPath(period)).expect(200))
-        .body as Replayed;
-      const insights = (
+      const replayed = bodyOf<Replayed>(
+        await owner().get(replayedPath(period)).expect(200),
+      );
+      const insights = bodyOf<{ period: { from: string; to: string } }>(
         await owner()
           .get(`${teamPath()}/insights/changes?period=${period}`)
-          .expect(200)
-      ).body as { period: { from: string; to: string } };
+          .expect(200),
+      );
 
       expect(replayed.period).toEqual({
         name: period,

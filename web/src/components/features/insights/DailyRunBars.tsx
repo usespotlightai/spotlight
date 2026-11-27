@@ -7,11 +7,11 @@ const GAP = 1;
 const FLOOR = 1;
 
 const summaryOf = (trend: readonly TrendPoint[]): string => {
-  const first = trend[0];
-  const last = trend[trend.length - 1];
+  const first = trend.at(0);
+  const last = trend.at(-1);
   const max = Math.max(...trend.map((each) => each.runs), 0);
 
-  return first && last
+  return first !== undefined && last !== undefined
     ? `Runs per day from ${formatDay(first.day)} to ${formatDay(last.day)}, at most ${max}`
     : 'No runs per day';
 };

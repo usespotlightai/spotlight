@@ -1,5 +1,4 @@
 import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
@@ -10,11 +9,15 @@ import {
 import {
   type FakeMcpServer,
   fakeMcpServer,
+  portOf,
 } from '@integrations/infrastructure/mcp/mcp-server.fake-spec';
 import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
+import { errorOf } from '@integrations/integrations.requests.fake-spec';
+import { fieldOf } from '@platform/json/field-of';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { injectedSecretsOf } from '@secrets/application/contracts/injected-secrets.fake-spec';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -37,7 +40,7 @@ const serving = async (
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
 
   return {
-    origin: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+    origin: `http://127.0.0.1:${portOf(server)}`,
     server,
   };
 };
@@ -278,7 +281,9 @@ describe('McpSessions', () => {
       },
     );
 
-    expect(server.received.every((each) => each.authorization)).toBe(true);
+    expect(server.received.every((each) => nonEmpty(each.authorization))).toBe(
+      true,
+    );
     expect(server.received[0]).toMatchObject({
       authorization: 'Bearer the-token',
       apiKey: 'tk_live',
@@ -353,7 +358,7 @@ describe('McpSessions', () => {
         body += chunk;
       });
       request.on('end', () => {
-        const id = (JSON.parse(body) as { id?: number }).id ?? null;
+        const id = fieldOf(JSON.parse(body), 'id') ?? null;
         reply.writeHead(200, { 'content-type': 'application/json' }).end(
           JSON.stringify({
             jsonrpc: '2.0',
@@ -371,11 +376,11 @@ describe('McpSessions', () => {
     try {
       const failure = await listing
         .tools(`${failing.origin}/mcp`, injectingKey)
-        .catch((error: unknown) => error as Error);
+        .catch((error: unknown) => error);
 
       expect(failure).toBeInstanceOf(Error);
-      expect((failure as Error).message).toContain('[secret]');
-      expect((failure as Error).message).not.toMatch(/k(%2F|\/)live/);
+      expect(errorOf(failure).message).toContain('[secret]');
+      expect(errorOf(failure).message).not.toMatch(/k(%2F|\/)live/);
     } finally {
       listing.onModuleDestroy();
       failing.server.close();

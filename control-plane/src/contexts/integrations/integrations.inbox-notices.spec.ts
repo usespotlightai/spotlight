@@ -23,11 +23,13 @@ import {
   callingNoServer,
   discoveringNothing,
 } from '@integrations/integrations.mcp.fake-spec';
+import { valueAt } from '@integrations/integrations.requests.fake-spec';
 import {
   callAuthFor,
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type { TaskLinksPort } from '@work/application/ports/task-links.port';
 import type { TeamNoticeDto } from '@work/application/ports/team-notices.port';
@@ -46,12 +48,12 @@ const taskLinks: TaskLinksPort = {
     `https://app.example/w/${slug}/inbox/notices/${noticeId}`,
 };
 
-const runtimeWith = (outbound: unknown) =>
+const runtimeWith = (outbound: Partial<HttpOutbound>) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(new CelExpressionEngine(), operationsContaining()),
-    outbound as HttpOutbound,
+    partial<HttpOutbound>(outbound),
     clientsFrom(),
-    {} as OAuth2Exchange,
+    partial<OAuth2Exchange>({}),
     discoveringNothing(),
     callingNoServer(),
     unlimited,
@@ -145,7 +147,9 @@ const UNLINKABLE = async (): Promise<string | null> => {
 
 const linksOf = (linked: boolean): WebInboxLinks => {
   const links = new WebInboxLinks(
-    { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
+    partial<WorkspaceReaderPort>({
+      slugOf: vi.fn(async () => 'acme'),
+    }),
     taskLinks,
   );
 
@@ -171,9 +175,9 @@ const notifying = (definition = SLACK, linked = true) => {
   );
   const warn = vi.fn();
   const args = [
-    {
+    partial<DefinedIntegrationsPort>({
       ofTeam: vi.fn(async () => [defined(definition)]),
-    } as unknown as DefinedIntegrationsPort,
+    }),
     runtimeWith({ run }),
     callAuthFor(injecting().injection),
     linksOf(linked),
@@ -189,9 +193,7 @@ const notifying = (definition = SLACK, linked = true) => {
 };
 
 const sent = (run: ReturnType<typeof notifying>['run']) =>
-  run.mock.calls.map(
-    ([, against]) => (against as { target: { channel: string } }).target,
-  );
+  run.mock.calls.map(([, against]) => valueAt(against, 'target'));
 
 const bodyOf = (
   run: ReturnType<typeof notifying>['run'],
@@ -211,9 +213,7 @@ describe('inbox requests and notices sent to integrations', () => {
       form: 'judge-disagreement',
       link: 'https://app.example/w/acme/inbox/request_1',
     });
-    expect((bodyOf(run).task as { title: string }).title).toBe(
-      'Drain the queue',
-    );
+    expect(valueAt(bodyOf(run), 'task', 'title')).toBe('Drain the queue');
   });
 
   it('posts an inbox request into the channel its task came from, over the route', async () => {

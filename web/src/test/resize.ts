@@ -1,7 +1,10 @@
 import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 
-export const watchResizes = () => {
+export const watchResizes = (): ((
+  element: HTMLElement,
+  sizes: Record<string, number>,
+) => void) => {
   const notices: (() => void)[] = [];
   vi.stubGlobal(
     'ResizeObserver',

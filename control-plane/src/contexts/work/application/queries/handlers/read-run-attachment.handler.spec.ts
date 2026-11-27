@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import { ReadRunAttachmentHandler } from '@work/application/queries/handlers/read-run-attachment.handler';
@@ -18,21 +19,21 @@ const CONTENT = { bytes: new Uint8Array([1]), contentType: 'image/png' };
 
 const reading = (leases: Record<string, string>) => {
   const opened: string[] = [];
-  const works = {
+  const works = partial<RunWorks>({
     workLeasedBy: async (runId: string, runnerId: string) =>
       leases[runId] === runnerId
-        ? ({
+        ? partial<RunWork>({
             workspaceId: WorkspaceId.of('ws_1'),
             attachment: (id: string) => (id === 'att_1' ? SCREEN : null),
-          } as unknown as RunWork)
+          })
         : null,
-  } as unknown as RunWorks;
-  const files = {
+  });
+  const files = partial<AttachmentStorePort>({
     open: async (workspaceId: WorkspaceId, file: Attachment) => {
       opened.push(`${workspaceId.value}/${file.id.value}`);
       return CONTENT;
     },
-  } as AttachmentStorePort;
+  });
 
   return { handler: new ReadRunAttachmentHandler(works, files), opened };
 };

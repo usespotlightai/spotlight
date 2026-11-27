@@ -1,8 +1,14 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, type UseMutationResult } from '@tanstack/react-query';
 
 import { authClient } from '@/lib/authClient';
 
-export function useSignIn(callbackURL = '/') {
+type SignInData = NonNullable<
+  Awaited<ReturnType<typeof authClient.signIn.social>>['data']
+>;
+
+export function useSignIn(
+  callbackURL = '/',
+): UseMutationResult<SignInData, Error, void> {
   return useMutation({
     mutationKey: ['auth', 'sign-in', callbackURL],
     mutationFn: async () => {

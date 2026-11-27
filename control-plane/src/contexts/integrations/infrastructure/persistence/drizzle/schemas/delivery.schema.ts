@@ -1,4 +1,7 @@
-import { INBOUND_DELIVERY_STATES } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
+import {
+  type DeliveryHeaders,
+  INBOUND_DELIVERY_STATES,
+} from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
 import {
@@ -26,7 +29,7 @@ export const inboundDelivery = pgTable(
     teamId: text('team_id'),
     teamKey: text('team_key'),
     id: text('id').notNull(),
-    headers: jsonb('headers').notNull(),
+    headers: jsonb('headers').$type<DeliveryHeaders>().notNull(),
     body: jsonb('body').notNull(),
     causeFiringId: text('cause_firing_id'),
     state: deliveryState('state').notNull(),

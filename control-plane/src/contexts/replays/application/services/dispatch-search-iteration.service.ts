@@ -24,6 +24,8 @@ import type { SearchIteration } from '@replays/domain/value-objects/search-itera
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const UNBRIEFED: SearchRunQueued = { queued: false };
@@ -73,7 +75,7 @@ export class DispatchSearchIteration {
     const briefing = station
       ? await this.briefingFor(search, iteration, station)
       : null;
-    const queued = briefing
+    const queued = nonEmpty(briefing)
       ? await this.searchRuns.dispatchSearch({
           run,
           searchId: search.id,
@@ -143,7 +145,9 @@ export class DispatchSearchIteration {
     iteration: SearchIteration,
     station: StationView,
   ): Promise<string | null> {
-    const [seed] = await this.candidates.findMany([search.seed.candidateId]);
+    const seed = firstOf(
+      await this.candidates.findMany([search.seed.candidateId]),
+    );
 
     if (!seed) {
       return null;

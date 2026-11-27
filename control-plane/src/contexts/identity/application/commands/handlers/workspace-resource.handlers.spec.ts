@@ -28,6 +28,7 @@ import {
   workspaces,
 } from '@identity/testing/identity.resources.fake-spec';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
@@ -125,7 +126,7 @@ describe('UpdateWorkspaceHandler', () => {
       new IdentityDefinitions(),
       stored,
       transaction,
-      { forget } as unknown as WorkspaceOutboundHostsPort,
+      partial<WorkspaceOutboundHostsPort>({ forget }),
     );
 
     return {
@@ -227,20 +228,22 @@ describe('DeleteWorkspaceHandler', () => {
   ) => {
     const stored = workspaces({ existing: workspaceAt(3) });
     const registry = new DependentsRegistry<WorkspaceId>();
-    registry.register({ dependentsOf: async () => over.dependents ?? [] });
+    registry.register({
+      dependentsOf: async () => over.dependents ?? [],
+    });
     const trust = oidcTrustKeyed('github-main');
     const handler = new DeleteWorkspaceHandler(
       stored,
       teams({ inWorkspace: over.hasTeam ? [teamAt(0)] : [] }),
-      {
+      partial<WorkspaceTokenRepository>({
         ofWorkspace: async () => [
           ...(over.issued ? [handIssued('ci')] : []),
           ...(over.issuing ? [issuedBy(trust)] : []),
         ],
-      } as unknown as WorkspaceTokenRepository,
-      {
+      }),
+      partial<OidcTrustRepository>({
         ofWorkspace: async () => (over.trusted ? [trust] : []),
-      } as unknown as OidcTrustRepository,
+      }),
       registry,
       transaction,
     );

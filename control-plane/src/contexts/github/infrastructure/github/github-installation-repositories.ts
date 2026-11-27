@@ -8,16 +8,20 @@ import {
 } from '@github/application/ports/repository-access.port';
 import { Inject, Injectable } from '@nestjs/common';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { z } from 'zod';
 
 const API = 'https://api.github.com';
 const PER_PAGE = 100;
 
 const MAX_PAGES = 10;
 
-interface Listed {
-  repositories?: { full_name?: string }[];
-}
+const LISTED = z.object({
+  repositories: z
+    .array(z.object({ full_name: z.string().optional() }))
+    .optional(),
+});
 
 @Injectable()
 export class GitHubInstallationRepositories implements InstallationRepositoriesPort {
@@ -34,7 +38,9 @@ export class GitHubInstallationRepositories implements InstallationRepositoriesP
       const listed = await this.page(token, page);
 
       found.push(
-        ...listed.flatMap((name) => (name ? [{ fullName: name }] : [])),
+        ...listed.flatMap((name) =>
+          nonEmpty(name) ? [{ fullName: name }] : [],
+        ),
       );
 
       if (listed.length < PER_PAGE) {
@@ -69,7 +75,7 @@ export class GitHubInstallationRepositories implements InstallationRepositoriesP
       );
     }
 
-    const listed = (await response.json()) as Listed;
+    const listed = LISTED.parse(await response.json());
 
     return (listed.repositories ?? []).map((each) => each.full_name);
   }

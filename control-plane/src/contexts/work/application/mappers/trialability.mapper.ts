@@ -34,11 +34,13 @@ export const TrialabilityMapper = {
   },
 
   archiveOf(run: RunFacts): TrialArchive {
-    if (!run.startedFrom?.archiveId) {
+    const from = run.startedFrom;
+
+    if (from === null || from.archiveId === null || from.archiveId === '') {
       return 'none';
     }
 
-    return run.startedFrom.archiveStored ? 'stored' : 'gone';
+    return from.archiveStored ? 'stored' : 'gone';
   },
 
   checkoutsIn(

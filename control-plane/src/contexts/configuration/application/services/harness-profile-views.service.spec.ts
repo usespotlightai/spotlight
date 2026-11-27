@@ -5,6 +5,7 @@ import type { SecretsAwaitingValuePort } from '@configuration/application/ports/
 import { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -41,9 +42,9 @@ const setUp = (awaiting: readonly string[]) => {
   );
   const views = new HarnessProfileViews(
     { find: vi.fn(), inWorkspace: vi.fn() } satisfies TeamDirectoryPort,
-    {
+    partial<HarnessProfileCompilerPort>({
       warningsOf: () => [],
-    } as unknown as HarnessProfileCompilerPort,
+    }),
     { awaitingValueIn } satisfies SecretsAwaitingValuePort,
   );
 
@@ -75,7 +76,7 @@ describe('HarnessProfileViews', () => {
     ]);
 
     expect(awaitingValueIn).toHaveBeenCalledTimes(1);
-    expect(staging && warned(staging)).toEqual([
+    expect(warned(staging)).toEqual([
       {
         at: 'secrets[0]',
         reason:
@@ -83,7 +84,7 @@ describe('HarnessProfileViews', () => {
         warning: true,
       },
     ]);
-    expect(linear && warned(linear)).toEqual([
+    expect(warned(linear)).toEqual([
       {
         at: 'mcpServers[0].env.LINEAR_API_KEY',
         reason:
@@ -91,7 +92,7 @@ describe('HarnessProfileViews', () => {
         warning: true,
       },
     ]);
-    expect(linear?.address).toBe('web/linear');
+    expect(linear.address).toBe('web/linear');
   });
 
   it('warns of nothing where every secret a profile names has a value', async () => {
@@ -101,8 +102,8 @@ describe('HarnessProfileViews', () => {
       { record: profile('staging', ['STAGING_VIEWER']), teamKey: 'core' },
     ]);
 
-    expect(viewed?.warnings).toEqual([]);
-    expect(viewed?.secrets).toEqual(['STAGING_VIEWER']);
+    expect(viewed.warnings).toEqual([]);
+    expect(viewed.secrets).toEqual(['STAGING_VIEWER']);
   });
 
   it('exports a profile without asking whether its secrets have a value', () => {

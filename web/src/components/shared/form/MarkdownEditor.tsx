@@ -215,7 +215,7 @@ export function MarkdownEditor({
           MARKDOWN,
           undefined,
           false,
-          Boolean(readOnly && !keepLineBreaks),
+          readOnly === true && !keepLineBreaks,
         ),
       onError: (error) => {
         throw error;
@@ -248,7 +248,7 @@ export function MarkdownEditor({
 
         <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
 
-        {readOnly && (
+        {readOnly === true && (
           <ShownText value={initialValue} shortLines={!keepLineBreaks} />
         )}
 

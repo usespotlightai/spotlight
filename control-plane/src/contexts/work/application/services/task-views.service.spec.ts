@@ -1,4 +1,6 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -145,22 +147,35 @@ const viewing = (
     searched,
     owned,
     current: () => current,
+    currentTask: (): Task => {
+      if (!current) {
+        throw new Error('expected a current task');
+      }
+
+      return current;
+    },
     views: new TaskViews(
-      tasks as unknown as TaskRepository,
-      { findByStation: async () => DELIVERY } as unknown as LineMapsPort,
-      {
+      partial<TaskRepository>(tasks),
+      partial<LineMapsPort>({
+        findByStation: async () => DELIVERY,
+      }),
+      partial<WorkspaceReaderPort>({
         slugOf: async () => (over.slug === undefined ? 'acme' : over.slug),
-      } as unknown as WorkspaceReaderPort,
+      }),
       new WebTaskLinks('https://spotlight.acme.dev/'),
-      { find: async () => null } as unknown as DispatchRepository,
+      partial<DispatchRepository>({ find: async () => null }),
       new IntegrationTaskViews(
-        { findByStation: async () => DELIVERY } as unknown as LineMapsPort,
+        partial<LineMapsPort>({
+          findByStation: async () => DELIVERY,
+        }),
         { ambientOf: async () => over.ambient ?? [] },
       ),
     ),
     hooks: new TaskNotesFromHooks(
-      tasks as unknown as TaskRepository,
-      { findByStation: async () => DELIVERY } as unknown as LineMapsPort,
+      partial<TaskRepository>(tasks),
+      partial<LineMapsPort>({
+        findByStation: async () => DELIVERY,
+      }),
       processedEventsInMemory(),
       { placementsAt: async () => [] },
       dispatch,
@@ -278,7 +293,7 @@ describe('TaskViews', () => {
       ).toBe(true);
 
       const notes = current()?.notes ?? [];
-      const noted = notes[notes.length - 1];
+      const noted = itemAt(notes, notes.length - 1);
       expect(noted?.body.value).toBe(
         'From the hook core/audit:\n\nAudit logged.',
       );
@@ -373,11 +388,11 @@ describe('TaskViews', () => {
         },
       );
       deferred.pullEvents();
-      const { hooks, current } = viewing({ task: deferred });
+      const { hooks, currentTask } = viewing({ task: deferred });
 
       await expect(hooks.failed(LOOPED)).resolves.toBe('reported');
 
-      const moved = current() as Task;
+      const moved = currentTask();
       expect(moved.stationId).toEqual(StationId.of('station_0'));
       expect(moved.running).toBe(false);
       expect(moved.awaitingReview).toBe(false);
@@ -422,10 +437,10 @@ describe('TaskViews', () => {
     });
 
     it('stays reported when told again for one firing after the task moved on', async () => {
-      const { hooks, current, tasks } = viewing();
+      const { hooks, currentTask, tasks } = viewing();
 
       await hooks.failed(LOOPED);
-      const failed = current() as Task;
+      const failed = currentTask();
       tasks.find.mockResolvedValue(
         failed.react(DELIVERY, StationId.of('station_0'), TaskRank.of('i'), {
           line: null,

@@ -2,13 +2,14 @@ import type { MemberReaderPort } from '@identity/application/ports/member-reader
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { ListWorkspaceMemberSummariesHandler } from '@identity/application/queries/handlers/list-workspace-member-summaries.handler';
 import { ListWorkspaceMemberSummariesQuery } from '@identity/application/queries/list-workspace-member-summaries.query';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const listing = (open: boolean) => {
-  const workspaces = {
+  const workspaces = partial<WorkspaceReaderPort>({
     isOpen: vi.fn().mockResolvedValue(open),
-  } as unknown as WorkspaceReaderPort;
+  });
   const members: MemberReaderPort = {
     listForTeam: vi.fn(),
     listForWorkspace: vi.fn().mockResolvedValue([

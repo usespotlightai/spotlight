@@ -394,6 +394,7 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const RUNS_HARNESS_KEYS = Symbol('RUNS_HARNESS_KEYS');
 
@@ -1290,7 +1291,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     provide: CONTROL_PLANE_RELEASE,
     inject: [ENV],
     useFactory: (env: Env): ControlPlaneReleasePort => ({
-      release: env.SPOTLIGHT_RELEASE || null,
+      release: nonEmpty(env.SPOTLIGHT_RELEASE) ? env.SPOTLIGHT_RELEASE : null,
     }),
   },
 

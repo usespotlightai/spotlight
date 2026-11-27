@@ -3,6 +3,7 @@ import type {
   InsightsMemoryResponseDto,
   TeamMemoryResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import type { HistoryRun } from '@/mocks/world/insights-history';
 import {
   type PeriodName,
@@ -41,7 +42,7 @@ const recalled = (run: HistoryRun): boolean =>
 const flaggedOf = (
   memory: TeamMemoryResponseDto,
 ): FlaggedMemoryResponseDto | null =>
-  memory.retirement?.by && !memory.retirement.supersededBy
+  memory.retirement?.by && !nonEmpty(memory.retirement.supersededBy)
     ? {
         memoryId: memory.id,
         handle: memory.handle,

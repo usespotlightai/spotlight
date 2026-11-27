@@ -28,17 +28,19 @@ export interface Grammar {
   readonly wasm: string;
   readonly extensions: RegExp;
   readonly scope: Scope;
-  readonly definitions: Readonly<Record<string, SymbolKind>>;
+  readonly definitions: Readonly<Partial<Record<string, SymbolKind>>>;
   readonly namesOf?: (node: Node) => readonly Node[];
   readonly nameOf?: (definition: Node, name: Node) => string;
   readonly hosts: ReadonlySet<string>;
   readonly bodies: ReadonlySet<string>;
   readonly identifiers: ReadonlySet<string>;
   readonly opaque?: ReadonlySet<string>;
-  readonly members: Readonly<Record<string, readonly [string, string]>>;
+  readonly members: Readonly<
+    Partial<Record<string, readonly [string, string]>>
+  >;
   readonly strings: ReadonlySet<string>;
   readonly interpolations?: RegExp;
-  readonly calls: Readonly<Record<string, readonly [string, string]>>;
+  readonly calls: Readonly<Partial<Record<string, readonly [string, string]>>>;
   readonly referencesOf?: (node: Node) => readonly IndexedReference[] | null;
   readonly importsOf: (node: Node) => readonly GrammarImport[] | null;
   readonly resolve: (

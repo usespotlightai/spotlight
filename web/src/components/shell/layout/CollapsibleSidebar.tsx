@@ -101,7 +101,8 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
     narrow,
   });
 
-  useSidebarKey(() => setCollapsed(!collapsed), Boolean(children));
+  const hasSidebar = Boolean(children);
+  useSidebarKey(() => setCollapsed(!collapsed), hasSidebar);
 
   const closes = (wanted: number, velocity: number) =>
     wanted < CLOSES_AT_PX ||
@@ -135,7 +136,7 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
 
   return (
     <>
-      {children && (
+      {hasSidebar && (
         <SidebarPeekLayer
           collapsed={collapsed}
           docking={docking}
@@ -209,7 +210,7 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
         narrow={narrow}
         desktop={desktop}
         coarse={touch}
-        disabled={!children}
+        disabled={!hasSidebar}
         peekIntent={peek.peekIntent}
         onToggle={() => {
           if (!narrow) {

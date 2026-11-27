@@ -2,6 +2,7 @@ import { PersonNote } from '@/components/features/memory/PersonNote';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { ChatBubble } from '@/components/shared/ChatBubble';
 import type { TeamMemory } from '@/lib/memory';
+import { nonEmpty } from '@/lib/non-empty';
 import { since } from '@/lib/since';
 
 type RetirementNoteProps = {
@@ -9,7 +10,7 @@ type RetirementNoteProps = {
 };
 
 export function RetirementNote({ retirement }: RetirementNoteProps) {
-  if (retirement.supersededBy) {
+  if (nonEmpty(retirement.supersededBy)) {
     return <p>A newer memory replaced this one.</p>;
   }
 

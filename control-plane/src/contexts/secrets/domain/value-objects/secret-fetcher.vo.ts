@@ -34,7 +34,7 @@ export class SecretFetcher {
 
   equals(other: SecretFetcher): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof SecretFetcher &&
       this.recipient.equals(other.recipient) &&
       (this.sharedEgress === null || other.sharedEgress === null
         ? this.sharedEgress === other.sharedEgress

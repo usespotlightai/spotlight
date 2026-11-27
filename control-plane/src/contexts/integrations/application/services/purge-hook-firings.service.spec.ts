@@ -14,6 +14,7 @@ import { taskMoved } from '@integrations/domain/value-objects/hook-event-facts.f
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -59,7 +60,7 @@ const setUp = () => {
     purgeExpired,
     purging: new PurgeHookFirings(
       inMemory.firings,
-      { purgeExpired } as unknown as HookCallbackTokens,
+      partial<HookCallbackTokens>({ purgeExpired }),
       clock,
     ),
   };

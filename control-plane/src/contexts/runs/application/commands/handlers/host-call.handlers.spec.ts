@@ -26,6 +26,7 @@ import { NetworkResponse } from '@runs/domain/value-objects/network-response.vo'
 import type { CallSecretFetch } from '@secrets/application/ports/call-secret-fetches.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -104,9 +105,9 @@ const hosting = (
       denied: [],
     })),
   };
-  const runners = {
+  const runners = partial<RunnersPort>({
     reports: vi.fn(async () => over.reported ?? true),
-  } as unknown as RunnersPort;
+  });
   const calls = {
     claimNext: vi.fn(async () => over.next ?? null),
     find: vi.fn(async () =>
@@ -127,19 +128,19 @@ const hosting = (
     claim: new ClaimHostCallHandler(
       authenticator,
       runners,
-      { next: calls.claimNext } as unknown as NetworkCallClaims,
+      partial<NetworkCallClaims>({ next: calls.claimNext }),
       clock,
       new LongPoll(clock),
       tokens,
     ),
     response: new RecordHostCallResponseHandler(
       authenticator,
-      calls as unknown as NetworkCallRepository,
+      partial<NetworkCallRepository>(calls),
       clock,
     ),
     fetches,
     redeem: new RedeemCallSecretsHandler(
-      calls as unknown as NetworkCallRepository,
+      partial<NetworkCallRepository>(calls),
       fetches,
       tokens,
       clock,

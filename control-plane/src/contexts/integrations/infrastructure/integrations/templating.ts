@@ -1,3 +1,4 @@
+import type { ToolOutput } from '@integrations/application/ports/integration-runtime.port';
 import type { CelVariables } from '@platform/expressions/cel-variables';
 import type { Expression } from '@platform/expressions/expression-engine.port';
 import {
@@ -5,6 +6,7 @@ import {
   required,
   requiredText,
 } from '@platform/expressions/readings';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export interface Templated {
   readonly parts: readonly (string | Expression)[];
@@ -27,11 +29,7 @@ export const PIECE = /\$\{\{([\s\S]*?)\}\}/g;
 const lone = (template: Templated): Expression | null => {
   const [only] = template.parts;
 
-  return template.parts.length === 1 &&
-    only !== undefined &&
-    typeof only !== 'string'
-    ? only
-    : null;
+  return template.parts.length === 1 && typeof only !== 'string' ? only : null;
 };
 
 const joined = (
@@ -94,3 +92,30 @@ export const asJson = (value: unknown): string =>
   JSON.stringify(value, (_key, each: unknown) =>
     typeof each === 'bigint' ? Number(each) : each,
   );
+
+const isToolOutput = (value: unknown): value is ToolOutput => {
+  if (
+    value === null ||
+    typeof value === 'boolean' ||
+    typeof value === 'number' ||
+    typeof value === 'string'
+  ) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.every(isToolOutput);
+  }
+
+  return typeof value === 'object' && Object.values(value).every(isToolOutput);
+};
+
+export const plainJson = (output: unknown): ToolOutput => {
+  const parsed: unknown = JSON.parse(asJson(output ?? null));
+
+  if (!isToolOutput(parsed)) {
+    throw new InconsistentStateError('tool output', 'is not plain JSON');
+  }
+
+  return parsed;
+};

@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -27,7 +28,7 @@ const nothing: SetupState = {
 };
 
 const handler = (options: Options = {}) => {
-  const access = {
+  const access = partial<WorkAccess>({
     seenTeam: vi.fn().mockResolvedValue(
       options.member === false
         ? null
@@ -44,20 +45,20 @@ const handler = (options: Options = {}) => {
       async (chat: { readonly startedBy: UserId }, viewer: UserId) =>
         chat.startedBy.equals(viewer),
     ),
-  } as unknown as WorkAccess;
+  });
 
-  const setup = {
+  const setup = partial<SetupStatus>({
     of: vi.fn().mockResolvedValue({
       state: { ...nothing, ...options.state },
       runners: { platform: false },
       hasEgressCapableRunner: options.hasEgressCapableRunner ?? false,
       chat: options.chat ?? null,
     }),
-  } as unknown as SetupStatus;
+  });
 
-  const welcomes = {
+  const welcomes = partial<TeamWelcomesPort>({
     welcomed: vi.fn().mockResolvedValue(options.welcomed ?? true),
-  } as unknown as TeamWelcomesPort;
+  });
 
   return new OnboardingHandler(access, setup, welcomes);
 };

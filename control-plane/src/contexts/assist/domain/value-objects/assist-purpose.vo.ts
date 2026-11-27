@@ -19,6 +19,6 @@ export class AssistPurpose {
   }
 
   equals(other: AssistPurpose): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof AssistPurpose && this.value === other.value;
   }
 }

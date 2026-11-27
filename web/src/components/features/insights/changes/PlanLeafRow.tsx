@@ -1,5 +1,6 @@
 import { PlanRow } from '@/components/features/insights/changes/PlanRow';
 import { leafAssigned, type PlanLeaf } from '@/lib/config-plan';
+import { nonEmpty } from '@/lib/non-empty';
 
 type PlanLeafRowProps = {
   leaf: PlanLeaf;
@@ -12,8 +13,9 @@ export function PlanLeafRow({ leaf, width, depth = 0 }: PlanLeafRowProps) {
 
   return (
     <PlanRow mark={leaf.mark} depth={depth}>
-      {leaf.name && (assigned ? `${leaf.name.padEnd(width)} = ` : leaf.name)}
-      {leaf.was && leaf.now ? (
+      {nonEmpty(leaf.name) &&
+        (assigned ? `${leaf.name.padEnd(width)} = ` : leaf.name)}
+      {nonEmpty(leaf.was) && nonEmpty(leaf.now) ? (
         <>
           {leaf.was}
           <span className="text-muted-foreground">{' -> '}</span>
@@ -22,7 +24,7 @@ export function PlanLeafRow({ leaf, width, depth = 0 }: PlanLeafRowProps) {
       ) : (
         (leaf.now ?? leaf.was)
       )}
-      {leaf.note && (
+      {nonEmpty(leaf.note) && (
         <span className="text-muted-foreground"> # {leaf.note}</span>
       )}
     </PlanRow>

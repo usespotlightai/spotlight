@@ -7,12 +7,13 @@ import { catalogProblem } from '@catalog/domain/services/catalog-consistency';
 import type { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import type { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export class StaticCatalog implements CatalogItems {
   constructor(private readonly items: readonly CatalogItem[]) {
     const problem = catalogProblem(items);
 
-    if (problem) {
+    if (nonEmpty(problem)) {
       throw new InconsistentStateError('catalog', problem);
     }
   }

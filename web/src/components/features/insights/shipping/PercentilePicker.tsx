@@ -12,6 +12,7 @@ import {
   type Percentile,
   percentileName,
 } from '@/lib/insights-shipping';
+import { isOneOf } from '@/lib/one-of';
 
 type PercentilePickerProps = {
   value: Percentile;
@@ -31,7 +32,11 @@ export function PercentilePicker({ value, onChange }: PercentilePickerProps) {
       <DropdownMenuContent align="end" sideOffset={4} className="min-w-32">
         <DropdownMenuRadioGroup
           value={value}
-          onValueChange={(next) => onChange(next as Percentile)}
+          onValueChange={(next) => {
+            if (isOneOf(PERCENTILES, next)) {
+              onChange(next);
+            }
+          }}
         >
           {PERCENTILES.map((percentile) => (
             <DropdownMenuRadioItem

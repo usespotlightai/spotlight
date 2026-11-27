@@ -86,7 +86,19 @@
       {
         "maxArgs": 2
       }
-    ]
+    ],
+    "typescript/no-unsafe-type-assertion": "error",
+    "typescript/strict-boolean-expressions": [
+      "error",
+      {
+        "allowNullableBoolean": true
+      }
+    ],
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/use-unknown-in-catch-callback-variable": "error",
+    "typescript/explicit-module-boundary-types": "error",
+    "typescript/prefer-readonly": "error",
+    "no-param-reassign": "error"
   },
   "overrides": [
     {

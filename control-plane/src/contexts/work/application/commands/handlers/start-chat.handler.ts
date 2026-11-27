@@ -5,6 +5,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -80,7 +81,7 @@ export class StartChatHandler implements CommandHandlerPort<
         command.attachments,
       );
       const traces = await this.traces.shared(command.traces);
-      const targetStation = command.targetStation
+      const targetStation = nonEmpty(command.targetStation)
         ? await this.targetStationOf(command.targetStation)
         : null;
       const chat = Chat.start({

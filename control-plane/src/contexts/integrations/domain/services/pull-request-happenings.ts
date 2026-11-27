@@ -1,4 +1,5 @@
 import { UnplaceableHappeningError } from '@integrations/domain/exceptions/unplaceable-happening.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 
 const REVIEW_TRIGGERS = ['opened', 'mentioned', 'labelled'] as const;
@@ -90,7 +91,7 @@ export const PullRequestHappenings = {
       return facts.labelled ? reviewRequest(facts, 'labelled') : [];
     }
 
-    if (!facts.branch && !facts.pullRequest) {
+    if (!nonEmpty(facts.branch) && !facts.pullRequest) {
       unplaceable(activity);
     }
 

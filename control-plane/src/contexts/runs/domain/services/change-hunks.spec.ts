@@ -71,10 +71,10 @@ describe('hunksOf', () => {
   });
 
   it('finds lines inserted between others', () => {
-    const [hunk] = hunksOf('api/a.ts', 'a\nb\nc\n', 'a\nb\nnew\nc\n');
+    const hunks = hunksOf('api/a.ts', 'a\nb\nc\n', 'a\nb\nnew\nc\n');
 
-    expect(hunk?.lines).toEqual([' a', ' b', '+new', ' c']);
-    expect(hunk?.header).toBe('@@ -1,3 +1,4 @@');
+    expect(hunks[0]?.lines).toEqual([' a', ' b', '+new', ' c']);
+    expect(hunks[0]?.header).toBe('@@ -1,3 +1,4 @@');
   });
 });
 

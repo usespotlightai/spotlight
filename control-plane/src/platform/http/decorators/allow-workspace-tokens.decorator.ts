@@ -1,6 +1,6 @@
-import { SetMetadata } from '@nestjs/common';
+import { type CustomDecorator, SetMetadata } from '@nestjs/common';
 
 export const ALLOW_WORKSPACE_TOKENS = Symbol('ALLOW_WORKSPACE_TOKENS');
 
-export const AllowWorkspaceTokens = () =>
+export const AllowWorkspaceTokens = (): CustomDecorator<symbol> =>
   SetMetadata(ALLOW_WORKSPACE_TOKENS, true);

@@ -1,3 +1,4 @@
+import { nonEmpty } from '@/lib/non-empty';
 export type Whence = {
   slug: string;
   teamId: string;
@@ -5,23 +6,31 @@ export type Whence = {
 };
 
 export const stateFor = ({ slug, teamId, from }: Whence): string =>
-  [slug, teamId, from ? encodeURIComponent(from) : '']
+  [slug, teamId, nonEmpty(from) ? encodeURIComponent(from) : '']
     .join(':')
     .replace(/:$/, '');
 
 export const somewhereHere = (path: string | undefined): string | null =>
-  path && /^\/(?!\/)/.test(path) && !path.includes('\\') ? path : null;
+  nonEmpty(path) && /^\/(?!\/)/.test(path) && !path.includes('\\')
+    ? path
+    : null;
 
 export const whenceFrom = (state: string | null): Whence | null => {
-  const [slug, teamId, from, ...rest] = (state ?? '').split(':');
+  const parts = (state ?? '').split(':');
+  const [slug, teamId] = parts;
+  const from = parts.at(2);
 
-  if (!slug || !teamId || rest.length > 0) {
+  if (!slug || !teamId || parts.length > 3) {
     return null;
   }
 
-  const left = from && somewhereHere(decodeURIComponent(from));
+  const left = nonEmpty(from) ? somewhereHere(decodeURIComponent(from)) : null;
 
-  return { slug, teamId, ...(left ? { from: left } : {}) };
+  return {
+    slug,
+    teamId,
+    ...(nonEmpty(left) ? { from: left } : {}),
+  };
 };
 
 export const installUrlFor = (base: string, whence: Whence): string => {

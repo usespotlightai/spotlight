@@ -1,4 +1,5 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { BuiltInToolUse } from '@work/application/ports/built-in-tool-uses.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
@@ -45,8 +46,10 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
       runId,
       placement: proposalPlacementWithin(lines, named),
       title: TaskTitle.of(inputs.requiredText(this.tool, 'title')),
-      description: description ? TaskDescription.of(description) : null,
-      base: base ? Branch.of(base) : null,
+      description: nonEmpty(description)
+        ? TaskDescription.of(description)
+        : null,
+      base: nonEmpty(base) ? Branch.of(base) : null,
       replaces: this.replacedIn(inputs),
     };
     const position = chat.proposalPositionFor(runId).value;

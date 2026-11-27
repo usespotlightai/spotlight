@@ -6,6 +6,7 @@ import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { TOOL_INPUT_NAME } from '@integrations/domain/value-objects/provided-tool.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   DOTTED_NAME,
   INTEGRATION_KEY_SHAPE,
@@ -111,8 +112,11 @@ const authOptions = z.object({
 
 type AuthOptions = z.infer<typeof authOptions>;
 
-const namesOne = (auth: AuthOptions): boolean =>
-  Object.values(auth).filter((each) => each !== undefined).length === 1;
+const namesOne = (auth: AuthOptions): boolean => {
+  const options: readonly unknown[] = Object.values(auth);
+
+  return options.filter((each) => each !== undefined).length === 1;
+};
 
 const verifySchema = authOptions
   .refine(namesOne, 'names exactly one way to authenticate')
@@ -402,7 +406,7 @@ const connectionSchema = z.object({
             .optional(),
         })
         .strict()
-        .refine((oauth2) => !(oauth2.client && oauth2.registration), {
+        .refine((oauth2) => !(oauth2.client && nonEmpty(oauth2.registration)), {
           path: ['client'],
           message:
             'names its own client, so it registers none: remove registration or client',
@@ -410,7 +414,9 @@ const connectionSchema = z.object({
         .refine(
           (oauth2) =>
             oauth2.pkce ||
-            (oauth2.client ? !!oauth2.client.secret : !oauth2.registration),
+            (oauth2.client
+              ? nonEmpty(oauth2.client.secret)
+              : !nonEmpty(oauth2.registration)),
           {
             path: ['pkce'],
             message:
@@ -506,9 +512,7 @@ export type McpFile = z.infer<typeof mcpSchema>;
 export type ToolInputFile = z.infer<typeof toolInputSchema>;
 
 export const written = (raw: string): string => {
-  const [, inside] = EXPRESSION.exec(raw) ?? [];
-
-  return (inside ?? raw).trim();
+  return (EXPRESSION.exec(raw)?.[1] ?? raw).trim();
 };
 
 export const isExpression = (raw: string): boolean => EXPRESSION.test(raw);

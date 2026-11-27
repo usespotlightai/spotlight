@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -46,10 +47,13 @@ export class WarmPart {
     return new WarmPart(
       input.lineId,
       input.placement,
-      input.checkouts.map((each) => ({
-        path: each.path.trim(),
-        setup: each.setup?.trim() || null,
-      })),
+      input.checkouts.map((each) => {
+        const setup = each.setup?.trim();
+        return {
+          path: each.path.trim(),
+          setup: !nonEmpty(setup) ? null : setup,
+        };
+      }),
       input.fingerprint,
     );
   }

@@ -115,8 +115,8 @@ const walk = (grammar: Grammar, root: Node): Walked => {
     [root, { inBody: false, inHost: false, inImport: false, prefix: '' }],
   ];
 
-  while (stack.length > 0) {
-    const [node, context] = stack.pop() as [Node, Context];
+  for (let top = stack.pop(); top !== undefined; top = stack.pop()) {
+    const [node, context] = top;
     let prefix = context.prefix;
     let inImport = context.inImport;
 

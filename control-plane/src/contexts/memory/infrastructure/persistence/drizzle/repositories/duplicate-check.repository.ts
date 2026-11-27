@@ -12,6 +12,7 @@ import {
 } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -107,12 +108,14 @@ export class DrizzleDuplicateCheckRepository implements DuplicateCheckRepository
   constructor(private readonly context: DrizzleContext) {}
 
   async of(runId: RunId): Promise<DuplicateCheck | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(duplicateCheck)
-      .where(eq(duplicateCheck.runId, runId.value));
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(duplicateCheck)
+        .where(eq(duplicateCheck.runId, runId.value)),
+    );
 
-    return row ? checkOf(row) : null;
+    return row !== undefined ? checkOf(row) : null;
   }
 
   async ofTask(taskId: TaskId): Promise<readonly DuplicateCheck[]> {
@@ -134,22 +137,24 @@ export class DrizzleDuplicateCheckRepository implements DuplicateCheckRepository
   }
 
   async add(added: DuplicateCheck): Promise<void> {
-    const [inserted] = await this.context.db
-      .insert(duplicateCheck)
-      .values({
-        runId: added.runId.value,
-        workspaceId: added.workspaceId.value,
-        teamId: added.teamId.value,
-        taskId: added.taskId.value,
-        setId: added.setId.value,
-        createdAt: added.createdAt,
-        version: added.version,
-        ...checkColumns(added),
-      })
-      .onConflictDoNothing({ target: duplicateCheck.runId })
-      .returning({ runId: duplicateCheck.runId });
+    const inserted = firstOf(
+      await this.context.db
+        .insert(duplicateCheck)
+        .values({
+          runId: added.runId.value,
+          workspaceId: added.workspaceId.value,
+          teamId: added.teamId.value,
+          taskId: added.taskId.value,
+          setId: added.setId.value,
+          createdAt: added.createdAt,
+          version: added.version,
+          ...checkColumns(added),
+        })
+        .onConflictDoNothing({ target: duplicateCheck.runId })
+        .returning({ runId: duplicateCheck.runId }),
+    );
 
-    if (!inserted) {
+    if (inserted === undefined) {
       throw new DuplicateCheckVersionConflictError(added.runId.value);
     }
   }
@@ -192,22 +197,24 @@ export class DrizzleDuplicateCheckRepository implements DuplicateCheckRepository
   }
 
   async nextDue(now: Date): Promise<DuplicateCheck | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(duplicateCheck)
-      .where(
-        and(
-          eq(duplicateCheck.state, 'pending'),
-          or(
-            isNull(duplicateCheck.jobDueAt),
-            lte(duplicateCheck.jobDueAt, now),
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(duplicateCheck)
+        .where(
+          and(
+            eq(duplicateCheck.state, 'pending'),
+            or(
+              isNull(duplicateCheck.jobDueAt),
+              lte(duplicateCheck.jobDueAt, now),
+            ),
           ),
-        ),
-      )
-      .orderBy(asc(duplicateCheck.createdAt))
-      .limit(1)
-      .for('update', { skipLocked: true });
+        )
+        .orderBy(asc(duplicateCheck.createdAt))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
-    return row ? checkOf(row) : null;
+    return row !== undefined ? checkOf(row) : null;
   }
 }

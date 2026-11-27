@@ -1,6 +1,7 @@
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { useStation } from '@/hooks/api/useStation';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { nonEmpty } from '@/lib/non-empty';
 import { stationPath } from '@/lib/station';
 import { linePath } from '@/lib/team';
 import { teamCrumb } from '@/lib/team-crumb';
@@ -23,11 +24,14 @@ export function useStationTrail({
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
   return [
-    ...(team && slug ? [teamCrumb(slug, team)] : []),
-    ...(line && slug && teamId
+    ...(team && nonEmpty(slug) ? [teamCrumb(slug, team)] : []),
+    ...(line && nonEmpty(slug) && nonEmpty(teamId)
       ? [{ label: line.name, to: linePath(slug, teamId, line.id) }]
       : []),
-    ...(slug && teamId && lineId && stationId
+    ...(nonEmpty(slug) &&
+    nonEmpty(teamId) &&
+    nonEmpty(lineId) &&
+    nonEmpty(stationId)
       ? [
           {
             label: station?.name ?? 'Removed station',

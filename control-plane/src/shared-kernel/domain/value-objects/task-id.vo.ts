@@ -13,7 +13,7 @@ export class TaskId {
   }
 
   equals(other: TaskId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof TaskId && this.value === other.value;
   }
 
   toString(): string {

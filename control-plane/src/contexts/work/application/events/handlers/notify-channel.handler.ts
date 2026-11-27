@@ -77,7 +77,10 @@ export class NotifyChannel implements RunEndingReactions {
             null,
           )
         : null;
-    const body = ChannelReplies.answered(lastWords?.trim() || null, proposals);
+    const body = ChannelReplies.answered(
+      (lastWords?.trim() ?? '') || null,
+      proposals,
+    );
 
     if (body) {
       await this.post(chat, 'chat.replied', body, null, proposals);

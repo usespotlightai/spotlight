@@ -12,6 +12,7 @@ import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -24,13 +25,15 @@ const claimants = (
   known: { pool?: RunnerPool | null; trust?: RunnerTrust | null } = {},
 ) =>
   new RunnerClaimants(
-    { find: vi.fn(async () => runner) } as unknown as RunnerRepository,
-    {
+    partial<RunnerRepository>({
+      find: vi.fn(async () => runner),
+    }),
+    partial<RunnerPoolRepository>({
       find: vi.fn(async () => known.pool ?? null),
-    } as unknown as RunnerPoolRepository,
-    {
+    }),
+    partial<RunnerTrustRepository>({
       find: vi.fn(async () => known.trust ?? null),
-    } as unknown as RunnerTrustRepository,
+    }),
   );
 
 describe('RunnerClaimants', () => {
@@ -92,9 +95,11 @@ describe('RunnerClaimants', () => {
     const pools = { find: vi.fn(async () => aPullPool()) };
     const trusts = { find: vi.fn(async () => aTrust()) };
     const found = await new RunnerClaimants(
-      { find: vi.fn(async () => aRunner()) } as unknown as RunnerRepository,
-      pools as unknown as RunnerPoolRepository,
-      trusts as unknown as RunnerTrustRepository,
+      partial<RunnerRepository>({
+        find: vi.fn(async () => aRunner()),
+      }),
+      partial<RunnerPoolRepository>(pools),
+      partial<RunnerTrustRepository>(trusts),
     ).claimantOf(ID, SOON);
 
     expect(found).not.toHaveProperty('source');

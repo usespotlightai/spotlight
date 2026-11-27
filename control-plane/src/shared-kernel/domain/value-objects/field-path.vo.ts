@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 export type FieldSegment = string | number;
 
 const INDEX = /^\d+$/;
@@ -27,14 +28,20 @@ const renderedSegment = (segment: FieldSegment, first: boolean): string => {
   return `[${JSON.stringify(segment)}]`;
 };
 
-const parsedSegment = ([, name, index, any, quoted]: RegExpExecArray):
-  | FieldSegment
-  | undefined =>
+const parsedString = (quoted: string): string | undefined => {
+  const parsed: unknown = JSON.parse(quoted);
+
+  return typeof parsed === 'string' ? parsed : undefined;
+};
+
+const parsedSegment = ([, name, index, any, quoted]: readonly (
+  | string
+  | undefined
+)[]): FieldSegment | undefined =>
   name ??
   (index !== undefined
     ? Number(index)
-    : (any ??
-      (quoted !== undefined ? (JSON.parse(quoted) as string) : undefined)));
+    : (any ?? (quoted !== undefined ? parsedString(quoted) : undefined)));
 
 export class FieldPath {
   private constructor(readonly segments: readonly FieldSegment[]) {}
@@ -68,7 +75,7 @@ export class FieldPath {
   static parsed(written: string): FieldPath | null {
     const first = FIRST.exec(written)?.[0];
 
-    if (!first) {
+    if (!nonEmpty(first)) {
       return null;
     }
 

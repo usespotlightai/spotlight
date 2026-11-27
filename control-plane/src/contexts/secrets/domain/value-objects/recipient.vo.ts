@@ -14,6 +14,6 @@ export class Recipient {
   }
 
   equals(other: Recipient): boolean {
-    return this.kind === other.kind && this.key === other.key;
+    return other instanceof Recipient && this.key === other.key;
   }
 }

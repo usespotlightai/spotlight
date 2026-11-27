@@ -1,3 +1,5 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -161,10 +163,10 @@ describe('Notices', () => {
 
   it('creates no team notice for a team that is gone', async () => {
     const memory = new InMemoryNotices();
-    const gone = {
+    const gone = partial<typeof access>({
       ...access,
       membersOf: async () => null,
-    } as unknown as typeof access;
+    });
 
     await new Notices(
       memory,
@@ -188,7 +190,11 @@ describe('Notices', () => {
 
     await noticesOver(memory).create(STALLED);
 
-    const [id] = [...memory.stored.keys()] as [string];
+    const id = firstOf([...memory.stored.keys()]);
+
+    if (id === undefined) {
+      throw new Error('expected a stored notice');
+    }
 
     members.add('team_1:user_2');
     await expect(resolve(id, 'acme', 'user_2')).rejects.toMatchObject({

@@ -1,7 +1,8 @@
 import { type ReactNode, useId } from 'react';
 
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
-import type { TooltipText } from '@/lib/tooltip-note';
+import { nonEmpty } from '@/lib/non-empty';
+import { hasTooltip, type TooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 type TabSectionProps = {
@@ -44,8 +45,8 @@ export function TabSection({
           >
             {title}
           </Heading>
-          {description && <InfoTooltip tooltip={description} />}
-          {scope && (
+          {hasTooltip(description) && <InfoTooltip tooltip={description} />}
+          {nonEmpty(scope) && (
             <span className="pl-1 text-muted-foreground text-sm">{scope}</span>
           )}
         </span>

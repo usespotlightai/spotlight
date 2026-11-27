@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ExternalTextLink } from '@/components/shared/ExternalTextLink';
 import {
   CURRENT_VERSION,
@@ -6,7 +8,11 @@ import {
   versionLinkOf,
 } from '@/lib/judge';
 
-export function VersionLabel({ version }: { version: RubricVersion }) {
+export function VersionLabel({
+  version,
+}: {
+  version: RubricVersion;
+}): ReactElement | string {
   const link = versionLinkOf(version.source);
 
   if (!link) {

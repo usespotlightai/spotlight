@@ -131,7 +131,7 @@ describe('tab history', () => {
   const runs = three.tabs[1];
   const insights = { path: '/w/acme/team/team_1/insights' };
   const agent = { path: '/w/acme/team/team_1/agent' };
-  const tabB = (tabs: AppTabs) => tabs.tabs[1];
+  const tabB = (tabs: AppTabs) => tabs.tabs.at(1);
 
   it('pushes the page left behind and drops the forward entries', () => {
     const stepped = back(visited(visited(three, insights), agent));
@@ -220,7 +220,7 @@ describe('tab history', () => {
       tabs: [{ id: 'a', path: '/w/acme/inbox', title: 'Inbox' }],
       activeId: 'a',
     });
-    const [tab] = storedTabs(stored, 'new', { path: '/w/acme/inbox' }).tabs;
+    const tab = storedTabs(stored, 'new', { path: '/w/acme/inbox' }).tabs.at(0);
 
     expect(tab?.back).toEqual([]);
     expect(tab?.forward).toEqual([]);
@@ -238,7 +238,7 @@ describe('tab history', () => {
       ],
       activeId: 'a',
     });
-    const [tab] = storedTabs(stored, 'new', { path: '/w/acme/inbox' }).tabs;
+    const tab = storedTabs(stored, 'new', { path: '/w/acme/inbox' }).tabs.at(0);
 
     expect(tab?.back).toEqual([{ path: '/w/acme/ok' }]);
     expect(tab?.forward).toEqual([]);
@@ -340,7 +340,7 @@ describe('storedTabs', () => {
 
     const [first, second] = storedTabs(stored, 'new', here).tabs;
 
-    expect(first?.state).toEqual({ trail });
+    expect(first.state).toEqual({ trail });
     expect(second).toEqual({
       id: 'b',
       path: '/w/acme/settings',

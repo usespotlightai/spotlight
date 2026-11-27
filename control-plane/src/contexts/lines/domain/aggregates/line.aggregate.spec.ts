@@ -21,6 +21,7 @@ import { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
 import { StationRoutes } from '@lines/domain/value-objects/station-routes.vo';
 import { TaskCounts } from '@lines/domain/value-objects/stranded-station';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
@@ -94,7 +95,7 @@ const COMMENTED = Happening.of('github.pull_request.commented');
 const sends = (to: string, from?: string) =>
   Reaction.of({
     happening: COMMENTED,
-    from: from ? StationId.of(from) : null,
+    from: nonEmpty(from) ? StationId.of(from) : null,
     to: StationId.of(to),
   });
 
@@ -110,8 +111,15 @@ const created = () => {
   });
 };
 
-const kindOf = (line: Line, kind: 'backlog' | 'completed') =>
-  line.stations.find((each) => each.kind === kind) as Station;
+const kindOf = (line: Line, kind: 'backlog' | 'completed'): Station => {
+  const found = line.stations.find((each) => each.kind === kind);
+
+  if (found === undefined) {
+    throw new Error(`expected a ${kind} station`);
+  }
+
+  return found;
+};
 
 const NO_TASKS = TaskCounts.NONE;
 const countsOf = (entries: readonly [string, number][]): TaskCounts =>
@@ -561,10 +569,7 @@ describe('Line, what it records of its changes', () => {
         .filter((each) => each instanceof LineUpdated);
 
       expect(
-        lineUpdated?.stations.map((each) => [
-          each.id.value,
-          each.claimsChanged,
-        ]),
+        lineUpdated.stations.map((each) => [each.id.value, each.claimsChanged]),
       ).toEqual([
         ['backlog_1', false],
         ['station_1', false],
@@ -593,7 +598,7 @@ describe('Line, what it records of its changes', () => {
         .pullEvents()
         .filter((each) => each instanceof LineUpdated);
 
-      expect(lineUpdated?.stationIds.map((each) => each.value).sort()).toEqual([
+      expect(lineUpdated.stationIds.map((each) => each.value).sort()).toEqual([
         'backlog_1',
         'completed_1',
         'station_1',
@@ -707,11 +712,11 @@ describe('Line, what it records of its changes', () => {
       const [, working] = line.stations;
 
       expect(() =>
-        line.delete(countsOf([[working?.id.value ?? '', 2]]), changeActorIn()),
+        line.delete(countsOf([[working.id.value, 2]]), changeActorIn()),
       ).toThrow(LineInUseError);
       expect(() =>
-        line.delete(countsOf([[working?.id.value ?? '', 2]]), changeActorIn()),
-      ).toThrow(`${working?.name.value} (2)`);
+        line.delete(countsOf([[working.id.value, 2]]), changeActorIn()),
+      ).toThrow(`${working.name.value} (2)`);
     });
   });
 });

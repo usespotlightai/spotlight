@@ -6,6 +6,7 @@ import { IntegrationReader } from '@integrations/infrastructure/integrations/int
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -50,10 +51,10 @@ describe('IntegrationSecretUses', () => {
     new CelExpressionEngine(),
     operationsContaining(),
   );
-  const runtime = {
+  const runtime = partial<IntegrationRuntimePort>({
     integrations: (definitions) =>
       reader.readable(definitions).integrations.map((each) => each.integration),
-  } as Pick<IntegrationRuntimePort, 'integrations'> as IntegrationRuntimePort;
+  });
   const uses = new IntegrationSecretUses(
     new IntegrationsUsingSecret(
       teams,

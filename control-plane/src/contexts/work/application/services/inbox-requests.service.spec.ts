@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { InboxRequestOf } from '@work/application/ports/inbox-requests.port';
@@ -21,7 +22,7 @@ const asiding = (input: { task?: boolean } = {}) => {
   const stored: InboxRequest[] = [];
 
   const inboxRequests = new InboxRequests(
-    {
+    partial<InboxRequestRepository>({
       add: async (inboxRequest: InboxRequest) => {
         stored.push(inboxRequest);
       },
@@ -39,13 +40,13 @@ const asiding = (input: { task?: boolean } = {}) => {
             each.form === form &&
             each.about.equals(about),
         ) ?? null,
-    } as unknown as InboxRequestRepository,
-    {
+    }),
+    partial<TaskRepository>({
       find: async () =>
         (input.task ?? true)
-          ? ({ id: TASK, workspaceId: WorkspaceId.of('ws_1') } as Task)
+          ? partial<Task>({ id: TASK, workspaceId: WorkspaceId.of('ws_1') })
           : null,
-    } as unknown as TaskRepository,
+    }),
     { inTransaction: <T>(work: () => Promise<T>) => work() },
     { generate: () => 'request_1' },
     { now: () => NOW, sleep: async () => undefined },

@@ -7,6 +7,7 @@ import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
 import { useRepositories } from '@/hooks/api/useRepositories';
+import { nonEmpty } from '@/lib/non-empty';
 import { teamSectionPath } from '@/lib/team';
 import { useForwardTrail } from '@/lib/trail';
 import { cn } from '@/lib/utils';
@@ -31,7 +32,7 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
   const open = () => {
     const chosen = folder.trim();
 
-    if (!repository || !chosen || reading.length === 0) {
+    if (!nonEmpty(repository) || !chosen || reading.length === 0) {
       return;
     }
 
@@ -91,7 +92,9 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
       <Button
         type="submit"
         size="sm"
-        disabled={!repository || !folder.trim() || reading.length === 0}
+        disabled={
+          !nonEmpty(repository) || !folder.trim() || reading.length === 0
+        }
         className={cn(SETUP_CONTROL, 'col-span-2 mt-4 w-fit')}
       >
         Continue in chat

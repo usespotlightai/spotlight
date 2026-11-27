@@ -1,14 +1,15 @@
 import { redisRateLimit } from '@identity/infrastructure/auth/redis-rate-limit';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import RedisMock from 'ioredis-mock';
 import { describe, expect, it, vi } from 'vitest';
 
-const logger = {
+const logger = partial<LoggerPort>({
   info: vi.fn(),
   error: vi.fn(),
   warn: vi.fn(),
   debug: vi.fn(),
-} as unknown as LoggerPort;
+});
 
 const rule = { window: 10, max: 3 };
 

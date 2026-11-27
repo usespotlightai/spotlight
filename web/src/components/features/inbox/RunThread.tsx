@@ -50,7 +50,7 @@ export function RunThread({
   const conversationQuery = useRunNotes(teamId, runId);
   const journal = useTaskJournal(slug, taskId, [
     runId,
-    conversationQuery.data?.latestRun?.id,
+    conversationQuery.data?.latestRun.id,
   ]);
   const { data: run } = useTeamRun(teamId, runId);
   const decide = useRunDeciding(slug, run);

@@ -27,6 +27,7 @@ import { useSlideFrom } from '@/hooks/useSlideFrom';
 import { useTabLinks } from '@/hooks/useTabLinks';
 import { useWorkspaceOverlays } from '@/hooks/useWorkspaceOverlays';
 import type { SplitSide } from '@/lib/app-tabs';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
@@ -80,7 +81,7 @@ export function Workspace({ pages }: WorkspaceProps) {
       )
     );
   };
-  const paneIds = tabs.panes.right
+  const paneIds = nonEmpty(tabs.panes.right)
     ? [tabs.panes.left, tabs.panes.right]
     : [tabs.panes.left];
   const dropSides = (index: number): SplitSide[] => {
@@ -98,7 +99,7 @@ export function Workspace({ pages }: WorkspaceProps) {
     onPlace: tabs.place,
   };
 
-  if (!slug) {
+  if (!nonEmpty(slug)) {
     return null;
   }
 
@@ -167,7 +168,7 @@ export function Workspace({ pages }: WorkspaceProps) {
             tabs.hidePane(section === 'main' ? 'left' : 'right')
           }
           panes={paneIds.map((id, index) => ({
-            key: id ?? 'main',
+            key: id,
             content: (
               <>
                 {paneOf(id)}

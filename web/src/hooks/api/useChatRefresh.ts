@@ -6,14 +6,15 @@ import { inboxKeys } from '@/hooks/api/useInbox';
 import { journalKeys } from '@/hooks/api/useRunJournals';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import type { Chat } from '@/lib/chat';
+import { nonEmpty } from '@/lib/non-empty';
 
-export function useChatRefresh(chatId: string | undefined, chat?: Chat) {
+export function useChatRefresh(chatId: string | undefined, chat?: Chat): void {
   const queryClient = useQueryClient();
   const runId = chat?.runId ?? undefined;
   const lastRunId = useRef(runId);
 
   useEffect(() => {
-    if (runId) {
+    if (nonEmpty(runId)) {
       lastRunId.current = runId;
     }
   }, [runId]);
@@ -33,7 +34,7 @@ export function useChatRefresh(chatId: string | undefined, chat?: Chat) {
     void queryClient.invalidateQueries({
       queryKey: journalKeys.runsOfChat(chatId),
     });
-    if (lastRunId.current) {
+    if (nonEmpty(lastRunId.current)) {
       void queryClient.invalidateQueries({
         queryKey: journalKeys.ofRun(lastRunId.current),
       });

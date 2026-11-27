@@ -1,21 +1,22 @@
+import type { SequencedNotice } from '@platform/live/change-notices';
 import { LiveWrites } from '@platform/live/live-writes';
 import { describe, expect, it, vi } from 'vitest';
 
 describe('LiveWrites', () => {
   it('gives the last sequence of each channel a write published on', async () => {
-    const published: Promise<never[]>[] = [];
+    const published: Promise<readonly SequencedNotice[]>[] = [];
     const header = LiveWrites.within(published, async () => {
       LiveWrites.track(
-        Promise.resolve([
+        Promise.resolve<readonly SequencedNotice[]>([
           { channel: 'workspace:ws_1', topic: 'task', ids: {}, sequence: 4 },
           { channel: 'workspace:ws_1', topic: 'inbox', ids: {}, sequence: 5 },
-        ]) as Promise<never[]>,
+        ]),
       );
       LiveWrites.track(
-        Promise.resolve([
+        Promise.resolve<readonly SequencedNotice[]>([
           { channel: 'person:user_1', topic: 'chat', ids: {}, sequence: 9 },
           { channel: 'person:user_1', topic: 'chat', ids: {}, sequence: null },
-        ]) as Promise<never[]>,
+        ]),
       );
 
       return LiveWrites.headerOf(published);
@@ -48,7 +49,7 @@ describe('LiveWrites', () => {
   });
 
   it('keeps work started outside a write out of its sequences', () => {
-    const published: Promise<never[]>[] = [];
+    const published: Promise<readonly SequencedNotice[]>[] = [];
 
     LiveWrites.within(published, () =>
       LiveWrites.outside(() => LiveWrites.track(Promise.resolve([]))),

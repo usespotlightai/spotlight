@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { chatKeys } from '@/hooks/api/useChats';
 import { inboxKeys } from '@/hooks/api/useInbox';
@@ -12,7 +16,12 @@ type DismissProposalInput = {
   position: number;
 };
 
-export function useDismissProposal() {
+export function useDismissProposal(): UseMutationResult<
+  void,
+  Error,
+  DismissProposalInput,
+  void
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

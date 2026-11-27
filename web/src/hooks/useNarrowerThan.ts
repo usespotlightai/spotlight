@@ -3,7 +3,7 @@ import { type RefObject, useLayoutEffect, useState } from 'react';
 export function useNarrowerThan(
   element: RefObject<HTMLElement | null>,
   px: number,
-) {
+): boolean {
   const [narrower, setNarrower] = useState(false);
 
   useLayoutEffect(() => {
@@ -21,7 +21,8 @@ export function useNarrowerThan(
       }
     };
     measure(target.clientWidth);
-    const observer = new ResizeObserver(([entry]) => {
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries.at(0);
       if (entry) {
         measure(entry.contentRect.width);
       }

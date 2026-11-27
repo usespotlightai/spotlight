@@ -29,7 +29,9 @@ type Injecting = (secret: Secret) => Promise<InjectedSecret>;
 const standInFor =
   (url: string): Injecting =>
   async (secret) =>
-    secret.standInFor(url);
+    new Promise((resolve) => {
+      resolve(secret.standInFor(url));
+    });
 
 export class SecretInjection implements SecretInjectionPort {
   constructor(

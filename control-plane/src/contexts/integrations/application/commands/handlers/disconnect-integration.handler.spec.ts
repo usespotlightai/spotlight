@@ -1,4 +1,7 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type {
+  TeamWorkspaceMembership,
+  WorkspaceAccessPort,
+} from '@identity/application/ports/workspace-access.port';
 import { DisconnectIntegrationCommand } from '@integrations/application/commands/disconnect-integration.command';
 import { DisconnectIntegrationHandler } from '@integrations/application/commands/handlers/disconnect-integration.handler';
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
@@ -8,6 +11,7 @@ import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo'
 import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { InMemoryIntegrationConnections } from '@integrations/integrations.connections.fake-spec';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -39,13 +43,14 @@ const disconnecting = (member = true) => {
   return {
     connections,
     handler: new DisconnectIntegrationHandler(
-      {
-        inWorkspaceOfTeam: async () => (member ? {} : null),
-      } as unknown as WorkspaceAccessPort,
+      partial<WorkspaceAccessPort>({
+        inWorkspaceOfTeam: async () =>
+          member ? partial<TeamWorkspaceMembership>({}) : null,
+      }),
       connections,
-      {
-        inTransaction: (work: () => Promise<unknown>) => work(),
-      } as TransactionPort,
+      partial<TransactionPort>({
+        inTransaction: <T>(work: () => Promise<T>) => work(),
+      }),
     ),
   };
 };

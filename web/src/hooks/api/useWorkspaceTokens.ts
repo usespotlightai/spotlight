@@ -1,19 +1,25 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { listWorkspaceTokens } from '@/lib/api';
+import {
+  listWorkspaceTokens,
+  type WorkspaceTokenResourceResponseDto,
+} from '@/lib/api';
+import { required } from '@/lib/required';
 
 export const tokenKeys = {
   forWorkspace: (workspaceId?: string) =>
     ['workspace-tokens', workspaceId ?? null] as const,
 };
 
-export function useWorkspaceTokens(workspaceId: string | undefined) {
+export function useWorkspaceTokens(
+  workspaceId: string | undefined,
+): UseQueryResult<WorkspaceTokenResourceResponseDto[]> {
   return useQuery({
     queryKey: tokenKeys.forWorkspace(workspaceId),
     enabled: Boolean(workspaceId),
     queryFn: async () => {
       const { data } = await listWorkspaceTokens({
-        path: { workspaceId: workspaceId as string },
+        path: { workspaceId: required(workspaceId) },
         throwOnError: true,
       });
       return data.items;

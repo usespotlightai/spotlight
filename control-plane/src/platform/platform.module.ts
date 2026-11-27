@@ -85,6 +85,7 @@ import { TELEMETRY } from '@shared-kernel/application/ports/telemetry.port';
 import { TOKEN_ISSUER } from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 
@@ -229,8 +230,8 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
         subscribers: EventSubscribers,
       ) => {
         if (
-          env.SPOTLIGHT_EVENT_WEBHOOK_URL &&
-          env.SPOTLIGHT_EVENT_WEBHOOK_SECRET
+          nonEmpty(env.SPOTLIGHT_EVENT_WEBHOOK_URL) &&
+          nonEmpty(env.SPOTLIGHT_EVENT_WEBHOOK_SECRET)
         ) {
           const webhook = new EventWebhook(
             {

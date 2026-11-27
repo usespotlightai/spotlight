@@ -13,6 +13,8 @@ import { S3AvatarImages } from '@identity/infrastructure/storage/s3-avatar-image
 import { KeyOverlay } from '@platform/storage/key-overlay';
 import type { S3Clients } from '@platform/storage/s3-clients';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -35,8 +37,13 @@ const bucket = (prefix?: string) => {
   const objects = new Map<string, Stored>();
   const send = async (command: unknown): Promise<unknown> => {
     if (command instanceof PutObjectCommand) {
+      const body = command.input.Body;
+
+      if (!(body instanceof Uint8Array)) {
+        throw new Error('Expected the image bytes');
+      }
       objects.set(command.input.Key ?? '', {
-        body: command.input.Body as Uint8Array,
+        body,
         contentType: command.input.ContentType,
       });
       return {};
@@ -60,7 +67,7 @@ const bucket = (prefix?: string) => {
         .filter((key) => key.startsWith(command.input.Prefix ?? ''))
         .sort();
       const after = command.input.ContinuationToken;
-      const rest = after ? keys.filter((key) => key > after) : keys;
+      const rest = nonEmpty(after) ? keys.filter((key) => key > after) : keys;
       const page = rest.slice(0, PAGE);
       const truncated = rest.length > PAGE;
       return {
@@ -77,7 +84,7 @@ const bucket = (prefix?: string) => {
     }
     throw new Error('Unexpected S3 command');
   };
-  const store = { send } as unknown as S3Client;
+  const store = partial<S3Client>({ send });
 
   return {
     objects,

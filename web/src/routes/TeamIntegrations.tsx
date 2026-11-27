@@ -13,6 +13,7 @@ import { useMembers } from '@/hooks/api/useMembers';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useClearedParam } from '@/hooks/useClearedParam';
 import { actsAsEachPerson, joinedOf } from '@/lib/integration';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
 
@@ -27,7 +28,7 @@ export function TeamIntegrations() {
 
   useClearedParam('connected');
 
-  if (!slug || !teamId) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId)) {
     return null;
   }
 

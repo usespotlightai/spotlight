@@ -26,7 +26,6 @@ import { StartCheckReplays } from '@replays/application/services/start-check-rep
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import { StopFailedChecks } from '@replays/application/services/stop-failed-checks.service';
 import { StopSupersededChecks } from '@replays/application/services/stop-superseded-checks.service';
-import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
@@ -46,10 +45,10 @@ import {
   replayedAs,
   replayFor,
   runIds,
-  STATION,
   SEARCH_ID,
   sha256,
   slots,
+  STATION,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { DependencyFacts } from '@replays/domain/value-objects/dependency-facts';
@@ -70,6 +69,7 @@ import { ApplicationError } from '@shared-kernel/application/errors/application-
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { IdempotentLookupsPort } from '@shared-kernel/application/ports/idempotent-lookups.port';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -141,8 +141,11 @@ let asked: { station: string; hooks: readonly unknown[] }[];
 const texts = (value: unknown): readonly string[] =>
   Array.isArray(value) ? value.filter((each) => typeof each === 'string') : [];
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
 const dependingOn = (block: unknown) => {
-  const fields = block as Record<string, unknown>;
+  const fields = isRecord(block) ? block : {};
 
   return {
     dependsOn: {
@@ -294,10 +297,9 @@ const idOf = (started: ReplayCheckStartedOutcome): string => {
   return started.id;
 };
 
-const checkOf = (id: string): ReplayCheck =>
-  checks.stored.get(id) as ReplayCheck;
+const checkOf = (id: string): ReplayCheck => present(checks.stored.get(id));
 
-const ownReplayOf = (id: string): ReplayId => checkOf(id).replayId as ReplayId;
+const ownReplayOf = (id: string): ReplayId => present(checkOf(id).replayId);
 
 const wantedBaselines = () =>
   memory.events.filter(
@@ -320,7 +322,7 @@ const startingBaselines = async () => {
 };
 
 const finished = async (replayId: ReplayId, succeeds = true) => {
-  const replay = memory.replays.get(replayId.value) as Replay;
+  const replay = present(memory.replays.get(replayId.value));
 
   memory.replays.set(
     replayId.value,
@@ -378,9 +380,7 @@ describe('StartReplayCheckHandler', () => {
     );
     const check = checkOf(id);
     const replay = memory.replays.get(check.replayId?.value ?? '');
-    const candidate = memory.candidates.get(
-      check.candidateId.value,
-    ) as Candidate;
+    const candidate = present(memory.candidates.get(check.candidateId.value));
 
     expect(validated).toEqual([
       {
@@ -439,7 +439,7 @@ describe('StartReplayCheckHandler', () => {
 
     memory.replays.set(
       ownReplayOf(first).value,
-      (memory.replays.get(ownReplayOf(first).value) as Replay).stop(
+      present(memory.replays.get(ownReplayOf(first).value)).stop(
         NOW,
         BY,
         'search-ended',
@@ -805,7 +805,7 @@ describe('EnsureCheckBaselines', () => {
   it('starts no baseline for a check whose replay stopped, which reads as stopped', async () => {
     keptAtStation();
     const id = idOf(await start());
-    const replay = memory.replays.get(ownReplayOf(id).value) as Replay;
+    const replay = present(memory.replays.get(ownReplayOf(id).value));
     await memory.replayRepository.save(replay.stop(NOW, BY, 'search-ended'));
 
     await ensuring();
@@ -978,7 +978,7 @@ describe('StopSupersededChecks', () => {
   };
 
   const replayOf = (id: string) =>
-    memory.replays.get(ownReplayOf(id).value) as Replay;
+    present(memory.replays.get(ownReplayOf(id).value));
 
   it('stops the replay of an earlier check of the same pull request once a later change of it starts a check', async () => {
     keptAtStation();
@@ -1066,7 +1066,7 @@ describe('StartReplayCheckHandler, after a search', () => {
 
   it('takes a search’s replays of the same config as its result, against the search’s seed, and replays nothing once they cover every run', async () => {
     const set = keptAtStation();
-    const [first, second, third] = set.runs as [RunId, RunId, RunId];
+    const [first, second, third] = set.runs;
     searched(set, [[first, second], [third]]);
     const before = memory.replays.size;
 
@@ -1093,11 +1093,11 @@ describe('StartReplayCheckHandler, after a search', () => {
 
   it('replays only the runs no search replayed, against the search’s seed', async () => {
     const set = keptAtStation();
-    const [first, second, third] = set.runs as [RunId, RunId, RunId];
+    const [first, second, third] = set.runs;
     searched(set, [[first, second]]);
 
     const id = idOf(await start());
-    const own = memory.replays.get(ownReplayOf(id).value) as Replay;
+    const own = present(memory.replays.get(ownReplayOf(id).value));
 
     expect(own.runSubset?.map((each) => each.value)).toEqual([third.value]);
     expect(own.pairwiseReferenceId?.value).toBe('replay_seed');
@@ -1142,17 +1142,17 @@ describe('StopFailedChecks', () => {
     const id = idOf(await start());
 
     await startingBaselines();
-    const baseline = [...memory.replays.values()].find(
-      (each) => each.baseline,
-    ) as Replay;
+    const baseline = present(
+      [...memory.replays.values()].find((each) => each.baseline),
+    );
     await finished(baseline.id);
 
-    const own = (memory.replays.get(ownReplayOf(id).value) as Replay).reserving(
+    const own = present(memory.replays.get(ownReplayOf(id).value)).reserving(
       slots(set.runs.length),
       runIds(),
     );
     const [entry] = own.entries;
-    const run = entry?.run as RunId;
+    const run = present(entry.run);
     memory.replays.set(own.id.value, ranToEnd(own, run, 'failed', 1));
 
     await new StopFailedChecks(
@@ -1163,7 +1163,7 @@ describe('StopFailedChecks', () => {
       TRANSACTION,
     ).concluded(new ReplayEntryConcluded(own.id, set.workspaceId, set.id, run));
 
-    const stopped = memory.replays.get(own.id.value) as Replay;
+    const stopped = present(memory.replays.get(own.id.value));
 
     expect(stopped.wasStopped).toBe(true);
     expect(stopped.stoppedBecause).toBe('check-failed');

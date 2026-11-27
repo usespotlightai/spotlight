@@ -1,5 +1,6 @@
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type IconRowSkeletonProps = {
@@ -19,12 +20,12 @@ export function IconRowSkeleton({
         <Skeleton className="size-8 shrink-0 rounded-full" />
         <div className="flex min-w-0 flex-col gap-0.5">
           <SkeletonLine className={cn(nameWidth, 'max-w-full text-sm')} />
-          {aboutWidth && (
+          {nonEmpty(aboutWidth) && (
             <SkeletonLine className={cn(aboutWidth, 'max-w-full text-xs')} />
           )}
         </div>
       </div>
-      {trailingWidth && (
+      {nonEmpty(trailingWidth) && (
         <SkeletonLine className={cn(trailingWidth, 'shrink-0 text-xs')} />
       )}
     </div>

@@ -23,13 +23,18 @@ import { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import { LongPoll } from '@runs/application/services/long-poll';
 import type { RunClaims } from '@runs/application/services/run-claims.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import {
+  claimer,
+  orderedFor,
+  workingCopyKeyOf,
+} from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
@@ -116,10 +121,15 @@ const pulling = (
     },
   ].flat();
   const runners = {
-    start: vi.fn(
-      async (): Promise<StartedRunner> =>
-        (answers.length > 1 ? answers.shift() : answers[0]) as StartedRunner,
-    ),
+    start: vi.fn(async (): Promise<StartedRunner> => {
+      const answer = answers.length > 1 ? answers.shift() : answers[0];
+
+      if (answer === undefined) {
+        throw new Error('no runner left to start');
+      }
+
+      return answer;
+    }),
     claim: vi.fn(async () => {
       if (over.tookFails) {
         throw new Error('pooled_1 is spent');
@@ -156,7 +166,7 @@ const pulling = (
     })),
   };
   const saved: Run[] = [];
-  const runs = {
+  const runs = partial<RunRepository>({
     newestWithKey: vi.fn(async () => over.newest ?? null),
     queuedWithKey: vi.fn(async () => over.queuedForKey ?? []),
     queuedFirstRuns: vi.fn(
@@ -179,7 +189,7 @@ const pulling = (
     save: vi.fn(async (run: Run) => {
       saved.push(run);
     }),
-  } as unknown as RunRepository;
+  });
   const unclaim = vi.fn(async () => {});
   const checks = {
     claimNext: claimCheck,
@@ -217,12 +227,14 @@ const pulling = (
     renewArchive: vi.fn(async () => true),
     archivedAttemptOf: vi.fn(async () => null),
   } satisfies SandboxesPort;
-  const archives = {
+  const archives = partial<WorkingCopyArchiveRepository>({
     completedKeysAmong: vi.fn(
       async (_: WorkspaceId, keys: readonly WorkingCopyKey[]) =>
-        keys.filter((key) => over.archived?.some((each) => each.equals(key))),
+        keys.filter(
+          (key) => over.archived?.some((each) => each.equals(key)) === true,
+        ),
     ),
-  } as unknown as WorkingCopyArchiveRepository;
+  });
   const waitsFor = vi.fn(async () => over.waits ?? false);
   const drained: boolean[] = [];
   const roomForWarmOn = vi.fn(
@@ -242,14 +254,14 @@ const pulling = (
   } satisfies WarmSlotsPort;
   const handler = new ClaimHostWorkHandler(
     authenticator,
-    runners as unknown as RunnersPort,
+    partial<RunnersPort>(runners),
     heartbeats,
     runs,
-    { next: claimNext, waitsFor } as unknown as RunClaims,
+    partial<RunClaims>({ next: claimNext, waitsFor }),
     checks,
     clock,
-    { mayStart: mayStart } as unknown as ClaimGate,
-    new ClaimsTaken(runs, checks, runners as unknown as RunnersPort, clock, {
+    partial<ClaimGate>({ mayStart: mayStart }),
+    new ClaimsTaken(runs, checks, partial<RunnersPort>(runners), clock, {
       debug: () => {},
       info: () => {},
       warn: () => {},
@@ -919,7 +931,7 @@ describe('ClaimHostWorkHandler', () => {
           { id: 'sandbox_w', line: 'line_1', fingerprint: SETUP_OF_LINE_1 },
         ],
         firstRuns: [firstRun()],
-        archived: [firstRun().workingCopyKey as WorkingCopyKey],
+        archived: [workingCopyKeyOf(firstRun())],
       });
 
       await handler.execute(pull());
@@ -939,7 +951,7 @@ describe('ClaimHostWorkHandler', () => {
         ],
         firstRuns: [archivedRun, firstRun()],
         firstRunsPerPage: 1,
-        archived: [archivedRun.workingCopyKey as WorkingCopyKey],
+        archived: [workingCopyKeyOf(archivedRun)],
       });
 
       await handler.execute(pull());
@@ -963,9 +975,7 @@ describe('ClaimHostWorkHandler', () => {
         ],
         firstRuns: [...archivedRuns, firstRun()],
         firstRunsPerPage: 1,
-        archived: archivedRuns.map(
-          (each) => each.workingCopyKey as WorkingCopyKey,
-        ),
+        archived: archivedRuns.map((each) => workingCopyKeyOf(each)),
       });
 
       await handler.execute(pull());

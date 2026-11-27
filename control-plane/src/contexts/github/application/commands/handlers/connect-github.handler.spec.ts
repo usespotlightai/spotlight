@@ -15,6 +15,7 @@ import type {
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -33,7 +34,11 @@ const connecting = (
     connectedWorkspace?: WorkspaceId | null;
   } = {},
 ) => {
-  const events = { dispatch: vi.fn().mockResolvedValue(undefined) };
+  const events = {
+    dispatch: vi
+      .fn<(raised: readonly DomainEvent[]) => Promise<void>>()
+      .mockResolvedValue(undefined),
+  };
   const inTransaction = vi.fn();
   const transaction: TransactionPort = {
     inTransaction: async (work) => {
@@ -102,7 +107,7 @@ describe('ConnectGitHubHandler', () => {
 
     await handler.execute(command());
 
-    const [raised] = events.dispatch.mock.calls[0] as [readonly DomainEvent[]];
+    const raised = firstOf(events.dispatch.mock.calls)?.[0] ?? [];
     expect(raised.some((each) => each instanceof WorkspaceConnected)).toBe(
       true,
     );

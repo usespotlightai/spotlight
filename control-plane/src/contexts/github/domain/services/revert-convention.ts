@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
 export type RevertTarget =
@@ -14,21 +15,24 @@ export const revertTargetOf = (pullRequest: {
   readonly body: string | null;
   readonly repository: Repository;
 }): RevertTarget | null => {
-  const named = pullRequest.body
+  const named = nonEmpty(pullRequest.body)
     ? REVERTS_IN_BODY.exec(pullRequest.body)
     : null;
 
+  const owner = named?.[1];
+  const number = named?.[2];
+
   if (
-    named?.[1] &&
-    named[2] &&
-    named[1].toLowerCase() === pullRequest.repository.value.toLowerCase()
+    nonEmpty(owner) &&
+    nonEmpty(number) &&
+    owner.toLowerCase() === pullRequest.repository.value.toLowerCase()
   ) {
-    return { kind: 'number', number: Number(named[2]) };
+    return { kind: 'number', number: Number(number) };
   }
 
-  const titled = REVERT_TITLE.exec(pullRequest.title.trim());
+  const title = REVERT_TITLE.exec(pullRequest.title.trim())?.[1];
 
-  return titled?.[1] ? { kind: 'title', title: titled[1] } : null;
+  return nonEmpty(title) ? { kind: 'title', title } : null;
 };
 
 export const sameRevertTarget = (

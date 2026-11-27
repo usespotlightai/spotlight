@@ -1,4 +1,7 @@
-import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type {
+  TeamDirectoryPort,
+  TeamProfile,
+} from '@identity/application/ports/team-directory.port';
 import { unscoped } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type {
   DefinedIntegrationsPort,
@@ -36,6 +39,10 @@ import {
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -46,15 +53,15 @@ import { describe, expect, it, vi } from 'vitest';
 const expressions = new CelExpressionEngine();
 
 const runtimeWith = (
-  outbound: unknown,
-  exchange: unknown = {},
+  outbound: Partial<HttpOutbound>,
+  exchange: Partial<OAuth2Exchange> = {},
   clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsContaining()),
-    outbound as HttpOutbound,
+    partial<HttpOutbound>(outbound),
     clients,
-    exchange as OAuth2Exchange,
+    partial<OAuth2Exchange>(exchange),
     discoveringNothing(),
     callingNoServer(),
     unlimited,
@@ -120,22 +127,23 @@ const polling = (
   injection: SecretInjectionPort = injecting().injection,
 ) =>
   new ProcessDuePolls(
-    {
+    partial<DefinedIntegrationsPort>({
       everywhere: async () => [config(file)],
-    } as unknown as DefinedIntegrationsPort,
+    }),
     runtimeWith({ run }),
-    {
-      find: async () => ({
-        id: TEAM,
-        workspaceId: WorkspaceId.of('ws_1'),
-        name: 'Platform',
-        members: [],
-      }),
-    } as unknown as TeamDirectoryPort,
+    partial<TeamDirectoryPort>({
+      find: async () =>
+        partial<TeamProfile>({
+          id: TEAM,
+          workspaceId: WorkspaceId.of('ws_1'),
+          name: 'Platform',
+          members: [],
+        }),
+    }),
     callAuthFor(injection),
     cursors,
     new WorkDeliveryReactions({ react }),
-    { now: () => NOW } as ClockPort,
+    partial<ClockPort>({ now: () => NOW }),
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
 
@@ -153,7 +161,7 @@ const working = (state: PollState = { cursor: null, polledAt: null }) => {
   );
   const cursors = new FakePollCursors();
 
-  if (state.polledAt || state.cursor) {
+  if (state.polledAt || nonEmpty(state.cursor)) {
     cursors.setState(TEAM, 'linear', state);
   }
 
@@ -166,7 +174,7 @@ describe('ProcessDuePolls', () => {
 
     await polls.processDue();
 
-    const against = run.mock.calls[0]?.[1];
+    const against = firstOf(run.mock.calls)?.[1];
     expect(against?.cursor).toBe('ENG-0');
   });
 
@@ -175,10 +183,10 @@ describe('ProcessDuePolls', () => {
 
     await polls.processDue();
 
-    const raised = react.mock.calls[0]?.[2];
+    const raised = firstOf(react.mock.calls)?.[2];
     expect(raised).toHaveLength(1);
     expect(
-      raised?.[0]?.correlationKeys.marks.map((each) => each.value),
+      firstOf(raised ?? [])?.correlationKeys.marks.map((each) => each.value),
     ).toEqual(['ENG-1']);
   });
 
@@ -230,7 +238,12 @@ describe('ProcessDuePolls', () => {
 
     await polling(
       cursors,
-      async () => ({ ok: false, status: 500, response: null, capture: {} }),
+      async () => ({
+        ok: false,
+        status: 500,
+        response: null,
+        capture: {},
+      }),
       react,
     ).processDue();
 
@@ -261,7 +274,7 @@ describe('ProcessDuePolls', () => {
       injection,
     ).processDue();
 
-    const credentials = run.mock.calls[0]?.[2] as Credentials;
+    const credentials = present(firstOf(run.mock.calls)?.[2]);
     await credentials.injectedFor('https://api.linear.app/issues', [
       SecretName.of('LINEAR_TOKEN'),
     ]);

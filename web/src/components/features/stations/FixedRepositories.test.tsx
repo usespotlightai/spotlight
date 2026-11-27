@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
+import { htmlElement } from '@/test/elements';
 
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({
@@ -40,7 +41,7 @@ describe('FixedRepositories', () => {
     ).not.toBeInTheDocument();
 
     expect(screen.getAllByText(because)).toHaveLength(1);
-    await userEvent.hover(worker.parentElement as HTMLElement);
+    await userEvent.hover(htmlElement(worker.parentElement));
     await waitFor(() => expect(screen.getAllByText(because)).toHaveLength(2));
   });
 

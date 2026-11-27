@@ -1,8 +1,9 @@
 import { workerData } from 'node:worker_threads';
 
 import { answerParent } from '@platform/threads/in-thread';
+import { z } from 'zod';
 
-const how = workerData as 'answer' | 'fail' | 'spin';
+const how = z.enum(['answer', 'fail', 'spin']).parse(workerData);
 
 answerParent(() => {
   if (how === 'fail') {

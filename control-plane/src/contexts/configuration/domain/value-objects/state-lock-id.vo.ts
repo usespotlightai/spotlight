@@ -22,7 +22,7 @@ export class StateLockId {
   }
 
   equals(other: StateLockId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof StateLockId && this.value === other.value;
   }
 
   toString(): string {

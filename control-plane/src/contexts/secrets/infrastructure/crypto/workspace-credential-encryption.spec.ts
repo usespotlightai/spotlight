@@ -5,19 +5,22 @@ import { CredentialDecryptionFailedError } from '@secrets/application/errors/cre
 import { DecryptionFailedError } from '@secrets/infrastructure/crypto/envelope';
 import { WorkspaceCredentialEncryption } from '@secrets/infrastructure/crypto/workspace-credential-encryption';
 import type { WorkspaceKeys } from '@secrets/infrastructure/crypto/workspace-keys';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const keyed = (key: Buffer) =>
-  new WorkspaceCredentialEncryption({
-    of: async () => key,
-  } as unknown as WorkspaceKeys);
+  new WorkspaceCredentialEncryption(
+    partial<WorkspaceKeys>({ of: async () => key }),
+  );
 
 const keyless = (error: Error) =>
-  new WorkspaceCredentialEncryption({
-    of: async () => {
-      throw error;
-    },
-  } as unknown as WorkspaceKeys);
+  new WorkspaceCredentialEncryption(
+    partial<WorkspaceKeys>({
+      of: async () => {
+        throw error;
+      },
+    }),
+  );
 
 const PLAIN = Credential.of('plain');
 

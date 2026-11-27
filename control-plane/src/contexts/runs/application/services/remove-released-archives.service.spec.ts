@@ -21,6 +21,8 @@ import {
 import type { SnapshotRemoval } from '@runs/domain/value-objects/snapshot-removal.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const DAY = 24 * 60 * 60_000;
@@ -34,16 +36,20 @@ const dueAs = (id: string, name = 'task-task_1'): ArchiveDue => ({
   pinned: false,
 });
 
-const holdingWork = (held: Readonly<Record<string, HeldWorkingCopy>>) => {
+const holdingWork = (
+  held: Readonly<Partial<Record<string, HeldWorkingCopy>>>,
+) => {
   const holders = new ArchiveHolders();
 
   holders.register({
     owner: 'work',
     heldOf: async (names) =>
       new Map(
-        names.flatMap((name): [string, HeldWorkingCopy][] =>
-          held[name] ? [[name, held[name]]] : [],
-        ),
+        names.flatMap((name): [string, HeldWorkingCopy][] => {
+          const each = held[name];
+
+          return each !== undefined ? [[name, each]] : [];
+        }),
       ),
   });
 
@@ -94,7 +100,7 @@ const setUp = async (
     store,
     snapshots,
     { now: () => later(DAY), sleep: async () => {} },
-    logger as never,
+    partial<LoggerPort>(logger),
   );
 
   const failQueue = () => {

@@ -18,6 +18,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { and, eq } from 'drizzle-orm';
 
@@ -84,7 +85,9 @@ export class DrizzleScoreRepository implements ScoreRepository {
 
     const gone = await this.context.db
       .delete(score)
-      .where(and(eq(score.id, saved.id.value), eq(score.version, saved.version)))
+      .where(
+        and(eq(score.id, saved.id.value), eq(score.version, saved.version)),
+      )
       .returning({ id: score.id });
 
     if (gone.length === 0) {
@@ -92,20 +95,19 @@ export class DrizzleScoreRepository implements ScoreRepository {
     }
   }
 
-  async of(
-    runId: RunId,
-    rubricVersion: RubricVersion,
-  ): Promise<Score | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(score)
-      .where(
-        and(
-          eq(score.runId, runId.value),
-          eq(score.rubricVersion, rubricVersion),
-        ),
-      )
-      .limit(1);
+  async of(runId: RunId, rubricVersion: RubricVersion): Promise<Score | null> {
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(score)
+        .where(
+          and(
+            eq(score.runId, runId.value),
+            eq(score.rubricVersion, rubricVersion),
+          ),
+        )
+        .limit(1),
+    );
 
     return row ? toScore(row) : null;
   }

@@ -12,6 +12,7 @@ import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -74,17 +75,17 @@ const recording = (
   const lookedUp: { teamId: TeamId; handles: string[] }[] = [];
   const service = new RecordRunMemoryUses(
     new RecordMemoryUses(
-      {
+      partial<MemoryUsesPort>({
         record: async (uses: MemoryUses) => {
           const used = uses.usedFirst(uses.memories);
           dispatched.push(...(used ? [used] : []));
           await record(uses.run.id, uses.via, uses.memories, uses.at);
         },
-      } as unknown as MemoryUsesPort,
+      }),
       { inTransaction: (work) => work() },
       { now: () => NOW, sleep: async () => undefined },
     ),
-    {
+    partial<WorkPort>({
       contextOfRun: async () => ({
         teamId: TEAM,
         lineId: LineId.of('line_1'),
@@ -92,8 +93,8 @@ const recording = (
         repositories: [API],
       }),
       memoryFilesRead: async () => referenced,
-    } as unknown as WorkPort,
-    {
+    }),
+    partial<MemoryRepository>({
       withHandles: async (teamId: TeamId, handles: MemoryHandle[]) => {
         lookedUp.push({ teamId, handles: handles.map((each) => each.value) });
         return handles.map((each) =>
@@ -105,7 +106,7 @@ const recording = (
           ),
         );
       },
-    } as unknown as MemoryRepository,
+    }),
   );
 
   return { record, dispatched, lookedUp, service };

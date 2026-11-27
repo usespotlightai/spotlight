@@ -38,7 +38,9 @@ const applyTheme = (theme: Theme) => {
 export const appliedTheme = (): 'light' | 'dark' =>
   document.documentElement.classList.contains(DARK_CLASS) ? 'dark' : 'light';
 
-export function useTheme() {
+type ThemeResult = { theme: Theme; setTheme: (next: Theme) => void };
+
+export function useTheme(): ThemeResult {
   const [theme, setThemeState] = useState<Theme>(storedTheme);
 
   useEffect(() => {

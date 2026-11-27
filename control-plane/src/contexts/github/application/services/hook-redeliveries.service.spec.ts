@@ -34,7 +34,7 @@ const fakeGitHub = () => {
     page: vi.fn(async (cursor: string | null) => {
       pages.push(cursor);
       const listed = [...attempts].sort(newestFirst);
-      const from = cursor ? Number(cursor) : 0;
+      const from = cursor !== null ? Number(cursor) : 0;
 
       return {
         attempts: listed.slice(from, from + PAGE_SIZE),
@@ -67,12 +67,17 @@ const fakeGitHub = () => {
 const setup = () => {
   let now = START;
   const github = fakeGitHub();
-  const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+  const logger = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  } satisfies LoggerPort;
   const telemetry = telemetryInMemory();
   const redeliveries = new HookRedeliveries(
     github.port,
     { now: () => now, sleep: async () => {} },
-    logger as unknown as LoggerPort,
+    logger,
     telemetry,
   );
 

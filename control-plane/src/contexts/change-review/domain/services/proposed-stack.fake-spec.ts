@@ -10,6 +10,7 @@ import type {
   ProposedQuestion,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import fc from 'fast-check';
 
 const SYMBOLS = ['Invite', 'Team', 'zod', 'Queue', 'Lease'];
@@ -249,8 +250,8 @@ export const cohortInDiff: fc.Arbitrary<CohortInDiff> = drawnFiles
       diff.hunks.map((hunk) => hunk.id),
       1,
       5,
-    ).chain(([layers]) =>
-      cohortOf(diff, layers ?? [], 'A cohort').map((cohort) => ({
+    ).chain((groups) =>
+      cohortOf(diff, firstOf(groups) ?? [], 'A cohort').map((cohort) => ({
         diff,
         cohort,
       })),

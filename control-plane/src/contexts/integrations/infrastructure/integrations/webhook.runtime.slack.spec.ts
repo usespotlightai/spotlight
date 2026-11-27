@@ -13,6 +13,8 @@ import {
   signingFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -128,7 +130,7 @@ const runtime = (secret: string | null = SIGNING, file = SLACK) =>
     signingFor(secret === null ? {} : { SLACK_SIGNING_SECRET: secret }),
     { now: () => new Date(NOW * 1000), sleep: async () => {} },
     { keys: async () => new Map() },
-    {} as HttpOutbound,
+    partial<HttpOutbound>({}),
     credentialsFor(),
     unlimited,
     unscoped,
@@ -209,7 +211,7 @@ describe('the Slack webhook runtime', () => {
 
   describe('reading', () => {
     it('opens a task on the delivery role from a mention', async () => {
-      const [read] = await runtime().read(delivered(mention));
+      const read = firstOf(await runtime().read(delivered(mention)));
 
       expect(read?.happening).toBe('slack.app_mention');
       expect(read?.opens?.lineRole).toBe('delivery');
@@ -220,7 +222,9 @@ describe('the Slack webhook runtime', () => {
     });
 
     it('starts a chat from a mention, by the email of the person', async () => {
-      const [read] = await runtime(SIGNING, CHATTING).read(delivered(mention));
+      const read = firstOf(
+        await runtime(SIGNING, CHATTING).read(delivered(mention)),
+      );
 
       expect(read?.opens).toBeNull();
       expect(read?.message?.body).toBe('do it');
@@ -235,20 +239,22 @@ describe('the Slack webhook runtime', () => {
     });
 
     it('decodes HTML escapes in the title of the opened task', async () => {
-      const [read] = await runtime().read(
-        delivered({
-          event: {
-            ...mention.event,
-            text: 'Insights &gt; Cost &gt; Where the spend goes',
-          },
-        }),
+      const read = firstOf(
+        await runtime().read(
+          delivered({
+            event: {
+              ...mention.event,
+              text: 'Insights &gt; Cost &gt; Where the spend goes',
+            },
+          }),
+        ),
       );
 
       expect(read?.opens?.title).toBe('Insights > Cost > Where the spend goes');
     });
 
     it('has an ambient mark without finding a task by it', async () => {
-      const [read] = await runtime().read(delivered(mention));
+      const read = firstOf(await runtime().read(delivered(mention)));
 
       expect(read?.correlationKeys.marks.map((each) => each.kind)).toEqual([
         'slack.thread',
@@ -260,7 +266,7 @@ describe('the Slack webhook runtime', () => {
     });
 
     it('reads a thread reply as a person speaking', async () => {
-      const [read] = await runtime().read(delivered(reply));
+      const read = firstOf(await runtime().read(delivered(reply)));
 
       expect(read?.happening).toBe('slack.message.replied');
       expect(read?.answers).toBe(true);
@@ -268,8 +274,10 @@ describe('the Slack webhook runtime', () => {
     });
 
     it('decodes HTML escapes in a thread reply', async () => {
-      const [read] = await runtime().read(
-        delivered({ event: { ...reply.event, text: 'a &gt; b &amp; c' } }),
+      const read = firstOf(
+        await runtime().read(
+          delivered({ event: { ...reply.event, text: 'a &gt; b &amp; c' } }),
+        ),
       );
 
       expect(read?.message?.body).toBe('a > b & c');
@@ -349,7 +357,7 @@ webhook:
         signingFor(),
         { now: () => new Date(NOW * 1000), sleep: async () => {} },
         { keys: async () => new Map() },
-        { run } as unknown as HttpOutbound,
+        partial<HttpOutbound>({ run }),
         SLACK,
         unlimited,
         unscoped,
@@ -369,11 +377,13 @@ webhook:
         user: { profile: { email: 'dev@acme.test' } },
       });
 
-      const [read] = await runtime.read({
-        headers: {},
-        body: mentioning,
-        raw: null,
-      });
+      const read = firstOf(
+        await runtime.read({
+          headers: {},
+          body: mentioning,
+          raw: null,
+        }),
+      );
 
       expect(run).toHaveBeenCalledOnce();
       expect(read?.opens?.assignEmail).toBe('dev@acme.test');
@@ -385,11 +395,13 @@ webhook:
         user: { profile: { email: 'dev@acme.test' } },
       });
 
-      const [read] = await runtime.read({
-        headers: {},
-        body: mentioning,
-        raw: null,
-      });
+      const read = firstOf(
+        await runtime.read({
+          headers: {},
+          body: mentioning,
+          raw: null,
+        }),
+      );
 
       expect(read?.authorEmail).toBe('dev@acme.test');
     });
@@ -400,11 +412,13 @@ webhook:
         user: { profile: { email: '' } },
       });
 
-      const [read] = await runtime.read({
-        headers: {},
-        body: mentioning,
-        raw: null,
-      });
+      const read = firstOf(
+        await runtime.read({
+          headers: {},
+          body: mentioning,
+          raw: null,
+        }),
+      );
 
       expect(read).toBeDefined();
       expect(read?.authorEmail).toBeNull();
@@ -413,11 +427,13 @@ webhook:
     it('opens unassigned where the lookup fails', async () => {
       const { runtime } = looking(null, false);
 
-      const [read] = await runtime.read({
-        headers: {},
-        body: mentioning,
-        raw: null,
-      });
+      const read = firstOf(
+        await runtime.read({
+          headers: {},
+          body: mentioning,
+          raw: null,
+        }),
+      );
 
       expect(read?.opens?.assignEmail).toBeNull();
       expect(read?.authorEmail).toBeNull();

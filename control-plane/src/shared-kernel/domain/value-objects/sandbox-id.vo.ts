@@ -14,7 +14,7 @@ export class SandboxId {
   }
 
   equals(other: SandboxId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof SandboxId && this.value === other.value;
   }
 
   toString(): string {

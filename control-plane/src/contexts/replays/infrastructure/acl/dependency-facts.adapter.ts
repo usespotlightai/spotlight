@@ -70,10 +70,12 @@ export class DependencyFactsReader implements DependencyFactsPort {
     });
 
     return uses.flatMap((use) => {
-      const carrier = CARRIERS[use.kind];
+      const carrier = use.kind in CARRIERS ? CARRIERS[use.kind] : undefined;
       const key = keyInTeam(use.key, station.teamKey);
 
-      return carrier && key ? [{ secret, carrier, key }] : [];
+      return carrier !== undefined && key !== null && key !== ''
+        ? [{ secret, carrier, key }]
+        : [];
     });
   }
 }

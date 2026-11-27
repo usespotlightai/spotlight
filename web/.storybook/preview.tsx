@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import type { Preview } from '@storybook/react-vite';
 import { onlineManager } from '@tanstack/react-query';
 import { sb } from 'storybook/test';

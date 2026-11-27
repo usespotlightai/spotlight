@@ -9,6 +9,7 @@ import {
 } from '@insights/judge-repair.fake-spec';
 import { inTransaction } from '@insights/runs.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { describe, expect, it } from 'vitest';
 
 const logger: LoggerPort = {
@@ -67,7 +68,7 @@ describe('EndOverdueClaimsRevisions', () => {
 
     await sweepAt(revisions, later(REVISION_COOLDOWN_MS));
 
-    const ended = [...revisions.stored.values()][0];
+    const ended = firstOf([...revisions.stored.values()]);
     expect(ended?.outcome?.reason).toBe('pull-request-failed');
     expect(ended?.endedAt).toEqual(later(PULL_REQUEST_DEADLINE_MS));
     expect(revisions.events.map((each) => each.kind)).toEqual([

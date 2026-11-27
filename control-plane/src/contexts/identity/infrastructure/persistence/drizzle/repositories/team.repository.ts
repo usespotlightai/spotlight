@@ -21,6 +21,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -179,11 +180,13 @@ export class DrizzleTeamRepository implements TeamRepository {
   }
 
   private async one(...conditions: readonly SQL[]): Promise<Team | null> {
-    const [found] = await this.context.db
-      .select({ ...getTableColumns(team), members: membersOfTeam })
-      .from(team)
-      .where(and(...conditions))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select({ ...getTableColumns(team), members: membersOfTeam })
+        .from(team)
+        .where(and(...conditions))
+        .limit(1),
+    );
 
     return found ? rehydrated(found) : null;
   }

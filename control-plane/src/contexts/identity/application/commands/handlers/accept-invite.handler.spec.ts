@@ -14,6 +14,7 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -66,13 +67,13 @@ const accepting = (invite: WorkspaceInvite | null = sentInvite()) => {
   });
 
   const handler = new AcceptInviteHandler(
-    {
+    partial<WorkspaceInviteRepository>({
       withToken: async () => invite,
       save,
-    } as unknown as WorkspaceInviteRepository,
-    { find: async () => workspace } as unknown as WorkspaceRepository,
-    { hash: () => 'a'.repeat(64) } as unknown as TokenIssuer,
-    { now: () => NOW } as ClockPort,
+    }),
+    partial<WorkspaceRepository>({ find: async () => workspace }),
+    partial<TokenIssuer>({ hash: () => 'a'.repeat(64) }),
+    partial<ClockPort>({ now: () => NOW }),
   );
 
   return { handler, save, dispatched };

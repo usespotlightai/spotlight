@@ -11,11 +11,12 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { SourceCommit } from '@shared-kernel/domain/value-objects/source-commit.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, isNull, lte, or } from 'drizzle-orm';
 
@@ -85,33 +86,37 @@ export class DrizzleClaimsSourceRepository implements ClaimsSourceRepository {
     stationId: StationId,
     rubricVersion: RubricVersion,
   ): Promise<ClaimsSource | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(claimsSource)
-      .where(
-        and(
-          eq(claimsSource.stationId, stationId.value),
-          eq(claimsSource.rubricVersion, rubricVersion),
-        ),
-      )
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(claimsSource)
+        .where(
+          and(
+            eq(claimsSource.stationId, stationId.value),
+            eq(claimsSource.rubricVersion, rubricVersion),
+          ),
+        )
+        .limit(1),
+    );
 
     return row ? toSource(row) : null;
   }
 
   async nextDueJob(now: Date): Promise<ClaimsSource | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(claimsSource)
-      .where(
-        and(
-          eq(claimsSource.pending, true),
-          or(isNull(claimsSource.jobDueAt), lte(claimsSource.jobDueAt, now)),
-        ),
-      )
-      .orderBy(asc(claimsSource.recordedAt))
-      .limit(1)
-      .for('update', { skipLocked: true });
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(claimsSource)
+        .where(
+          and(
+            eq(claimsSource.pending, true),
+            or(isNull(claimsSource.jobDueAt), lte(claimsSource.jobDueAt, now)),
+          ),
+        )
+        .orderBy(asc(claimsSource.recordedAt))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
     return row ? toSource(row) : null;
   }

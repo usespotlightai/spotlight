@@ -14,7 +14,7 @@ export class RunnerTrustId {
   }
 
   equals(other: RunnerTrustId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof RunnerTrustId && this.value === other.value;
   }
 
   toString(): string {

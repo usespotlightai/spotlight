@@ -1,21 +1,27 @@
-import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
+import type {
+  JournalStep,
+  RunJournal,
+} from '@runs/application/contracts/run-journal.contract';
 import { lastWordsIn } from '@runs/application/read-models/last-words';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const at = (time: string) => new Date(`2026-10-20T${time}:00.000Z`);
 
 const attempt = (
   number: number,
-  steps: readonly [kind: string, text: string, time: string][],
+  steps: readonly [kind: JournalStep['kind'], text: string, time: string][],
 ): RunJournal =>
-  ({
+  partial<RunJournal>({
     attempt: number,
-    steps: steps.map(([kind, text, time]) => ({
-      kind,
-      text,
-      startedAt: at(time),
-    })),
-  }) as unknown as RunJournal;
+    steps: steps.map(([kind, text, time]) =>
+      partial<JournalStep>({
+        kind,
+        text,
+        startedAt: at(time),
+      }),
+    ),
+  });
 
 describe('lastWordsIn', () => {
   it('takes the last message of the latest attempt', () => {

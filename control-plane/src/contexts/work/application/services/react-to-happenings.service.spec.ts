@@ -1,9 +1,14 @@
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
-import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
+import type {
+  RunFacts,
+  RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -14,7 +19,6 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -25,14 +29,17 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
-import type { ChannelChats } from '@work/application/services/channel-chats.service';
+import type {
+  ChannelAnswer,
+  ChannelChats,
+} from '@work/application/services/channel-chats.service';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskNotedForChat } from '@work/domain/events/task-noted-for-chat.event';
-import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
+import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
@@ -64,12 +71,12 @@ const TEAMMATES = {
   membersOf: async () => TeamMembers.of([UserId.of('user_9')]),
 };
 
-const NO_RUNS = { of: async () => [] } as unknown as RunFactsPort;
+const NO_RUNS = partial<RunFactsPort>({ of: async () => [] });
 
-const channels = {
+const channels = partial<ChannelChats>({
   reached: async () => null,
   answer: async () => {},
-} as unknown as ChannelChats;
+});
 
 const NOW = new Date('2026-08-31T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
@@ -125,7 +132,7 @@ const at = (
 const sends = (happening: Happening, to: string, from?: string) =>
   Reaction.of({
     happening,
-    from: from ? StationId.of(from) : null,
+    from: nonEmpty(from) ? StationId.of(from) : null,
     to: StationId.of(to),
   });
 
@@ -169,6 +176,22 @@ const landedAt = (stationId: string) =>
   });
 
 let saved: Task | undefined;
+
+const savedTask = (): Task => {
+  if (!saved) {
+    throw new Error('expected a saved task');
+  }
+
+  return saved;
+};
+
+const entryOf = (opening: { readonly entry: Station | null }): Station => {
+  if (!opening.entry) {
+    throw new Error('expected an entry station');
+  }
+
+  return opening.entry;
+};
 const dispatched: Task[] = [];
 
 const tasks = (found: Task | null) =>
@@ -219,7 +242,7 @@ const news = (
   answers: happening.equals(COMMENTED) || happening.equals(CHANGES_REQUESTED),
   state: 'raised',
   correlationKeys: { branch: 'spotlight/task_1', marks: [] },
-  message: message
+  message: nonEmpty(message)
     ? {
         body: message,
         path: 'compose.yml',
@@ -648,8 +671,8 @@ describe('ReactToHappenings', () => {
     expect(saved?.hasCurrentRun(RunId.of('run_1'))).toBe(true);
     expect(saved?.pullEvents()).toContainEqual(
       new TaskAnswered(
-        saved?.id as TaskId,
-        saved?.workspaceId as WorkspaceId,
+        savedTask().id,
+        savedTask().workspaceId,
         RunId.of('run_1'),
         null,
       ),
@@ -681,7 +704,7 @@ describe('ReactToHappenings', () => {
         branch: null,
         marks: [{ kind: 'slack.thread', value: '1789022375.833389' }],
       },
-      message: message ? { body: message } : null,
+      message: nonEmpty(message) ? { body: message } : null,
       ourOwn: false,
       opens: null,
       attachments: [
@@ -1090,7 +1113,7 @@ describe('ReactToHappenings', () => {
 
     it('keeps a stored-back move when a later happening leaves the task where it is', async () => {
       await receive(COMMENTED, handed('station_1'), 'This retries forever.');
-      const noted = saved as Task;
+      const noted = savedTask();
 
       await receive(CHANGES_REQUESTED, noted, 'Handle the empty case.');
 
@@ -1124,8 +1147,9 @@ describe('ReactToHappenings', () => {
         expect(
           saved
             ?.pullEvents()
-            .filter((each) => each.kind === 'task.run-detached')
-            .map((each) => (each as TaskRunDetached).runId),
+            .flatMap((each) =>
+              each instanceof TaskRunDetached ? [each.runId] : [],
+            ),
         ).toEqual([RunId.of('run_1')]);
         expect(dispatched).toHaveLength(0);
       });
@@ -1140,8 +1164,9 @@ describe('ReactToHappenings', () => {
         expect(
           saved
             ?.pullEvents()
-            .filter((each) => each.kind === 'task.run-detached')
-            .map((each) => (each as TaskRunDetached).runId),
+            .flatMap((each) =>
+              each instanceof TaskRunDetached ? [each.runId] : [],
+            ),
         ).toEqual([RunId.of('run_1')]);
         expect(dispatched).toHaveLength(0);
       });
@@ -1154,7 +1179,7 @@ describe('ReactToHappenings', () => {
         );
         expect(saved?.deferredMoveTo).toEqual(StationId.of('station_1'));
 
-        await receive(MERGED, saved as Task);
+        await receive(MERGED, savedTask());
 
         expect(saved?.stationId).toEqual(StationId.of('station_3'));
         expect(saved?.finished).toBe(true);
@@ -1243,7 +1268,7 @@ describe('ReactToHappenings', () => {
       teamId: TeamId.of('team_1'),
       newId: () => `id_${++next}`,
     });
-    const entry = opening.entry as Station;
+    const entry = entryOf(opening);
 
     let added: Task | undefined;
     const stored = {
@@ -1653,7 +1678,7 @@ describe('ReactToHappenings', () => {
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
-    expect(added[0]?.stationId).toEqual((first.entry as Station).id);
+    expect(added[0]?.stationId).toEqual(entryOf(first).id);
   });
 });
 
@@ -1827,13 +1852,13 @@ describe('ReactToHappenings with a word for a chat', () => {
     found: Task | null,
     over: { member?: boolean; mentionedTo?: string } = {},
   ) => {
-    const refusal = { body: 'Sorry.' };
+    const refusal = partial<ChannelAnswer>({ body: 'Sorry.' });
     const chatting = {
       reached: vi.fn(async () => refusal),
       answer: vi.fn(async () => undefined),
     };
     const ruled = line(
-      over.mentionedTo ? [sends(MENTIONED, over.mentionedTo)] : [],
+      nonEmpty(over.mentionedTo) ? [sends(MENTIONED, over.mentionedTo)] : [],
     );
     const reactions = new ReactToHappenings(
       tasks(found),
@@ -1849,7 +1874,7 @@ describe('ReactToHappenings with a word for a chat', () => {
       files,
       processedEventsInMemory(),
       logger,
-      chatting as unknown as ChannelChats,
+      partial<ChannelChats>(chatting),
       NO_RUNS,
       TEAMMATES,
     );
@@ -1968,15 +1993,15 @@ describe('ReactToHappenings with a word for a chat', () => {
 
 describe('a happening for a task whose run’s turn is still being decided (R18)', () => {
   const turnFor = (turn: 'pending' | 'kept', ageMs: number) =>
-    ({
+    partial<RunFactsPort>({
       of: async () => [
-        {
+        partial<RunFacts>({
           runId: RunId.of('run_1'),
           turn,
           suspendedAt: new Date(NOW.getTime() - ageMs),
-        },
+        }),
       ],
-    }) as unknown as RunFactsPort;
+    });
 
   const reacting = (runs: RunFactsPort) => {
     const stored = tasks(taskAt().assignRun(RunId.of('run_1'), line()));

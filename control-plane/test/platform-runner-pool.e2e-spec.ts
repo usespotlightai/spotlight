@@ -1,6 +1,5 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import type { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
@@ -9,6 +8,8 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { SetPlatformPoolCommand } from '@runners/application/commands/platform-pool.commands';
 import { PlatformPools } from '@runners/application/services/platform-pools.service';
 import { ProvisionWork } from '@runs/application/services/provision-work.service';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
@@ -22,7 +23,9 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf, parsedAs } from './support/body';
 import { eventually } from './support/eventually';
+import { addressOf } from './support/http-server';
 import { deleteRunnersOf } from './support/runners';
 import { requestedBySpec } from './support/runs';
 import * as schema from './support/schema';
@@ -48,7 +51,7 @@ interface ProvisionCall {
 }
 
 const runIdOf = (call: Provisioned): string =>
-  (JSON.parse(call.body) as ProvisionCall).data.runId;
+  parsedAs<ProvisionCall>(call.body).data.runId;
 
 const listening = async (): Promise<{
   server: Server;
@@ -72,7 +75,7 @@ const listening = async (): Promise<{
 
   return {
     server,
-    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/runs`,
+    url: `http://127.0.0.1:${addressOf(server).port}/runs`,
     calls,
   };
 };
@@ -111,15 +114,17 @@ describe('platform runner pool (e2e)', () => {
   };
 
   const platformRow = async () => {
-    const [row] = await db
-      .select()
-      .from(schema.runnerPool)
-      .where(
-        and(
-          eq(schema.runnerPool.workspaceId, workspaceId),
-          eq(schema.runnerPool.platform, true),
+    const row = firstOf(
+      await db
+        .select()
+        .from(schema.runnerPool)
+        .where(
+          and(
+            eq(schema.runnerPool.workspaceId, workspaceId),
+            eq(schema.runnerPool.platform, true),
+          ),
         ),
-      );
+    );
 
     return row ?? null;
   };
@@ -138,7 +143,9 @@ describe('platform runner pool (e2e)', () => {
   ) => {
     const call = served(on).put(`/api/admin/workspaces/${id}/platform-pool`);
 
-    return (token ? call.set('Authorization', `Bearer ${token}`) : call).send({
+    return (
+      nonEmpty(token) ? call.set('Authorization', `Bearer ${token}`) : call
+    ).send({
       enabled,
     });
   };
@@ -192,16 +199,18 @@ describe('platform runner pool (e2e)', () => {
         survey: { jobFunction: 'engineering' },
       })
       .expect(201);
-    const { id } = created.body as { id: string };
+    const { id } = bodyOf<{ id: string }>(created);
 
-    const [row] = await eventually(async () => {
-      const rows = await db
-        .select()
-        .from(schema.runnerPool)
-        .where(eq(schema.runnerPool.workspaceId, id));
+    const row = firstOf(
+      await eventually(async () => {
+        const rows = await db
+          .select()
+          .from(schema.runnerPool)
+          .where(eq(schema.runnerPool.workspaceId, id));
 
-      return rows.length > 0 ? rows : null;
-    });
+        return rows.length > 0 ? rows : null;
+      }),
+    );
 
     expect(row).toMatchObject({ key: 'spotlight', platform: true });
   });
@@ -239,7 +248,7 @@ describe('platform runner pool (e2e)', () => {
     expect(call.headers['webhook-signature']).toBe(
       `v1,${createHmac('sha256', key).update(signed).digest('base64')}`,
     );
-    expect((JSON.parse(call.body) as ProvisionCall).data).toMatchObject({
+    expect(parsedAs<ProvisionCall>(call.body).data).toMatchObject({
       pool: 'spotlight',
       workspaceId,
     });
@@ -379,15 +388,15 @@ describe('platform runner pool (e2e)', () => {
         .get(`/api/workspaces/${workspaceId}/configuration-changes`)
         .set(TEST_USER_HEADER, owner)
         .expect(200);
-      const updated = (
-        changes.body as readonly {
+      const updated = bodyOf<
+        readonly {
           resource: string;
           key: string;
           action: string;
           by: { kind: string };
           details: Record<string, unknown>;
         }[]
-      ).filter(
+      >(changes).filter(
         (each) => each.resource === 'runner-pool' && each.action === 'updated',
       );
 

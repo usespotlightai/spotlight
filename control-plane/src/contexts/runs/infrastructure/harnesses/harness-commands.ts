@@ -11,6 +11,7 @@ import type {
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import { InvalidEffortError } from '@shared-kernel/domain/exceptions/invalid-effort.error';
 import { InvalidHarnessModelError } from '@shared-kernel/domain/exceptions/invalid-harness-model.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { EFFORTS, Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import {
@@ -81,8 +82,8 @@ export class HarnessCommands implements HarnessCommandsPort {
     }
 
     const command = this.launch.commandFor(HarnessId.of(choice.harness), {
-      model: choice.model ? HarnessModel.of(choice.model) : null,
-      effort: choice.effort ? Effort.of(choice.effort) : null,
+      model: nonEmpty(choice.model) ? HarnessModel.of(choice.model) : null,
+      effort: nonEmpty(choice.effort) ? Effort.of(choice.effort) : null,
     });
 
     return command

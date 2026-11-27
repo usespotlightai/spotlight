@@ -26,6 +26,7 @@ type TabPaneProps = {
   onTitle: ReportTitle;
 };
 
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const OUTSIDE_ANY_ROUTER = null as never;
 
 const OUTSIDE_ANY_ROUTE = { outlet: null, matches: [], isDataRoute: false };

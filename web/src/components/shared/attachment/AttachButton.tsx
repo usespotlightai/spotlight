@@ -7,6 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type AttachButtonProps = {
@@ -30,9 +31,9 @@ export function AttachButton({
     <Button
       type="button"
       variant="ghost"
-      size={label ? 'sm' : 'icon-sm'}
+      size={nonEmpty(label) ? 'sm' : 'icon-sm'}
       className={cn(
-        label ? 'pointer-coarse:h-9' : 'pointer-coarse:size-9',
+        nonEmpty(label) ? 'pointer-coarse:h-9' : 'pointer-coarse:size-9',
         className,
       )}
       disabled={disabled}
@@ -46,7 +47,7 @@ export function AttachButton({
 
   return (
     <>
-      {label ? (
+      {nonEmpty(label) ? (
         button
       ) : (
         <Tooltip>

@@ -21,7 +21,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { vi } from 'vitest';
+import { type Mocked, vi } from 'vitest';
 
 export const GRACE_MS = 10 * 60_000;
 
@@ -97,24 +97,31 @@ export const aSandbox = (input: {
     at: input.at,
   });
 
+interface StoredSandboxes {
+  readonly stored: Map<string, Sandbox>;
+  readonly sandboxes: Mocked<SandboxRepository>;
+  readonly placements: Mocked<SandboxPlacementsPort>;
+}
+
 export const storedSandboxes = (
   input: {
     silentHosts?: () => readonly string[];
   } = {},
   ...known: Sandbox[]
-) => {
+): StoredSandboxes => {
   const stored = new Map(known.map((each) => [each.id.value, each]));
   const all = () => [...stored.values()];
 
   const sandboxes = {
     add: vi.fn(async (added: Sandbox) => {
+      const addedKey = added.key;
       const keyTaken =
-        added.key !== null &&
+        addedKey !== null &&
         all().some(
           (each) =>
             each.isOpen &&
             each.workspaceId.equals(added.workspaceId) &&
-            each.key?.equals(added.key as SandboxKey),
+            each.key?.equals(addedKey) === true,
         );
 
       if (stored.has(added.id.value) || keyTaken) {
@@ -126,15 +133,16 @@ export const storedSandboxes = (
       if (stored.get(saved.id.value)?.version !== saved.version) {
         throw new SandboxVersionConflictError(saved.id.value);
       }
+      const savedKey = saved.key;
       if (
         saved.isOpen &&
-        saved.key !== null &&
+        savedKey !== null &&
         all().some(
           (each) =>
             !each.id.equals(saved.id) &&
             each.isOpen &&
             each.workspaceId.equals(saved.workspaceId) &&
-            each.key?.equals(saved.key as SandboxKey),
+            each.key?.equals(savedKey) === true,
         )
       ) {
         throw new SandboxKeyTakenError(saved.id.value);
@@ -148,7 +156,7 @@ export const storedSandboxes = (
           (each) =>
             each.isOpen &&
             each.workspaceId.equals(workspaceId) &&
-            each.key?.equals(key),
+            each.key?.equals(key) === true,
         ) ?? null,
     ),
     liveByTokenHash: vi.fn(

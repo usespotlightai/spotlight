@@ -203,7 +203,7 @@ export class RunnerPoolResourceController {
       this.toResponse(id, actor.principal),
     );
 
-    if (made?.token) {
+    if (made !== null && made.token !== null && made.token !== '') {
       httpResponse.setHeader(POOL_TOKEN_HEADER, made.token);
     }
 

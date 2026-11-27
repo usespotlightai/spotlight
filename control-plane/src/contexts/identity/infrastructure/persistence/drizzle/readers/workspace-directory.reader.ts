@@ -17,6 +17,7 @@ import {
 } from '@platform/persistence/drizzle/keyset';
 import { timeCursorOf } from '@platform/persistence/drizzle/page-cursor';
 import type { Page } from '@shared-kernel/application/dto/page.dto';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, gte, type SQL, sql } from 'drizzle-orm';
 
@@ -26,9 +27,10 @@ const COLUMNS = {
   name: workspace.name,
   createdAt: workspace.createdAt,
   createdKey: sortableTime(workspace.createdAt),
-  memberCount: sql<number>`(select count(*) from ${workspaceMember} where ${workspaceMember.workspaceId} = ${workspace.id})`.mapWith(
-    Number,
-  ),
+  memberCount:
+    sql<number>`(select count(*) from ${workspaceMember} where ${workspaceMember.workspaceId} = ${workspace.id})`.mapWith(
+      Number,
+    ),
 };
 
 interface DirectoryRow {
@@ -55,9 +57,7 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectoryPort {
   async list(request: DirectoryPageRequest): Promise<Page<DirectoryWorkspace>> {
     const cursor = timeCursorOf(request.after);
     const conditions: SQL[] = [
-      ...(request.since
-        ? [gte(workspace.createdAt, request.since)]
-        : []),
+      ...(request.since ? [gte(workspace.createdAt, request.since)] : []),
       ...(cursor
         ? [after(sortableTime(workspace.createdAt), workspace.id, cursor)]
         : []),
@@ -77,11 +77,13 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectoryPort {
   }
 
   async find(workspaceId: WorkspaceId): Promise<DirectoryWorkspace | null> {
-    const [found] = await this.db
-      .select(COLUMNS)
-      .from(workspace)
-      .where(eq(workspace.id, workspaceId.value))
-      .limit(1);
+    const found = firstOf(
+      await this.db
+        .select(COLUMNS)
+        .from(workspace)
+        .where(eq(workspace.id, workspaceId.value))
+        .limit(1),
+    );
 
     return found ? listed(found) : null;
   }

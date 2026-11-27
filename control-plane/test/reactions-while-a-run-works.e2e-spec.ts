@@ -15,6 +15,7 @@ import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
@@ -80,7 +81,10 @@ const trailOf = async (id: TaskId) =>
   (
     await trailsFor(
       db,
-      { find: async () => null, findMany: async () => new Map() },
+      {
+        find: async () => null,
+        findMany: async () => new Map(),
+      },
       [id.value],
     )
   ).get(id.value) ?? [];
@@ -263,8 +267,8 @@ beforeAll(async () => {
   runs = app.get(DrizzleRunRepository);
   team = await createTeam(db, tasks, `reactions-${randomUUID().slice(0, 8)}`);
 
-  const opening = BUILT_IN_LINES.find((each) =>
-    each.role?.equals(LineRole.DELIVERY),
+  const opening = BUILT_IN_LINES.find(
+    (each) => each.role?.equals(LineRole.DELIVERY) === true,
   );
 
   if (!opening) {
@@ -292,7 +296,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 describe('a happening that would move a task while a run works on it (e2e)', () => {
@@ -336,8 +340,8 @@ describe('a happening that would move a task while a run works on it (e2e)', () 
 
     const trail = await trailOf(task.id);
     const last = trail[trail.length - 1];
-    expect(last?.source).toBe('github');
-    expect(last?.deferredTo).toBe(stationKeyed('code-review').name.value);
+    expect(last.source).toBe('github');
+    expect(last.deferredTo).toBe(stationKeyed('code-review').name.value);
   });
 
   it('shows the inbox no waiting move once the run has passed the task on', async () => {
@@ -541,7 +545,7 @@ describe('a task moved back to the station of a run that is stopping (e2e)', () 
 
     await movedByHand(await found(task.id), 'implementation');
 
-    const next = (await found(task.id)).currentRunId as RunId;
+    const next = present((await found(task.id)).currentRunId);
     await eventually(() => runs.findById(next));
     expect((await runOf(runId)).state).toBe('claimed');
     expect(await awaitingProvision()).not.toContain(next.value);

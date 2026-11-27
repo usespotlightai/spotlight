@@ -1,4 +1,6 @@
 import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -74,9 +76,12 @@ const outcomesOf = (chat: Chat | null, lastWordsAt: Date | null = null) => {
   );
   const lastWordsReceivedAt = vi.fn(async (_runId: RunId) => lastWordsAt);
   const outcomes = new ChatOutcomes(
-    { find: vi.fn(async () => chat), save } as unknown as ChatRepository,
+    partial<ChatRepository>({
+      find: vi.fn(async () => chat),
+      save,
+    }),
     { takenUp },
-    { lastWordsReceivedAt } as unknown as RunJournalReaderPort,
+    partial<RunJournalReaderPort>({ lastWordsReceivedAt }),
   );
 
   return { outcomes, save, takenUp, lastWordsReceivedAt };
@@ -96,7 +101,7 @@ describe('ChatOutcomes', () => {
 
     await outcomes.onRunEnded(completed());
 
-    const saved = save.mock.calls[0]?.[0];
+    const saved = firstOf(save.mock.calls)?.[0];
     expect(saved?.running).toBe(false);
     expect(saved?.session?.value).toBe('session_1');
     expect(saved?.claimedBy?.value).toBe('runner_1');
@@ -161,7 +166,7 @@ describe('ChatOutcomes', () => {
 
       await outcomes.onRunEnded(ended);
 
-      const saved = save.mock.calls[0]?.[0];
+      const saved = firstOf(save.mock.calls)?.[0];
       expect(saved?.running).toBe(false);
       expect(saved?.session?.value).toBe('session_1');
       expect(saved?.unacknowledged.map((each) => each.position.value)).toEqual([
@@ -211,7 +216,7 @@ describe('ChatOutcomes', () => {
         completed({ endedAt: '2026-09-14T09:07:00.000Z' }),
       );
 
-      const saved = save.mock.calls[0]?.[0];
+      const saved = firstOf(save.mock.calls)?.[0];
       expect(saved?.resolvedAt).toBeNull();
       expect(saved?.reopenedAt).toEqual(new Date('2026-09-14T09:07:00.000Z'));
     });
@@ -242,7 +247,7 @@ describe('ChatOutcomes', () => {
       runExhausted({ runId: 'run_2', requester: IN_CHAT }),
     );
 
-    const saved = save.mock.calls[0]?.[0];
+    const saved = firstOf(save.mock.calls)?.[0];
     expect(saved?.running).toBe(false);
     expect(saved?.unacknowledged.map((each) => each.position.value)).toEqual([
       1,

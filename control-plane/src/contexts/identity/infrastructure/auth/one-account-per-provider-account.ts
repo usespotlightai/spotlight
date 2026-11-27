@@ -1,6 +1,6 @@
 import type { BetterAuthPlugin } from 'better-auth';
 
-export const oneAccountPerProviderAccount = () =>
+const providerAccountIndex = () =>
   ({
     id: 'one-account-per-provider-account',
     schema: {
@@ -16,3 +16,6 @@ export const oneAccountPerProviderAccount = () =>
       },
     },
   }) satisfies BetterAuthPlugin;
+
+export const oneAccountPerProviderAccount: typeof providerAccountIndex =
+  providerAccountIndex;

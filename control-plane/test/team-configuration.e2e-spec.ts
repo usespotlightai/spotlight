@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { INestApplication } from '@nestjs/common';
+import { fieldOf } from '@platform/json/field-of';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { eq, inArray } from 'drizzle-orm';
@@ -15,6 +16,7 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import * as schema from './support/schema';
 
 type Body = Record<string, unknown> & { id: string; version: number };
@@ -103,7 +105,7 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
           201,
         );
 
-        return answer.body as Body;
+        return bodyOf<Body>(answer);
       },
       read: (path: string) =>
         http.get(`/api/v1/resources/${path}`).set(TEST_USER_HEADER, owner),
@@ -195,10 +197,12 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
     expect(
       [workspace, team, skill, integration, line].map((each) => each.address),
     ).toEqual([slug, 'core', 'core/grafana', 'core/linear', 'core/delivery']);
+    const stations = fieldOf(line.definition, 'stations');
+
     expect(
-      (line.definition as typeof LINE).stations.find(
-        (each) => each.key === 'implementation',
-      ),
+      Array.isArray(stations)
+        ? stations.find((each) => fieldOf(each, 'key') === 'implementation')
+        : undefined,
     ).toMatchObject({ tools: ['linear.comment'], skills: ['grafana'] });
 
     const rejections = await Promise.all([
@@ -209,9 +213,9 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
     ]);
 
     expect(
-      rejections.map((each) => [each.status, (each.body as Problem).type]),
+      rejections.map((each) => [each.status, bodyOf<Problem>(each).type]),
     ).toEqual(rejections.map(() => [409, 'urn:spotlight:problem:in-use']));
-    expect((rejections[1]?.body as Problem | undefined)?.detail).toMatch(
+    expect(bodyOf<Problem | undefined>(rejections[1])?.detail).toMatch(
       /line delivery, skill grafana, integration linear|integration linear, line delivery, skill grafana/,
     );
 
@@ -231,10 +235,10 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
     });
 
     for (const [path, version] of [
-      [`lines/${line.id}`, (updated.body as Body).version],
+      [`lines/${line.id}`, bodyOf<Body>(updated).version],
       [`skills/${skill.id}`, skill.version],
       [`integrations/${integration.id}`, integration.version],
-      [`teams/${team.id}`, (renamed.body as Body).version],
+      [`teams/${team.id}`, bodyOf<Body>(renamed).version],
       [`workspaces/${workspace.id}`, workspace.version],
     ] as const) {
       const deleted = await api().delete(path, version);
@@ -262,7 +266,7 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
 
     expect(created.status).toBe(201);
 
-    const made = created.body as { id: string; teams: { id: string }[] };
+    const made = bodyOf<{ id: string; teams: { id: string }[] }>(created);
     const teamId = made.teams[0].id;
     const lines = await eventually(
       () =>
@@ -284,7 +288,7 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
 
     for (const { key } of lines) {
       const line = await imported(`workspaces/${made.id}/lines`, `core/${key}`);
-      const read = line.body as Body & { definition: object };
+      const read = bodyOf<Body & { definition: object }>(line);
 
       expect(line.status).toBe(200);
       expect(line.body).toMatchObject({ key, address: `core/${key}` });
@@ -299,7 +303,7 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
         unchanged.status,
         `unchanged: ${JSON.stringify(unchanged.body)}`,
       ).toBe(200);
-      expect((unchanged.body as { definition: object }).definition).toEqual(
+      expect(bodyOf<{ definition: object }>(unchanged).definition).toEqual(
         read.definition,
       );
     }

@@ -1,6 +1,10 @@
 import { NoGitHubInstallationError } from '@github/application/errors/no-github-installation.error';
-import type { PullRequestPort } from '@github/application/ports/pull-request.port';
+import type {
+  OpenedPullRequestDto,
+  PullRequestPort,
+} from '@github/application/ports/pull-request.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -106,9 +110,9 @@ const lineWorking = (repositories: readonly string[]): LineMap => {
     null,
   );
 
-  return {
+  return partial<LineMap>({
     opening: (name: RepositoryName | null) => repositoriesOfLine.opening(name),
-  } as unknown as LineMap;
+  });
 };
 
 const requested = (
@@ -139,7 +143,7 @@ const opening = (
   const opened: Parameters<PullRequestPort['open']>[0][] = [];
   const edited: Parameters<PullRequestPort['edit']>[0][] = [];
 
-  const pullRequests = {
+  const pullRequests = partial<PullRequestPort>({
     open: async (request: Parameters<PullRequestPort['open']>[0]) => {
       if (over.connected === false) {
         throw new NoGitHubInstallationError();
@@ -148,7 +152,9 @@ const opening = (
       if (stored && over.meanwhile) {
         stored = over.meanwhile(stored);
       }
-      return { url: 'https://github.com/acme/widgets/pull/7' };
+      return partial<OpenedPullRequestDto>({
+        url: 'https://github.com/acme/widgets/pull/7',
+      });
     },
     edit: async (request: Parameters<PullRequestPort['edit']>[0]) => {
       edited.push(request);
@@ -157,8 +163,8 @@ const opening = (
       compared.push(on);
       return ['db/migrations/0042_add_index.sql', 'src/queue.ts'];
     },
-  } as unknown as PullRequestPort;
-  const tasks = {
+  });
+  const tasks = partial<TaskRepository>({
     find: async () => stored,
     findByCorrelation: async () => (over.markedTask ? [over.markedTask] : []),
     owningPullRequest: async () => null,
@@ -167,20 +173,20 @@ const opening = (
     save: async (each: Task) => {
       saved.push(each);
     },
-  } as unknown as TaskRepository;
+  });
   const line = lineWorking(over.repositories ?? ['acme/widgets']);
   const service = new OpenPullRequest(
     tasks,
-    { findByStation: async () => line } as unknown as LineMapsPort,
+    partial<LineMapsPort>({ findByStation: async () => line }),
     pullRequests,
     { inTransaction: (work) => work() } satisfies TransactionPort,
     new PullRequestOpeningHook(
-      {
+      partial<TaskViewsPort>({
         of: async (taskId: string, runId: string | null) =>
           over.viewed === false
             ? null
-            : ({ taskId, runId, teamId: 'team_1' } as unknown as TaskViewDto),
-      } as unknown as TaskViewsPort,
+            : partial<TaskViewDto>({ taskId, runId, teamId: 'team_1' }),
+      }),
       {
         listens: async (teamId, on) => {
           listened.push([teamId, on]);

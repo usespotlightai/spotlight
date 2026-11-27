@@ -1,7 +1,8 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { ListedProposal } from '@work/application/contracts/listed-proposal.contract';
 
 const placed = (proposal: ListedProposal): string =>
-  proposal.line && proposal.station
+  nonEmpty(proposal.line) && nonEmpty(proposal.station)
     ? ` (${proposal.line} › ${proposal.station})`
     : '';
 
@@ -58,7 +59,7 @@ export const ChannelReplies = {
     );
 
     return [
-      ...(said ? [said, ''] : []),
+      ...(nonEmpty(said) ? [said, ''] : []),
       only ? 'Open proposal:' : 'Open proposals:',
       ...listed,
       only

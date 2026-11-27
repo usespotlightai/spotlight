@@ -1,6 +1,8 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -101,20 +103,20 @@ const dispatching = (
   const runs = recordingRuns();
   const dispatch = new DispatchChat(
     { generate: () => 'id' },
-    {
+    partial<HarnessLaunchPort>({
       commandFor: () =>
         (over.launches ?? true)
           ? { executable: 'claude-agent-acp', args: [] }
           : null,
-    } as unknown as HarnessLaunchPort,
-    { forChat: () => '00-trace-span-01' } as unknown as TraceParentPort,
-    { find: async () => null } as unknown as TeamDirectoryPort,
-    {
+    }),
+    partial<TraceParentPort>({ forChat: () => '00-trace-span-01' }),
+    partial<TeamDirectoryPort>({ find: async () => null }),
+    partial<LineMapsPort>({
       ofTeam: async () => [
         line('api', [API], ['vpc-internal']),
         line('web', [Repository.of('acme/web')], ['gpu']),
       ],
-    } as unknown as LineMapsPort,
+    }),
     { now: () => NOW, sleep: async () => {} },
     {
       forBriefing: async (place: BriefingContext) => {
@@ -148,9 +150,11 @@ const dispatching = (
     { inSavepoint: (work) => work() },
     'https://app.usespotlight.ai',
     { release: null },
-    new ChatToolExtensions({
-      find: async () => null,
-    } as unknown as ChatRepository),
+    new ChatToolExtensions(
+      partial<ChatRepository>({
+        find: async () => null,
+      }),
+    ),
   );
 
   return {
@@ -164,7 +168,7 @@ const dispatching = (
 
       await runs.enqueue(ordered.order);
 
-      const [order] = runs.enqueue.mock.calls[0] ?? [];
+      const order = firstOf(runs.enqueue.mock.calls[0] ?? []);
 
       return order ? { run: order, ordered } : null;
     },
@@ -196,7 +200,11 @@ const dispatched = (chat: Chat, runId: RunId) => {
   const assigned = chat.assignRun(runId, NOW);
   const event = assigned
     .pullEvents()
-    .find((each) => each instanceof ChatRunAssigned) as ChatRunAssigned;
+    .find((each): each is ChatRunAssigned => each instanceof ChatRunAssigned);
+
+  if (!event) {
+    throw new Error('expected the chat to have assigned a run');
+  }
 
   return { chat: assigned, handed: event.acknowledged };
 };

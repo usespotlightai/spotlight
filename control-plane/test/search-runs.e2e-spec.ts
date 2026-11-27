@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
 import type { INestApplication } from '@nestjs/common';
+import { fieldOf } from '@platform/json/field-of';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { SearchRunDispatch } from '@replays/application/services/search-run-dispatch.service';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { RunViewing } from '@runs/application/services/run-viewing.service';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -22,6 +24,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
 import { aDispatch, requestedByTask } from './support/runs';
@@ -124,13 +127,13 @@ const claimed = async (
     })
     .expect(200);
 
-  const assignment = (
+  const assignment = bodyOf<{ token: string; work: { run: Claimed } }>(
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
       .send({ host: HOST, image: IMAGE })
-      .expect(200)
-  ).body as { token: string; work: { run: Claimed } };
+      .expect(200),
+  );
 
   expect(assignment.work.run.id).toBe(runId);
 
@@ -208,10 +211,9 @@ const aTaskRun = async (
 };
 
 const runRow = async (runId: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.run)
-    .where(eq(schema.run.id, runId));
+  const row = firstOf(
+    await db.select().from(schema.run).where(eq(schema.run.id, runId)),
+  );
 
   return row;
 };
@@ -322,21 +324,23 @@ beforeAll(async () => {
     },
   ]);
 
-  const [stored] = await db
-    .insert(schema.memory)
-    .values({
-      id: randomUUID(),
-      handle: sql`nextval('memory_handle_seq')`,
-      workspaceId: team.workspaceId.value,
-      kind: 'rationale',
-      body: 'Queues drain oldest first.',
-      teamId: team.teamId.value,
-      paths: [],
-      source: 'person',
-      approvedById: team.owner.value,
-      approvedAt: new Date(),
-    })
-    .returning({ handle: schema.memory.handle });
+  const stored = firstOf(
+    await db
+      .insert(schema.memory)
+      .values({
+        id: randomUUID(),
+        handle: sql`nextval('memory_handle_seq')`,
+        workspaceId: team.workspaceId.value,
+        kind: 'rationale',
+        body: 'Queues drain oldest first.',
+        teamId: team.teamId.value,
+        paths: [],
+        source: 'person',
+        approvedById: team.owner.value,
+        approvedAt: new Date(),
+      })
+      .returning({ handle: schema.memory.handle }),
+  );
   memoryHandle = stored?.handle ?? 0;
 
   await http()
@@ -349,7 +353,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 describe('a search run claimed by a runner', () => {
@@ -385,10 +389,12 @@ describe('a search run claimed by a runner', () => {
   it('is named to the replays context by its search and iteration, only while its runner has a lease on it', async () => {
     const { order: queued, runId } = await aClaimedSearch({ iteration: 3 });
     const searches = app.get(SearchRunDispatch);
-    const [host] = await db
-      .select({ claimedBy: schema.run.claimedBy })
-      .from(schema.run)
-      .where(eq(schema.run.id, runId));
+    const host = firstOf(
+      await db
+        .select({ claimedBy: schema.run.claimedBy })
+        .from(schema.run)
+        .where(eq(schema.run.id, runId)),
+    );
 
     expect(
       await searches.leasedSearchRun(RunId.of(runId), host?.claimedBy ?? ''),
@@ -480,15 +486,15 @@ describe('a search run reading its station’s history', () => {
       .get(`/api/runs/${runId}/history?station=ship`)
       .expect(404);
 
-    const history = (
-      await runner(token)
-        .get(`/api/runs/${runId}/history?station=build&last=1`)
-        .expect(200)
-    ).body as {
+    const history = bodyOf<{
       runs: { runId: string; taskId: string }[];
       candidates?: unknown;
       seedBlock?: unknown;
-    };
+    }>(
+      await runner(token)
+        .get(`/api/runs/${runId}/history?station=build&last=1`)
+        .expect(200),
+    );
 
     expect(history.runs.map((each) => each.taskId)).not.toContain(heldOut);
     expect(history.runs.map((each) => each.runId)).toEqual(
@@ -506,7 +512,7 @@ describe('a search run reading its station’s history', () => {
     );
 
     expect(answer.status).toBe(404);
-    expect((answer.body as { runs?: unknown }).runs).toBeUndefined();
+    expect(bodyOf<{ runs?: unknown }>(answer).runs).toBeUndefined();
   });
 
   it('reads the trace of a task it may see at the station it searches, and of no held-out task or task worked elsewhere', async () => {
@@ -568,7 +574,7 @@ describe('a search run ending', () => {
 
     expect((await runRow(runId))?.state).toBe('completed');
 
-    const [endedEvent] = await published('runs.run-ended.v1', runId);
+    const endedEvent = firstOf(await published('runs.run-ended.v1', runId));
 
     expect(endedEvent?.payload).toMatchObject({
       requester: {
@@ -584,13 +590,10 @@ describe('a search run ending', () => {
       askedAPerson: false,
       stopped: false,
     });
+    const endedAt = fieldOf(endedEvent?.payload, 'endedAt');
+
     expect(
-      Number.isNaN(
-        Date.parse(
-          (endedEvent?.payload as { endedAt: string } | undefined)?.endedAt ??
-            '',
-        ),
-      ),
+      Number.isNaN(Date.parse(typeof endedAt === 'string' ? endedAt : '')),
     ).toBe(false);
     expect(await published('runs.run-usage-recorded.v1', runId)).toEqual([
       {
@@ -645,7 +648,7 @@ describe('a search run ending', () => {
 
     expect((await runRow(runId))?.askedAPerson).toBe(true);
 
-    const [endedEvent] = await published('runs.run-ended.v1', runId);
+    const endedEvent = firstOf(await published('runs.run-ended.v1', runId));
 
     expect(endedEvent?.payload).toMatchObject({ askedAPerson: true });
   });

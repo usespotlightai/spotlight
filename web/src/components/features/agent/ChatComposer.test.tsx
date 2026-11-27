@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatComposer } from '@/components/features/agent/ChatComposer';
 import type { Chat } from '@/lib/chat';
 import { pressEnter, textOf, write } from '@/test/lexical';
+import { partial } from '@/test/partial';
 
 const sent = vi.fn<
   (
@@ -54,15 +55,15 @@ vi.mock('@/hooks/api/useSendChatMessage', () => ({
 }));
 
 const chat = (id: string, overrides: Partial<Chat> = {}): Chat =>
-  ({
+  partial<Chat>({
     id,
     harness: 'claude-code',
     model: null,
     effort: null,
     repositories: [],
-    progress: 'idle',
+    progress: null,
     ...overrides,
-  }) as unknown as Chat;
+  });
 
 const showing = (shown: Chat) =>
   render(<ChatComposer slug="acme" teamId="team_1" chat={shown} />);

@@ -9,6 +9,8 @@ import { NetworkRequest } from '@runs/domain/value-objects/network-request.vo';
 import { NetworkResponse } from '@runs/domain/value-objects/network-response.vo';
 import { DrizzleNetworkCallRepository } from '@runs/infrastructure/persistence/drizzle/repositories/network-call.repository';
 import { networkCall } from '@runs/infrastructure/persistence/drizzle/schemas/network-call.schema';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { pushSchema } from 'drizzle-kit/api';
@@ -70,7 +72,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 beforeEach(async () => {
@@ -197,7 +199,7 @@ describe('DrizzleNetworkCallRepository', () => {
     const expired = await queued({ at: later(-20_000), expiresAt: later(-1) });
     const [expiring, ...more] = await calls.expiringBy(NOW, 10);
 
-    expect(expiring?.id).toEqual(expired.id);
+    expect(expiring.id).toEqual(expired.id);
     expect(more).toEqual([]);
 
     await calls.save(expiring.expire(NOW));
@@ -240,7 +242,7 @@ describe('DrizzleNetworkCallRepository', () => {
     const call = await queued({ workspace: 'ws_unanswered' });
     await claims.next(WorkspaceId.of('ws_unanswered'), HOST, NOW, TOKEN);
     const claimed = await calls.find(call.id);
-    await calls.save((claimed as NetworkCall).expire(later(15_000)));
+    await calls.save(present(claimed).expire(later(15_000)));
 
     expect((await calls.find(call.id))?.progress).toEqual({
       kind: 'expired',
@@ -263,8 +265,12 @@ describe('DrizzleNetworkCallRepository', () => {
     const week = 7 * 24 * 60 * 60_000;
     expect(await calls.completedBy(later(1_000 - 1), 10)).toEqual([]);
 
-    const [completed] = await calls.completedBy(later(1_000), 10);
-    expect(completed?.id).toEqual(waited.id);
+    const completed = firstOf(await calls.completedBy(later(1_000), 10));
+
+    if (completed === undefined) {
+      throw new Error('expected a completed call');
+    }
+    expect(completed.id).toEqual(waited.id);
 
     await calls.save(completed.purge(later(1_000 + week)));
 

@@ -31,7 +31,7 @@ export class StationPath {
 
   equals(other: StationPath): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof StationPath &&
       this.teamKey === other.teamKey &&
       this.lineKey === other.lineKey &&
       this.stationKey === other.stationKey

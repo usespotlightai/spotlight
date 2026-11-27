@@ -1065,16 +1065,15 @@ export class Search extends EventRecorder {
     run: RunId,
     change: (iteration: SearchIteration) => SearchIteration,
   ): Search {
-    let changed = false;
-    const iterations = this.state.iterations.map((each) => {
-      if (!each.ran(run)) {
-        return each;
-      }
-
-      const next = change(each);
-      changed = next !== each;
-      return next;
-    });
+    const changes = this.state.iterations.map((each) => ({
+      each,
+      next: each.ran(run) ? change(each) : null,
+    }));
+    const iterations = changes.map(({ each, next }) => next ?? each);
+    const changed = changes.reduce(
+      (was, { each, next }) => (next === null ? was : next !== each),
+      false,
+    );
 
     return changed ? this.with({ iterations }) : this;
   }

@@ -26,6 +26,7 @@ import {
   WORKSPACE,
 } from '@insights/runs.fake-spec';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -252,7 +253,7 @@ describe('reading how a station’s runs turned out', () => {
     );
 
     const { groups } = await reader.read();
-    const [group] = groups;
+    const group = firstOf(groups);
 
     expect(groups).toHaveLength(1);
     expect(group?.firstRunId).toBe('run_1');

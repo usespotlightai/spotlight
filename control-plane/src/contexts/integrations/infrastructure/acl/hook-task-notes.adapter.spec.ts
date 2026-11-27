@@ -19,7 +19,7 @@ const REPORT = {
   receivedAs: 'loop:firing_1',
 };
 
-const noticesFailingWith = (error: unknown) =>
+const noticesFailingWith = (error: Error) =>
   new HookTaskNotes({
     noted: vi.fn(),
     failed: vi.fn(async () => {

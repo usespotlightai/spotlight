@@ -15,6 +15,7 @@ import type {
 } from '@runs/application/ports/run-connections.port';
 import { stepNumber } from '@runs/domain/services/journal-step-numbers';
 import { faulted } from '@runs/domain/value-objects/step-status';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 type RunConnection = RunConnectionContract;
@@ -38,7 +39,7 @@ export const tracedRunsOf = (
 ): TracedRun[] => {
   return runs.map((run) => ({
     id: RunId.of(run.id),
-    label: run.label || null,
+    label: run.label === '' ? null : run.label,
     harness: run.harness,
     failed: run.failed,
     attempt: run.attempt,
@@ -186,7 +187,7 @@ const nested = (
   const roots: RunSpan[] = [];
 
   for (const span of spans) {
-    if (span.parentId && ids.has(span.parentId)) {
+    if (nonEmpty(span.parentId) && ids.has(span.parentId)) {
       under.set(span.parentId, [...(under.get(span.parentId) ?? []), span]);
     } else {
       roots.push(span);

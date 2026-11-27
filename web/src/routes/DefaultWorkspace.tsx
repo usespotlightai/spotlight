@@ -24,7 +24,7 @@ export function DefaultWorkspace() {
     return null;
   }
 
-  const [first] = workspaces.data ?? [];
+  const first = workspaces.data?.at(0);
 
   return first ? (
     <Navigate to={workspacePath(first.slug)} replace />

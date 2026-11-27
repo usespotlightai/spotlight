@@ -27,6 +27,6 @@ export class BoundHost {
   }
 
   equals(other: BoundHost): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof BoundHost && this.value === other.value;
   }
 }

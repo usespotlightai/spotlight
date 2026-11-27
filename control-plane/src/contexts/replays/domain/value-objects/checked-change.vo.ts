@@ -10,6 +10,6 @@ export class CheckedChange {
   }
 
   equals(other: CheckedChange): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof CheckedChange && this.value === other.value;
   }
 }

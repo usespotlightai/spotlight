@@ -31,43 +31,51 @@ const placed = (place: number, what: string): number => {
   return place;
 };
 
+const isHunkId = (raw: string): raw is HunkId => HUNK.test(raw);
+
+const isCohortId = (raw: string): raw is CohortId => COHORT.test(raw);
+
+const isLayerId = (raw: string): raw is LayerId => LAYER.test(raw);
+
+const isQuestionId = (raw: string): raw is QuestionId => QUESTION.test(raw);
+
 const named = <T extends string>(
   raw: string,
-  shape: RegExp,
+  shaped: (raw: string) => raw is T,
   what: string,
 ): T => {
-  if (!shape.test(raw)) {
+  if (!shaped(raw)) {
     throw InvalidChangeStackError.because(
       `${what} name ${raw || 'nothing'} is not valid`,
     );
   }
 
-  return raw as T;
+  return raw;
 };
 
 export const HunkId = {
-  at: (place: number): HunkId => `h${placed(place, 'hunks')}` as HunkId,
-  of: (raw: string): HunkId => named<HunkId>(raw, HUNK, 'hunk'),
-  parsed: (raw: string): HunkId | null =>
-    HUNK.test(raw) ? (raw as HunkId) : null,
+  at: (place: number): HunkId =>
+    named(`h${placed(place, 'hunks')}`, isHunkId, 'hunk'),
+  of: (raw: string): HunkId => named(raw, isHunkId, 'hunk'),
+  parsed: (raw: string): HunkId | null => (isHunkId(raw) ? raw : null),
 };
 
 export const CohortId = {
-  at: (place: number): CohortId => `c${placed(place, 'cohorts')}` as CohortId,
-  of: (raw: string): CohortId => named<CohortId>(raw, COHORT, 'cohort'),
+  at: (place: number): CohortId =>
+    named(`c${placed(place, 'cohorts')}`, isCohortId, 'cohort'),
+  of: (raw: string): CohortId => named(raw, isCohortId, 'cohort'),
 };
 
 export const LayerId = {
   in: (cohort: CohortId, place: number): LayerId =>
-    `${cohort}.l${placed(place, 'layers')}` as LayerId,
-  of: (raw: string): LayerId => named<LayerId>(raw, LAYER, 'layer'),
+    named(`${cohort}.l${placed(place, 'layers')}`, isLayerId, 'layer'),
+  of: (raw: string): LayerId => named(raw, isLayerId, 'layer'),
   cohortOf: (id: LayerId): CohortId => CohortId.of(id.split('.')[0] ?? ''),
 };
 
 export const QuestionId = {
   in: (layer: LayerId, place: number): QuestionId =>
-    `${layer}.q${placed(place, 'questions')}` as QuestionId,
-  of: (raw: string): QuestionId => named<QuestionId>(raw, QUESTION, 'question'),
-  parsed: (raw: string): QuestionId | null =>
-    QUESTION.test(raw) ? (raw as QuestionId) : null,
+    named(`${layer}.q${placed(place, 'questions')}`, isQuestionId, 'question'),
+  of: (raw: string): QuestionId => named(raw, isQuestionId, 'question'),
+  parsed: (raw: string): QuestionId | null => (isQuestionId(raw) ? raw : null),
 };

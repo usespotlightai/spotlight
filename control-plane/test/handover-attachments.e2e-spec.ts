@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
@@ -17,6 +18,7 @@ import { asc, eq, ne } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
 import { aDispatch, requestedByTask } from './support/runs';
@@ -36,7 +38,7 @@ const DEPLOY = randomUUID();
 const granted = new Map<string, { uploader: string; file: Attachment }>();
 const taken: string[] = [];
 
-const attachmentStore = {
+const attachmentStore = partial<AttachmentStorePort>({
   grant: async (
     _workspace: unknown,
     uploader: UserId | RunId,
@@ -67,7 +69,7 @@ const attachmentStore = {
     }),
   taken: async (_workspace: unknown, files: readonly Attachment[]) =>
     void taken.push(...files.map((each) => each.id.value)),
-} as unknown as AttachmentStorePort;
+});
 
 let app: INestApplication;
 let db: DrizzleDatabase;
@@ -119,13 +121,13 @@ const claimed = async (runId: string): Promise<string> => {
   await lostEarlierSandboxes();
   await heartbeat();
 
-  const assignment = (
+  const assignment = bodyOf<{ token: string; work: { run: { id: string } } }>(
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
       .send({ host: HOST, image: IMAGE })
-      .expect(200)
-  ).body as { token: string; work: { run: { id: string } } };
+      .expect(200),
+  );
 
   expect(assignment.work.run.id).toBe(runId);
 
@@ -178,15 +180,15 @@ const aTaskWithLeasedRun = async (
 };
 
 const upload = async (token: string, runId: string, name: string) =>
-  (
+  bodyOf<{ id: string; url: string; headers: Record<string, string> }>(
     await runner(token)
       .post(`/api/runs/${runId}/attachments`, {
         name,
         contentType: 'image/png',
         size: 3,
       })
-      .expect(201)
-  ).body as { id: string; url: string; headers: Record<string, string> };
+      .expect(201),
+  );
 
 const filesOnNotes = (taskId: string) =>
   db
@@ -282,7 +284,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 describe('files a run attaches to its handover', () => {
@@ -342,13 +344,11 @@ describe('files a run attaches to its handover', () => {
     ]);
     expect(taken).toEqual(expect.arrayContaining([light.id, dark.id]));
 
-    const inbox = (
-      (
-        await http()
-          .get(`/api/workspaces/${team.slug}/inbox`)
-          .set(TEST_USER_HEADER, team.owner.value)
-          .expect(200)
-      ).body as { readonly items: { taskId: string }[] }
+    const inbox = bodyOf<{ readonly items: { taskId: string }[] }>(
+      await http()
+        .get(`/api/workspaces/${team.slug}/inbox`)
+        .set(TEST_USER_HEADER, team.owner.value)
+        .expect(200),
     ).items;
     expect(inbox.some((each) => each.taskId === taskId)).toBe(true);
   });
@@ -371,12 +371,7 @@ describe('files a run attaches to its handover', () => {
       .expect(204);
 
     const asked = await eventually(async () => {
-      const { items } = (
-        await http()
-          .get(`/api/workspaces/${team.slug}/inbox`)
-          .set(TEST_USER_HEADER, team.owner.value)
-          .expect(200)
-      ).body as {
+      const { items } = bodyOf<{
         readonly items: {
           readonly taskId: string;
           readonly lastNote: {
@@ -384,7 +379,12 @@ describe('files a run attaches to its handover', () => {
             readonly suggestsClosing: boolean;
           } | null;
         }[];
-      };
+      }>(
+        await http()
+          .get(`/api/workspaces/${team.slug}/inbox`)
+          .set(TEST_USER_HEADER, team.owner.value)
+          .expect(200),
+      );
 
       return items.find((each) => each.taskId === taskId)?.lastNote ?? null;
     });

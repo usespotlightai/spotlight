@@ -23,7 +23,7 @@ export class LineKey {
   }
 
   equals(other: LineKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof LineKey && this.value === other.value;
   }
 
   compare(other: LineKey): number {

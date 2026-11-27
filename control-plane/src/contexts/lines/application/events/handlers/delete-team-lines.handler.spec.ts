@@ -4,6 +4,7 @@ import { ApplyLines } from '@lines/application/services/apply-lines.service';
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import type { LineRepository } from '@lines/domain/repositories/line.repository';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -41,10 +42,10 @@ const deleting = (tasks: number) => {
   const warn = vi.fn();
   const tally = async () =>
     line.stations.map((each) => ({ stationId: each.id, tasks }));
-  const lines = {
+  const lines = partial<LineRepository>({
     ofTeam: vi.fn(async () => [line]),
     save,
-  } as unknown as LineRepository;
+  });
   const service = new DeleteTeamLines(
     lines,
     new ApplyLines(

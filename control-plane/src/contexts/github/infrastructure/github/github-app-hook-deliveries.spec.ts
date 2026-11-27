@@ -2,17 +2,18 @@ import { generateKeyPairSync } from 'node:crypto';
 
 import { GitHubAppHookDeliveries } from '@github/infrastructure/github/github-app-hook-deliveries';
 import type { Env } from '@platform/config/env.schema';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 
-const env = {
+const env = partial<Env>({
   GITHUB_APP_ID: '1',
   GITHUB_APP_PRIVATE_KEY: privateKey.export({
     type: 'pkcs1',
     format: 'pem',
   }),
-} as Env;
+});
 
 const ID = '3856285345890959360';
 
@@ -27,7 +28,7 @@ const answering = (status: number, body: unknown, link: string | null = null) =>
     .mockResolvedValue({
       status,
       ok: status >= 200 && status < 300,
-      headers: new Headers(link ? { link } : {}),
+      headers: new Headers(link !== null ? { link } : {}),
       text: async () =>
         typeof body === 'string' ? body : JSON.stringify(body),
       json: async (): Promise<unknown> =>
@@ -82,9 +83,9 @@ describe('GitHubAppHookDeliveries', () => {
     const fetching = answering(202, {});
     vi.stubGlobal('fetch', fetching);
 
-    await deliveries.redeliver(listed?.id ?? '');
+    await deliveries.redeliver(listed.id);
 
-    expect(listed?.id).toBe(ID);
+    expect(listed.id).toBe(ID);
     expect(fetching.mock.calls[0]?.[0]).toBe(
       'https://api.github.com/app/hook/deliveries/3856285345890959360/attempts',
     );

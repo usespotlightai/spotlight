@@ -1,4 +1,5 @@
 import type { SandboxRetirementPort } from '@runners/application/ports/sandbox-retirement.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RetireChatSandbox } from '@work/application/events/handlers/retire-chat-sandbox.handler';
@@ -25,9 +26,8 @@ const resolved = new ChatResolved(
 const retiring = (
   chat: { keepsNoLiveWorkingCopy: boolean } | null,
 ): { handler: RetireChatSandbox; sandboxes: SandboxRetirementPort } => {
-  const chats = {
-    find: vi.fn(async () => chat as Chat | null),
-  } as unknown as ChatRepository;
+  const found = chat === null ? null : partial<Chat>(chat);
+  const chats = partial<ChatRepository>({ find: vi.fn(async () => found) });
   const sandboxes: SandboxRetirementPort = { retire: vi.fn(async () => {}) };
 
   return { handler: new RetireChatSandbox(chats, sandboxes), sandboxes };

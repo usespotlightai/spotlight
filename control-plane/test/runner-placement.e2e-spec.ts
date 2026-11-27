@@ -1,5 +1,6 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { placementMatches } from '@runs/infrastructure/persistence/drizzle/placement-matches';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -18,7 +19,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const WIDGETS = 'ghcr.io/acme/widgets:1';
@@ -88,7 +89,7 @@ describe('placement said in SQL', () => {
       for (const image of IMAGES) {
         const placement = RunnerPlacement.ofLabelGroups(
           labelGroups,
-          image ? RunnerImage.of(image) : null,
+          nonEmpty(image) ? RunnerImage.of(image) : null,
         );
 
         for (const labels of LABELS) {

@@ -12,6 +12,7 @@ import type {
   ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const file = (id: string, path: string, line: string): DiffFile => ({
@@ -130,7 +131,7 @@ describe('arranged', () => {
       },
     ];
 
-    const [cohort] = arranged(DIFF, FACTS, proposed);
+    const [cohort] = optionalItems(arranged(DIFF, FACTS, proposed));
 
     expect(cohort?.layers.map((each) => each.title)).toEqual(['Model', 'API']);
     expect(cohort?.layers[1]?.dependsOn).toEqual([
@@ -148,7 +149,7 @@ describe('arranged', () => {
       },
     ];
 
-    const [cohort] = arranged(DIFF, FACTS, proposed);
+    const [cohort] = optionalItems(arranged(DIFF, FACTS, proposed));
 
     expect(cohort?.layers[0]?.notes).toEqual([
       { path: 'src/schema.ts', note: 'Why Model changes' },
@@ -162,19 +163,21 @@ describe('arranged', () => {
       hunks: hunks.map((each) => HunkId.of(each)),
     });
 
-    const [cohort] = arranged(DIFF, FACTS, [
-      {
-        kind: 'change',
-        title: 'Invitations',
-        intent: 'Let admins invite people',
-        layers: [
-          {
-            ...layer('Everything', ['h1', 'h2', 'h3']),
-            questions: [asked(['h1', 'h2']), asked(['h2'])],
-          },
-        ],
-      },
-    ]);
+    const [cohort] = optionalItems(
+      arranged(DIFF, FACTS, [
+        {
+          kind: 'change',
+          title: 'Invitations',
+          intent: 'Let admins invite people',
+          layers: [
+            {
+              ...layer('Everything', ['h1', 'h2', 'h3']),
+              questions: [asked(['h1', 'h2']), asked(['h2'])],
+            },
+          ],
+        },
+      ]),
+    );
 
     expect(cohort?.layers[0]?.questions).toEqual([
       { ...asked(['h1', 'h2']), hunks: [HunkId.of('h1')] },
@@ -182,18 +185,20 @@ describe('arranged', () => {
   });
 
   it('leaves a layer without hunks and a dependency past the last layer for the checks to refuse, shifted past the layers taken out', () => {
-    const [cohort] = arranged(DIFF, FACTS, [
-      {
-        kind: 'change',
-        title: 'Invitations',
-        intent: 'Invite people',
-        layers: [
-          layer('Nothing', []),
-          layer('Lockfile', ['h2']),
-          layer('Model', ['h1'], [{ layer: 9, because: ['Invite'] }]),
-        ],
-      },
-    ]);
+    const [cohort] = optionalItems(
+      arranged(DIFF, FACTS, [
+        {
+          kind: 'change',
+          title: 'Invitations',
+          intent: 'Invite people',
+          layers: [
+            layer('Nothing', []),
+            layer('Lockfile', ['h2']),
+            layer('Model', ['h1'], [{ layer: 9, because: ['Invite'] }]),
+          ],
+        },
+      ]),
+    );
 
     expect(cohort?.layers.map((each) => each.title)).toEqual([
       'Nothing',
@@ -205,24 +210,26 @@ describe('arranged', () => {
   });
 
   it('keeps each dependency a layer names, for the checks to judge', () => {
-    const [cohort] = arranged(DIFF, FACTS, [
-      {
-        kind: 'change',
-        title: 'Invitations',
-        intent: 'Invite people',
-        layers: [
-          layer('Model', ['h1']),
-          layer(
-            'API',
-            ['h3'],
-            [
-              { layer: 1, because: ['  '] },
-              { layer: 1, because: ['Invite'] },
-            ],
-          ),
-        ],
-      },
-    ]);
+    const [cohort] = optionalItems(
+      arranged(DIFF, FACTS, [
+        {
+          kind: 'change',
+          title: 'Invitations',
+          intent: 'Invite people',
+          layers: [
+            layer('Model', ['h1']),
+            layer(
+              'API',
+              ['h3'],
+              [
+                { layer: 1, because: ['  '] },
+                { layer: 1, because: ['Invite'] },
+              ],
+            ),
+          ],
+        },
+      ]),
+    );
 
     expect(cohort?.layers[1]?.dependsOn).toEqual([
       { layer: 1, because: ['  '] },
@@ -231,18 +238,20 @@ describe('arranged', () => {
   });
 
   it('keeps a dependency on a later incidental layer for the checks to refuse', () => {
-    const [cohort] = arranged(DIFF, FACTS, [
-      {
-        kind: 'change',
-        title: 'Invitations',
-        intent: 'Invite people',
-        layers: [
-          layer('Model', ['h1']),
-          layer('API', ['h3'], [{ layer: 3, because: ['zod'] }]),
-          layer('Lockfile', ['h2']),
-        ],
-      },
-    ]);
+    const [cohort] = optionalItems(
+      arranged(DIFF, FACTS, [
+        {
+          kind: 'change',
+          title: 'Invitations',
+          intent: 'Invite people',
+          layers: [
+            layer('Model', ['h1']),
+            layer('API', ['h3'], [{ layer: 3, because: ['zod'] }]),
+            layer('Lockfile', ['h2']),
+          ],
+        },
+      ]),
+    );
 
     expect(cohort?.layers.map((each) => each.title)).toEqual(['Model', 'API']);
     expect(cohort?.layers[1]?.dependsOn).toEqual([

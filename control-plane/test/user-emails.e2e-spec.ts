@@ -16,6 +16,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -74,8 +75,9 @@ describe('additional emails (e2e)', () => {
     expect(answer.body).toMatchObject({ email: slack, status: 'pending' });
     expect(sent[sent.length - 1]?.to).toBe(slack);
 
-    const listed = (await as(seat.owner).get('/api/me/emails').expect(200))
-      .body as Emails;
+    const listed = bodyOf<Emails>(
+      await as(seat.owner).get('/api/me/emails').expect(200),
+    );
 
     expect(listed.additional).toEqual([
       expect.objectContaining({ email: slack, status: 'pending' }),
@@ -91,8 +93,8 @@ describe('additional emails (e2e)', () => {
   });
 
   it('refuses the sign-in email', async () => {
-    const signIn = (
-      (await as(seat.owner).get('/api/me/emails').expect(200)).body as Emails
+    const signIn = bodyOf<Emails>(
+      await as(seat.owner).get('/api/me/emails').expect(200),
     ).signInEmail;
 
     await as(seat.owner).post('/api/me/emails', { email: signIn }).expect(422);
@@ -122,8 +124,8 @@ describe('additional emails (e2e)', () => {
   });
 
   it('stops matching a removed address', async () => {
-    const [email] = (
-      (await as(seat.owner).get('/api/me/emails').expect(200)).body as Emails
+    const [email] = bodyOf<Emails>(
+      await as(seat.owner).get('/api/me/emails').expect(200),
     ).additional;
 
     await as(seat.owner).delete(`/api/me/emails/${email.id}`).expect(204);
@@ -139,7 +141,7 @@ describe('additional emails (e2e)', () => {
         .post('/api/me/emails', { email: again })
         .expect(200);
       await as(seat.owner)
-        .delete(`/api/me/emails/${(answer.body as { id: string }).id}`)
+        .delete(`/api/me/emails/${bodyOf<{ id: string }>(answer).id}`)
         .expect(204);
     };
 

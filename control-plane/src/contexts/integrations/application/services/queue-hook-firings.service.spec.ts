@@ -18,6 +18,7 @@ import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occur
 import { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
 import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -117,7 +118,7 @@ describe('QueueHookFirings', () => {
       ),
     );
 
-    const [fired] = vi.mocked(firings.add).mock.calls[0] ?? [];
+    const fired = firstOf(vi.mocked(firings.add).mock.calls[0] ?? []);
     expect(fired?.cause.description).toBe(
       'a delivery from slack → task.moved of Add a column (triage → build)',
     );

@@ -12,6 +12,7 @@ import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -199,10 +200,12 @@ describe('WorkspaceToken', () => {
     });
 
     it('records Spotlight issuing it, with the run and when it ends', () => {
-      const [issued] = forRun().pullEvents() as WorkspaceTokenIssued[];
+      const issued = firstOf(forRun().pullEvents());
 
-      expect(issued).toBeInstanceOf(WorkspaceTokenIssued);
-      expect(issued?.change.detail?.recorded()).toEqual({
+      if (!(issued instanceof WorkspaceTokenIssued)) {
+        throw new Error('expected a WorkspaceTokenIssued');
+      }
+      expect(issued.change.detail?.recorded()).toEqual({
         run: 'run_1',
         attempt: 1,
         scopes: ['plan'],

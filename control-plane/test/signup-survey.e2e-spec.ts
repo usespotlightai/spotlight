@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import * as schema from './support/schema';
 
 describe('the survey a workspace is created with (e2e)', () => {
@@ -50,7 +51,7 @@ describe('the survey a workspace is created with (e2e)', () => {
       referralSource: '  Hacker News  ',
     }).expect(201);
 
-    expect(await surveyOf((created.body as { id: string }).id)).toEqual([
+    expect(await surveyOf(bodyOf<{ id: string }>(created).id)).toEqual([
       expect.objectContaining({
         respondentId: owner,
         jobFunction: 'founder',
@@ -62,7 +63,7 @@ describe('the survey a workspace is created with (e2e)', () => {
   it('records no referral source when it is left out', async () => {
     const created = await create({ jobFunction: 'engineering' }).expect(201);
 
-    expect(await surveyOf((created.body as { id: string }).id)).toEqual([
+    expect(await surveyOf(bodyOf<{ id: string }>(created).id)).toEqual([
       expect.objectContaining({ referralSource: null }),
     ]);
   });

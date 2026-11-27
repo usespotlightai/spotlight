@@ -6,8 +6,8 @@ import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.
 import type { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
-import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
+import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import { TerraformStateId } from '@configuration/domain/value-objects/terraform-state-id.vo';
 import {
   type StateLockRow,
@@ -24,6 +24,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 
@@ -89,16 +90,18 @@ export class DrizzleTerraformStates implements TerraformStateRepository {
     workspaceId: WorkspaceId,
     name: StateName,
   ): Promise<TerraformState | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(terraformState)
-      .where(
-        and(
-          eq(terraformState.workspaceId, workspaceId.value),
-          eq(terraformState.name, name.value),
-        ),
-      )
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(terraformState)
+        .where(
+          and(
+            eq(terraformState.workspaceId, workspaceId.value),
+            eq(terraformState.name, name.value),
+          ),
+        )
+        .limit(1),
+    );
 
     return row ? this.rehydrated(row) : null;
   }

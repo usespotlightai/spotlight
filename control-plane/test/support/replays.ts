@@ -37,6 +37,8 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 
@@ -59,7 +61,7 @@ export const plannedCandidate = async (
       .get(StationConfigs)
       .validate(LineId.of(lineId), station.stationId, block));
   const address =
-    station && teamKey
+    station && nonEmpty(teamKey)
       ? StationPath.of(teamKey, station.lineKey, station.key)
       : null;
 
@@ -162,8 +164,7 @@ export const startedReplay = async (
         Replay.start({
           id,
           set: set.snapshot,
-          // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- live is set whenever requested is not
-          candidate: (requested ?? (live as Candidate)).asReplayed,
+          candidate: (requested ?? present(live)).asReplayed,
           baseline: asBaseline,
           ceiling,
           repeats,

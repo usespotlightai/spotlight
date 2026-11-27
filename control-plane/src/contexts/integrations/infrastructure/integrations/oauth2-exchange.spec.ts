@@ -5,8 +5,10 @@ import {
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
+import { bodyOf, callAt } from '@integrations/integrations.requests.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
@@ -49,9 +51,11 @@ const oauth2 = (): OAuth2Endpoints => {
 };
 
 const replying = (body: unknown, status = 200) =>
-  vi.fn(async () => new Response(JSON.stringify(body), { status }));
+  vi.fn<typeof globalThis.fetch>(
+    async () => new Response(JSON.stringify(body), { status }),
+  );
 
-const clock = { now: () => NOW } as ClockPort;
+const clock = partial<ClockPort>({ now: () => NOW });
 
 describe('OAuth2Exchange', () => {
   it('turns a code into tokens, an expiry, scopes and an identity', async () => {
@@ -102,9 +106,9 @@ describe('OAuth2Exchange', () => {
       'the-verifier',
     );
 
-    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = callAt(fetch);
     expect(url).toBe('https://slack.com/api/oauth.v2.access');
-    const form = new URLSearchParams(init.body as string);
+    const form = new URLSearchParams(bodyOf(init));
     expect(form.get('grant_type')).toBe('authorization_code');
     expect(form.get('code')).toBe('the-code');
     expect(form.get('redirect_uri')).toBe('https://app.example/callback');
@@ -130,10 +134,8 @@ describe('OAuth2Exchange', () => {
       null,
     );
 
-    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect(new URLSearchParams(init.body as string).has('code_verifier')).toBe(
-      false,
-    );
+    const [, init] = callAt(fetch);
+    expect(new URLSearchParams(bodyOf(init)).has('code_verifier')).toBe(false);
   });
 
   it('sends only the client id for a client registered without a secret', async () => {
@@ -146,8 +148,8 @@ describe('OAuth2Exchange', () => {
 
     await exchange.refresh(oauth2(), { id: 'public-1', secret: null }, 'r-1');
 
-    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    const form = new URLSearchParams(init.body as string);
+    const [, init] = callAt(fetch);
+    const form = new URLSearchParams(bodyOf(init));
     expect(form.get('client_id')).toBe('public-1');
     expect(form.has('client_secret')).toBe(false);
   });
@@ -166,11 +168,11 @@ describe('OAuth2Exchange', () => {
       'r-1',
     );
 
-    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect(new URLSearchParams(init.body as string).get('resource')).toBe(
+    const [, init] = callAt(fetch);
+    expect(new URLSearchParams(bodyOf(init)).get('resource')).toBe(
       'https://mcp.slack.com/',
     );
-    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('falls back to the file’s scopes where the service names none', async () => {
@@ -202,8 +204,8 @@ describe('OAuth2Exchange', () => {
 
     const tokens = await exchange.refresh(oauth2(), CLIENT, 'xoxe-1');
 
-    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    const form = new URLSearchParams(init.body as string);
+    const [, init] = callAt(fetch);
+    const form = new URLSearchParams(bodyOf(init));
     expect(form.get('grant_type')).toBe('refresh_token');
     expect(form.get('refresh_token')).toBe('xoxe-1');
     expect(tokens?.accessToken.value).toBe('xoxb-2');
@@ -249,7 +251,7 @@ describe('OAuth2Exchange', () => {
   });
 
   it('never follows a redirect from the token endpoint, and stores nothing from it', async () => {
-    const fetch = vi.fn(
+    const fetch = vi.fn<typeof globalThis.fetch>(
       async () =>
         new Response(null, {
           status: 307,
@@ -263,8 +265,8 @@ describe('OAuth2Exchange', () => {
     );
 
     expect(await exchange.refresh(oauth2(), CLIENT, 'r-1')).toBeNull();
-    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect(init.redirect).toBe('manual');
+    const [, init] = callAt(fetch);
+    expect(init?.redirect).toBe('manual');
     expect(fetch).toHaveBeenCalledOnce();
   });
 });

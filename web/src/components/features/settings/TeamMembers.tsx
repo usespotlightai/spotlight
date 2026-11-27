@@ -8,6 +8,7 @@ import { TeamMemberRowSkeleton } from '@/components/features/settings/TeamMember
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { useChangeMemberRole } from '@/hooks/api/useChangeMemberRole';
 import { useMembers } from '@/hooks/api/useMembers';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import type { Team } from '@/lib/team';
 
@@ -70,7 +71,7 @@ export function TeamMembers({ slug, teamId, admin, teams }: TeamMembersProps) {
             onOffer={member.assignableRoles}
             onChange={(role) => changeRole.mutate({ userId: member.id, role })}
             pending={
-              changeRole.isPending && changeRole.variables?.userId === member.id
+              changeRole.isPending && changeRole.variables.userId === member.id
             }
           />
         ))}
@@ -82,7 +83,7 @@ export function TeamMembers({ slug, teamId, admin, teams }: TeamMembersProps) {
           onOpenChange={setInviting}
           slug={slug}
           teams={teams}
-          teamIds={teamId ? [teamId] : []}
+          teamIds={nonEmpty(teamId) ? [teamId] : []}
         />
       )}
     </>

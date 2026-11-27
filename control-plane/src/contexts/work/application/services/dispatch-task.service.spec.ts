@@ -16,6 +16,8 @@ import {
   OPENING_PULL_REQUESTS,
   USING_TOOLS,
 } from '@shared-kernel/domain/built-in-skills';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
@@ -287,7 +289,7 @@ let providedTools: DeclaredTool[] = [];
 let providedRequested: string[] = [];
 let toolsOnMarks: Record<string, string[]> = {};
 
-const integrations = {
+const integrations = partial<TeamIntegrations>({
   provided: async (_line: unknown, tools: readonly Tool[]) => {
     providedRequested = tools.map((each) => each.value);
     return providedTools;
@@ -296,16 +298,16 @@ const integrations = {
     marks.flatMap((each) =>
       (toolsOnMarks[each.kind] ?? []).map((tool) => Tool.of(tool)),
     ),
-} as unknown as TeamIntegrations;
+});
 
 let readySkills: ReadySkillFolder[] = [];
 
-const teamSkills = {
+const teamSkills = partial<StationSkills>({
   readyAt: async (_line: LineMap, station: Station) =>
     readySkills.filter((each) =>
       station.skills.some((key) => key.value === each.skill.key),
     ),
-} as unknown as StationSkills;
+});
 
 const enabledTools = (order?: RunOrderContract) =>
   (order?.spec.manifest ?? []).map((each) => each.name);
@@ -377,7 +379,7 @@ const dispatch = async (
         return remembered;
       },
     },
-    { onTask: async () => touchedOnTask } as unknown as TouchedFiles,
+    partial<TouchedFiles>({ onTask: async () => touchedOnTask }),
     {
       debug: () => undefined,
       info: () => undefined,
@@ -1011,7 +1013,7 @@ describe('DispatchTask', () => {
 
     await dispatch(station, dispatched);
 
-    const run = queued[0];
+    const run = firstOf(queued);
 
     expect(
       ordered[0]?.briefedTask?.equals(dispatched.briefedOn(lineWith(station))),
@@ -1028,7 +1030,7 @@ describe('DispatchTask', () => {
 
   describe('carrying on where the last run stopped', () => {
     const resumeOf = (at: number) => {
-      const run = queued[at];
+      const run = itemAt(queued, at);
       if (!run) {
         throw new Error(`nothing was queued at ${at}`);
       }
@@ -1397,17 +1399,17 @@ describe('DispatchTask, the tools a run is told about', () => {
       ];
 
       await dispatch(station, undefined, [
-        { repository: Repository.of('acme/api') },
-      ] as unknown as readonly RepositoryInput[]);
+        partial<RepositorySpec>({ repository: Repository.of('acme/api') }),
+      ]);
 
-      const place = briefedAt.slice(-1)[0];
+      const place = itemAt(briefedAt, briefedAt.length - 1);
       expect(place?.stationId).toBe(station.id.value);
       expect(place?.lineId).toBeTruthy();
       expect(place?.repositories.map((each) => each.value)).toContain(
         'acme/api',
       );
       expect(await place?.touched()).toEqual(touchedOnTask);
-      const run = queued.slice(-1)[0];
+      const run = itemAt(queued, queued.length - 1);
       expect(ordered.slice(-1)[0]?.briefedMemories.value).toEqual({
         briefed: [{ id: 'memory_1', handle: 'M-12' }],
         omitted: [{ id: 'memory_2', handle: 'M-13' }],
@@ -1425,7 +1427,7 @@ describe('DispatchTask, the tools a run is told about', () => {
       await dispatch(station);
 
       memoryFails = false;
-      const run = queued.slice(-1)[0];
+      const run = itemAt(queued, queued.length - 1);
       expect(ordered.slice(-1)[0]?.briefedMemories.value).toEqual({
         briefed: [],
         omitted: [],

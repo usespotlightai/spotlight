@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TeamNav } from '@/components/shell/layout/TeamNav';
+import { htmlElement } from '@/test/elements';
 
 const lines = vi.fn<(...args: unknown[]) => unknown>();
 
@@ -14,13 +15,11 @@ vi.mock('@/hooks/api/useLines', () => ({
     errorUpdateCount: 0,
   }),
 }));
-const tasks = vi.fn();
+const tasks = vi.fn<() => { id: string; stationId?: string }[] | undefined>();
 
 vi.mock('@/hooks/api/useTasks', () => ({
   useTask: (_teamId: string, taskId: string) => ({
-    data: (tasks() as { id: string }[] | undefined)?.find(
-      (each) => each.id === taskId,
-    ),
+    data: tasks()?.find((each) => each.id === taskId),
     isPending: false,
   }),
 }));
@@ -151,7 +150,7 @@ describe('TeamNav', () => {
   it('orders a team’s sections: agent, lines, runs, insights, memory', () => {
     renderNav();
 
-    const panel = panels()[0] as HTMLElement;
+    const panel = htmlElement(panels()[0]);
     const named = within(panel)
       .getAllByRole('link')
       .map((link) => link.textContent);

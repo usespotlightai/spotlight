@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router';
 
-export function useClearedParam(name: string) {
+import { nonEmpty } from '@/lib/non-empty';
+
+export function useClearedParam(name: string): void {
   const [params, setParams] = useSearchParams();
   const value = params.get(name);
 
   useEffect(() => {
-    if (!value) {
+    if (!nonEmpty(value)) {
       return;
     }
 

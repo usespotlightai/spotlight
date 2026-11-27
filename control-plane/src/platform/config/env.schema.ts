@@ -3,6 +3,7 @@ import {
   isContextPrefix,
   isIntegrationEventKind,
 } from '@shared-kernel/application/integration-events/integration-event';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   MAX_SLUG_LENGTH,
   SLUG_SHAPE,
@@ -236,7 +237,9 @@ export const envSchema = databaseSchema
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .refine(
-    (env) => env.SPOTLIGHT_SECRETS_KEY || env.SPOTLIGHT_SECRETS_KMS_KEY_ID,
+    (env) =>
+      nonEmpty(env.SPOTLIGHT_SECRETS_KEY) ||
+      nonEmpty(env.SPOTLIGHT_SECRETS_KMS_KEY_ID),
     {
       path: ['SPOTLIGHT_SECRETS_KEY'],
       message:

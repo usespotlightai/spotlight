@@ -48,9 +48,12 @@ const DEFINITION_ERRORS = [
   InvalidWarmSandboxCountError,
 ] as const;
 
+const isDefinitionError = (error: unknown): error is Error =>
+  DEFINITION_ERRORS.some((type) => error instanceof type);
+
 export const refusalOf = (error: unknown): Error => {
-  if (DEFINITION_ERRORS.some((type) => error instanceof type)) {
-    return error as Error;
+  if (isDefinitionError(error)) {
+    return error;
   }
 
   throw error;

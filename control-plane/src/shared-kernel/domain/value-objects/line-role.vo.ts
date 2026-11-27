@@ -27,7 +27,7 @@ export class LineRole {
   }
 
   equals(other: LineRole): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof LineRole && this.value === other.value;
   }
 
   toString(): string {

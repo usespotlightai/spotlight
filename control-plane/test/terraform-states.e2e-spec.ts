@@ -17,6 +17,7 @@ import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq, inArray } from 'drizzle-orm';
@@ -31,6 +32,7 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf, parsedAs } from './support/body';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
@@ -123,7 +125,7 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
       http().get(address(name)).set('Authorization', basic(token)),
     write: (body: string, lockId?: string) =>
       http()
-        .post(`${address()}${lockId ? `?ID=${lockId}` : ''}`)
+        .post(`${address()}${nonEmpty(lockId) ? `?ID=${lockId}` : ''}`)
         .set('Authorization', basic(token))
         .set('Content-Type', 'application/json')
         .set('Content-MD5', md5Of(body))
@@ -210,7 +212,7 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
       .orderBy(schema.terraformStateVersion.number);
 
     expect(read.status).toBe(200);
-    expect((JSON.parse(read.text) as State).serial).toBe(2);
+    expect(parsedAs<State>(read.text).serial).toBe(2);
     expect(versions).toEqual([
       { number: 1, serial: 1 },
       { number: 2, serial: 2 },
@@ -310,7 +312,7 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
 
     expect(statuses.every((each) => each === 200 || each === 409)).toBe(true);
     expect(kept.length).toBeGreaterThan(0);
-    expect(kept).toContain((JSON.parse(read.text) as State).serial);
+    expect(kept).toContain(parsedAs<State>(read.text).serial);
   });
 
   it.each([
@@ -333,7 +335,7 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
 
       expect(statuses).toEqual([200, 423, 423, 423]);
       for (const refused of answers.filter(({ status }) => status === 423)) {
-        expect((refused.body as { ID: string }).ID).toMatch(/^[abcd]$/);
+        expect(bodyOf<{ ID: string }>(refused).ID).toMatch(/^[abcd]$/);
       }
     },
   );
@@ -401,9 +403,9 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
     const behind = await configure.write(stateOf(4));
 
     expect(foreign.status).toBe(409);
-    expect((foreign.body as Problem).message).toContain('lineage');
+    expect(bodyOf<Problem>(foreign).message).toContain('lineage');
     expect(behind.status).toBe(409);
-    expect((behind.body as Problem).message).toContain('serial 5');
+    expect(bodyOf<Problem>(behind).message).toContain('serial 5');
     expect((await configure.write(stateOf(5))).status).toBe(200);
 
     const diverged = await configure.write(
@@ -411,7 +413,7 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
     );
 
     expect(diverged.status).toBe(409);
-    expect((diverged.body as Problem).message).toContain('other content');
+    expect(bodyOf<Problem>(diverged).message).toContain('other content');
   });
 
   it('audits each write and each forced unlock, but not a run’s own lock', async () => {
@@ -426,16 +428,18 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
       .delete(`${address()}/lock`)
       .set('Authorization', basic(tokens.configure));
 
-    const changes = (
+    const changes = bodyOf<
+      {
+        resource: string;
+        action: string;
+        key: string;
+        details: Record<string, unknown>;
+      }[]
+    >(
       await http()
         .get(`/api/workspaces/${seat.workspaceId}/configuration-changes`)
-        .set(TEST_USER_HEADER, seat.owner)
-    ).body as {
-      resource: string;
-      action: string;
-      key: string;
-      details: Record<string, unknown>;
-    }[];
+        .set(TEST_USER_HEADER, seat.owner),
+    );
     const states = changes.filter(
       (each) => each.resource === 'terraform-state',
     );
@@ -532,8 +536,8 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
       await app.get(EventDelivery).drain(2_000);
       return kept().length === 100;
     });
-    expect(
-      (JSON.parse((await as(tokens.plan).read()).text) as State).serial,
-    ).toBe(102);
+    expect(parsedAs<State>((await as(tokens.plan).read()).text).serial).toBe(
+      102,
+    );
   }, 60_000);
 });

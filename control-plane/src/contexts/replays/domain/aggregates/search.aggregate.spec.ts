@@ -17,8 +17,8 @@ import { SearchReflectingError } from '@replays/domain/exceptions/search-reflect
 import { SearchTakesNoRequestsError } from '@replays/domain/exceptions/search-takes-no-requests.error';
 import { UnknownSearchTaskError } from '@replays/domain/exceptions/unknown-search-task.error';
 import {
-  AGENT,
   aBudget,
+  AGENT,
   aSearch,
   aSet,
   BY,
@@ -48,10 +48,9 @@ import {
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { SearchRequest } from '@replays/domain/value-objects/search-request.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import {
-  type ChangeDetail,
-  ConfigurationChange,
-} from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
+import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -188,7 +187,13 @@ describe('Search', () => {
       expect(started.isActive).toBe(true);
       expect(started.seed.replay.replayId).toEqual(SEED);
       expect(started.iterations).toEqual([]);
-      expect(started.pullEvents()).toEqual([
+
+      const events = started.pullEvents();
+      const detail = present(
+        instanceOf(SearchStarted, events[0]).change.detail,
+      );
+
+      expect(events).toEqual([
         new SearchStarted(
           SEARCH_ID,
           set.teamId,
@@ -199,7 +204,7 @@ describe('Search', () => {
               key: SEARCH_ID.value,
             },
             BY,
-            expect.anything() as ChangeDetail,
+            detail,
           ),
         ),
         new SearchReplaysPlanned(SEARCH_ID, set.workspaceId, [SEED]),
@@ -226,9 +231,9 @@ describe('Search', () => {
         at: NOW,
         by: BY,
       });
-      const [event] = started.pullEvents() as SearchStarted[];
+      const event = instanceOf(SearchStarted, started.pullEvents()[0]);
 
-      expect(event?.change.recordedDetail).toEqual({
+      expect(event.change.recordedDetail).toEqual({
         set: 'set_1',
         station: 'station_build',
         harness: 'claude-code',
@@ -697,7 +702,7 @@ describe('Search', () => {
         'propose',
         'reflect',
       ]);
-      expect(reflection?.current).toBe('wanted');
+      expect(reflection.current).toBe('wanted');
       expect(search.activeRun).toEqual(run(3));
     });
 
@@ -887,9 +892,9 @@ describe('Search', () => {
 
   describe('reflecting', () => {
     const searchedTask = (search: Search, at = 0) => {
-      const entry = search.split.searched[at];
+      const entry = search.split.searched.find((_, place) => place === at);
 
-      if (!entry) {
+      if (entry === undefined) {
         throw new Error(`no searched task ${at}`);
       }
 
@@ -951,8 +956,8 @@ describe('Search', () => {
       expect(() =>
         at(stalled(), [
           ReflectedTask.of({
-            taskId: heldOut?.taskId,
-            originalRunId: heldOut?.runId,
+            taskId: heldOut.taskId,
+            originalRunId: heldOut.runId,
             replayRunId: RunId.of('replayed_held_out'),
           }),
         ]),
@@ -1689,7 +1694,9 @@ describe('Search', () => {
     it('stops its seed replay when turned off while seeding', () => {
       const stopped = aSearch().turnOff(NOW);
 
-      expect((stopped.pullEvents()[0] as SearchEnded).stopping).toEqual([SEED]);
+      expect(instanceOf(SearchEnded, stopped.pullEvents()[0]).stopping).toEqual(
+        [SEED],
+      );
     });
 
     it('changes nothing once it ended', () => {

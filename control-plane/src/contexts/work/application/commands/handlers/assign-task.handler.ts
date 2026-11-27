@@ -1,6 +1,7 @@
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -47,7 +48,7 @@ export class AssignTaskHandler implements CommandHandlerPort<
       }
 
       await this.tasks.save(
-        command.assigneeId
+        nonEmpty(command.assigneeId)
           ? task.assign(UserId.of(command.assigneeId), members)
           : task.unassign(),
       );

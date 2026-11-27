@@ -45,8 +45,8 @@ describe('Trail', () => {
   it('keeps the notes of one conversation, whole', () => {
     const whole = trail(note('passed'), note('asked'), note('answered'));
 
-    expect(whole.within({ value: 1 } as never)).toHaveLength(2);
-    expect(whole.within({ value: 0 } as never)).toBeNull();
+    expect(whole.within(NotePosition.of(1))).toHaveLength(2);
+    expect(whole.within(NotePosition.of(0))).toBeNull();
   });
 
   it('waits to hand a person’s word and the world’s to an agent', () => {

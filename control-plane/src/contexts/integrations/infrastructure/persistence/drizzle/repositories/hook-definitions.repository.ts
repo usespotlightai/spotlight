@@ -23,6 +23,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
@@ -153,12 +154,14 @@ export class DrizzleHookDefinitions implements HookDefinitionRepository {
   }
 
   private async first(where: SQL | undefined): Promise<Row | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(hookDefinition)
-      .where(where)
-      .limit(1);
-
-    return found ?? null;
+    return (
+      firstOf(
+        await this.context.db
+          .select()
+          .from(hookDefinition)
+          .where(where)
+          .limit(1),
+      ) ?? null
+    );
   }
 }

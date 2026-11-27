@@ -31,6 +31,6 @@ export class TokenLifetime {
   }
 
   equals(other: TokenLifetime): boolean {
-    return this.kind === other.kind && this.minutes === other.minutes;
+    return other instanceof TokenLifetime && this.minutes === other.minutes;
   }
 }

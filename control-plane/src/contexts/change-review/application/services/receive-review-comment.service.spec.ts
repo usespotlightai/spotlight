@@ -7,6 +7,8 @@ import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -43,7 +45,7 @@ const receiving = (stored: ReviewComment[] = []) => {
   const comments = new Map(stored.map((each) => [each.id.value, each]));
   let generated = 0;
 
-  const repository = {
+  const repository = partial<ReviewCommentRepository>({
     add: async (comment: ReviewComment) =>
       void comments.set(comment.id.value, comment),
     save: async (comment: ReviewComment) =>
@@ -52,7 +54,7 @@ const receiving = (stored: ReviewComment[] = []) => {
       [...comments.values()].find((each) => each.github?.id === githubId) ??
       null,
     ofTask: async () => [...comments.values()],
-  } as unknown as ReviewCommentRepository;
+  });
 
   const service = new ReceiveReviewComment(
     {
@@ -99,7 +101,7 @@ describe('ReceiveReviewComment', () => {
 
     await service.receive(noticed({ side: 'old' }));
 
-    const [stored] = [...comments.values()];
+    const [stored] = optionalItems([...comments.values()]);
     expect(stored?.state).toBe('posted');
     expect(stored?.anchor.lines?.side).toBe('old');
     expect(stored?.anchor.lines?.line).toBe(12);
@@ -202,7 +204,7 @@ describe('ReceiveReviewComment', () => {
 
     await service.receive(noticed({ subject: 'file' }));
 
-    const [stored] = [...comments.values()];
+    const [stored] = optionalItems([...comments.values()]);
     expect(stored?.anchor.wholeFile).toBe(true);
   });
 

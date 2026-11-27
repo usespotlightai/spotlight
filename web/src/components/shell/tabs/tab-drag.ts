@@ -5,7 +5,7 @@ import type { SplitSide } from '@/lib/app-tabs';
 
 const ZONE_PREFIX = 'split-zone:';
 
-export const zoneId = (side: SplitSide) => `${ZONE_PREFIX}${side}`;
+export const zoneId = (side: SplitSide): string => `${ZONE_PREFIX}${side}`;
 
 export const sideOf = (id: UniqueIdentifier): SplitSide | null => {
   const text = String(id);

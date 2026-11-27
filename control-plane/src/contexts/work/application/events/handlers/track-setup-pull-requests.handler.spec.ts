@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -35,7 +36,7 @@ const settingUp = (id: string, pullRequest: PullRequestUrl) =>
 
 const tracking = (stored: readonly Chat[]) => {
   const saved: Chat[] = [];
-  const chats = {
+  const chats = partial<ChatRepository>({
     owningSetupPullRequest: async (
       _at: WorkspaceId,
       pullRequest: PullRequestUrl,
@@ -45,7 +46,7 @@ const tracking = (stored: readonly Chat[]) => {
     save: async (each: Chat) => {
       saved.push(each);
     },
-  } as unknown as ChatRepository;
+  });
 
   return {
     saved,

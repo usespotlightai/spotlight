@@ -53,7 +53,7 @@ export class CatalogTool {
   static of(
     metadata: CatalogItemMetadata,
     inputs: readonly CatalogToolInput[],
-  ) {
+  ): CatalogTool {
     return new CatalogTool(validMetadata('tool', metadata), inputs);
   }
 
@@ -75,7 +75,7 @@ export class CatalogSkill {
     metadata: CatalogItemMetadata,
     files: readonly CatalogSkillFile[],
     tools: readonly CatalogItemId[] = [],
-  ) {
+  ): CatalogSkill {
     if (!files.some((each) => each.path === SKILL_FILE)) {
       throw new InconsistentStateError(
         'catalog skill',

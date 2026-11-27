@@ -1,15 +1,19 @@
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubRepositorySettings } from '@github/infrastructure/github/github-repository-settings';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
-const access = {
+const JSON_OBJECT = z.record(z.string(), z.unknown());
+
+const access = partial<RepositoryAccessPort>({
   credential: vi.fn(async () => ({
     username: 'x-access-token',
     password: 'tok_1',
   })),
-} as unknown as RepositoryAccessPort;
+});
 
 const workspaceId = WorkspaceId.of('ws_1');
 
@@ -41,9 +45,10 @@ const routing = (route: (method: string, url: string) => Answer) =>
     sent.push({
       url,
       method,
-      body: init.body
-        ? (JSON.parse(init.body as string) as Record<string, unknown>)
-        : {},
+      body:
+        typeof init.body === 'string'
+          ? JSON_OBJECT.parse(JSON.parse(init.body))
+          : {},
     });
 
     return answering(route(method, url));
@@ -76,7 +81,7 @@ const branch = (
         `/repos/acme/config/branches/${name}/protection/required_pull_request_reviews`,
       )
     ) {
-      if (over.reviewsStatus) {
+      if (over.reviewsStatus !== undefined && over.reviewsStatus !== 0) {
         return { status: over.reviewsStatus, body: { message: 'Refused' } };
       }
       return over.reviews === undefined || over.reviews === null
@@ -87,7 +92,7 @@ const branch = (
           };
     }
     if (url.endsWith(`/rules/branches/${name}`)) {
-      if (over.rulesStatus) {
+      if (over.rulesStatus !== undefined && over.rulesStatus !== 0) {
         return { status: over.rulesStatus, body: { message: 'Refused' } };
       }
       return { status: 200, body: over.rules ?? [] };
@@ -105,7 +110,7 @@ const variables = (existing: readonly string[], patchStatus?: number) =>
   routing((method, url) => {
     const name = url.split('/actions/variables/')[1];
 
-    if (method === 'PATCH' && patchStatus) {
+    if (method === 'PATCH' && patchStatus !== undefined && patchStatus !== 0) {
       return { status: patchStatus, body: { message: 'Refused' } };
     }
     if (method === 'PATCH' && name) {

@@ -11,6 +11,7 @@ import {
   RunRecordsInMemory,
   WORKSPACE,
 } from '@insights/runs.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -30,12 +31,12 @@ const workOfTeam = (teamId: string): WorkPort => ({
   unfinishedRuns: async () => [],
   traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
   endedRun: async (runId) =>
-    ({
+    partial<EndedRun>({
       runId,
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of(teamId),
       taskId: TaskId.of('task_1'),
-    }) as EndedRun,
+    }),
   taskRunOf: async (runId) => ({
     runId,
     workspaceId: WorkspaceId.of('ws_1'),
@@ -91,7 +92,7 @@ const acting = async (...runs: Ended[]) => {
     next: async (runId: string) =>
       (await records.of(RunId.of(runId)))?.actions.decidingAction?.kind ?? null,
     actor: async (runId: string) =>
-      (await records.of(RunId.of(runId)))?.actions.decidingAction?.by?.value ??
+      (await records.of(RunId.of(runId)))?.actions.decidingAction?.by.value ??
       null,
     answeredAt: async (runId: string) =>
       (await records.of(RunId.of(runId)))?.actions.answer?.at ?? null,

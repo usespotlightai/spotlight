@@ -22,7 +22,7 @@ export class MemoryBody {
   }
 
   equals(other: MemoryBody): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof MemoryBody && this.value === other.value;
   }
 
   toString(): string {

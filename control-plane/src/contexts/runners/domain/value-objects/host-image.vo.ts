@@ -46,9 +46,10 @@ export class HostImage {
   ) {}
 
   static reported(input: ReportedImage): HostImage {
-    const digest = input.digest?.trim()
-      ? imageAt('images.digest', input.digest)
-      : null;
+    const digest =
+      input.digest !== undefined && input.digest.trim() !== ''
+        ? imageAt('images.digest', input.digest)
+        : null;
 
     if (digest && !digest.isPinned) {
       throw new InvalidHostReportError(
@@ -90,8 +91,7 @@ export class HostImage {
       this.unavailableReason === other.unavailableReason &&
       this.harnesses.length === other.harnesses.length &&
       this.harnesses.every((each, at) => {
-        const theirs = other.harnesses[at];
-        return theirs !== undefined && each.equals(theirs);
+        return each.equals(other.harnesses[at]);
       })
     );
   }

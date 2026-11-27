@@ -53,7 +53,7 @@ export const rankedOf = <Point extends RankedPoint>(
   const significanceOf = (each: Point): GainSignificance | null =>
     heldOut ? each.heldOutSignificance : each.searchedSignificance;
   const better = (one: Point, other: Point): number =>
-    (scoreOf(other) as number) - (scoreOf(one) as number);
+    (scoreOf(other) ?? 0) - (scoreOf(one) ?? 0);
   const scored = points.filter((each) => scoreOf(each) !== null);
 
   return objective === 'cost'

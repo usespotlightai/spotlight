@@ -11,6 +11,7 @@ import {
   sanitizedForCel,
 } from '@platform/expressions/cel-variables';
 import { evaluateText, isTrue, value } from '@platform/expressions/readings';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type {
   Happened,
   InboundAttachment,
@@ -21,6 +22,9 @@ const identity = async (
   _event: EventIR,
   against: CelVariables,
 ): Promise<CelVariables> => against;
+
+const textOrNull = (text: string | null): string | null =>
+  text === '' ? null : text;
 
 export type Fetching = (
   request: RequestIR,
@@ -101,7 +105,7 @@ const arriving = (
       ? Number(value(attachments.size, per))
       : Number.NaN;
 
-    return name
+    return nonEmpty(name)
       ? [
           {
             name,
@@ -161,7 +165,7 @@ const raiseFrom = (
     },
     message: messageText ? { body: messageText } : null,
     authorEmail: raise.author
-      ? evaluateText(raise.author.email, against) || null
+      ? textOrNull(evaluateText(raise.author.email, against))
       : null,
     ourOwn,
     opens: raised.opens
@@ -176,7 +180,7 @@ const raiseFrom = (
       : null,
     chat: raise.chat
       ? {
-          email: evaluateText(raise.chat.by.email, against) || null,
+          email: textOrNull(evaluateText(raise.chat.by.email, against)),
           harness: raise.chat.harness,
           marks: raised.marks.map((each) => ({
             ...markOf(each),

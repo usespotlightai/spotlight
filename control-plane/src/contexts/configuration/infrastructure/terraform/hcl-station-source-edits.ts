@@ -1,4 +1,5 @@
 import type {
+  StationSourceBlock,
   StationSourceEdited,
   StationSourceEditFailureCode,
   StationSourceEditRequest,
@@ -33,9 +34,11 @@ const directoryOf = (path: string): string =>
 
 /** What the station has when its block leaves a field out, so an attribute that says the same is dropped. */
 const unsetFor = (
-  station: LineDefinitionStation,
+  station: StationSourceBlock,
 ): Readonly<Record<StationSourceField, HclLiteral>> => {
-  const { decisions, memories } = stationSwitchDefaultsOf(station.kind);
+  const { decisions, memories } = stationSwitchDefaultsOf(
+    station.kind === 'work' ? 'work' : 'backlog',
+  );
 
   return {
     prompt: null,
@@ -118,11 +121,14 @@ const isLiteral = (value: unknown): value is HclLiteral =>
   typeof value === 'boolean' ||
   (Array.isArray(value) && value.every(isLiteral));
 
-const literalIn = <T extends object>(
-  block: T,
-  field: keyof T & string,
+const isBlock = (value: unknown): value is StationSourceBlock =>
+  typeof value === 'object' && value !== null;
+
+const literalIn = (
+  block: StationSourceBlock,
+  field: string,
   unset: HclLiteral,
-) => {
+): HclLiteral => {
   const value = block[field] ?? unset;
 
   if (!isLiteral(value)) {
@@ -168,13 +174,11 @@ const fieldsOf = (request: StationSourceEditRequest): readonly HclField[] => {
   ];
 };
 
-const claimsOf = (judge: LineDefinitionStation['judge']): HclLiteral =>
-  typeof judge === 'object' && judge !== null
-    ? literalIn(judge, 'claims', null)
-    : null;
+const claimsOf = (judge: unknown): HclLiteral =>
+  isBlock(judge) ? literalIn(judge, 'claims', null) : null;
 
 const desiredClaimsOf = (
-  candidate: LineDefinitionStation,
+  candidate: StationSourceBlock,
 ): Record<string, HclLiteral> => {
   const claims = claimsOf(candidate.judge);
 
@@ -182,12 +186,12 @@ const desiredClaimsOf = (
 };
 
 const judgeOf = (
-  seed: LineDefinitionStation,
-  candidate: LineDefinitionStation,
+  seed: StationSourceBlock,
+  candidate: StationSourceBlock,
 ): HclGuardedBlock => {
   const judge = seed.judge;
 
-  if (typeof judge !== 'object' || judge === null) {
+  if (!isBlock(judge)) {
     return { type: 'judge', expected: null };
   }
 

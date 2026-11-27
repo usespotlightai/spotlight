@@ -17,8 +17,15 @@ import type { StationId } from '@shared-kernel/domain/value-objects/station-id.v
 const present = <K extends string, V>(
   key: K,
   value: V | null,
-): Partial<Record<K, V>> =>
-  value === null ? {} : ({ [key]: value } as Record<K, V>);
+): Partial<Record<K, V>> => {
+  const written: Partial<Record<K, V>> = {};
+
+  if (value !== null) {
+    written[key] = value;
+  }
+
+  return written;
+};
 
 const placed = (labels: readonly string[]): string[] | null =>
   labels.length > 0 ? [...labels] : null;

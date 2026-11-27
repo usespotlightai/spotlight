@@ -10,9 +10,9 @@ import type {
   LiveRunnerSummary,
   RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
+import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
-import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { isIdleSandbox } from '@runners/infrastructure/persistence/drizzle/idle-sandboxes';
 import {
@@ -26,6 +26,7 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, gt, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 
@@ -36,7 +37,6 @@ interface SourceRow {
   readonly poolEgress: string | null;
   readonly trustKey: string | null;
 }
-
 
 @Injectable()
 export class DrizzleRunnerReader
@@ -111,7 +111,7 @@ export class DrizzleRunnerReader
 
     for (const row of hosts) {
       for (const image of row.images.filter(
-        (each) => !each.unavailableReason,
+        (each) => !nonEmpty(each.unavailableReason),
       )) {
         for (const each of image.harnesses) {
           collect(each.id, each.models);
@@ -146,10 +146,7 @@ export class DrizzleRunnerReader
       .leftJoin(runnerPool, eq(runnerPool.id, runner.poolId))
       .leftJoin(runnerTrust, eq(runnerTrust.id, runner.trustId))
       .where(
-        and(
-          eq(runner.workspaceId, workspaceId.value),
-          isNull(runner.endedAt),
-        ),
+        and(eq(runner.workspaceId, workspaceId.value), isNull(runner.endedAt)),
       )
       .orderBy(runner.startedAt);
 
@@ -228,9 +225,7 @@ export class DrizzleRunnerReader
         startedAt: sandbox.startedAt,
       })
       .from(sandbox)
-      .where(
-        and(inArray(sandbox.hostId, [...hostIds]), isIdleSandbox()),
-      )
+      .where(and(inArray(sandbox.hostId, [...hostIds]), isIdleSandbox()))
       .orderBy(sandbox.startedAt);
 
     return rows.flatMap((row) =>

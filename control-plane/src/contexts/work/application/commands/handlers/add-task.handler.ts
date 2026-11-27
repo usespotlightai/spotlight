@@ -3,6 +3,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AddTaskCommand } from '@work/application/commands/add-task.command';
@@ -62,7 +63,7 @@ export class AddTaskHandler implements CommandHandlerPort<
       line,
       at: stationId,
       title: TaskTitle.of(command.title),
-      description: command.description
+      description: nonEmpty(command.description)
         ? TaskDescription.of(command.description)
         : null,
       attachments,
@@ -74,7 +75,9 @@ export class AddTaskHandler implements CommandHandlerPort<
       base: await requestedBase(
         this.settings,
         line,
-        command.base?.trim() ? Branch.of(command.base.trim()) : null,
+        command.base !== null && command.base.trim() !== ''
+          ? Branch.of(command.base.trim())
+          : null,
       ),
       now: this.clock.now(),
       newId: () => this.ids.generate(),

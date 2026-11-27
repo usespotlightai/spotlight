@@ -6,17 +6,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GONE_FROM_INBOX } from '@/lib/inbox';
 import { InboxNotice } from '@/routes/InboxNotice';
 
-const waiting = vi.fn();
-const failing = vi.fn();
+const waiting = vi.fn<() => { id: string }[] | undefined>();
+const failing = vi.fn<() => boolean>();
 const resolve = vi.fn();
-const resolving = vi.fn<(...args: unknown[]) => unknown>();
+const resolving = vi.fn<() => 'gone' | null>();
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
   useInboxNotice: (_slug: string, noticeId: string) => ({
-    data: (waiting() as { id: string }[] | undefined)?.find(
-      (each) => each.id === noticeId,
-    ),
+    data: waiting()?.find((each) => each.id === noticeId),
     isPending: waiting() === undefined,
     errorUpdateCount: failing() ? 1 : 0,
     isFetching: false,
@@ -35,7 +33,7 @@ vi.mock('@/hooks/api/useResolveInboxNotice', () => ({
     mutate: resolve,
     isPending: false,
     isError: resolving() !== null,
-    error: resolving() === 'gone' ? { status: 404 } : resolving() && {},
+    error: resolving() === 'gone' ? { status: 404 } : resolving(),
   }),
 }));
 

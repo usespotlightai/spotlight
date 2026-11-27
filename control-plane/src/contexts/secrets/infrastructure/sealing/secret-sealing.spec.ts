@@ -32,7 +32,7 @@ const opened = (
   const [version, ephemeral, iv, tag, encrypted] = sealed.split('.');
   expect(version).toBe('v1');
 
-  const ephemeralRaw = Buffer.from(ephemeral ?? '', 'base64');
+  const ephemeralRaw = Buffer.from(ephemeral, 'base64');
   const shared = diffieHellman({
     privateKey,
     publicKey: createPublicKey({
@@ -52,13 +52,13 @@ const opened = (
   const decipher = createDecipheriv(
     'aes-256-gcm',
     key,
-    Buffer.from(iv ?? '', 'base64'),
+    Buffer.from(iv, 'base64'),
   );
   decipher.setAAD(Buffer.from(aad, 'utf8'));
-  decipher.setAuthTag(Buffer.from(tag ?? '', 'base64'));
+  decipher.setAuthTag(Buffer.from(tag, 'base64'));
 
   return Buffer.concat([
-    decipher.update(Buffer.from(encrypted ?? '', 'base64')),
+    decipher.update(Buffer.from(encrypted, 'base64')),
     decipher.final(),
   ]).toString('utf8');
 };

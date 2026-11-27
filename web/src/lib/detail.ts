@@ -1,3 +1,4 @@
+import { nonEmpty } from '@/lib/non-empty';
 import type { TraceNode } from '@/lib/trace';
 
 export interface Description {
@@ -15,7 +16,7 @@ const PROSE_TITLES: Record<string, string> = {
 export const inputOf = (node: TraceNode): Description | null => {
   const step = node.step;
 
-  if (!step?.input) {
+  if (!nonEmpty(step?.input)) {
     return null;
   }
 
@@ -41,7 +42,7 @@ export const answeredBy = (node: TraceNode): Description | null => {
 
   const back = step.detail ?? step.output;
 
-  return back ? { title: 'Output', body: back, prose: false } : null;
+  return nonEmpty(back) ? { title: 'Output', body: back, prose: false } : null;
 };
 
 export interface Field {
@@ -51,6 +52,12 @@ export interface Field {
 }
 
 type JsonLeaf = string | number | boolean | null;
+
+const isJsonLeaf = (raw: unknown): raw is JsonLeaf =>
+  raw === null ||
+  typeof raw === 'string' ||
+  typeof raw === 'number' ||
+  typeof raw === 'boolean';
 
 const leaf = (path: string, raw: JsonLeaf): Field => {
   if (raw === null) {
@@ -82,7 +89,7 @@ const walked = (raw: unknown, at: string): Field[] => {
         );
   }
 
-  return [leaf(at, raw as JsonLeaf)];
+  return isJsonLeaf(raw) ? [leaf(at, raw)] : [];
 };
 
 export const shaped = (body: string): Field[] | null => {
@@ -132,7 +139,7 @@ export const contentsOf = (node: TraceNode): Contents => {
           ? 'Reported'
           : null;
 
-      if (label) {
+      if (nonEmpty(label)) {
         kinds.set(label, (kinds.get(label) ?? 0) + 1);
       }
 
@@ -154,7 +161,9 @@ const PROMOTED = new Set([
   'gen_ai.usage.completion_tokens',
 ]);
 
-export const restOf = (node: TraceNode) =>
+type SpanAttribute = NonNullable<TraceNode['span']>['attributes'][number];
+
+export const restOf = (node: TraceNode): SpanAttribute[] =>
   node.span?.attributes.filter((each) => !PROMOTED.has(each.name)) ?? [];
 
 export const reported = (

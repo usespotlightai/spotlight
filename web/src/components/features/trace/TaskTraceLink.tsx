@@ -13,7 +13,7 @@ type TaskTraceLinkProps = {
 export function TaskTraceLink({ slug, teamId, taskId }: TaskTraceLinkProps) {
   const runs = useTaskRuns(teamId, taskId);
 
-  if (!runs.data?.length) {
+  if (runs.data === undefined || runs.data.length === 0) {
     return null;
   }
 

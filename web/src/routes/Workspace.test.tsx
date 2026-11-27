@@ -10,6 +10,7 @@ import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { APP_TABS_KEY } from '@/lib/app-tabs';
 import { creatingOf } from '@/lib/task-create';
 import { Workspace } from '@/routes/Workspace';
+import { partial } from '@/test/partial';
 import { quietBrowser } from '@/test/signed-in';
 
 vi.mock('@/hooks/api/useWorkspace', () => ({ useWorkspace: vi.fn() }));
@@ -70,14 +71,16 @@ const mockSettingUp = vi.mocked(useSettingUp);
 const refetch = vi.fn();
 
 const answered = (over: Record<string, unknown>) =>
-  mockWorkspace.mockReturnValue({
-    data: undefined,
-    isPending: false,
-    errorUpdateCount: 0,
-    isFetching: false,
-    refetch,
-    ...over,
-  } as never);
+  mockWorkspace.mockReturnValue(
+    partial<ReturnType<typeof useWorkspace>>({
+      data: undefined,
+      isPending: false,
+      errorUpdateCount: 0,
+      isFetching: false,
+      refetch,
+      ...over,
+    }),
+  );
 
 const loaded = (data: unknown) => answered({ data });
 
@@ -428,13 +431,12 @@ describe('Workspace', () => {
   });
   describe('on a narrow screen', () => {
     beforeEach(() => {
-      vi.spyOn(window, 'matchMedia').mockImplementation(
-        (query) =>
-          ({
-            matches: query === '(width < 48rem)',
-            addEventListener: () => {},
-            removeEventListener: () => {},
-          }) as unknown as MediaQueryList,
+      vi.spyOn(window, 'matchMedia').mockImplementation((query) =>
+        partial<MediaQueryList>({
+          matches: query === '(width < 48rem)',
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        }),
       );
     });
 

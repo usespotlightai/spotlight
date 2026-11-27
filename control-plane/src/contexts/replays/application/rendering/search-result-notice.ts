@@ -13,6 +13,7 @@ import type {
   SearchCutShort,
   SearchStopReason,
 } from '@replays/domain/value-objects/search-stop-reason';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const percent = (value: number): number => Math.round(value * 100);
 
@@ -20,7 +21,7 @@ const pointsOf = (gain: number): string =>
   `${gain >= 0 ? '+' : '−'}${Math.abs(percent(gain))} points`;
 
 const stationOf = (name: string | null): string =>
-  name ? `the ${name} station` : 'a station';
+  nonEmpty(name) ? `the ${name} station` : 'a station';
 
 export interface PickedResult {
   readonly objective: SearchObjective;

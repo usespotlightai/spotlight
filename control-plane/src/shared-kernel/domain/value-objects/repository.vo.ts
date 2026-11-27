@@ -27,7 +27,7 @@ export class Repository {
       throw new InvalidRepositoryError('must be named owner/name');
     }
 
-    const [owner, name] = parts as [string, string];
+    const [owner, name] = parts;
 
     for (const part of [owner, name]) {
       if (part.length === 0 || part.length > MAX_LENGTH) {
@@ -55,7 +55,8 @@ export class Repository {
 
   equals(other: Repository): boolean {
     return (
-      this.host === other.host && sameRepositoryName(this.value, other.value)
+      ADDRESSES[this.host] === ADDRESSES[other.host] &&
+      sameRepositoryName(this.value, other.value)
     );
   }
 }

@@ -15,6 +15,7 @@ import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -104,7 +105,7 @@ describe('ConfiguredWebhookProviders', () => {
     });
     const raw = Buffer.from('{"type":"Issue"}');
 
-    const [provider] = await providers.all(TEAM);
+    const provider = firstOf(await providers.all(TEAM));
 
     expect(
       await provider?.verifies({
@@ -129,7 +130,7 @@ describe('ConfiguredWebhookProviders', () => {
     });
     const raw = Buffer.from('{}');
 
-    const [provider] = await providers.all(TEAM);
+    const provider = firstOf(await providers.all(TEAM));
 
     expect(
       await provider?.verifies({
@@ -147,7 +148,7 @@ describe('ConfiguredWebhookProviders', () => {
   it('fails to verify while the workspace has no such secret', async () => {
     const { providers } = configured([defined(linear())]);
 
-    const [provider] = await providers.all(TEAM);
+    const provider = firstOf(await providers.all(TEAM));
 
     await expect(
       provider?.verifies({

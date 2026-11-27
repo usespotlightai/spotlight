@@ -1,6 +1,7 @@
 import { AuthoredText } from '@/components/features/stations/config/AuthoredText';
 import { TabSection } from '@/components/features/stations/TabSection';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { nonEmpty } from '@/lib/non-empty';
 
 type PromptSectionProps = {
   stationId: string;
@@ -10,7 +11,7 @@ type PromptSectionProps = {
 export function PromptSection({ stationId, prompt }: PromptSectionProps) {
   return (
     <TabSection title="Prompt">
-      {prompt ? (
+      {nonEmpty(prompt) ? (
         <AuthoredText>
           <MarkdownEditor
             key={stationId}

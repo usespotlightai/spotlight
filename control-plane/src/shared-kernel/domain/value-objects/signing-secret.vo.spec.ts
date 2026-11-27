@@ -59,11 +59,16 @@ describe('SigningSecret', () => {
     expect(isSecret(secret)).toBe(true);
     expect(String(secret)).toBe('[secret]');
     expect(JSON.stringify({ secret })).toBe('{"secret":"[secret]"}');
-    expect(
-      (secret as unknown as Record<symbol, () => string>)[
-        Symbol.for('nodejs.util.inspect.custom')
-      ]?.(),
-    ).toBe('SigningSecret [secret]');
+    const inspected: unknown = Reflect.get(
+      secret,
+      Symbol.for('nodejs.util.inspect.custom'),
+    );
+    const shown: unknown =
+      typeof inspected === 'function'
+        ? Reflect.apply(inspected, secret, [])
+        : undefined;
+
+    expect(shown).toBe('SigningSecret [secret]');
   });
 
   it('equals a secret of the same value', () => {

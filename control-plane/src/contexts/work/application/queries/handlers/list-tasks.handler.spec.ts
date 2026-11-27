@@ -1,8 +1,12 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type {
   TaskReaderPort,
   TaskSummary,
@@ -78,7 +82,7 @@ const reader = (result: TaskSummary[]): TaskReaderPort => ({
 });
 
 const seeing = (sees = true, acts = sees, joined = acts): WorkAccess =>
-  ({
+  partial<WorkAccess>({
     standingOn: vi.fn(async () =>
       TeamStanding.of({
         seesTeam: sees,
@@ -86,7 +90,7 @@ const seeing = (sees = true, acts = sees, joined = acts): WorkAccess =>
         memberOfTeam: joined,
       }),
     ),
-  }) as unknown as WorkAccess;
+  });
 
 const ALICE = { id: 'user_alice', name: 'Alice', image: null };
 
@@ -98,7 +102,7 @@ const asking = (
   assignee,
   awaitingReview: {
     conversationId: 'task_1:3',
-    ask: askedOf
+    ask: nonEmpty(askedOf)
       ? {
           approval: { open: true, askedOf: UserId.of(askedOf) },
           connectionAsk: null,
@@ -146,8 +150,8 @@ describe('ListTasksHandler', () => {
       newId: () => `station_${++next}`,
     });
     const at = (key: string) =>
-      line.stations.find((each) => each.key.value === key)?.id.value as string;
-    const lines = { ofTeam: async () => [line] } as never;
+      present(line.stations.find((each) => each.key.value === key)).id.value;
+    const lines = partial<LineMapsPort>({ ofTeam: async () => [line] });
     const sentBack = async (finished: boolean) =>
       (
         await new ListTasksHandler(
@@ -369,11 +373,11 @@ describe('ListTasksHandler', () => {
       newId: () => `station_${++next}`,
     });
     const at = (key: string) =>
-      line.stations.find((each) => each.key.value === key)?.id.value as string;
+      present(line.stations.find((each) => each.key.value === key)).id.value;
     const moves = await new ListTasksHandler(
       reader([{ ...summaries[0], stationId: at('implementation') }]),
       seeing(),
-      { ofTeam: async () => [line] } as never,
+      partial<LineMapsPort>({ ofTeam: async () => [line] }),
     ).execute(
       new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
     );
@@ -417,12 +421,16 @@ describe('ListTasksHandler', () => {
       harness: HarnessId.of('dev'),
     });
     const at = (key: string) =>
-      line.stations.find((each) => each.key.value === key)?.id.value as string;
+      present(line.stations.find((each) => each.key.value === key)).id.value;
     const openFrom = async (summary: TaskSummary) =>
       (
-        await new ListTasksHandler(reader([summary]), seeing(), {
-          ofTeam: async () => [line],
-        } as never).execute(
+        await new ListTasksHandler(
+          reader([summary]),
+          seeing(),
+          partial<LineMapsPort>({
+            ofTeam: async () => [line],
+          }),
+        ).execute(
           new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
         )
       )?.items[0]?.handMoves

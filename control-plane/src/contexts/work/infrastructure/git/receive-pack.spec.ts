@@ -26,12 +26,22 @@ const request = (capabilities: string, ...refs: readonly string[]): string =>
   ].join('');
 
 const chunked = (text: string, size: number): AsyncIterable<Uint8Array> => ({
-  async *[Symbol.asyncIterator]() {
+  [Symbol.asyncIterator]: () => {
     const bytes = encoder.encode(text);
+    let at = 0;
 
-    for (let at = 0; at < bytes.length; at += size) {
-      yield bytes.subarray(at, at + size);
-    }
+    return {
+      next: async (): Promise<IteratorResult<Uint8Array>> => {
+        if (at >= bytes.length) {
+          return { done: true, value: undefined };
+        }
+
+        const chunk = bytes.subarray(at, at + size);
+        at += size;
+
+        return { done: false, value: chunk };
+      },
+    };
   },
 });
 

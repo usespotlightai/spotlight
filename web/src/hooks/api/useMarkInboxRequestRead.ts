@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { markInboxRequestRead } from '@/lib/api';
@@ -8,7 +12,11 @@ type MarkInboxRequestReadInput = {
   requestId: string;
 };
 
-export function useMarkInboxRequestRead() {
+export function useMarkInboxRequestRead(): UseMutationResult<
+  void,
+  Error,
+  MarkInboxRequestReadInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

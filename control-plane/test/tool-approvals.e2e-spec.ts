@@ -60,7 +60,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const readBack = async (task: Task): Promise<Task> => {

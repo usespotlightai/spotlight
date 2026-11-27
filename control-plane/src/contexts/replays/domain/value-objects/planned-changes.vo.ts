@@ -67,7 +67,11 @@ const hooksOf = (
   }
 
   return keys.map((key) => {
-    const hook = hooks.find((each) => each.key.trim() === key) as PlannedHook;
+    const hook = hooks.find((each) => each.key.trim() === key);
+
+    if (hook === undefined) {
+      throw new InvalidCandidateError('must change each hook once');
+    }
 
     return {
       key,

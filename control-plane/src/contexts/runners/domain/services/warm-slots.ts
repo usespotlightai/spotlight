@@ -1,6 +1,7 @@
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import type { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import type { HostSlotHolders } from '@runners/domain/services/host-slot-holders';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 const oldestFirst = (a: Sandbox, b: Sandbox): number =>
   a.startedAt.getTime() - b.startedAt.getTime() ||
@@ -29,12 +30,16 @@ export const WarmSlots = {
     }
 
     return (
-      onHost
-        .filter((each) => each.takesFirstRunOn(host, now))
-        .sort(oldestFirst)[0] ??
-      onHost
-        .filter((each) => each.waitsForFollowUpOn(host, now))
-        .sort(longestIdleFirst)[0] ??
+      firstOf(
+        onHost
+          .filter((each) => each.takesFirstRunOn(host, now))
+          .sort(oldestFirst),
+      ) ??
+      firstOf(
+        onHost
+          .filter((each) => each.waitsForFollowUpOn(host, now))
+          .sort(longestIdleFirst),
+      ) ??
       null
     );
   },

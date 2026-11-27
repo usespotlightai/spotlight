@@ -1,3 +1,4 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
 import ts from 'typescript';
 
 import {
@@ -21,10 +22,10 @@ const isTableCall = (node: ts.Node): node is ts.CallExpression =>
   node.expression.text === 'pgTable';
 
 const hasVersionColumn = (call: ts.CallExpression): boolean => {
-  const columns = call.arguments[1];
+  const columns = itemAt(call.arguments, 1);
 
   return (
-    !!columns &&
+    columns !== undefined &&
     ts.isObjectLiteralExpression(columns) &&
     columns.properties.some(
       (property) =>
@@ -43,7 +44,7 @@ const tablesIn = (file: SourceFile): DrizzleTable[] =>
       !call ||
       !isTableCall(call) ||
       !ts.isIdentifier(declaration.name) ||
-      !call.arguments[0] ||
+      itemAt(call.arguments, 0) === undefined ||
       !ts.isStringLiteralLike(call.arguments[0])
     ) {
       return [];

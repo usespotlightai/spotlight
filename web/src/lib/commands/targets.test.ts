@@ -12,6 +12,8 @@ import {
   stationTargets,
   taskTargets,
 } from '@/lib/commands/targets';
+import { nonEmpty } from '@/lib/non-empty';
+import { required } from '@/lib/required';
 import { world } from '@/mocks/world';
 import { PLATFORM_ID } from '@/mocks/world/platform';
 
@@ -39,9 +41,9 @@ describe('lineTargets', () => {
     const [line] = lines;
 
     expect(lineTargets('acme', team, lines)[0]).toMatchObject({
-      label: line?.name,
+      label: line.name,
       context: 'Platform',
-      to: `/w/acme/team/${PLATFORM_ID}/lines/${line?.id}`,
+      to: `/w/acme/team/${PLATFORM_ID}/lines/${line.id}`,
     });
   });
 });
@@ -51,13 +53,13 @@ describe('stationTargets', () => {
     const stations = lines.flatMap((line) => line.stations);
     const targets = stationTargets('acme', team, lines);
     const [line] = lines;
-    const [station] = line?.stations ?? [];
+    const [station] = line.stations;
 
     expect(targets).toHaveLength(stations.length);
     expect(targets[0]).toMatchObject({
-      label: station?.name,
-      context: line?.name,
-      to: `/w/acme/team/${PLATFORM_ID}/lines/${line?.id}/stations/${station?.id}`,
+      label: station.name,
+      context: line.name,
+      to: `/w/acme/team/${PLATFORM_ID}/lines/${line.id}/stations/${station.id}`,
     });
   });
 });
@@ -89,7 +91,7 @@ describe('taskTargets', () => {
 
   it('matches a task on its description too', () => {
     const described = tasks.find(
-      (task) => !completed.has(task.stationId) && task.description,
+      (task) => !completed.has(task.stationId) && nonEmpty(task.description),
     );
     const target = taskTargets('acme', team, tasks, lines).find(
       (each) => each.id === `task:${described?.id}`,
@@ -101,16 +103,14 @@ describe('taskTargets', () => {
 
 describe('completedTaskTargets', () => {
   it('opens each completed task found, with the team as context', () => {
-    const [task] = tasks;
+    const task = required(tasks[0]);
 
-    expect(
-      completedTaskTargets('acme', team, task ? [task] : []),
-    ).toMatchObject([
+    expect(completedTaskTargets('acme', team, [task])).toMatchObject([
       {
-        id: `task:${task?.id}`,
-        label: task?.title,
+        id: `task:${task.id}`,
+        label: task.title,
         context: 'Platform',
-        to: `/w/acme/team/${PLATFORM_ID}/tasks/${task?.id}`,
+        to: `/w/acme/team/${PLATFORM_ID}/tasks/${task.id}`,
       },
     ]);
   });

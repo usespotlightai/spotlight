@@ -13,7 +13,7 @@ export class ChangeStackId {
   }
 
   equals(other: ChangeStackId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof ChangeStackId && this.value === other.value;
   }
 
   toString(): string {

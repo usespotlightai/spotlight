@@ -13,6 +13,7 @@ import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo'
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -56,14 +57,16 @@ const revoking = (
   );
 
   const handler = new RevokeInviteHandler(
-    new WorkspaceAdministration({
-      findBySlug: async () => workspace(over.role ?? WorkspaceRole.admin),
-    } as unknown as WorkspaceRepository),
-    {
+    new WorkspaceAdministration(
+      partial<WorkspaceRepository>({
+        findBySlug: async () => workspace(over.role ?? WorkspaceRole.admin),
+      }),
+    ),
+    partial<WorkspaceInviteRepository>({
       find: async () => (over.invite === undefined ? created() : over.invite),
       save,
-    } as unknown as WorkspaceInviteRepository,
-    { now: () => NOW } as ClockPort,
+    }),
+    partial<ClockPort>({ now: () => NOW }),
   );
 
   return { handler, save };

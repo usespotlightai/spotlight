@@ -16,6 +16,6 @@ export class SandboxKey {
   }
 
   equals(other: SandboxKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof SandboxKey && this.value === other.value;
   }
 }

@@ -11,8 +11,9 @@ import {
   draftParts,
   type SharedAttachment,
 } from '@/lib/shared-draft';
+import { partial } from '@/test/partial';
 
-type State = Record<string, unknown>;
+type State = NonNullable<ReturnType<Provider['awareness']['getLocalState']>>;
 
 // Stands in for the sync server: one document and one set of presences that every writer joins.
 class Room {
@@ -74,8 +75,11 @@ const providerFor = (room: Room, doc: Doc): Provider => {
       off: (_type: 'update', cb: () => void) => room.off(cb),
       setLocalState: (state: State | null) => room.set(id, state),
       setLocalStateField: (field: string, value: unknown) =>
-        room.set(id, { ...room.states.get(id), [field]: value }),
-    } as unknown as Provider['awareness'],
+        room.set(
+          id,
+          partial<State>({ ...room.states.get(id), [field]: value }),
+        ),
+    },
     connect: () => {
       room.join(doc);
       queueMicrotask(() => {
@@ -85,11 +89,13 @@ const providerFor = (room: Room, doc: Doc): Provider => {
       });
     },
     disconnect: () => undefined,
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     on: ((type: string, cb: (synced: boolean) => void) => {
       if (type === 'sync') {
         synced.add(cb);
       }
     }) as Provider['on'],
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     off: ((type: string, cb: (synced: boolean) => void) => {
       if (type === 'sync') {
         synced.delete(cb);

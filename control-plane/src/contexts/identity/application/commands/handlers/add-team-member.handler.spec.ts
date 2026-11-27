@@ -10,6 +10,8 @@ import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -49,15 +51,18 @@ const platform = Team.rehydrate({
 
 const adding = (leonIs = WorkspaceRole.admin) => {
   const save = vi.fn<(team: Team) => Promise<void>>(async () => {});
-  const teams = {
+  const teams = partial<TeamRepository>({
     find: async () => platform,
     save,
-  } as unknown as TeamRepository;
+  });
 
   const handler = new AddTeamMemberHandler(
-    new TeamAdministration(teams, {
-      find: async () => workspace(leonIs),
-    } as unknown as WorkspaceRepository),
+    new TeamAdministration(
+      teams,
+      partial<WorkspaceRepository>({
+        find: async () => workspace(leonIs),
+      }),
+    ),
     teams,
   );
 
@@ -73,7 +78,7 @@ describe('AddTeamMemberHandler', () => {
 
     await expect(handler.execute(add('user_ada'))).resolves.toBe(true);
 
-    const saved = save.mock.calls[0]?.[0];
+    const saved = firstOf(save.mock.calls)?.[0];
     expect(saved?.hasMember(ADA)).toBe(true);
     expect(saved?.pullEvents().map((each) => each.kind)).toEqual([
       'team.member-joined',

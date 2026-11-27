@@ -18,6 +18,7 @@ import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposa
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -104,7 +105,7 @@ describe('MemoryProposalSet', () => {
       rememberedAll(['From outside.', 'Also from outside.'], true);
 
     const idOf = (set: MemoryProposalSet, at: number) => {
-      const proposal = set.proposals[at];
+      const proposal = itemAt(set.proposals, at);
       if (!proposal) throw new Error('no proposal there');
       return proposal.id;
     };
@@ -119,7 +120,7 @@ describe('MemoryProposalSet', () => {
         current: [],
       });
 
-      const [first] = approved.proposals;
+      const first = firstOf(approved.proposals);
       expect(first?.state).toBe('approved');
       expect(first?.decision?.equals(ADA)).toBe(true);
       expect(approved.pullEvents()).toEqual([
@@ -134,7 +135,7 @@ describe('MemoryProposalSet', () => {
 
     it('approves an edited memory with its new body and its original provenance', () => {
       const set = three();
-      const before = set.proposals[0];
+      const before = firstOf(set.proposals);
 
       const approved = set.approve({
         runId: FIRST,

@@ -4,6 +4,7 @@ import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo'
 import type { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import type { SearchSkipReason } from '@replays/domain/value-objects/search-skip-reason';
 import type { SearchTrigger } from '@replays/domain/value-objects/search-trigger';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -214,16 +215,18 @@ export const setVerdict = (input: SetInput): SetVerdict => {
     checkAfter: after(input.now, SET_RECHECK_MS),
     warning,
   });
-  const [warned] = HEALTH_SKIPS.flatMap((reason) => {
-    const warning = input.warnings.find((each) => each.kind === reason);
+  const warned = firstOf(
+    HEALTH_SKIPS.flatMap((reason) => {
+      const warning = input.warnings.find((each) => each.kind === reason);
 
-    return warning ? [{ reason, warning }] : [];
-  });
+      return warning ? [{ reason, warning }] : [];
+    }),
+  );
 
   if (input.tooSmall) {
     return skip('set-too-small');
   }
-  if (warned) {
+  if (warned !== undefined) {
     return skip(warned.reason, warned.warning);
   }
   if (!input.freshHeldOut) {

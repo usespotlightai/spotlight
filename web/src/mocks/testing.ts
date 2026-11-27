@@ -1,11 +1,11 @@
-import { setupServer } from 'msw/node';
+import { type SetupServer, setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 
 import { client } from '@/lib/api/client.gen';
 import { handlers } from '@/mocks/handlers';
 import { type PageState, setScenario } from '@/mocks/scenario';
 
-export const serveMockApi = (state: PageState = 'data') => {
+export const serveMockApi = (state: PageState = 'data'): SetupServer => {
   const server = setupServer(...handlers);
 
   beforeAll(() => {

@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TeamMemory } from '@/components/features/memory/TeamMemory';
 import type { TeamMemory as Memory, MemoryFilter } from '@/lib/memory';
+import { htmlElement } from '@/test/elements';
 
 const refetch = vi.fn();
 const requested: MemoryFilter[] = [];
@@ -215,9 +216,11 @@ describe('TeamMemory', () => {
 
     const rowOf = (body: string) =>
       within(
-        screen
-          .getByText(body)
-          .closest<HTMLElement>('[data-slot="team-memory"]') as HTMLElement,
+        htmlElement(
+          screen
+            .getByText(body)
+            .closest<HTMLElement>('[data-slot="team-memory"]'),
+        ),
       );
     expect(
       rowOf('Retry uploads in the request.').getByRole('link', { name: 'Run' }),
@@ -504,7 +507,7 @@ describe('TeamMemory', () => {
       screen.queryByRole('textbox', { name: 'What the team should remember' }),
     ).not.toBeInTheDocument();
     expect(
-      within(visibleRows()[0] as HTMLElement).getByRole('button', {
+      within(htmlElement(visibleRows()[0])).getByRole('button', {
         name: 'Edit',
       }),
     ).toBeInTheDocument();

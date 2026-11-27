@@ -13,7 +13,7 @@ export class OidcTrustId {
   }
 
   equals(other: OidcTrustId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof OidcTrustId && this.value === other.value;
   }
 
   toString(): string {

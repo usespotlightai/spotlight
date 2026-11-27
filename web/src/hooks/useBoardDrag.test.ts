@@ -1,10 +1,11 @@
-import type { DragEndEvent } from '@dnd-kit/core';
+import type { Active, DragEndEvent, Over } from '@dnd-kit/core';
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useBoardDrag } from '@/hooks/useBoardDrag';
 import type { StationResponseDto } from '@/lib/api';
 import type { Task } from '@/lib/task';
+import { partial } from '@/test/partial';
 
 const moved = vi.fn();
 
@@ -13,13 +14,21 @@ vi.mock('@/hooks/api/useMoveTask', () => ({
 }));
 
 const stations = [
-  { id: 'backlog', name: 'Backlog', kind: 'backlog' },
-  { id: 'build', name: 'Build', kind: 'work' },
-  { id: 'completed', name: 'Completed', kind: 'completed' },
-] as StationResponseDto[];
+  partial<StationResponseDto>({
+    id: 'backlog',
+    name: 'Backlog',
+    kind: 'backlog',
+  }),
+  partial<StationResponseDto>({ id: 'build', name: 'Build', kind: 'work' }),
+  partial<StationResponseDto>({
+    id: 'completed',
+    name: 'Completed',
+    kind: 'completed',
+  }),
+];
 
 const task = (over: Partial<Task> = {}) =>
-  ({
+  partial<Task>({
     id: 'task_1',
     stationId: 'build',
     revision: 3,
@@ -33,13 +42,19 @@ const task = (over: Partial<Task> = {}) =>
       sendsBack: false,
     })),
     ...over,
-  }) as Task;
+  });
 
 const dropped = (stationId: string) =>
-  ({
-    active: { id: 'task_1', data: { current: { kind: 'task' } } },
-    over: { id: stationId, data: { current: { kind: 'station', stationId } } },
-  }) as unknown as DragEndEvent;
+  partial<DragEndEvent>({
+    active: partial<Active>({
+      id: 'task_1',
+      data: { current: { kind: 'task' } },
+    }),
+    over: partial<Over>({
+      id: stationId,
+      data: { current: { kind: 'station', stationId } },
+    }),
+  });
 
 const boardWith = (moving: Task) =>
   renderHook(() =>

@@ -3,16 +3,20 @@ import { RepositoryFileUnwritableError } from '@github/application/errors/reposi
 import { RepositoryUnreachableError } from '@github/application/errors/repository-unreachable.error';
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubRepositoryContents } from '@github/infrastructure/github/github-repository-contents';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
-const access = {
+const JSON_OBJECT = z.record(z.string(), z.unknown());
+
+const access = partial<RepositoryAccessPort>({
   credential: vi.fn(async () => ({
     username: 'x-access-token',
     password: 'tok_1',
   })),
-} as unknown as RepositoryAccessPort;
+});
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 
@@ -48,9 +52,10 @@ const github = (
     sent.push({
       url,
       method,
-      body: init.body
-        ? (JSON.parse(init.body as string) as Record<string, unknown>)
-        : {},
+      body:
+        typeof init.body === 'string'
+          ? JSON_OBJECT.parse(JSON.parse(init.body))
+          : {},
     });
 
     if (url.endsWith('/commits/trunk') && over.forbidden) {
@@ -72,6 +77,7 @@ const github = (
     if (url.includes('/contents/teams/core/delivery.tf?ref=commit_1')) {
       return answering(
         200,
+
         over.large
           ? { type: 'file', encoding: 'none', content: '', sha: 'blob_1' }
           : {
@@ -211,7 +217,10 @@ describe('GitHubRepositoryContents', () => {
 
     expect(tree?.body.base_tree).toBe('tree_1');
     expect(
-      ((tree?.body.tree ?? []) as { path: string }[]).map((each) => each.path),
+      z
+        .array(z.object({ path: z.string() }))
+        .parse(tree?.body.tree ?? [])
+        .map((each) => each.path),
     ).toEqual(['teams/core/delivery.tf', 'teams/core/prompts/build.md']);
     expect(commit?.body).toEqual({
       message: 'Change build',

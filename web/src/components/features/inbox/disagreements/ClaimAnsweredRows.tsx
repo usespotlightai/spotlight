@@ -5,6 +5,7 @@ import {
   type GivenClaimAnswer,
   WHY,
 } from '@/lib/judge-disagreement';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function ClaimAnsweredRows({ answer }: { answer: GivenClaimAnswer }) {
   return (
@@ -15,7 +16,7 @@ export function ClaimAnsweredRows({ answer }: { answer: GivenClaimAnswer }) {
           {claimAnswerLabel(answer.answer)}
         </dd>
       </FactRow>
-      {answer.note && (
+      {nonEmpty(answer.note) && (
         <FactRow wide>
           <dt className={FACT_LABEL}>{WHY}</dt>
           <dd data-slot="claim-note" className={FACT_VALUE}>

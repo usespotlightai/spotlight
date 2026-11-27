@@ -33,6 +33,7 @@ import {
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -40,16 +41,16 @@ import { describe, expect, it, vi } from 'vitest';
 const expressions = new CelExpressionEngine();
 
 const runtimeWith = (
-  outbound: unknown,
-  exchange: unknown = {},
+  outbound: Partial<HttpOutbound>,
+  exchange: Partial<OAuth2Exchange> = {},
   clients: OAuth2ClientsPort = clientsFrom(),
   hosts: WorkspaceOutboundScopePort = unscoped,
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsContaining()),
-    outbound as HttpOutbound,
+    partial<HttpOutbound>(outbound),
     clients,
-    exchange as OAuth2Exchange,
+    partial<OAuth2Exchange>(exchange),
     discoveringNothing(),
     callingNoServer(),
     unlimited,
@@ -128,7 +129,7 @@ const refreshing = (
     );
     return tokens;
   });
-  const clock = { now: () => NOW } as ClockPort;
+  const clock = partial<ClockPort>({ now: () => NOW });
   const warn = vi.fn();
   const info = vi.fn();
 
@@ -136,7 +137,9 @@ const refreshing = (
     connections,
     new ConnectionRefresh(
       connections,
-      { ofTeam: async () => config() } as unknown as DefinedIntegrationsPort,
+      partial<DefinedIntegrationsPort>({
+        ofTeam: async () => config(),
+      }),
       runtimeWith(
         {},
         { refresh },

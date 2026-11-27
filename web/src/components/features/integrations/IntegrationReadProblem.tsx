@@ -1,6 +1,7 @@
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import type { ApiSpecViewResponseDto } from '@/lib/api';
 import { formatReadProblem } from '@/lib/api-spec';
+import { nonEmpty } from '@/lib/non-empty';
 
 type IntegrationReadProblemProps = {
   spec: ApiSpecViewResponseDto;
@@ -9,7 +10,7 @@ type IntegrationReadProblemProps = {
 export function IntegrationReadProblem({ spec }: IntegrationReadProblemProps) {
   const problem = formatReadProblem(spec);
 
-  if (!problem) {
+  if (!nonEmpty(problem)) {
     return null;
   }
 

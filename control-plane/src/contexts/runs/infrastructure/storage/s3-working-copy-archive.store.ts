@@ -22,6 +22,7 @@ import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import type { SpotlightStorage } from '@runs/domain/value-objects/archive-location.vo';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const SIGNED_FOR = 15 * 60;
 
@@ -35,7 +36,7 @@ const base64Of = (digest: ArchiveDigest): string =>
   Buffer.from(digest.sha256, 'hex').toString('base64');
 
 const digestOf = (head: HeadObjectCommandOutput): ArchiveDigest | null =>
-  head.ChecksumSHA256
+  nonEmpty(head.ChecksumSHA256)
     ? ArchiveDigest.of(
         Buffer.from(head.ChecksumSHA256, 'base64').toString('hex'),
       )
@@ -104,7 +105,11 @@ export class S3WorkingCopyArchiveStore implements WorkingCopyArchiveStorePort {
 
     const digest = head ? digestOf(head) : null;
 
-    if (!head?.ContentLength || !digest) {
+    if (
+      head?.ContentLength === undefined ||
+      head.ContentLength === 0 ||
+      !digest
+    ) {
       return null;
     }
 

@@ -3,6 +3,7 @@ import { Composer } from '@/components/shared/form/Composer';
 import { Button } from '@/components/ui/button';
 import { useAnswerStackQuestion } from '@/hooks/api/useAnswerStackQuestion';
 import type { ChangeStack, LayerQuestion } from '@/lib/change-stack';
+import { nonEmpty } from '@/lib/non-empty';
 import { useStackTeam } from '@/lib/review-context';
 
 type QuestionAnswerFormProps = {
@@ -21,7 +22,7 @@ export function QuestionAnswerForm({
   const { answered } = question;
 
   const answer = (reply: string | null) => {
-    if (teamId) {
+    if (nonEmpty(teamId)) {
       answering.mutate({
         teamId,
         stackId: stack.id,

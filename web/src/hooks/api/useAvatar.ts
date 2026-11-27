@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import {
@@ -9,6 +13,7 @@ import {
 } from '@/lib/api';
 import { avatarUploadOf } from '@/lib/avatar-image';
 import { messageOf } from '@/lib/error';
+import { required } from '@/lib/required';
 
 export type AvatarChange = File | null;
 
@@ -20,14 +25,14 @@ const failure = (change: AvatarChange) =>
 function useAvatarChange(
   slug: string | undefined,
   send: (change: AvatarChange) => Promise<{ error?: unknown }>,
-) {
+): UseMutationResult<void, Error, AvatarChange> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (change: AvatarChange) => {
       const { error } = await send(change);
 
-      if (error) {
+      if (error !== undefined) {
         throw new Error(messageOf(error, failure(change)));
       }
     },
@@ -42,9 +47,11 @@ function useAvatarChange(
   });
 }
 
-export function useWorkspaceAvatar(slug: string | undefined) {
+export function useWorkspaceAvatar(
+  slug: string | undefined,
+): UseMutationResult<void, Error, AvatarChange> {
   return useAvatarChange(slug, async (change) => {
-    const path = { slug: slug as string };
+    const path = { slug: required(slug) };
 
     return change
       ? setWorkspaceAvatar({ path, body: await avatarUploadOf(change) })
@@ -55,9 +62,9 @@ export function useWorkspaceAvatar(slug: string | undefined) {
 export function useTeamAvatar(
   slug: string | undefined,
   teamId: string | undefined,
-) {
+): UseMutationResult<void, Error, AvatarChange> {
   return useAvatarChange(slug, async (change) => {
-    const path = { teamId: teamId as string };
+    const path = { teamId: required(teamId) };
 
     return change
       ? setTeamAvatar({ path, body: await avatarUploadOf(change) })

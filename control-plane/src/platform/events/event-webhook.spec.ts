@@ -1,6 +1,5 @@
 import { createHmac } from 'node:crypto';
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import {
@@ -12,7 +11,7 @@ import {
 } from '@platform/events/event-webhook';
 import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { portOf } from '@platform/testing/port-of.fake-spec';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -69,7 +68,7 @@ beforeAll(async () => {
     });
   });
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
-  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  base = `http://127.0.0.1:${portOf(server)}`;
 });
 
 afterAll(async () => {
@@ -92,18 +91,19 @@ describe('EventWebhook', () => {
   it('posts the event as type, timestamp and data, signed per Standard Webhooks', async () => {
     await webhook().send(JOINED, RECORD);
 
+    if (received.length === 0) throw new Error('expected a call');
     const [call] = received;
     const timestamp = String(Math.floor(NOW.getTime() / 1000));
 
-    expect(call?.headers).toMatchObject({
+    expect(call.headers).toMatchObject({
       'content-type': 'application/json',
       'webhook-id': 'event_1',
       'webhook-timestamp': timestamp,
       'webhook-signature': `v1,${createHmac('sha256', KEY)
-        .update(`event_1.${timestamp}.${call?.body}`)
+        .update(`event_1.${timestamp}.${call.body}`)
         .digest('base64')}`,
     });
-    expect(JSON.parse(call?.body ?? '')).toEqual({
+    expect(JSON.parse(call.body)).toEqual({
       type: 'identity.workspace-member-joined.v1',
       timestamp: '2026-11-21T09:59:58.123Z',
       data: { workspaceId: 'ws_1', userId: 'user_1', role: 'member' },
@@ -203,9 +203,7 @@ describe('eventWebhookSink', () => {
   it('sends the event with its outbox record, and raises nothing', async () => {
     const { subscriber } = eventWebhookSink(webhook(), []);
 
-    await expect(
-      subscriber.handle(JOINED as unknown as DomainEvent, RECORD),
-    ).resolves.toEqual([]);
+    await expect(subscriber.handle(JOINED, RECORD)).resolves.toEqual([]);
     expect(received[0]?.headers['webhook-id']).toBe('event_1');
   });
 });

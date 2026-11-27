@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { TaskPullRequestSummariesPort } from '@work/application/ports/task-pull-request-summaries.port';
 import type {
@@ -6,7 +7,10 @@ import type {
 } from '@work/application/ports/task-reader.port';
 import { ListTaskPullRequestsHandler } from '@work/application/queries/handlers/list-task-pull-requests.handler';
 import { ListTaskPullRequestsQuery } from '@work/application/queries/list-task-pull-requests.query';
-import type { WorkAccess } from '@work/application/services/work-access.service';
+import type {
+  SeenTeam,
+  WorkAccess,
+} from '@work/application/services/work-access.service';
 import { describe, expect, it, vi } from 'vitest';
 
 const MERGED = 'https://github.com/acme/api/pull/7';
@@ -40,9 +44,11 @@ const reader = (found: TaskSummary | null): TaskReaderPort => ({
 });
 
 const seeing = (sees = true): WorkAccess =>
-  ({
-    seenTeam: vi.fn(async () => (sees ? { workspaceId: WORKSPACE } : null)),
-  }) as unknown as WorkAccess;
+  partial<WorkAccess>({
+    seenTeam: vi.fn(async () =>
+      sees ? partial<SeenTeam>({ workspaceId: WORKSPACE }) : null,
+    ),
+  });
 
 const MERGED_SUMMARY = {
   state: 'merged' as const,

@@ -22,16 +22,19 @@ import type { EnqueuedRunDto } from '@runs/application/dto/run.dto';
 import { EnqueueRunRequestDto } from '@runs/presentation/http/dto/runner.request.dto';
 import { EnqueuedRunResponseDto } from '@runs/presentation/http/dto/runner.response.dto';
 
+const isFields = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
 const specIn = (
   body: EnqueueRunRequestDto | undefined,
 ): Readonly<Record<string, unknown>> => {
   const spec: unknown = body?.spec;
 
-  if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
+  if (!isFields(spec)) {
     throw new UnprocessableEntityException('spec must be an object');
   }
 
-  return spec as Readonly<Record<string, unknown>>;
+  return spec;
 };
 
 @ApiTags('runs')

@@ -24,6 +24,8 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { MAX_WAIT_MS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -87,14 +89,14 @@ const sweeping = (input: {
   let checked = 0;
   let next = 0;
 
-  const schedules = {
+  const schedules = partial<MemoryUpkeepScheduleRepository>({
     ofTeam: async () => stored,
     ofTeamLocked: async () => stored,
     nextDue: async (at: Date) => (stored.isDue(at) ? stored : null),
     save: async (schedule: MemoryUpkeepSchedule) => {
       stored = schedule;
     },
-  } as unknown as MemoryUpkeepScheduleRepository;
+  });
   const consolidator: MemoryConsolidatorPort = {
     consolidate: async (request) => {
       requests.push(request);
@@ -113,20 +115,20 @@ const sweeping = (input: {
 
   const sweeps = new MemoryUpkeepSweeps(
     schedules,
-    {
+    partial<MemoryUpkeepRepository>({
       add: async (upkeep: MemoryUpkeep) => {
         upkeeps.push(upkeep);
       },
       historySince: async () => [],
-    } as unknown as MemoryUpkeepRepository,
-    { ofTeam: async () => MEMORIES } as unknown as MemoryRepository,
+    }),
+    partial<MemoryRepository>({ ofTeam: async () => MEMORIES }),
     { ofTeam: async () => [] },
-    {
+    partial<MemoryUsesPort>({
       lastUsed: async () => {
         checked += 1;
         return new Map();
       },
-    } as unknown as MemoryUsesPort,
+    }),
     { pathsAt: async () => new Set<string>() },
     consolidator,
     hosts,
@@ -161,8 +163,9 @@ describe('a memory upkeep sweep that consolidates in an assist session', () => {
     await swept.tick(new Date(DUE.getTime() + MINUTE));
 
     expect(swept.requests).toHaveLength(2);
-    const [first, second] = swept.requests;
-    expect(first && second?.round.equals(first.round)).toBe(true);
+    const first = itemAt(swept.requests, 0);
+    const second = itemAt(swept.requests, 1);
+    expect(first !== undefined && second?.round.equals(first.round)).toBe(true);
     expect(swept.requests[0]?.basedOnRun).toEqual(RunId.of('run_9'));
     expect(
       swept.requests[0]?.groups[0]?.memories.map((each) => each.handle),

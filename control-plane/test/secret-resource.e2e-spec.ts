@@ -7,6 +7,7 @@ import {
   SECRET_INJECTION,
   type SecretInjectionPort,
 } from '@secrets/application/ports/secret-injection.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -19,6 +20,7 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -160,7 +162,7 @@ describe('a secret, created through the resource API (e2e)', () => {
 
   it('never answers its value, on any operation', async () => {
     const made = await admin().create(LINEAR);
-    const secret = made.body as Secret;
+    const secret = bodyOf<Secret>(made);
     const answers = [
       made,
       await admin().read(secret.id),
@@ -193,11 +195,13 @@ describe('a secret, created through the resource API (e2e)', () => {
   });
 
   it('stores its value encrypted under the data key of the workspace', async () => {
-    const made = (await admin().create(LINEAR)).body as Secret;
-    const [stored] = await db
-      .select()
-      .from(schema.secretValue)
-      .where(eq(schema.secretValue.secretId, made.id));
+    const made = bodyOf<Secret>(await admin().create(LINEAR));
+    const stored = firstOf(
+      await db
+        .select()
+        .from(schema.secretValue)
+        .where(eq(schema.secretValue.secretId, made.id)),
+    );
     const keys = await db
       .select()
       .from(schema.secretDataKey)
@@ -227,14 +231,14 @@ describe('a secret, created through the resource API (e2e)', () => {
   });
 
   it('rotates through valueWoVersion, injected from the next request on', async () => {
-    const made = (await admin().create(LINEAR)).body as Secret;
+    const made = bodyOf<Secret>(await admin().create(LINEAR));
 
-    const unchanged = (
+    const unchanged = bodyOf<Secret>(
       await admin().update(made.id, made.version, {
         ...LINEAR,
         valueWo: `${VALUE}_ignored`,
-      })
-    ).body as Secret;
+      }),
+    );
     expect(unchanged.version).toBe(made.version);
     expect(await injected()).toEqual({ authorization: `Bearer ${VALUE}` });
 
@@ -245,12 +249,12 @@ describe('a secret, created through the resource API (e2e)', () => {
     });
 
     expect(rotated.status).toBe(200);
-    expect((rotated.body as Secret).valueWoVersion).toBe(2);
+    expect(bodyOf<Secret>(rotated).valueWoVersion).toBe(2);
     expect(await injected()).toEqual({ authorization: `Bearer ${VALUE}_2` });
   });
 
   it('rejects a new valueWoVersion that comes without its value', async () => {
-    const made = (await admin().create(LINEAR)).body as Secret;
+    const made = bodyOf<Secret>(await admin().create(LINEAR));
     const rejected = await admin().update(made.id, made.version, {
       ...LINEAR,
       valueWo: undefined,
@@ -258,7 +262,7 @@ describe('a secret, created through the resource API (e2e)', () => {
     });
 
     expect(rejected.status).toBe(422);
-    expect((rejected.body as { errors: unknown[] }).errors).toContainEqual(
+    expect(bodyOf<{ errors: unknown[] }>(rejected).errors).toContainEqual(
       expect.objectContaining({ path: 'valueWo' }),
     );
     expect(await injected()).toEqual({ authorization: `Bearer ${VALUE}` });
@@ -271,7 +275,7 @@ describe('a secret, created through the resource API (e2e)', () => {
     expect((await member.create(LINEAR)).status).toBe(403);
     expect((await stranger.create(LINEAR)).status).toBe(404);
 
-    const made = (await admin().create(LINEAR)).body as Secret;
+    const made = bodyOf<Secret>(await admin().create(LINEAR));
     const rotating = {
       ...LINEAR,
       valueWo: 'forged',
@@ -290,35 +294,35 @@ describe('a secret, created through the resource API (e2e)', () => {
   });
 
   it('records every change as a configuration change: who made it and what moved, never the value', async () => {
-    const made = (await admin().create(LINEAR)).body as Secret;
-    const rebound = (
+    const made = bodyOf<Secret>(await admin().create(LINEAR));
+    const rebound = bodyOf<Secret>(
       await admin().update(made.id, made.version, {
         ...LINEAR,
         bindings: [{ host: 'uploads.linear.app' }],
-      })
-    ).body as Secret;
-    const rotated = (
+      }),
+    );
+    const rotated = bodyOf<Secret>(
       await admin().update(made.id, rebound.version, {
         ...LINEAR,
         bindings: [{ host: 'uploads.linear.app' }],
         valueWo: `${VALUE}_2`,
         valueWoVersion: 2,
-      })
-    ).body as Secret;
+      }),
+    );
     await admin().remove(made.id, rotated.version);
 
     const audit = await served(app)
       .get(`/api/workspaces/${workspaceId}/configuration-changes`)
       .set(TEST_USER_HEADER, fixture.admin);
-    const changes = (
-      audit.body as {
+    const changes = bodyOf<
+      {
         resource: string;
         resourceId: string;
         action: string;
         by: { kind: string; userId: string | null };
         details: object;
       }[]
-    ).filter((each) => each.resourceId === made.id);
+    >(audit).filter((each) => each.resourceId === made.id);
 
     expect(
       changes
@@ -360,7 +364,7 @@ describe('a secret, created through the resource API (e2e)', () => {
   });
 
   it('deletes its value with the secret', async () => {
-    const made = (await admin().create(LINEAR)).body as Secret;
+    const made = bodyOf<Secret>(await admin().create(LINEAR));
 
     await admin().remove(made.id, made.version);
 

@@ -63,8 +63,8 @@ describe('replay words', () => {
       0.05,
     );
 
-    expect(noise?.tone).toBe('good');
-    expect(noise?.advice).toBe(
+    expect(noise.tone).toBe('good');
+    expect(noise.advice).toBe(
       'The live config replayed each run 3 times, unchanged. Its success moved 6 pts between repeats. If a search replays each run once, it can tell a +5 pts gain from chance.',
     );
   });
@@ -185,17 +185,15 @@ describe('replay words', () => {
         0.05,
       )[1];
 
-    expect(roomOf({})?.text).toBe('Up to +20 pts with the answer');
-    expect(roomOf({})?.tone).toBe('good');
-    expect(roomOf({})?.advice).toMatch(
+    expect(roomOf({}).text).toBe('Up to +20 pts with the answer');
+    expect(roomOf({}).tone).toBe('good');
+    expect(roomOf({}).advice).toMatch(
       /^Live config: 60% on 5 runs\. With the answer: 80%\./,
     );
-    expect(roomOf({ state: 'running' })?.text).toBe(
-      'Measuring with the answer',
-    );
-    expect(roomOf({ state: 'stopped' })?.text).toBe(
+    expect(roomOf({ state: 'running' }).text).toBe('Measuring with the answer');
+    expect(roomOf({ state: 'stopped' }).text).toBe(
       'Couldn’t measure with the answer',
     );
-    expect(roomOf({ referenceState: 'gone' })?.tone).toBe('unknown');
+    expect(roomOf({ referenceState: 'gone' }).tone).toBe('unknown');
   });
 });

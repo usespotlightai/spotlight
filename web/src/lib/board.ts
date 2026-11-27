@@ -11,9 +11,7 @@ export type BoardView = (typeof BOARD_VIEWS)[number]['id'];
 const FALLBACK_BOARD_VIEW: BoardView = 'active';
 
 export const asBoardView = (raw: string | null): BoardView =>
-  BOARD_VIEWS.some((view) => view.id === raw)
-    ? (raw as BoardView)
-    : FALLBACK_BOARD_VIEW;
+  BOARD_VIEWS.find((view) => view.id === raw)?.id ?? FALLBACK_BOARD_VIEW;
 
 const boardViewKey = (lineId: string) => `spotlight.board-view.${lineId}`;
 
@@ -31,5 +29,7 @@ export const storeBoardView = (lineId: string, view: BoardView): void => {
   } catch {}
 };
 
-export const inView = (view: BoardView, kind: StationResponseDto['kind']) =>
-  view === 'active' ? kind === 'work' : kind === view;
+export const inView = (
+  view: BoardView,
+  kind: StationResponseDto['kind'],
+): boolean => (view === 'active' ? kind === 'work' : kind === view);

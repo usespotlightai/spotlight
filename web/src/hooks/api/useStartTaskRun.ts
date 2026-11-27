@@ -1,13 +1,21 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import {
   refreshTask,
   startsTaskRunKey,
   type TaskRef,
 } from '@/hooks/api/useSendMessage';
-import { startTaskRun } from '@/lib/api';
+import { startTaskRun, type TaskResponseDto } from '@/lib/api';
 
-export function useStartTaskRun() {
+export function useStartTaskRun(): UseMutationResult<
+  TaskResponseDto,
+  Error,
+  TaskRef
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

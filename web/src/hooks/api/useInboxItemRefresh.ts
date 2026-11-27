@@ -9,7 +9,7 @@ import type { InboxItem } from '@/lib/inbox';
 export function useInboxItemRefresh(
   slug: string | undefined,
   item: InboxItem | undefined,
-) {
+): void {
   const queryClient = useQueryClient();
   const itemId = item?.id;
   const runId = item?.runId ?? undefined;

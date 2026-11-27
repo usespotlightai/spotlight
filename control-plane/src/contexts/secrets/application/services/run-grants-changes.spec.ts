@@ -77,7 +77,11 @@ describe('RunGrantsChanges', () => {
 
     await changes.changed(RUN, pinning);
 
-    const current = (await grants.find(LEASE.runId)) as RunGrants;
+    const current = await grants.find(LEASE.runId);
+
+    if (current === null) {
+      throw new Error('expected grants for the run');
+    }
 
     expect(await changes.saveIgnoringConflict(current, current.end(NOW))).toBe(
       true,

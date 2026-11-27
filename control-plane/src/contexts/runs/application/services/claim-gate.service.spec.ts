@@ -10,6 +10,7 @@ import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -42,7 +43,10 @@ class TaskGate implements RunStartGate {
   readonly owner = 'requester';
 
   constructor(
-    private readonly of: (taskId: string, runId: string) => Promise<unknown>,
+    private readonly of: (
+      taskId: string,
+      runId: string,
+    ) => Promise<object | null>,
     private readonly hooks: {
       before(
         task: unknown,
@@ -59,7 +63,7 @@ class TaskGate implements RunStartGate {
 
     const view = await this.of(run.requester.id, run.runId.value);
 
-    return view
+    return view !== null
       ? this.hooks.before(view, { on: 'run.starting' }, until)
       : { kind: 'allowed' };
   }
@@ -108,7 +112,7 @@ const starting = (
 
   function gate(): ClaimGate {
     const claims = new ClaimGate(
-      runs as unknown as RunRepository,
+      partial<RunRepository>(runs),
       { now: () => over.now ?? NOW, sleep: async () => {} },
       {
         debug: () => {},

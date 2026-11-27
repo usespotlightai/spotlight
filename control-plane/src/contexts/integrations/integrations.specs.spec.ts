@@ -45,7 +45,9 @@ const fetching = (
   },
 ) => {
   const documents = documentsContaining();
-  const reader = { read: vi.fn(async (): Promise<SpecRead> => answer) };
+  const reader = {
+    read: vi.fn(async (): Promise<SpecRead> => answer),
+  };
   const specs = new IntegrationSpecs(
     new IntegrationCompiler(new CelExpressionEngine()),
     documents,

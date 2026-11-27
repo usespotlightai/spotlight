@@ -9,15 +9,15 @@ import {
 import {
   INTERCEPTORS_METADATA,
   METHOD_METADATA,
-  PATH_METADATA,
 } from '@nestjs/common/constants';
-import { DiscoveryService, MetadataScanner } from '@nestjs/core';
+import { controllerMethodsOf } from '@platform/http/controller-routes';
 import type { SequencedNotice } from '@platform/live/change-notices';
 import { LIVE_SEQUENCES_HEADER, LiveWrites } from '@platform/live/live-writes';
 import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Response } from 'express';
 import { mergeMap, Observable } from 'rxjs';
 
@@ -52,7 +52,7 @@ class LiveWritesInterceptor implements NestInterceptor {
           ),
         );
 
-        if (header && !response.headersSent) {
+        if (nonEmpty(header) && !response.headersSent) {
           response.setHeader(LIVE_SEQUENCES_HEADER, header);
         }
 
@@ -63,39 +63,32 @@ class LiveWritesInterceptor implements NestInterceptor {
 }
 
 export const interceptWrites = (app: INestApplication): void => {
-  const scanner = app.get(MetadataScanner);
   const interceptor = new LiveWritesInterceptor(app.get<LoggerPort>(LOGGER));
 
-  for (const { metatype } of app.get(DiscoveryService).getControllers()) {
-    const prototype = (metatype as { prototype?: object } | null)?.prototype as
-      | Record<string, object>
-      | undefined;
+  for (const { handler } of controllerMethodsOf(app)) {
+    const method: unknown = Reflect.getMetadata(METHOD_METADATA, handler);
 
-    if (!prototype) {
+    if (typeof method !== 'number' || !WRITES.has(method)) {
       continue;
     }
 
-    for (const name of scanner.getAllMethodNames(prototype)) {
-      const handler = prototype[name];
-      const method: unknown = Reflect.getMetadata(METHOD_METADATA, handler);
-      const interceptors = (
-        (Reflect.getMetadata(INTERCEPTORS_METADATA, handler) as
-          | unknown[]
-          | undefined) ?? []
-      ).filter((each) => !(each instanceof LiveWritesInterceptor));
+    const existing: unknown = Reflect.getMetadata(
+      INTERCEPTORS_METADATA,
+      handler,
+    );
+    const interceptors: readonly unknown[] = Array.isArray(existing)
+      ? existing
+      : [];
 
-      if (
-        Reflect.getMetadata(PATH_METADATA, handler) === undefined ||
-        !WRITES.has(method as RequestMethod)
-      ) {
-        continue;
-      }
-
-      Reflect.defineMetadata(
-        INTERCEPTORS_METADATA,
-        [interceptor, ...interceptors],
-        handler,
-      );
-    }
+    Reflect.defineMetadata(
+      INTERCEPTORS_METADATA,
+      [
+        interceptor,
+        ...interceptors.filter(
+          (each) => !(each instanceof LiveWritesInterceptor),
+        ),
+      ],
+      handler,
+    );
   }
 };

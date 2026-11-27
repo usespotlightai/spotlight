@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/tooltip';
 import type { MessageSource } from '@/hooks/api/useMessageSources';
 import type { Attachment } from '@/lib/attachment';
+import { nonEmpty } from '@/lib/non-empty';
 import { namesOf } from '@/lib/people-list';
 import type { Person } from '@/lib/person';
 import { cn } from '@/lib/utils';
@@ -46,7 +47,9 @@ export function WorldMessage({
               keepLineBreaks
               initialValue={body}
               placeholder=""
-              ariaLabel={from ? `What came from ${from}` : 'What came in'}
+              ariaLabel={
+                nonEmpty(from) ? `What came from ${from}` : 'What came in'
+              }
               className={cn('border-none bg-transparent p-0', signed && 'pr-7')}
             />
           </ExpandableText>
@@ -60,7 +63,7 @@ export function WorldMessage({
         className="absolute -top-2 -right-2"
       />
 
-      {deferredTo && (
+      {nonEmpty(deferredTo) && (
         <p className="px-3 text-muted-foreground text-xs">
           Arrived during a run. If the run does not pass the task on, the task
           moves to {deferredTo} when the run ends.
@@ -88,7 +91,7 @@ function SourceAvatars({
   const label =
     authors.length === 0
       ? `From ${from}`
-      : from
+      : nonEmpty(from)
         ? `${namesOf(authors)} wrote this in ${from}`
         : `${namesOf(authors)} wrote this`;
 

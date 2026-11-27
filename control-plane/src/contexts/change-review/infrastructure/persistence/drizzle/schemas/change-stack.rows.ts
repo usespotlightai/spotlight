@@ -1,4 +1,3 @@
-import type { StackProblemCode } from '@change-review/domain/value-objects/stack-problem.vo';
 import type {
   FileClass,
   LinkKind,
@@ -9,6 +8,7 @@ import type {
   CohortKind,
   LayerRevisionStatus,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
+import type { StackProblemCode } from '@change-review/domain/value-objects/stack-problem.vo';
 
 interface StoredHunk {
   readonly id: string;

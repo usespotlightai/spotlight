@@ -109,10 +109,19 @@ const cloneable = (query: PersistedQuery): PersistedQuery => ({
   state: { ...query.state, error: null, fetchFailureReason: null },
 });
 
+export type StoredJournals = {
+  readonly persister: ReturnType<
+    typeof experimental_createQueryPersister<PersistedQuery>
+  >['persisterFn'];
+  readonly recent: (count: number) => Promise<PersistedQuery[]>;
+  readonly prune: () => Promise<void>;
+  readonly forget: () => Promise<void>;
+};
+
 export const createStoredJournals = (
   storage: JournalStorage,
   { buster, maxAge, now = Date.now }: StoredJournalOptions,
-) => {
+): StoredJournals => {
   const safe = failSafe(storage);
   const { persisterFn } = experimental_createQueryPersister<PersistedQuery>({
     storage: safe,
@@ -131,10 +140,10 @@ export const createStoredJournals = (
           query.buster === buster &&
           now() - query.state.dataUpdatedAt <= maxAge,
       ),
-    prune: async () => {
+    prune: async (): Promise<void> => {
       const old = await safe.savedBefore(now() - maxAge);
       await Promise.all(old.map((key) => safe.removeItem(key)));
     },
-    forget: () => safe.clear(),
+    forget: (): Promise<void> => safe.clear(),
   };
 };

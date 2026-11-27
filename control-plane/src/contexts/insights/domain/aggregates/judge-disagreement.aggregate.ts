@@ -30,6 +30,7 @@ import type { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import type { WithdrawalReason } from '@insights/domain/value-objects/withdrawal-reason';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -133,7 +134,7 @@ export class JudgeDisagreement extends EventRecorder {
         ? 'opens only where the judge and the label disagree'
         : brokenRuleOf(verdict, input.labelFrom, input.askedOf);
 
-    if (broken) {
+    if (nonEmpty(broken)) {
       throw new InvalidJudgeDisagreementError(broken);
     }
 
@@ -170,7 +171,7 @@ export class JudgeDisagreement extends EventRecorder {
     const { verdict } = fields;
     const broken = brokenRuleOf(verdict, fields.labelFrom, fields.askedOf);
 
-    if (broken) {
+    if (nonEmpty(broken)) {
       throw new InconsistentStateError('judge disagreement', broken);
     }
 
@@ -199,7 +200,7 @@ export class JudgeDisagreement extends EventRecorder {
       fields.notMet &&
       notMetRuleOf(verdict, fields.labelFrom, fields.notMet.shouldHaveFailed);
 
-    if (brokenNotMet) {
+    if (nonEmpty(brokenNotMet)) {
       throw new InconsistentStateError('judge disagreement', brokenNotMet);
     }
 
@@ -437,7 +438,7 @@ export class JudgeDisagreement extends EventRecorder {
       input.shouldHaveFailed,
     );
 
-    if (brokenNotMet) {
+    if (nonEmpty(brokenNotMet)) {
       throw new InvalidJudgeDisagreementError(brokenNotMet);
     }
 

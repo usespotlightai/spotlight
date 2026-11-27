@@ -14,6 +14,7 @@ import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -44,7 +45,7 @@ const permissions = (allowed: boolean): WorkspacePermissions => ({
 
 const kept = () => {
   const stored = new Map<string, OidcTrust>();
-  const trusts = {
+  const trusts = partial<OidcTrustRepository>({
     add: async (trust: OidcTrust) => {
       stored.set(trust.key.value, trust);
     },
@@ -53,7 +54,7 @@ const kept = () => {
     },
     findByKey: async (_: WorkspaceId, key: { value: string }) =>
       stored.get(key.value) ?? null,
-  } as unknown as OidcTrustRepository;
+  });
 
   return { stored, trusts };
 };
@@ -62,9 +63,9 @@ const trusting = (admin = true) => {
   const { stored, trusts } = kept();
   let next = 0;
   const service = new GitHubActionsTrusts(
-    {
+    partial<WorkspaceAccessPort>({
       permissionsIn: async () => permissions(admin),
-    } as unknown as WorkspaceAccessPort,
+    }),
     trusts,
     { generate: () => `trust_${++next}` },
     { inTransaction: (work) => work() },

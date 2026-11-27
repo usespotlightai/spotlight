@@ -112,7 +112,7 @@ describe('ReflectionNoticeWording', () => {
       TITLES,
     );
 
-    expect(point?.length).toBeLessThanOrEqual(1_000);
+    expect(point.length).toBeLessThanOrEqual(1_000);
     expect(point).toMatch(/… {1,2}Please fix the claims of the judge\.$/);
   });
 

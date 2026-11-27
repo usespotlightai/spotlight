@@ -3,6 +3,9 @@ import { join } from 'node:path';
 
 import { MEMORY_PAYLOAD_TYPES } from '@memory/infrastructure/events/memory-payload-types';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
+const MODULE = z.record(z.string(), z.unknown());
 
 const FOLDERS = ['value-objects', 'events'];
 
@@ -21,10 +24,7 @@ describe('MEMORY_PAYLOAD_TYPES', () => {
       for (const file of readdirSync(within).filter(
         (each) => each.endsWith('.ts') && !each.endsWith('.spec.ts'),
       )) {
-        const loaded = (await import(join(within, file))) as Record<
-          string,
-          unknown
-        >;
+        const loaded = MODULE.parse(await import(join(within, file)));
 
         for (const [name, value] of Object.entries(loaded)) {
           if (

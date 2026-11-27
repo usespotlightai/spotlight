@@ -1,4 +1,5 @@
 import { InvalidStationAlertError } from '@lines/domain/exceptions/invalid-station-alert.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 export const ALERT_MEASURES = [
   'sent_back_rate',
@@ -73,9 +74,12 @@ export class StationAlert {
     over: number;
   }): StationAlert {
     const { measure } = input;
-    const set = CONDITIONS.filter(
-      (condition) => (input[condition] ?? null) !== null,
-    );
+    const set = CONDITIONS.flatMap((condition) => {
+      const value = input[condition] ?? null;
+
+      return value === null ? [] : [{ condition, value }];
+    });
+    const only = set.length === 1 ? firstOf(set) : undefined;
 
     if (!isMeasure(measure)) {
       throw new InvalidStationAlertError(
@@ -83,15 +87,14 @@ export class StationAlert {
         `measure must be one of ${ALERT_MEASURES.join(', ')}`,
       );
     }
-    if (set.length !== 1) {
+    if (only === undefined) {
       throw new InvalidStationAlertError(
         null,
         `must set exactly one of ${CONDITIONS.join(', ')}`,
       );
     }
 
-    const [condition] = set as [Condition];
-    const value = input[condition] as number;
+    const { condition, value } = only;
 
     if (!bounded(measure, condition, value)) {
       throw new InvalidStationAlertError(
@@ -124,7 +127,16 @@ export class StationAlert {
   }
 
   get condition(): Condition {
-    return CONDITIONS.find((each) => this[each] !== null) as Condition;
+    const condition = CONDITIONS.find((each) => this[each] !== null);
+
+    if (condition === undefined) {
+      throw new InvalidStationAlertError(
+        null,
+        `must set exactly one of ${CONDITIONS.join(', ')}`,
+      );
+    }
+
+    return condition;
   }
 
   watchesAsWell(other: StationAlert): boolean {

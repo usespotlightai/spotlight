@@ -9,6 +9,7 @@ import {
   toolWordsOf,
 } from '@integrations/infrastructure/specs/operation-record';
 import { SchemaBudget } from '@integrations/infrastructure/specs/schema-budget';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   buildClientSchema,
   buildSchema,
@@ -68,7 +69,7 @@ const inputSchemaOf = (
     return {
       type: 'string',
       enum: type.getValues().map((each) => each.name),
-      ...(type.description ? { description: type.description } : {}),
+      ...(nonEmpty(type.description) ? { description: type.description } : {}),
     };
   }
 
@@ -85,13 +86,15 @@ const inputSchemaOf = (
 
   return {
     type: 'object',
-    ...(type.description ? { description: type.description } : {}),
+    ...(nonEmpty(type.description) ? { description: type.description } : {}),
     properties: Object.fromEntries(
       fields.map((field) => [
         field.name,
         {
           ...inputSchemaOf(field.type, depth + 1, within, budget),
-          ...(field.description ? { description: field.description } : {}),
+          ...(nonEmpty(field.description)
+            ? { description: field.description }
+            : {}),
         },
       ]),
     ),
@@ -178,7 +181,7 @@ const operationOf = (
       name: arg.name,
       schema: inputSchemaOf(arg.type, 0, new Set(), budget),
       required: isRequiredArgument(arg),
-      description: arg.description?.trim() || null,
+      description: trimmedOrNull(arg.description),
     })),
     writes: graphqlOperationWrites(operation),
     call: {
@@ -228,6 +231,15 @@ const graphqlOperationsOf = (
   };
 };
 
+const isIntrospection = (data: unknown): data is IntrospectionQuery =>
+  typeof data === 'object' && data !== null && '__schema' in data;
+
+const trimmedOrNull = (text: string | null | undefined): string | null => {
+  const trimmed = text?.trim();
+
+  return !nonEmpty(trimmed) ? null : trimmed;
+};
+
 const introspected = (text: string): IntrospectionQuery | null => {
   try {
     const answer: unknown = JSON.parse(text);
@@ -236,9 +248,7 @@ const introspected = (text: string): IntrospectionQuery | null => {
         ? answer.data
         : answer;
 
-    return typeof data === 'object' && data !== null && '__schema' in data
-      ? (data as IntrospectionQuery)
-      : null;
+    return isIntrospection(data) ? data : null;
   } catch {
     return null;
   }

@@ -13,6 +13,6 @@ export class ReviewDeliveryId {
   }
 
   equals(other: ReviewDeliveryId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof ReviewDeliveryId && this.value === other.value;
   }
 }

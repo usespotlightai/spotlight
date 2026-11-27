@@ -1,3 +1,5 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -118,13 +120,13 @@ const asking = (start: Task, inChat = false) => {
   const handler = new AskPermissionHandler(
     runWorksOver(
       runLeasesOver(() => run),
-      {
+      partial<TaskRepository>({
         find: async () => current,
         save: async (saved: Task) => {
           current = saved;
         },
-      } as unknown as TaskRepository,
-      {
+      }),
+      partial<ChatRepository>({
         find: async () =>
           Chat.start({
             lines: [],
@@ -136,14 +138,14 @@ const asking = (start: Task, inChat = false) => {
             now: NOW,
             newId: () => 'chat_1',
           }).assignRun(RunId.of('run_1'), NOW),
-      } as unknown as ChatRepository,
-      { findByStation: async () => LINE } as unknown as LineMapsPort,
-      {
+      }),
+      partial<LineMapsPort>({ findByStation: async () => LINE }),
+      partial<DispatchRepository>({
         find: async (id: RunId) =>
           inChat
             ? aChatDispatch(id, ChatId.of('chat_1'))
             : aTaskDispatch(id, TaskId.of('task_1'), IMPLEMENTING),
-      } as unknown as DispatchRepository,
+      }),
       { now: () => NOW, sleep: async () => {} },
     ),
     {
@@ -192,7 +194,7 @@ describe('AskPermissionHandler', () => {
 
     await expect(ask()).resolves.toBe('pending');
 
-    const asked = current().notes[current().notes.length - 1];
+    const asked = itemAt(current().notes, current().notes.length - 1);
     expect(asked?.form).toBe('approval');
     expect(asked?.approval?.subject.kind).toBe('harness-permission');
     expect(asked?.approval?.subject.name).toBe('claude-code execute');

@@ -5,6 +5,7 @@ import {
   type SpecInjection,
   SpecUnauthorized,
 } from '@integrations/infrastructure/specs/spec-fetch';
+import { headersOf } from '@integrations/integrations.requests.fake-spec';
 import { credentialsFor } from '@integrations/integrations.secrets.fake-spec';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -28,7 +29,7 @@ const injection = (over: Partial<SpecInjection> = {}): SpecInjection => ({
 });
 
 const answering = (...replies: Response[]) => {
-  const fetch = vi.fn(async (_url: string, _init?: RequestInit) => {
+  const fetch = vi.fn<typeof globalThis.fetch>(async () => {
     const reply = replies.shift();
 
     if (!reply) {
@@ -42,10 +43,9 @@ const answering = (...replies: Response[]) => {
     fetch,
     fetching: new SpecFetch(
       allowingOutbound(['specs.example', 'api.linear.app']),
-      fetch as unknown as typeof globalThis.fetch,
+      fetch,
     ),
-    headersAt: (call: number) =>
-      (fetch.mock.calls[call]?.[1]?.headers ?? {}) as Record<string, string>,
+    headersAt: (call: number) => headersOf(fetch.mock.calls[call]?.[1]),
   };
 };
 

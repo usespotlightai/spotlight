@@ -184,7 +184,7 @@ describe('HeldOutSplit', () => {
   });
 
   it('rejects a stored split that both searches and holds out a task', () => {
-    const [one, two] = entries(['a', 'a']) as [ReplaySetEntry, ReplaySetEntry];
+    const [one, two] = entries(['a', 'a']);
 
     expect(() =>
       HeldOutSplit.rehydrate({ searched: [one], heldOut: [two] }),

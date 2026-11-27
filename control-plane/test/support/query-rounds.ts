@@ -7,6 +7,8 @@ import type { INestApplication } from '@nestjs/common';
 import { Client, Pool } from 'pg';
 import type { Test } from 'supertest';
 
+import { httpServerOf } from './http-server';
+
 const ROUND_TRIP_MS = 15;
 
 const PROBE_HEADER = 'x-query-rounds-probe';
@@ -26,28 +28,46 @@ const recording = new AsyncLocalStorage<Recording>();
 const recordings = new Map<string, Recording>();
 
 const PATCHED = Symbol.for('spotlight.e2e.query-rounds');
-const shared = globalThis as { [PATCHED]?: true };
 
-if (!shared[PATCHED]) {
-  shared[PATCHED] = true;
+const textOf = (first: unknown): string => {
+  if (typeof first === 'string') {
+    return first;
+  }
+
+  return typeof first === 'object' &&
+    first !== null &&
+    'text' in first &&
+    typeof first.text === 'string'
+    ? first.text
+    : '';
+};
+
+if (Reflect.get(globalThis, PATCHED) !== true) {
+  Reflect.set(globalThis, PATCHED, true);
 
   const connect = Pool.prototype.connect as (...args: unknown[]) => unknown;
 
   // A waiting checkout is answered in the async context of the query that released its client.
-  Pool.prototype.connect = function (this: Pool, ...args: unknown[]) {
-    const [callback] = args;
+  Object.defineProperty(Pool.prototype, 'connect', {
+    value: function (this: Pool, ...args: unknown[]) {
+      const [callback] = args;
 
-    return typeof callback === 'function'
-      ? connect.call(
-          this,
-          AsyncResource.bind(callback as (...results: unknown[]) => void),
-        )
-      : connect.apply(this, args);
-  } as Pool['connect'];
+      return typeof callback === 'function'
+        ? connect.call(
+            this,
+            AsyncResource.bind((...results: unknown[]): void => {
+              Reflect.apply(callback, undefined, results);
+            }),
+          )
+        : connect.apply(this, args);
+    },
+    writable: true,
+    configurable: true,
+  });
 
   const query = Client.prototype.query as (...args: unknown[]) => unknown;
 
-  Client.prototype.query = function (this: Client, ...args: unknown[]) {
+  const patched = function (this: Client, ...args: unknown[]) {
     const current = recording.getStore();
     const [first] = args;
 
@@ -61,10 +81,7 @@ if (!shared[PATCHED]) {
     }
 
     const entry: Query = {
-      text:
-        typeof first === 'string'
-          ? first
-          : ((first as { text?: string }).text ?? ''),
+      text: textOf(first),
       started: performance.now(),
       ended: Number.POSITIVE_INFINITY,
     };
@@ -72,19 +89,23 @@ if (!shared[PATCHED]) {
 
     const callback = args.findIndex((each) => typeof each === 'function');
 
-    if (callback >= 0) {
-      const answer = args[callback] as (...results: unknown[]) => void;
+    const answer = callback >= 0 ? args[callback] : undefined;
+
+    if (typeof answer === 'function') {
       const rest = [...args];
+      const answered = (...results: unknown[]): void => {
+        Reflect.apply(answer, undefined, results);
+      };
 
       rest[callback] = (...results: unknown[]) => {
         entry.ended = performance.now();
-        answer(...results);
+        answered(...results);
       };
       void slept(ROUND_TRIP_MS).then(() => {
         try {
           query.apply(this, rest);
         } catch (error) {
-          answer(error);
+          answered(error);
         }
       });
 
@@ -92,17 +113,23 @@ if (!shared[PATCHED]) {
     }
 
     return slept(ROUND_TRIP_MS)
-      .then(() => query.apply(this, args) as Promise<unknown>)
+      .then(() => query.apply(this, args))
       .finally(() => {
         entry.ended = performance.now();
       });
-  } as Client['query'];
+  };
+
+  Object.defineProperty(Client.prototype, 'query', {
+    value: patched,
+    writable: true,
+    configurable: true,
+  });
 }
 
 const PROBED = new WeakSet<Server>();
 
 const probed = (app: INestApplication): Server => {
-  const server = app.getHttpServer() as Server;
+  const server = httpServerOf(app);
 
   if (PROBED.has(server)) {
     return server;

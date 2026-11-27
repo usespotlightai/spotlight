@@ -26,6 +26,7 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import type { MetricAttributes } from '@shared-kernel/application/ports/telemetry.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import {
   and,
   count,
@@ -119,18 +120,20 @@ export class OutboxGauges implements OnModuleInit, OnModuleDestroy {
       isNull(eventDelivery.deadLetteredAt),
       lte(eventDelivery.dueAt, now),
     );
-    const [row] = await this.db
-      .select({
-        due: sql<number>`count(*) filter (where ${due})`.mapWith(Number),
-        oldestDue:
-          sql<Date | null>`min(${eventDelivery.dueAt}) filter (where ${due})`.mapWith(
-            eventDelivery.dueAt,
-          ),
-        deadLettered: count(eventDelivery.deadLetteredAt),
-      })
-      .from(eventDelivery)
-      .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
-      .where(and(isNull(eventDelivery.deliveredAt), heard));
+    const row = firstOf(
+      await this.db
+        .select({
+          due: sql<number>`count(*) filter (where ${due})`.mapWith(Number),
+          oldestDue:
+            sql<Date | null>`min(${eventDelivery.dueAt}) filter (where ${due})`.mapWith(
+              eventDelivery.dueAt,
+            ),
+          deadLettered: count(eventDelivery.deadLetteredAt),
+        })
+        .from(eventDelivery)
+        .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
+        .where(and(isNull(eventDelivery.deliveredAt), heard)),
+    );
 
     return {
       due: row?.due ?? 0,

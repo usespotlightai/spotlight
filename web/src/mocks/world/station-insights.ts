@@ -8,6 +8,7 @@ import type {
   StationResponseDto,
   StationRunOutcomeResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { world } from '@/mocks/world';
 import { hookFailuresAt, runFailuresOf } from '@/mocks/world/insights';
 import { type HistoryRun, history } from '@/mocks/world/insights-history';
@@ -70,7 +71,7 @@ const usageOf = (run: HistoryRun): StationRunUsageResponseDto => {
 const outcomeOf = (run: HistoryRun): StationRunOutcomeResponseDto => ({
   runId: run.runId,
   taskId: run.taskId,
-  endedAt: run.endedAt ?? new Date(run.at).toISOString(),
+  endedAt: run.endedAt,
   ending: run.ending,
   resolution: runResolutionOf(run),
   failure: run.failure,
@@ -143,7 +144,9 @@ const tallyOf = (
     runs.filter(matches).length;
   const failed = count((run) => run.ending === 'failed');
   const durationsMs = runs.flatMap((run) =>
-    run.usage?.ms ? [run.usage.ms] : [],
+    run.usage !== null && run.usage.ms !== null && run.usage.ms !== 0
+      ? [run.usage.ms]
+      : [],
   );
   const priced = runs.filter((run) => typeof run.usage?.cost === 'number');
   const spent = priced.reduce(
@@ -179,8 +182,8 @@ const groupOf = (
   version: StationVersion,
   runs: readonly StationRunOutcomeResponseDto[],
 ): FingerprintGroupResponseDto | null => {
-  const newest = runs[0];
-  const oldest = runs[runs.length - 1];
+  const newest = runs.at(0);
+  const oldest = runs.at(-1);
 
   if (!newest || !oldest) {
     return null;
@@ -194,7 +197,9 @@ const groupOf = (
     ran: true,
     config: null,
     changes: [...version.changes],
-    pullRequest: version.pullRequest ? { url: version.pullRequest } : null,
+    pullRequest: nonEmpty(version.pullRequest)
+      ? { url: version.pullRequest }
+      : null,
     runs: [...runs],
     tally,
     rates: {
@@ -236,7 +241,7 @@ export const stationRunOutcomes = (
 
     return group ? [group] : [];
   });
-  const [current] = groups;
+  const current = groups.at(0);
 
   return {
     stationId,

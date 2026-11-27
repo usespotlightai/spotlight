@@ -1,6 +1,7 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import type { Env } from '@platform/config/env.schema';
 import { KeyOverlay } from '@platform/storage/key-overlay';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export interface S3Clients {
   readonly bucket: string;
@@ -17,7 +18,7 @@ export const s3ClientsOf = (env: Env): S3Clients => {
     requestChecksumCalculation: 'WHEN_REQUIRED' as const,
     responseChecksumValidation: 'WHEN_REQUIRED' as const,
     credentials:
-      env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY
+      nonEmpty(env.S3_ACCESS_KEY_ID) && nonEmpty(env.S3_SECRET_ACCESS_KEY)
         ? {
             accessKeyId: env.S3_ACCESS_KEY_ID,
             secretAccessKey: env.S3_SECRET_ACCESS_KEY,

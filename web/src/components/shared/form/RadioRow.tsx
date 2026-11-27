@@ -42,7 +42,7 @@ export function RadioRow({
       />
       <span className="flex min-w-0 flex-col">
         <span className="text-foreground leading-5">{children}</span>
-        {description && (
+        {Boolean(description) && (
           <span className="text-muted-foreground text-xs">{description}</span>
         )}
       </span>

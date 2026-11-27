@@ -134,7 +134,7 @@ describe('MemoryFilterMenu', () => {
 
     expect(
       (await screen.findAllByRole('menuitemradio')).map((each) =>
-        each.textContent?.trim(),
+        each.textContent.trim(),
       ),
     ).toEqual(
       expect.arrayContaining(['src/retries/', 'src/retries/deliver.ts']),

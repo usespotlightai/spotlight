@@ -4,11 +4,15 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
+import type { WorkspaceListingResponseDto as Workspace } from '@/lib/api';
 import { DefaultWorkspace } from '@/routes/DefaultWorkspace';
+import { partial } from '@/test/partial';
 
 vi.mock('@/hooks/api/useWorkspaces', () => ({ useWorkspaces: vi.fn() }));
 
 const mockWorkspaces = vi.mocked(useWorkspaces);
+
+type WorkspacesState = ReturnType<typeof useWorkspaces>;
 
 const renderIndex = () =>
   render(
@@ -27,14 +31,16 @@ beforeEach(() => {
 
 describe('DefaultWorkspace', () => {
   it('sends the caller to their oldest workspace', () => {
-    mockWorkspaces.mockReturnValue({
-      data: [
-        { id: 'ws_1', name: 'Acme', slug: 'acme' },
-        { id: 'ws_2', name: 'Later', slug: 'later' },
-      ],
-      isPending: false,
-      errorUpdateCount: 0,
-    } as never);
+    mockWorkspaces.mockReturnValue(
+      partial<WorkspacesState>({
+        data: [
+          partial<Workspace>({ id: 'ws_1', name: 'Acme', slug: 'acme' }),
+          partial<Workspace>({ id: 'ws_2', name: 'Later', slug: 'later' }),
+        ],
+        isPending: false,
+        errorUpdateCount: 0,
+      }),
+    );
 
     renderIndex();
 
@@ -42,11 +48,13 @@ describe('DefaultWorkspace', () => {
   });
 
   it('renders nothing while the list is still loading', () => {
-    mockWorkspaces.mockReturnValue({
-      data: undefined,
-      isPending: true,
-      errorUpdateCount: 0,
-    } as never);
+    mockWorkspaces.mockReturnValue(
+      partial<WorkspacesState>({
+        data: undefined,
+        isPending: true,
+        errorUpdateCount: 0,
+      }),
+    );
 
     renderIndex();
     expect(screen.queryByText('workspace page')).not.toBeInTheDocument();
@@ -54,11 +62,13 @@ describe('DefaultWorkspace', () => {
   });
 
   it('falls back to setup for a member of no workspace', () => {
-    mockWorkspaces.mockReturnValue({
-      data: [],
-      isPending: false,
-      errorUpdateCount: 0,
-    } as never);
+    mockWorkspaces.mockReturnValue(
+      partial<WorkspacesState>({
+        data: [],
+        isPending: false,
+        errorUpdateCount: 0,
+      }),
+    );
 
     renderIndex();
 
@@ -67,13 +77,15 @@ describe('DefaultWorkspace', () => {
 
   it('says the workspaces could not be loaded rather than offering to create one', async () => {
     const refetch = vi.fn();
-    mockWorkspaces.mockReturnValue({
-      data: undefined,
-      isPending: false,
-      errorUpdateCount: 1,
-      isFetching: false,
-      refetch,
-    } as never);
+    mockWorkspaces.mockReturnValue(
+      partial<WorkspacesState>({
+        data: undefined,
+        isPending: false,
+        errorUpdateCount: 1,
+        isFetching: false,
+        refetch,
+      }),
+    );
 
     renderIndex();
 

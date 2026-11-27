@@ -1,6 +1,7 @@
 import type { HarnessToolNamesPort } from '@runs/application/ports/harness-tool-names.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import type {
   PermissionAnswer,
@@ -46,7 +47,7 @@ export class AskPermissionHandler implements CommandHandlerPort<
           input: command.asked.input,
           tool: this.calledTool(command.asked.title, command.asked.kind),
         }),
-        command.asked.sessionId
+        nonEmpty(command.asked.sessionId)
           ? HarnessSession.of(command.asked.sessionId)
           : null,
       );

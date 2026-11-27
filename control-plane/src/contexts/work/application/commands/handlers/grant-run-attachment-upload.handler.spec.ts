@@ -1,4 +1,7 @@
+import type { RunPolicyContract } from '@runs/application/contracts/run-order.contract';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { GrantRunAttachmentUploadCommand } from '@work/application/commands/grant-run-attachment-upload.command';
@@ -11,11 +14,11 @@ type Leased = Awaited<ReturnType<RunLeasesPort['leasedBy']>>;
 
 const runOf = ({ leased = true, replay = false } = {}): Leased =>
   leased
-    ? ({
+    ? partial<Leased>({
         runId: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
-        policy: { actsBeyondItself: !replay },
-      } as unknown as Leased)
+        policy: partial<RunPolicyContract>({ actsBeyondItself: !replay }),
+      })
     : null;
 
 const granting = (run: Leased) => {
@@ -26,8 +29,8 @@ const granting = (run: Leased) => {
     }),
   );
   const handler = new GrantRunAttachmentUploadHandler(
-    { leasedBy: async () => run } as unknown as RunLeasesPort,
-    { grant } as unknown as AttachmentStorePort,
+    partial<RunLeasesPort>({ leasedBy: async () => run }),
+    partial<AttachmentStorePort>({ grant }),
     { generate: () => 'file_1' },
   );
 
@@ -53,7 +56,7 @@ describe('GrantRunAttachmentUploadHandler', () => {
       headers: { 'content-type': 'image/png' },
     });
 
-    const [workspaceId, uploader, file] = grant.mock.calls[0] ?? [];
+    const [workspaceId, uploader, file] = firstOf(grant.mock.calls) ?? [];
     expect(workspaceId).toEqual(WorkspaceId.of('ws_1'));
     expect(uploader).toEqual(RunId.of('run_1'));
     expect([file?.name, file?.contentType, file?.size]).toEqual([

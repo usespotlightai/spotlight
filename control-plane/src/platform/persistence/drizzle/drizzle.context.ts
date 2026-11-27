@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -37,6 +38,7 @@ export class DrizzleContext implements TransactionPort {
       }
     }
 
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return results as unknown as T;
   }
 
@@ -47,10 +49,7 @@ export class DrizzleContext implements TransactionPort {
 
     const committed: (() => void)[] = [];
     const result = await this.root.transaction((tx) =>
-      this.asyncLocal.run(
-        { db: tx, committed },
-        work,
-      ),
+      this.asyncLocal.run({ db: tx, committed }, work),
     );
 
     for (const each of committed) {
@@ -69,10 +68,7 @@ export class DrizzleContext implements TransactionPort {
 
     const committed: (() => void)[] = [];
     const result = await current.db.transaction((savepoint) =>
-      this.asyncLocal.run(
-        { db: savepoint, committed },
-        work,
-      ),
+      this.asyncLocal.run({ db: savepoint, committed }, work),
     );
 
     current.committed.push(...committed);

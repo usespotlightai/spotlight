@@ -9,6 +9,7 @@ import type {
   PullRequestReactionsPort,
   ReactedTo,
 } from '@github/application/ports/pull-request-reactions.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -60,7 +61,7 @@ const signalling = (
     };
 
   const signal = new SignalReviewing(
-    {
+    partial<WorkPort>({
       task: async () =>
         over.task === null
           ? null
@@ -81,7 +82,7 @@ const signalling = (
           over.working?.() ?? true,
           over.runTask === undefined ? TASK : over.runTask,
         ),
-    } as unknown as WorkPort,
+    }),
     { isConnected: async () => over.connected ?? true },
     {
       react: recording('react'),

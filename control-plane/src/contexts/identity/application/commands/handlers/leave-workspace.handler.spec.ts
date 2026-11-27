@@ -7,6 +7,7 @@ import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo'
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -45,12 +46,12 @@ const handling = (workspace: Workspace | null = acme()) => {
   });
   const info = vi.fn();
   const handler = new LeaveWorkspaceHandler(
-    {
+    partial<WorkspaceRepository>({
       findBySlug: async () => workspace,
       save,
-    } as unknown as WorkspaceRepository,
+    }),
     { now: () => NOW, sleep: async () => {} },
-    { info } as unknown as LoggerPort,
+    partial<LoggerPort>({ info }),
   );
 
   return { handler, save, dispatched, info };

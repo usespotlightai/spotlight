@@ -21,6 +21,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -100,7 +101,7 @@ export class DrizzleCandidateRepository implements CandidateRepository {
   ) {}
 
   async find(id: CandidateId): Promise<Candidate | null> {
-    const [found] = await this.where(eq(replayCandidate.id, id.value));
+    const found = firstOf(await this.where(eq(replayCandidate.id, id.value)));
 
     return found ?? null;
   }

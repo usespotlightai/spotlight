@@ -66,6 +66,7 @@ import {
   createIdempotently,
   lookupIdempotentCreate,
 } from '@shared-kernel/application/services/create-idempotently';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 
@@ -244,7 +245,6 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
     const candidate = reusable
       ? null
       : this.candidateOf(gated, prepared, planned);
-    let started = false;
 
     if (candidate) {
       await this.snapshots.kept(candidate);
@@ -257,22 +257,22 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
             return reusable?.value ?? '';
           }
 
-          const id = await this.started(gated, prepared, planned, {
+          return this.started(gated, prepared, planned, {
             candidate,
             by,
             judge,
           });
-
-          started = true;
-
-          return id;
         }),
       );
+      const started =
+        candidate !== null &&
+        created.outcome === 'created' &&
+        !created.replayed;
 
       if (candidate && !started) {
         await this.snapshots.release(candidate);
       }
-      if (started && created.outcome === 'created') {
+      if (started) {
         await this.replayStarted(ReplayCheckId.of(created.id), by);
       }
 
@@ -305,7 +305,7 @@ export class StartReplayCheckHandler implements CommandHandlerPort<
     const live = await this.configs.live(station.lineId, station.stationId);
     const teamKey = await this.people.teamKey(station.teamId);
     const set = await this.sets.ofStation(station.stationId);
-    const address = teamKey
+    const address = nonEmpty(teamKey)
       ? StationPath.of(teamKey, station.lineKey, station.key)
       : null;
 

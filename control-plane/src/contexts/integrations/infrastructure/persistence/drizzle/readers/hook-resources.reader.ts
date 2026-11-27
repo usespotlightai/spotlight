@@ -8,6 +8,7 @@ import { writtenHookDocumentOf } from '@integrations/infrastructure/hooks/writte
 import { hookDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
 
@@ -49,11 +50,9 @@ export class DrizzleHookResources implements HookResourcesPort {
   }
 
   private async first(where: SQL | undefined): Promise<HookRecord | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(hookDefinition)
-      .where(where)
-      .limit(1);
+    const found = firstOf(
+      await this.context.db.select().from(hookDefinition).where(where).limit(1),
+    );
 
     return found ? recordOf(found) : null;
   }

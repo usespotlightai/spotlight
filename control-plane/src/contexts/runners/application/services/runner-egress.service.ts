@@ -19,6 +19,7 @@ import { authorizesSharedEgress } from '@runners/domain/services/shared-egress-a
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -36,7 +37,7 @@ export class RunnerEgress implements RunnerEgressPort {
     token: string | undefined,
     at: Date,
   ): Promise<EgressAuthentication | null> {
-    if (!token) {
+    if (!nonEmpty(token)) {
       return null;
     }
 
@@ -55,7 +56,7 @@ export class RunnerEgress implements RunnerEgressPort {
   }
 
   async sharedWith(token: string | undefined): Promise<SharedEgress | null> {
-    if (!token) {
+    if (!nonEmpty(token)) {
       return null;
     }
 

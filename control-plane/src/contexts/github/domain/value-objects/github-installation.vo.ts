@@ -27,7 +27,7 @@ export class GitHubInstallation {
   }
 
   equals(other: GitHubInstallation): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof GitHubInstallation && this.value === other.value;
   }
 
   toString(): string {

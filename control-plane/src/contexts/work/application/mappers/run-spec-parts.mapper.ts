@@ -6,6 +6,7 @@ import {
   type RunSpecShape,
   TRACE_PARENT_VAR,
 } from '@runs/application/contracts/run-spec.contract';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { OrderedHandover } from '@work/domain/services/run-order';
 
 export interface ProxiedCheckout {
@@ -22,11 +23,11 @@ export const RunSpecPartsMapper = {
     return {
       remote: REMOTE_VIA_GIT_PROXY,
       path: checkout.path,
-      ...(checkout.branch ? { branch: checkout.branch } : {}),
-      ...(checkout.base ? { base: checkout.base } : {}),
-      ...(checkout.ref ? { ref: checkout.ref } : {}),
+      ...(nonEmpty(checkout.branch) ? { branch: checkout.branch } : {}),
+      ...(nonEmpty(checkout.base) ? { base: checkout.base } : {}),
+      ...(nonEmpty(checkout.ref) ? { ref: checkout.ref } : {}),
       ...(checkout.diffOf ? { diffOf: checkout.diffOf } : {}),
-      ...(checkout.setup ? { setup: checkout.setup } : {}),
+      ...(nonEmpty(checkout.setup) ? { setup: checkout.setup } : {}),
     };
   },
 
@@ -54,7 +55,7 @@ export const RunSpecPartsMapper = {
 
     return {
       sessionId: resume.session.value,
-      ...(followUp ? { followUp } : {}),
+      ...(nonEmpty(followUp) ? { followUp } : {}),
     };
   },
 

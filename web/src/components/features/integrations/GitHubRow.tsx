@@ -8,6 +8,7 @@ import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { useLines } from '@/hooks/api/useLines';
 import { useRepositories } from '@/hooks/api/useRepositories';
 import { formatRepos, inaccessibleOf, installUrlFor } from '@/lib/github';
+import { nonEmpty } from '@/lib/non-empty';
 
 type GitHubRowProps = {
   slug: string;
@@ -37,7 +38,7 @@ export function GitHubRow({
     connected && repositories.data
       ? inaccessibleOf(used, accessible)
       : new Set();
-  const href = installUrl
+  const href = nonEmpty(installUrl)
     ? installUrlFor(installUrl, {
         slug,
         teamId,
@@ -70,7 +71,9 @@ export function GitHubRow({
       }
       need={
         !connected &&
-        href && <GitHubAppLink slug={slug} href={href} installed={false} />
+        nonEmpty(href) && (
+          <GitHubAppLink slug={slug} href={href} installed={false} />
+        )
       }
     >
       <GitHubDetails

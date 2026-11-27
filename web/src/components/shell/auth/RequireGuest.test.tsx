@@ -3,7 +3,10 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RequireGuest } from '@/components/shell/auth/RequireGuest';
-import { useSession } from '@/hooks/api/useSession';
+import { type SessionUser, useSession } from '@/hooks/api/useSession';
+import { partial } from '@/test/partial';
+
+type SessionState = ReturnType<typeof useSession>;
 
 vi.mock('@/hooks/api/useSession', () => ({ useSession: vi.fn() }));
 
@@ -27,7 +30,9 @@ beforeEach(() => {
 
 describe('RequireGuest', () => {
   it('shows the login screen when signed out', () => {
-    mockSession.mockReturnValue({ data: null, isPending: false } as never);
+    mockSession.mockReturnValue(
+      partial<SessionState>({ data: null, isPending: false }),
+    );
 
     renderAt('/login');
 
@@ -35,10 +40,12 @@ describe('RequireGuest', () => {
   });
 
   it('redirects away from login when already signed in', () => {
-    mockSession.mockReturnValue({
-      data: { user: { email: 'dev@example.com' } },
-      isPending: false,
-    } as never);
+    mockSession.mockReturnValue(
+      partial<SessionState>({
+        data: { user: partial<SessionUser>({ email: 'dev@example.com' }) },
+        isPending: false,
+      }),
+    );
 
     renderAt('/login');
 
@@ -47,7 +54,9 @@ describe('RequireGuest', () => {
   });
 
   it('renders nothing while the session is resolving', () => {
-    mockSession.mockReturnValue({ data: null, isPending: true } as never);
+    mockSession.mockReturnValue(
+      partial<SessionState>({ data: undefined, isPending: true }),
+    );
 
     renderAt('/login');
 

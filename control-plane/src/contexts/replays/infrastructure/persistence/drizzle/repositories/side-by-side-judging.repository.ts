@@ -9,6 +9,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { JudgingFailure } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
@@ -81,9 +82,7 @@ const conflictOver = (judging: SideBySideJudging) =>
   );
 
 @Injectable()
-export class DrizzleSideBySideJudgingRepository
-  implements SideBySideJudgingRepository
-{
+export class DrizzleSideBySideJudgingRepository implements SideBySideJudgingRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -142,16 +141,18 @@ export class DrizzleSideBySideJudgingRepository
   }
 
   async of(runId: RunId, otherRunId: RunId): Promise<SideBySideJudging | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(sideBySideJudging)
-      .where(
-        and(
-          eq(sideBySideJudging.runId, runId.value),
-          eq(sideBySideJudging.otherRunId, otherRunId.value),
-        ),
-      )
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(sideBySideJudging)
+        .where(
+          and(
+            eq(sideBySideJudging.runId, runId.value),
+            eq(sideBySideJudging.otherRunId, otherRunId.value),
+          ),
+        )
+        .limit(1),
+    );
 
     return row ? toSideBySideJudging(row) : null;
   }
@@ -166,21 +167,23 @@ export class DrizzleSideBySideJudgingRepository
   }
 
   async nextDueJob(now: Date): Promise<SideBySideJudging | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(sideBySideJudging)
-      .where(
-        and(
-          eq(sideBySideJudging.pending, true),
-          or(
-            isNull(sideBySideJudging.jobDueAt),
-            lte(sideBySideJudging.jobDueAt, now),
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(sideBySideJudging)
+        .where(
+          and(
+            eq(sideBySideJudging.pending, true),
+            or(
+              isNull(sideBySideJudging.jobDueAt),
+              lte(sideBySideJudging.jobDueAt, now),
+            ),
           ),
-        ),
-      )
-      .orderBy(asc(sideBySideJudging.queuedAt))
-      .limit(1)
-      .for('update', { skipLocked: true });
+        )
+        .orderBy(asc(sideBySideJudging.queuedAt))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
     return row ? toSideBySideJudging(row) : null;
   }

@@ -11,6 +11,7 @@ import {
 } from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, asc, eq, isNotNull } from 'drizzle-orm';
 
@@ -62,6 +63,8 @@ export class DrizzleEnabledAtStations implements EnabledAtStationsPort {
         .innerJoin(line, eq(line.id, station.lineId))
         .where(and(eq(line.teamId, teamId.value), isNotNull(station.profile)))
         .orderBy(asc(line.key), asc(station.key))
-    ).flatMap((each) => (each.name ? [{ ...each, name: each.name }] : []));
+    ).flatMap((each) =>
+      nonEmpty(each.name) ? [{ ...each, name: each.name }] : [],
+    );
   }
 }

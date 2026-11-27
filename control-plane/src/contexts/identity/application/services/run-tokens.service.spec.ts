@@ -6,6 +6,7 @@ import type { WorkspaceTokenRepository } from '@identity/domain/repositories/wor
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -17,7 +18,7 @@ const HOUR_LATER = new Date('2026-10-11T10:00:00.000Z');
 const using = () => {
   const stored: WorkspaceToken[] = [];
   const saved: WorkspaceToken[] = [];
-  const tokens = {
+  const tokens = partial<WorkspaceTokenRepository>({
     add: vi.fn(async (token: WorkspaceToken) => {
       stored.push(token);
     }),
@@ -26,17 +27,17 @@ const using = () => {
     }),
     issuedForRun: vi.fn(async () => stored),
     find: vi.fn(async () => stored[0] ?? null),
-  } as unknown as WorkspaceTokenRepository;
+  });
   const service = new RunTokens(
     tokens,
-    {
+    partial<TokenIssuer>({
       issue: () => ({ token: 'raw-token', hash: 'b'.repeat(64) }),
-    } as unknown as TokenIssuer,
+    }),
     { generate: () => 'Token_1' },
-    { now: () => NOW } as ClockPort,
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
+    partial<ClockPort>({ now: () => NOW }),
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
   );
 
   return { service, tokens, stored, saved };

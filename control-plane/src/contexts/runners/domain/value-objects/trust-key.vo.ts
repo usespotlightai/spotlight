@@ -23,7 +23,7 @@ export class TrustKey {
   }
 
   equals(other: TrustKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof TrustKey && this.value === other.value;
   }
 
   toString(): string {

@@ -19,6 +19,7 @@ import {
 } from '@change-review/domain/services/stack-checks';
 import { stackPartsOf } from '@change-review/domain/services/stack-part';
 import { withTestsBesideTheirCode } from '@change-review/domain/services/test-placement';
+import { textOrNull } from '@change-review/domain/services/text-or-null';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
   type LayerDependency,
@@ -72,7 +73,7 @@ const numbered = (
       kind: cohort.kind,
       title: cohort.title.trim(),
       intent: cohort.intent.trim(),
-      joinedBecause: cohort.joinedBecause?.trim() || null,
+      joinedBecause: textOrNull(cohort.joinedBecause?.trim()),
       layers: cohort.layers.map((layer, l) => {
         const layerId = LayerId.in(cohortId, l + 1);
 

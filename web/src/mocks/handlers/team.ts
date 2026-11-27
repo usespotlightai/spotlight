@@ -13,6 +13,8 @@ import type {
   TeamMemoryResponseDto,
   WriteMemoryRequestDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
+import { entryOf } from '@/mocks/entry';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
 import { taskOfRun, world } from '@/mocks/world';
@@ -70,7 +72,7 @@ const linkTo = (
 };
 
 const restorable = (memory: TeamMemoryResponseDto): boolean =>
-  Boolean(memory.retirement && !memory.retirement.supersededBy);
+  memory.retirement !== null && !nonEmpty(memory.retirement.supersededBy);
 
 const detailOf = (
   memories: readonly TeamMemoryResponseDto[],
@@ -89,7 +91,7 @@ const listed = (
   memories: readonly TeamMemoryResponseDto[],
   query: URLSearchParams,
 ) => {
-  const status = query.get('status') || 'active';
+  const status = query.get('status') ?? '';
   const kind = query.get('kind');
   const lineId = query.get('lineId');
   const stationId = query.get('stationId');
@@ -99,12 +101,12 @@ const listed = (
   return memories
     .filter(
       (memory) =>
-        memory.status === status &&
-        (!kind || memory.kind === kind) &&
-        (!lineId || memory.lineId === lineId) &&
-        (!stationId || memory.stationId === stationId) &&
-        (!repository || memory.repository === repository) &&
-        (!path || memory.paths.some((each) => each.startsWith(path))),
+        memory.status === (status === '' ? 'active' : status) &&
+        (!nonEmpty(kind) || memory.kind === kind) &&
+        (!nonEmpty(lineId) || memory.lineId === lineId) &&
+        (!nonEmpty(stationId) || memory.stationId === stationId) &&
+        (!nonEmpty(repository) || memory.repository === repository) &&
+        (!nonEmpty(path) || memory.paths.some((each) => each.startsWith(path))),
     )
     .sort((a, b) => sinceOf(b) - sinceOf(a));
 };
@@ -136,16 +138,18 @@ const placedFrom = (
   }
 
   const lines = world().lines[teamId] ?? [];
-  const line = writing.lineId
-    ? lines.find((each) => each.id === writing.lineId)
-    : null;
-  if (writing.lineId && !line) {
+  const lineId = writing.lineId ?? '';
+  const line =
+    lineId !== '' ? lines.find((each) => each.id === writing.lineId) : null;
+  if (lineId !== '' && !line) {
     return 'Sorry, the team has no such line.';
   }
-  const station = writing.stationId
-    ? line?.stations.find((each) => each.id === writing.stationId)
-    : null;
-  if (writing.stationId && !station) {
+  const stationId = writing.stationId ?? '';
+  const station =
+    stationId !== ''
+      ? line?.stations.find((each) => each.id === writing.stationId)
+      : null;
+  if (stationId !== '' && !station) {
     return 'Sorry, that line has no such station.';
   }
   const repositories = new Set(
@@ -153,7 +157,8 @@ const placedFrom = (
       each.repositories.map((repository) => repository.fullName),
     ),
   );
-  if (writing.repository && !repositories.has(writing.repository)) {
+  const repository = writing.repository ?? '';
+  if (repository !== '' && !repositories.has(repository)) {
     return 'Sorry, the team has no such repository.';
   }
 
@@ -163,8 +168,8 @@ const placedFrom = (
     scope: station ? 'station' : line ? 'line' : 'team',
     lineId: line?.id ?? null,
     stationId: station?.id ?? null,
-    repository: writing.repository || null,
-    paths: writing.repository ? (writing.paths ?? []) : [],
+    repository: repository === '' ? null : repository,
+    paths: repository === '' ? [] : (writing.paths ?? []),
   };
 };
 
@@ -193,8 +198,8 @@ const memoryHandlers = [
     const status = query.get('status');
     const kind = query.get('kind');
     if (
-      (status && status !== 'active' && status !== 'retired') ||
-      (kind && !isKind(kind))
+      (nonEmpty(status) && status !== 'active' && status !== 'retired') ||
+      (nonEmpty(kind) && !isKind(kind))
     ) {
       return problem(422, 'Sorry, no memory has that status or kind.');
     }
@@ -209,28 +214,28 @@ const memoryHandlers = [
     return memory ? json(detailOf(memories, memory)) : notFound();
   }),
 
-  api.post('/teams/:teamId/memories', async ({ params, request }) => {
-    const teamId = String(params.teamId);
-    const memories = memoriesOf(teamId);
-    if (!memories) {
-      return notFound();
-    }
+  api.post<WriteMemoryRequestDto>(
+    '/teams/:teamId/memories',
+    async ({ params, request }) => {
+      const teamId = String(params.teamId);
+      const memories = memoriesOf(teamId);
+      if (!memories) {
+        return notFound();
+      }
 
-    const placed = placedFrom(
-      teamId,
-      (await request.json()) as WriteMemoryRequestDto,
-    );
-    if (typeof placed === 'string') {
-      return problem(422, placed);
-    }
+      const placed = placedFrom(teamId, await request.json());
+      if (typeof placed === 'string') {
+        return problem(422, placed);
+      }
 
-    const written = writtenBySam(placed);
-    memories.push(written);
+      const written = writtenBySam(placed);
+      memories.push(written);
 
-    return json(detailOf(memories, written), 201);
-  }),
+      return json(detailOf(memories, written), 201);
+    },
+  ),
 
-  api.post(
+  api.post<WriteMemoryRequestDto>(
     '/teams/:teamId/memories/:memoryId/edit',
     async ({ params, request }) => {
       const teamId = String(params.teamId);
@@ -243,10 +248,7 @@ const memoryHandlers = [
         return problem(409, 'Sorry, that memory was already retired.');
       }
 
-      const placed = placedFrom(
-        teamId,
-        (await request.json()) as WriteMemoryRequestDto,
-      );
+      const placed = placedFrom(teamId, await request.json());
       if (typeof placed === 'string') {
         return problem(422, placed);
       }
@@ -285,7 +287,7 @@ const memoryHandlers = [
     return json(detailOf(memories, memory));
   }),
 
-  api.post(
+  api.post<Partial<RetireMemoryRequestDto>>(
     '/teams/:teamId/memories/:memoryId/retire',
     async ({ params, request }) => {
       const memories = memoriesOf(String(params.teamId)) ?? [];
@@ -297,9 +299,9 @@ const memoryHandlers = [
         return problem(409, 'Sorry, that memory was already retired.');
       }
 
-      const { reason } = (await request.json()) as RetireMemoryRequestDto;
+      const { reason } = await request.json();
       const why = reason?.trim() ?? '';
-      if (!why || why.length > MAX_REASON) {
+      if (why === '' || why.length > MAX_REASON) {
         return problem(
           422,
           `A reason needs between 1 and ${MAX_REASON} characters.`,
@@ -318,52 +320,59 @@ const memoryHandlers = [
     },
   ),
 
-  api.post('/runs/:runId/memories', async ({ params, request }) => {
-    const runId = String(params.runId);
-    const taskId = taskOfRun(runId);
-    const run = world().runs[taskId ?? '']?.find((each) => each.id === runId);
-    if (!run) {
-      return notFound();
-    }
+  api.post<Partial<RememberRequestDto>>(
+    '/runs/:runId/memories',
+    async ({ params, request }) => {
+      const runId = String(params.runId);
+      const taskId = taskOfRun(runId);
+      const run = world().runs[taskId ?? '']?.find((each) => each.id === runId);
+      if (!run) {
+        return notFound();
+      }
 
-    const input = (await request.json()) as RememberRequestDto;
-    if (!isKind(input.kind) || !input.body?.trim()) {
-      return problem(422, 'Sorry, that is not a memory the team can approve.');
-    }
+      const input = await request.json();
+      const body = input.body?.trim() ?? '';
+      if (!isKind(input.kind) || body === '') {
+        return problem(
+          422,
+          'Sorry, that is not a memory the team can approve.',
+        );
+      }
 
-    const supersedes = input.supersedes
-      ? (Object.values(teamMemories())
-          .flat()
-          .find((memory) => memory.handle === input.supersedes)?.id ?? null)
-      : null;
-    const remembered: ProposedMemoryResponseDto = {
-      id: nextId('memory'),
-      kind: input.kind,
-      body: input.body.trim(),
-      source: 'run',
-      state: 'proposed',
-      scope: input.scope ?? 'line',
-      repository: null,
-      paths: input.paths ?? [],
-      supersedes,
-      retires: null,
-      editable: true,
-      inactiveMemories: [],
-      similarTo: null,
-      decision: null,
-      harness: run.harness,
-      steps: [
-        {
-          index: 0,
-          kind: 'remember',
-          text: `spotlight remember --kind ${input.kind} --body "${input.body.trim()}"`,
-        },
-      ],
-      notes: [],
-    };
+      const supersedes = nonEmpty(input.supersedes)
+        ? (Object.values(teamMemories())
+            .flat()
+            .find((memory) => memory.handle === input.supersedes)?.id ?? null)
+        : null;
+      const remembered: ProposedMemoryResponseDto = {
+        id: nextId('memory'),
+        kind: input.kind,
+        body,
+        source: 'run',
+        state: 'proposed',
+        scope: input.scope ?? 'line',
+        repository: null,
+        paths: input.paths ?? [],
+        supersedes,
+        retires: null,
+        editable: true,
+        inactiveMemories: [],
+        similarTo: null,
+        decision: null,
+        harness: run.harness,
+        steps: [
+          {
+            index: 0,
+            kind: 'remember',
+            text: `spotlight remember --kind ${input.kind} --body "${body}"`,
+          },
+        ],
+        notes: [],
+      };
 
-    return json(remembered, 201);
-  }),
+      return json(remembered, 201);
+    },
+  ),
 ];
 
 const chatsOf = (teamId: string): ChatRecord[] => {
@@ -481,63 +490,66 @@ const chatHandlers = [
     ),
   ),
 
-  api.post('/teams/:teamId/chats', async ({ params, request }) => {
-    const teamId = String(params.teamId);
-    if (!world().lines[teamId]) {
-      return notFound();
-    }
+  api.post<StartChatRequestDto>(
+    '/teams/:teamId/chats',
+    async ({ params, request }) => {
+      const teamId = String(params.teamId);
+      if (!Object.hasOwn(world().lines, teamId)) {
+        return notFound();
+      }
 
-    const input = (await request.json()) as StartChatRequestDto;
-    const targetStation = input.targetStation
-      ? targetStationOf(teamId, input.targetStation)
-      : null;
-    if (input.targetStation && !targetStation) {
-      return problem(422, 'Sorry, the team has no such station.');
-    }
-    if (!input.harness) {
-      return problem(422, 'A chat needs a harness.');
-    }
-    if (input.setup && !settingsWorld().viewerIsAdmin) {
-      return problem(
-        403,
-        'Only a workspace owner or admin can set up configuration as code. The setup creates the OIDC trusts that GitHub Actions signs in with.',
-      );
-    }
-    if (input.setup) {
-      settingsWorld().setupCi ??= { ...SETUP_CI };
-    }
+      const input = await request.json();
+      const targetStation = nonEmpty(input.targetStation)
+        ? targetStationOf(teamId, input.targetStation)
+        : null;
+      if (nonEmpty(input.targetStation) && !targetStation) {
+        return problem(422, 'Sorry, the team has no such station.');
+      }
+      if (!input.harness) {
+        return problem(422, 'A chat needs a harness.');
+      }
+      if (input.setup && !settingsWorld().viewerIsAdmin) {
+        return problem(
+          403,
+          'Only a workspace owner or admin can set up configuration as code. The setup creates the OIDC trusts that GitHub Actions signs in with.',
+        );
+      }
+      if (input.setup) {
+        settingsWorld().setupCi ??= { ...SETUP_CI };
+      }
 
-    const traces = tracesOf(teamId, input.traces ?? []);
-    const at = now();
-    const record: ChatRecord = {
-      chat: {
-        id: nextId('chat'),
-        title: titleOf(input.body, targetStation, traces),
-        harness: input.harness,
-        model: input.model ?? null,
-        effort: input.effort ?? null,
-        repositories: [
-          ...new Set([
-            ...(input.setup ? [input.setup.repository] : []),
-            ...(input.repositories ?? []),
-          ]),
-        ],
-        targetStation,
-        setup: input.setup ? { ...input.setup, pullRequest: null } : null,
-        createdAt: at,
-        updatedAt: at,
-        progress: null,
-        waitingForYou: false,
-        runId: null,
-        messages: [messageBy(SAM, 0, input.body, at, traces)],
-      },
-      journals: [],
-    };
-    answered(record, at, input.body);
-    chatsOf(teamId).push(record);
+      const traces = tracesOf(teamId, input.traces ?? []);
+      const at = now();
+      const record: ChatRecord = {
+        chat: {
+          id: nextId('chat'),
+          title: titleOf(input.body, targetStation, traces),
+          harness: input.harness,
+          model: input.model ?? null,
+          effort: input.effort ?? null,
+          repositories: [
+            ...new Set([
+              ...(input.setup ? [input.setup.repository] : []),
+              ...(input.repositories ?? []),
+            ]),
+          ],
+          targetStation,
+          setup: input.setup ? { ...input.setup, pullRequest: null } : null,
+          createdAt: at,
+          updatedAt: at,
+          progress: null,
+          waitingForYou: false,
+          runId: null,
+          messages: [messageBy(SAM, 0, input.body, at, traces)],
+        },
+        journals: [],
+      };
+      answered(record, at, input.body);
+      chatsOf(teamId).push(record);
 
-    return json(record.chat, 201);
-  }),
+      return json(record.chat, 201);
+    },
+  ),
 
   api.get('/teams/:teamId/chats/:chatId', ({ params }) => {
     const record = chatIn(String(params.teamId), params.chatId);
@@ -566,7 +578,7 @@ const chatHandlers = [
       : notFound();
   }),
 
-  api.post(
+  api.post<SendChatMessageRequestDto>(
     '/teams/:teamId/chats/:chatId/messages',
     async ({ params, request }) => {
       const record = chatIn(String(params.teamId), params.chatId);
@@ -574,8 +586,7 @@ const chatHandlers = [
         return notFound();
       }
 
-      const { body, model, effort } =
-        (await request.json()) as SendChatMessageRequestDto;
+      const { body, model, effort } = await request.json();
       const at = now();
       record.chat.messages.push(
         messageBy(SAM, record.chat.messages.length, body, at),
@@ -696,7 +707,7 @@ const chatHandlers = [
 
 const upkeepHandlers: RequestHandler[] = [
   api.get('/teams/:teamId/memory-upkeep/:upkeepId', ({ params }) => {
-    const upkeep = memoryUpkeeps()[String(params.upkeepId)];
+    const upkeep = entryOf(memoryUpkeeps(), String(params.upkeepId));
 
     return upkeep && upkeep.teamId === params.teamId
       ? json(upkeep)
@@ -708,7 +719,7 @@ const upkeepHandlers: RequestHandler[] = [
       `/teams/:teamId/memory-upkeep/:upkeepId/proposals/:proposalId/${verb}`,
       async ({ params }) => {
         await delay();
-        const upkeep = memoryUpkeeps()[String(params.upkeepId)];
+        const upkeep = entryOf(memoryUpkeeps(), String(params.upkeepId));
         const proposal = upkeep?.proposals.find(
           (each) => each.id === params.proposalId,
         );

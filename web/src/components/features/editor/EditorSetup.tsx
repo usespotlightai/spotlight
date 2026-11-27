@@ -5,6 +5,7 @@ import {
   type EditorSetupReason,
   editorSetupSteps,
 } from '@/lib/editor';
+import { nonEmpty } from '@/lib/non-empty';
 
 type EditorSetupProps = {
   app: EditorApp;
@@ -52,7 +53,7 @@ export function EditorSetup({ app, reason, origin }: EditorSetupProps) {
               <span className="select-text overflow-x-auto whitespace-pre text-foreground text-sm">
                 {step.command}
               </span>
-              {step.note && (
+              {nonEmpty(step.note) && (
                 <span className="text-muted-foreground text-xs leading-5">
                   {step.note}
                 </span>

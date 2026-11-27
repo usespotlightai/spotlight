@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { reviewKeys } from '@/hooks/api/useTaskReview';
 import { deleteReviewComment } from '@/lib/api';
@@ -9,7 +13,11 @@ type DeleteReviewCommentInput = {
   commentId: string;
 };
 
-export function useDeleteReviewComment() {
+export function useDeleteReviewComment(): UseMutationResult<
+  void,
+  Error,
+  DeleteReviewCommentInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

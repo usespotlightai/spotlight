@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { resolveInboxNotice } from '@/lib/api';
@@ -9,7 +13,11 @@ type ResolveInboxNoticeInput = {
   noticeId: string;
 };
 
-export function useResolveInboxNotice() {
+export function useResolveInboxNotice(): UseMutationResult<
+  void,
+  Error,
+  ResolveInboxNoticeInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

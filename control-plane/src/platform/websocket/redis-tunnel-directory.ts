@@ -4,6 +4,12 @@ import type {
   TunnelDirectory,
 } from '@platform/websocket/tunnel-directory';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { z } from 'zod';
+
+const askedSchema = z.object({
+  peer: z.string(),
+  message: z.record(z.string(), z.unknown()),
+});
 
 const PEER_MS = 90_000;
 const STREAM_MS = 30_000;
@@ -98,10 +104,7 @@ export class RedisTunnelDirectory implements TunnelDirectory {
       }
 
       try {
-        const { peer, message } = JSON.parse(payload) as {
-          peer: string;
-          message: Record<string, unknown>;
-        };
+        const { peer, message } = askedSchema.parse(JSON.parse(payload));
         ask(peer, message);
       } catch (error) {
         this.logger.warn({ err: error }, 'A tunnel ask could not be read');

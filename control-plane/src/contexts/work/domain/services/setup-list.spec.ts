@@ -34,6 +34,8 @@ const nothing: SetupState = {
   configured: false,
 };
 
+const isFact = (key: string): key is keyof SetupState => key in done;
+
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
 const note = (
@@ -62,7 +64,7 @@ const LINE = deliveryLineOf({
 });
 
 describe('the setup list', () => {
-  it.each(Object.keys(done) as (keyof SetupState)[])(
+  it.each(Object.keys(done).filter(isFact))(
     'has one step and only one waiting on %s',
     (fact) => {
       const missing = { ...done, [fact]: false };

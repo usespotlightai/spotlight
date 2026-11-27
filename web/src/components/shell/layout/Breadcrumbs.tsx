@@ -1,8 +1,9 @@
 import { ChevronRight } from 'lucide-react';
-import { Fragment } from 'react';
+import { Fragment, type ReactElement } from 'react';
 import { Link } from 'react-router';
 
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
+import { nonEmpty } from '@/lib/non-empty';
 import { useTabTitle } from '@/lib/tab-title';
 import { cn } from '@/lib/utils';
 
@@ -28,7 +29,10 @@ type BreadcrumbsProps = {
   namesTab?: boolean;
 };
 
-export function Breadcrumbs({ segments, namesTab = true }: BreadcrumbsProps) {
+export function Breadcrumbs({
+  segments,
+  namesTab = true,
+}: BreadcrumbsProps): ReactElement[] {
   useTabTitle(namesTab ? segments.at(-1)?.label : undefined);
 
   const last = segments.length - 1;
@@ -43,7 +47,9 @@ export function Breadcrumbs({ segments, namesTab = true }: BreadcrumbsProps) {
     );
     const content = (
       <>
-        {avatar && <InitialAvatar name={avatar} className="bg-card" />}
+        {nonEmpty(avatar) && (
+          <InitialAvatar name={avatar} className="bg-card" />
+        )}
         <span className={cn('truncate', folds && '@max-[40rem]/pane:sr-only')}>
           {label}
         </span>
@@ -67,7 +73,7 @@ export function Breadcrumbs({ segments, namesTab = true }: BreadcrumbsProps) {
           />
         )}
 
-        {to ? (
+        {nonEmpty(to) ? (
           <Link
             to={to}
             title={label}

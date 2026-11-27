@@ -63,7 +63,9 @@ export const reusedOf = (input: ReuseInput): ReusedReplays | null => {
 
   for (const seed of [...seeds].sort(newestFirst)) {
     const covered = coveredIn(
-      reusable.filter((each) => each.pairwiseReferenceId?.equals(seed.id)),
+      reusable.filter(
+        (each) => each.pairwiseReferenceId?.equals(seed.id) === true,
+      ),
       input.runs,
     );
 

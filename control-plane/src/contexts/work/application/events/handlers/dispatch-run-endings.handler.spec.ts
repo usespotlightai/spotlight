@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -125,20 +126,20 @@ describe('DispatchRunEndings', () => {
 describe('DropUnorderedRun', () => {
   it('lets the task drop a run its dispatch refused, and leaves one it no longer holds', async () => {
     const save = vi.fn<(task: Task) => Promise<void>>(async () => {});
-    const dropped = { currentRunId: null } as unknown as Task;
-    const holding = {
+    const dropped = partial<Task>({ currentRunId: null });
+    const holding = partial<Task>({
       hasCurrentRun: () => true,
       dropUnstartedRun: () => dropped,
-    } as unknown as Task;
+    });
     let found: Task = holding;
     const drop = new DropUnorderedRun(
-      { find: async () => found, save } as unknown as TaskRepository,
-      {} as ChatRepository,
+      partial<TaskRepository>({ find: async () => found, save }),
+      partial<ChatRepository>({}),
     );
     const refused = new DispatchRefused(RUN, WORKSPACE, TASK, null, 'no-order');
 
     await drop.ofTask(refused);
-    found = { hasCurrentRun: () => false } as unknown as Task;
+    found = partial<Task>({ hasCurrentRun: () => false });
     await drop.ofTask(refused);
     await drop.ofChat(refused);
 

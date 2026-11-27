@@ -143,7 +143,7 @@ export class InMemoryChangeJudgings implements ChangeJudgingRepository {
   async nextDueJob(now: Date): Promise<ChangeJudging | null> {
     return (
       [...this.stored.values()]
-        .filter((each) => each.job?.isDue(now))
+        .filter((each) => each.job?.isDue(now) === true)
         .sort(
           (one, other) => one.queuedAt.getTime() - other.queuedAt.getTime(),
         )[0] ?? null
@@ -217,7 +217,7 @@ export class InMemorySideBySideJudgings implements SideBySideJudgingRepository {
   async nextDueJob(now: Date): Promise<SideBySideJudging | null> {
     return (
       [...this.stored.values()]
-        .filter((each) => each.job?.isDue(now))
+        .filter((each) => each.job?.isDue(now) === true)
         .sort(
           (one, other) => one.queuedAt.getTime() - other.queuedAt.getTime(),
         )[0] ?? null
@@ -225,12 +225,15 @@ export class InMemorySideBySideJudgings implements SideBySideJudgingRepository {
   }
 }
 
-export const changeJudgingRequestsFor = (judgings: ChangeJudgingRepository) =>
+export const changeJudgingRequestsFor = (
+  judgings: ChangeJudgingRepository,
+): RequestChangeJudging =>
   new RequestChangeJudging(judgings, TRANSACTION, CLOCK);
 
 export const sideBySideJudgingRequestsFor = (
   judgings: SideBySideJudgingRepository,
-) => new RequestSideBySideJudging(judgings, TRANSACTION, CLOCK);
+): RequestSideBySideJudging =>
+  new RequestSideBySideJudging(judgings, TRANSACTION, CLOCK);
 
 export const judgedOnce = async (
   judgings: ChangeJudgingRepository,

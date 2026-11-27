@@ -7,6 +7,7 @@ import { RowIcon } from '@/components/shared/RowIcon';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { nonEmpty } from '@/lib/non-empty';
 import { runnersPath } from '@/lib/runner';
 import {
   awaitsValue,
@@ -87,7 +88,9 @@ export function SecretRow({ slug, secret, onSetValue }: SecretRowProps) {
         stack
       >
         <div className="flex items-center gap-3">
-          {note && <Unreached slug={slug} secret={secret} note={note} />}
+          {nonEmpty(note) && (
+            <Unreached slug={slug} secret={secret} note={note} />
+          )}
 
           {allowsSandbox(secret) && (
             <WithTooltip tooltip={SANDBOX_NOTE}>

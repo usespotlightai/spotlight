@@ -27,6 +27,7 @@ import { RecordTaskFailure } from '@insights/application/services/record-task-fa
 import { RequestJudging } from '@insights/application/services/request-judging.service';
 import { RunOutcomes } from '@insights/application/services/run-outcomes.service';
 import { WatchStations } from '@insights/application/services/watch-stations.service';
+import type { WorkJudgings } from '@insights/application/services/work-judgings.service';
 import { RunRecordVersionConflictError } from '@insights/domain/exceptions/run-record-version-conflict.error';
 import type { ConfigIntervalBound } from '@insights/domain/services/config-intervals';
 import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
@@ -60,6 +61,8 @@ import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -180,14 +183,17 @@ let chats: DrizzleChats;
 let recorder: FactRecorder;
 let configPullRequests: ReturnType<typeof stationConfigPullRequestsInMemory>;
 
-const deliver = async (name: string, event: Record<string, unknown>) => {
+const deliver = async (
+  name: string,
+  event: DomainEvent & Record<string, unknown>,
+) => {
   const subscriber = subscribers.find((each) => each.name === name);
 
   if (!subscriber) {
     throw new Error(`no subscriber ${name}`);
   }
 
-  await subscriber.handle(event as never, anOutboxRecord());
+  await subscriber.handle(event, anOutboxRecord());
 };
 
 const runEnded = async (
@@ -248,9 +254,9 @@ const list = (viewer = 'user_ada') =>
 beforeAll(async () => {
   database = await openDatabase('station_insights');
   context = new DrizzleContext(database.db);
-  const quiet = {
+  const quiet = partial<DomainEventDispatcher>({
     dispatch: async () => {},
-  } as unknown as DomainEventDispatcher;
+  });
   const projected = projectedInsights(context);
   records = projected.records;
   pullRequests = projected.pullRequests;
@@ -266,9 +272,9 @@ beforeAll(async () => {
   deletions = new DrizzleDeletions(context);
   recorder = new FactRecorder(deletions);
   subscribers = insightsSubscribers({
-    waking: { sessionSettled: async () => undefined } as unknown as Parameters<
-      typeof insightsSubscribers
-    >[0]['waking'],
+    waking: partial<WorkJudgings>({
+      sessionSettled: async () => undefined,
+    }),
     ending: new RecordRunEnding(work, records, recorder, context),
     superseding: new RecordSupersededRun(records, recorder, context),
     checking: new RecordChangeChecks(records, recorder, context),
@@ -319,7 +325,10 @@ beforeAll(async () => {
     recording: new RecordPullRequests(pullRequests, recorder, context),
     shaping: new RecordChangeShape(work, shapes, recorder, context),
     watching: new WatchStations(
-      { teamRepositories: async () => [], alertsAt: async () => null },
+      {
+        teamRepositories: async () => [],
+        alertsAt: async () => null,
+      },
       { facts: stationFacts, alertStates },
       recorder,
       context,
@@ -349,7 +358,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 describe('how a station’s runs turned out', () => {

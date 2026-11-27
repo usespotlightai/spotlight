@@ -1,8 +1,13 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { runnerPoolKeys } from '@/hooks/api/useRunnerPools';
 import { createRunnerPool } from '@/lib/api';
 import { messageOf } from '@/lib/error';
+import { nonEmpty } from '@/lib/non-empty';
 
 const POOL_TOKEN_HEADER = 'Spotlight-Pool-Token';
 
@@ -11,7 +16,9 @@ type CreatedRunnerPool = {
   token: string;
 };
 
-export function useCreateRunnerPool(workspaceId: string) {
+export function useCreateRunnerPool(
+  workspaceId: string,
+): UseMutationResult<CreatedRunnerPool, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -26,7 +33,7 @@ export function useCreateRunnerPool(workspaceId: string) {
 
       const token = response?.headers.get(POOL_TOKEN_HEADER);
 
-      if (data && token) {
+      if (data && nonEmpty(token)) {
         return { key: data.key, token };
       }
 

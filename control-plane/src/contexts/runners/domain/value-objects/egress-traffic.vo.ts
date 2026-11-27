@@ -20,6 +20,6 @@ export class EgressTraffic {
   }
 
   equals(other: EgressTraffic): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof EgressTraffic && this.value === other.value;
   }
 }

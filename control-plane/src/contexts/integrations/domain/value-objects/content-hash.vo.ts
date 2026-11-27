@@ -19,7 +19,7 @@ export class ContentHash {
   }
 
   equals(other: ContentHash): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof ContentHash && this.value === other.value;
   }
 
   toString(): string {

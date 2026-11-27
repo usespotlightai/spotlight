@@ -1,11 +1,12 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 const waiting = (station: string, link: string | null): string => {
   const where = station ? ` at ${station}` : '';
 
-  return `A task${where} is waiting on you.${link ? ` ${link}` : ''}`;
+  return `A task${where} is waiting on you.${nonEmpty(link) ? ` ${link}` : ''}`;
 };
 
 const decidedAt = (link: string | null): string =>
-  link
+  nonEmpty(link)
     ? `Approve or reject it in Spotlight: ${link}`
     : 'Approve or reject it in your Spotlight inbox.';
 

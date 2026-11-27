@@ -5,8 +5,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { type JournalSource, useRunJournals } from '@/hooks/api/useRunJournals';
 import type { RunJournal } from '@/lib/inbox';
+import { partial } from '@/test/partial';
 
-const journalOf = (runId: string) => ({ runId, attempt: 1 }) as RunJournal;
+const journalOf = (runId: string): RunJournal =>
+  partial<RunJournal>({ runId, attempt: 1 });
 
 const sourceOf = (journal: (runId: string) => Promise<RunJournal[]>) =>
   ({

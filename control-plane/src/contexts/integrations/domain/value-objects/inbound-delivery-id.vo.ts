@@ -26,6 +26,6 @@ export class InboundDeliveryId {
   }
 
   equals(other: InboundDeliveryId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof InboundDeliveryId && this.value === other.value;
   }
 }

@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { connectionKeys } from '@/hooks/api/useIntegrationConnections';
 import { type SetToolRuleRequestDto, setMyToolRule } from '@/lib/api';
@@ -9,7 +13,9 @@ type SetToolRule = {
   readonly rule: SetToolRuleRequestDto['rule'];
 };
 
-export function useSetToolRule(teamId: string) {
+export function useSetToolRule(
+  teamId: string,
+): UseMutationResult<void, Error, SetToolRule> {
   const queryClient = useQueryClient();
 
   return useMutation({

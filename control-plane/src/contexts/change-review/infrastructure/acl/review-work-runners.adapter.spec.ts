@@ -2,18 +2,19 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { ReviewWorkRunners } from '@change-review/infrastructure/acl/review-work-runners.adapter';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-24T12:00:00.000Z');
-const clock = { now: () => NOW } as ClockPort;
+const clock = partial<ClockPort>({ now: () => NOW });
 
 describe('ReviewWorkRunners', () => {
   it('tells the pools the check it handed a runner has ended', async () => {
     const workEnded = vi.fn(async () => {});
 
     await new ReviewWorkRunners(
-      { workEnded } as unknown as RunnersPort,
+      partial<RunnersPort>({ workEnded }),
       clock,
     ).checkReleased(ChangeStackId.of('stack_1'));
 
@@ -28,7 +29,7 @@ describe('ReviewWorkRunners', () => {
     const at = new Date(NOW.getTime() - 60_000);
 
     await new ReviewWorkRunners(
-      { workEnded } as unknown as RunnersPort,
+      partial<RunnersPort>({ workEnded }),
       clock,
     ).checkReleased(ChangeStackId.of('stack_1'), at);
 
@@ -42,7 +43,7 @@ describe('ReviewWorkRunners', () => {
     const reservationDropped = vi.fn(async () => {});
 
     await new ReviewWorkRunners(
-      { reservationDropped } as unknown as RunnersPort,
+      partial<RunnersPort>({ reservationDropped }),
       clock,
     ).reservationDropped(RunnerId.of('pooled_1'));
 

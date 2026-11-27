@@ -35,6 +35,7 @@ import {
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import { inArray } from 'drizzle-orm';
 import fc from 'fast-check';
 import type { Subscription } from 'rxjs';
@@ -97,7 +98,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const wiredTo = (feed: RecordingFeed): EventOutbox => {
@@ -388,10 +389,7 @@ describe('writers publishing live changes at the same moment', () => {
             sequences.every((sequence) => sequence !== null) &&
             new Set(sequences).size === sequences.length &&
             head === before + sequences.length &&
-            sequences.every(
-              (sequence) =>
-                sequence !== null && sequence > before && sequence <= head,
-            )
+            sequences.every((sequence) => sequence > before && sequence <= head)
           );
         }),
       ),
@@ -504,7 +502,7 @@ describe('writers publishing live changes at the same moment', () => {
     await fc.assert(
       racing((result) => {
         const at = result.heard.findIndex((event) => event.type === 'ready');
-        const ready = result.heard[at];
+        const ready = itemAt(result.heard, at);
         const data =
           ready && typeof ready.data === 'object' ? ready.data : undefined;
         const complete = data && 'complete' in data ? data.complete : undefined;

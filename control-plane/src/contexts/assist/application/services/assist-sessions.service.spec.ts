@@ -132,7 +132,7 @@ const servicing = ({
     runs,
     new JsonSchemaResultChecks(),
     { generate: () => `id_${(next += 1)}` },
-    { now: () => NOW, sleep: async () => undefined },
+    { now: () => NOW, sleep: async () => {} },
   );
 
   /** Delivers the ordered events the way the outbox hands them to assist's own subscriber. */

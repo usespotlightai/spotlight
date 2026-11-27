@@ -31,6 +31,7 @@ import type { StationColor } from '@lines/domain/value-objects/station-color.vo'
 import type { StationDescription } from '@lines/domain/value-objects/station-description.vo';
 import type { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
 import { WarmSandboxCount } from '@lines/domain/value-objects/warm-sandbox-count.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -84,13 +85,13 @@ const stationProblem = (station: StationPlan): InvalidStation => {
 
   const skills = skillsProblem(station.skills);
 
-  if (skills) {
+  if (nonEmpty(skills)) {
     return { rule: 'skills', reason: skills };
   }
 
   const tools = toolsProblem(station.tools);
 
-  return tools ? { rule: 'tools', reason: tools } : null;
+  return nonEmpty(tools) ? { rule: 'tools', reason: tools } : null;
 };
 
 export interface ReactionPlan {

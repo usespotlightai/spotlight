@@ -1,4 +1,8 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type {
+  TeamPermissions,
+  WorkspaceAccessPort,
+} from '@identity/application/ports/workspace-access.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -14,16 +18,18 @@ export const teamAccess = (
     slug: 'acme',
   };
 
-  return {
+  return partial<WorkspaceAccessPort>({
     inWorkspaceOfTeam: vi.fn(async () => ({
       ...permissions,
       viewer: UserId.of('user_1'),
       isAdmin: configures,
     })),
-    permissionsInWorkspaceOfTeam: vi.fn(async () => ({
-      ...permissions,
-      configures,
-      isAdmin: configures,
-    })),
-  } as unknown as WorkspaceAccessPort;
+    permissionsInWorkspaceOfTeam: vi.fn(async () =>
+      partial<TeamPermissions>({
+        ...permissions,
+        configures,
+        isAdmin: configures,
+      }),
+    ),
+  });
 };

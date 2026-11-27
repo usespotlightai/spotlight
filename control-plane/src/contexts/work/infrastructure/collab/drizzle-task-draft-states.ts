@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type {
   StoredDraft,
@@ -14,7 +15,7 @@ export class DrizzleTaskDraftStates implements TaskDraftStatesPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async read(taskId: TaskId): Promise<StoredDraft> {
-    const [[kept], [sent]] = await Promise.all([
+    const [keptRows, sentRows] = await Promise.all([
       this.context.db
         .select({ state: taskDraftState.state })
         .from(taskDraftState)
@@ -27,7 +28,10 @@ export class DrizzleTaskDraftStates implements TaskDraftStatesPort {
         .limit(1),
     ]);
 
-    return { state: kept?.state ?? null, generation: sent?.generation ?? 0 };
+    return {
+      state: firstOf(keptRows)?.state ?? null,
+      generation: firstOf(sentRows)?.generation ?? 0,
+    };
   }
 
   async keep(taskId: TaskId, state: Uint8Array): Promise<void> {

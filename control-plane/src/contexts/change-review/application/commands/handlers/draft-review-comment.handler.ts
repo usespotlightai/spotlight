@@ -11,6 +11,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export class DraftReviewCommentHandler implements CommandHandlerPort<
   DraftReviewCommentCommand,
@@ -33,7 +34,7 @@ export class DraftReviewCommentHandler implements CommandHandlerPort<
       const id = ReviewCommentId.of(this.ids.generate());
       const now = this.clock.now();
 
-      if (command.on.replyTo) {
+      if (nonEmpty(command.on.replyTo)) {
         const parent = await this.comments.find(
           ReviewCommentId.of(command.on.replyTo),
         );

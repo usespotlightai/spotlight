@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -45,13 +48,13 @@ beforeAll(async () => {
   tasks = new DrizzleTaskRepository(context, { dispatch: async () => {} });
   reader = new DrizzleChatReader(
     database.db,
-    { find: async () => null } as never,
+    partial<PersonReaderPort>({ find: async () => null }),
     { progressOf: async () => [] },
   );
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const NOW = new Date('2026-11-19T09:00:00.000Z');
@@ -194,7 +197,7 @@ describe('pull requests an agent chat opened, stored in the database (e2e)', () 
     });
 
     await tasks.save(
-      (stored as Task).resumeLine({
+      present(stored).resumeLine({
         by: team.owner,
         line: team.line,
         next: 'continue',

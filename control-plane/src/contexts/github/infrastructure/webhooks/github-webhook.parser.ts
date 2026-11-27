@@ -28,6 +28,7 @@ import type { RepositoryVisibility } from '@github/domain/value-objects/reposito
 import type { ReviewState } from '@github/domain/value-objects/review-state.vo';
 import { stripByline } from '@github/infrastructure/github/byline';
 import { pullRequestActivityOf } from '@github/infrastructure/webhooks/pull-request-activity.translation';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
@@ -171,7 +172,8 @@ const linesOf = (
 const reviewCommentOf = (
   comment: CommentPayload | undefined,
 ): PullRequestReviewComment | null =>
-  comment && (text(comment.body) || text(comment.path))
+  comment !== undefined &&
+  (text(comment.body) !== null || text(comment.path) !== null)
     ? {
         body: text(comment.body)?.trim() ?? '',
         path: text(comment.path)?.trim() ?? null,
@@ -185,7 +187,7 @@ const detailsOf = (
 ): PullRequestDetails | null => {
   const title = text(pull?.title);
 
-  return pull && title
+  return pull && nonEmpty(title)
     ? {
         title: title.trim(),
         body: text(pull.body)?.trim() ?? null,
@@ -205,7 +207,9 @@ const checkSuiteOf = (payload: Payload): CheckSuite | null => {
   const id = at(payload.check_suite?.id);
   const repository = text(payload.repository?.full_name);
 
-  return id !== null && repository ? { id, repository } : null;
+  return id !== null && repository !== null && repository !== ''
+    ? { id, repository }
+    : null;
 };
 
 const pullRequestActivity = (
@@ -279,7 +283,15 @@ const snapshotOf = (payload: Payload): PullRequestSnapshot | null => {
   const title = text(pull?.title);
   const openedAt = writtenAt(pull?.created_at);
 
-  if (!pull || !html || !fullName || !number || !title || !openedAt) {
+  if (
+    !pull ||
+    !nonEmpty(html) ||
+    !nonEmpty(fullName) ||
+    number === null ||
+    number === 0 ||
+    !nonEmpty(title) ||
+    !openedAt
+  ) {
     return null;
   }
 
@@ -341,7 +353,15 @@ const reviewComment = (payload: Payload): WebhookEvent[] => {
   const url = text(comment?.html_url);
   const path = text(comment?.path);
 
-  if (!comment || !action || !pullRequest || !id || !url || !path) {
+  if (
+    !comment ||
+    !action ||
+    !nonEmpty(pullRequest) ||
+    id === null ||
+    id === 0 ||
+    !nonEmpty(url) ||
+    !nonEmpty(path)
+  ) {
     return [];
   }
 
@@ -386,7 +406,13 @@ const conversationComment = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(payload.issue?.pull_request?.html_url);
   const id = at(comment?.id);
 
-  if (!comment || !action || !pullRequest || !id) {
+  if (
+    !comment ||
+    !action ||
+    !nonEmpty(pullRequest) ||
+    id === null ||
+    id === 0
+  ) {
     return [];
   }
 
@@ -410,7 +436,12 @@ const reviewThread = (payload: Payload): WebhookEvent[] => {
   const id = text(payload.thread?.node_id);
   const firstComment = payload.thread?.comments?.[0];
 
-  if (!pullRequest || resolved === undefined || !id) {
+  if (
+    !nonEmpty(pullRequest) ||
+    resolved === undefined ||
+    id === null ||
+    id === ''
+  ) {
     return [];
   }
 
@@ -435,7 +466,12 @@ const pullRequestClosed = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(pull?.html_url);
   const repository = text(payload.repository?.full_name);
 
-  if (payload.action !== 'closed' || !pull || !pullRequest || !repository) {
+  if (
+    payload.action !== 'closed' ||
+    !pull ||
+    !nonEmpty(pullRequest) ||
+    !nonEmpty(repository)
+  ) {
     return [];
   }
 
@@ -462,7 +498,12 @@ const pullRequestReopened = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(pull?.html_url);
   const repository = text(payload.repository?.full_name);
 
-  if (payload.action !== 'reopened' || !pull || !pullRequest || !repository) {
+  if (
+    payload.action !== 'reopened' ||
+    !pull ||
+    !nonEmpty(pullRequest) ||
+    !nonEmpty(repository)
+  ) {
     return [];
   }
 
@@ -487,10 +528,10 @@ const pullRequestPushed = (payload: Payload): WebhookEvent[] => {
 
   if (
     payload.action !== 'synchronize' ||
-    !pullRequest ||
-    !repository ||
-    !head ||
-    !baseTip ||
+    !nonEmpty(pullRequest) ||
+    !nonEmpty(repository) ||
+    !nonEmpty(head) ||
+    !nonEmpty(baseTip) ||
     !pushedAt
   ) {
     return [];
@@ -527,7 +568,12 @@ const pullRequestReviewed = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(payload.pull_request?.html_url);
   const state = reviewStateOf(review?.state);
 
-  if (payload.action !== 'submitted' || !review || !pullRequest || !state) {
+  if (
+    payload.action !== 'submitted' ||
+    !review ||
+    !nonEmpty(pullRequest) ||
+    !state
+  ) {
     return [];
   }
 
@@ -549,7 +595,7 @@ const reviewDismissed = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(payload.pull_request?.html_url);
   const id = at(payload.review?.id);
 
-  if (payload.action !== 'dismissed' || !pullRequest || id === null) {
+  if (payload.action !== 'dismissed' || !nonEmpty(pullRequest) || id === null) {
     return [];
   }
 
@@ -572,7 +618,7 @@ const repositoryVisibility = (payload: Payload): WebhookEvent[] => {
   const visibility = VISIBILITY_ACTIONS.get(payload.action);
   const repository = text(payload.repository?.full_name);
 
-  return visibility && repository
+  return visibility && nonEmpty(repository)
     ? [{ kind: 'repository-visibility', repository, visibility }]
     : [];
 };
@@ -581,8 +627,8 @@ const defaultBranchPushed = (payload: Payload): WebhookEvent[] => {
   const repository = text(payload.repository?.full_name);
   const branch = text(payload.repository?.default_branch);
 
-  return repository &&
-    branch &&
+  return nonEmpty(repository) &&
+    nonEmpty(branch) &&
     payload.ref === `refs/heads/${branch}` &&
     payload.deleted !== true
     ? [{ kind: 'default-branch-pushed', repository, branch }]

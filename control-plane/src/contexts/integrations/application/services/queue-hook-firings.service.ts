@@ -15,6 +15,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export class QueueHookFirings {
   constructor(
@@ -50,7 +51,7 @@ export class QueueHookFirings {
     let fired = 0;
 
     for (const hook of await this.runtime.listening(task.teamId, occurred.on)) {
-      if (hook.broken) {
+      if (nonEmpty(hook.broken)) {
         this.logger.warn(
           { hook: hook.key.value, reason: hook.broken },
           'A hook no longer reads as it was written',

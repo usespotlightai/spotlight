@@ -7,13 +7,22 @@ import { appJwt } from '@github/infrastructure/github/app-jwt';
 import { call } from '@github/infrastructure/github/github.rest';
 import type { LinkedAccountsPort } from '@identity/application/ports/linked-accounts.port';
 import type { Env } from '@platform/config/env.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { z } from 'zod';
 
-interface Account {
-  readonly id: number;
-  readonly login: string;
-  readonly type: string;
-}
+const INSTALLATION_ANSWER = z.object({
+  account: z.object({ id: z.number(), login: z.string(), type: z.string() }),
+});
+
+const MEMBERSHIP_ANSWER = z.object({
+  state: z.unknown().optional(),
+  role: z.unknown().optional(),
+});
+
+const USER_ANSWER = z.object({ id: z.unknown().optional() });
+
+type Account = z.infer<typeof INSTALLATION_ANSWER>['account'];
 
 type Looked<T> = T | 'missing' | 'failed';
 
@@ -29,7 +38,7 @@ export class GitHubInstallationAdministration implements InstallationAdministrat
   ): Promise<InstallationAdministration> {
     const token = await this.accounts.tokenFor(userId, 'github');
 
-    if (!token) {
+    if (!nonEmpty(token)) {
       return 'unknown';
     }
 
@@ -50,31 +59,23 @@ export class GitHubInstallationAdministration implements InstallationAdministrat
   private async accountOf(
     installation: GitHubInstallation,
   ): Promise<Looked<Account>> {
-    const read = await this.read<{ account?: Partial<Account> | null }>(
+    const read = await this.read(
       `/app/installations/${installation.value}`,
       appJwt(this.env),
+      INSTALLATION_ANSWER,
     );
 
-    if (read === 'missing' || read === 'failed') {
-      return read;
-    }
-
-    const { id, login, type } = read.account ?? {};
-
-    return typeof id === 'number' &&
-      typeof login === 'string' &&
-      typeof type === 'string'
-      ? { id, login, type }
-      : 'failed';
+    return read === 'missing' || read === 'failed' ? read : read.account;
   }
 
   private async adminOf(
     org: string,
     token: string,
   ): Promise<InstallationAdministration> {
-    const read = await this.read<{ state?: string; role?: string }>(
+    const read = await this.read(
       `/user/memberships/orgs/${encodeURIComponent(org)}`,
       token,
+      MEMBERSHIP_ANSWER,
     );
 
     if (read === 'missing') {
@@ -93,7 +94,7 @@ export class GitHubInstallationAdministration implements InstallationAdministrat
     accountId: number,
     token: string,
   ): Promise<InstallationAdministration> {
-    const read = await this.read<{ id?: unknown }>('/user', token);
+    const read = await this.read('/user', token, USER_ANSWER);
 
     if (
       read === 'missing' ||
@@ -106,7 +107,11 @@ export class GitHubInstallationAdministration implements InstallationAdministrat
     return read.id === accountId ? 'admin' : 'not-admin';
   }
 
-  private async read<T>(path: string, token: string): Promise<Looked<T>> {
+  private async read<T>(
+    path: string,
+    token: string,
+    answer: z.ZodType<T>,
+  ): Promise<Looked<T>> {
     const response = await call(path, token).catch(() => null);
 
     if (!response) {
@@ -119,6 +124,8 @@ export class GitHubInstallationAdministration implements InstallationAdministrat
       return 'failed';
     }
 
-    return ((await response.json().catch(() => null)) as T | null) ?? 'failed';
+    const parsed = answer.safeParse(await response.json().catch(() => null));
+
+    return parsed.success ? parsed.data : 'failed';
   }
 }

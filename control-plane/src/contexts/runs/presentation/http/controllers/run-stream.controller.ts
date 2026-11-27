@@ -24,6 +24,7 @@ import {
   eventIdOf,
   StreamMark,
 } from '@runs/presentation/http/streaming/stream-mark';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { interval, map, merge, Observable } from 'rxjs';
 
 const KEEPALIVE_MS = 20_000;
@@ -65,7 +66,9 @@ export class RunStreamController {
         (entry) => {
           if (mark.accepts(entry)) {
             const id = eventIdOf(entry);
-            subscriber.next(id ? { id, data: entry } : { data: entry });
+            subscriber.next(
+              nonEmpty(id) ? { id, data: entry } : { data: entry },
+            );
           }
         },
         (error) => subscriber.error(error),

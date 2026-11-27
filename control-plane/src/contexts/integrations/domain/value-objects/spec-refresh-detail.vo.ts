@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type {
   ChangeDetail,
   RecordedDetail,
@@ -23,7 +24,7 @@ export class SpecRefreshDetail implements ChangeDetail {
   recorded(): RecordedDetail {
     return {
       refreshedSpec: this.hash,
-      ...(this.problem ? { problem: this.problem } : {}),
+      ...(nonEmpty(this.problem) ? { problem: this.problem } : {}),
       ...(this.orphanedTools.length > 0
         ? { orphanedTools: this.orphanedTools }
         : {}),

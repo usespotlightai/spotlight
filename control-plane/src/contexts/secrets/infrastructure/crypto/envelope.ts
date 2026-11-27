@@ -1,5 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+
 const ALGORITHM = 'aes-256-gcm';
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
@@ -12,6 +14,9 @@ export class DecryptionFailedError extends Error {
     this.name = 'DecryptionFailedError';
   }
 }
+
+const partsOf = (envelope: string): readonly (string | undefined)[] =>
+  envelope.split('.');
 
 const keyOf = (key: Uint8Array): Buffer => {
   if (key.length !== KEY_BYTES) {
@@ -46,12 +51,12 @@ export const decrypt = (
   envelope: string,
   aad: string,
 ): Buffer => {
-  const [version, iv, tag, encrypted, ...rest] = envelope.split('.');
+  const [version, iv, tag, encrypted, ...rest] = partsOf(envelope);
 
   if (
     version !== VERSION ||
-    !iv ||
-    !tag ||
+    !nonEmpty(iv) ||
+    !nonEmpty(tag) ||
     encrypted === undefined ||
     rest.length > 0
   ) {

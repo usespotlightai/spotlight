@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { WithTooltip } from '@/components/shared/WithTooltip';
+import { nonEmpty } from '@/lib/non-empty';
 
 type SpreadShownProps = {
   tail: string | null;
@@ -8,7 +9,7 @@ type SpreadShownProps = {
 };
 
 export function SpreadShown({ tail, children }: SpreadShownProps) {
-  return tail ? (
+  return nonEmpty(tail) ? (
     <WithTooltip tooltip={tail}>
       <span className="cursor-default">{children}</span>
     </WithTooltip>

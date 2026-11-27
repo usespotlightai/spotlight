@@ -4,8 +4,20 @@ import type {
 } from '@runs/application/ports/run-stream.port';
 import { InMemoryRunStream } from '@runs/infrastructure/streaming/in-memory-run-stream';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { z } from 'zod';
 
 const CHANNEL = 'spotlight-run-stream:';
+
+const PUBLISHED = z.array(
+  z.looseObject({
+    attempt: z.number(),
+    seq: z.number(),
+    type: z.string(),
+    at: z.string(),
+    message: z.string().optional(),
+    data: z.string().optional(),
+  }),
+);
 
 export interface RedisPublisher {
   publish(channel: string, message: string): Promise<unknown>;
@@ -33,7 +45,7 @@ export class RedisRunStream implements RunStreamPort {
       if (channel.startsWith(CHANNEL)) {
         this.local.publish(
           channel.slice(CHANNEL.length),
-          JSON.parse(message) as RunJournalEntryView[],
+          PUBLISHED.parse(JSON.parse(message)),
         );
       }
     });

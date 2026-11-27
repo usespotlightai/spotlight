@@ -7,6 +7,7 @@ import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 
@@ -43,14 +44,14 @@ describe('setting up the team a workspace starts with (e2e)', () => {
         survey: { jobFunction: 'engineering' },
       })
       .expect(201);
-    const made = created.body as { id: string; teams: { id: string }[] };
+    const made = bodyOf<{ id: string; teams: { id: string }[] }>(created);
     const teamId = made.teams[0].id;
 
     const workspace = await eventually(async () => {
-      const body = (await read(`workspaces/${slug}`).expect(200)).body as {
+      const body = bodyOf<{
         setupStatus: string;
         teams: { id: string }[];
-      };
+      }>(await read(`workspaces/${slug}`).expect(200));
 
       return body.setupStatus === 'done' && body;
     });
@@ -58,9 +59,9 @@ describe('setting up the team a workspace starts with (e2e)', () => {
     expect(workspace.teams.map((each) => each.id)).toEqual([teamId]);
 
     await eventually(async () => {
-      const body = (
-        await read(`teams/${teamId}/configuration/onboarding`).expect(200)
-      ).body as { provisioning: string };
+      const body = bodyOf<{ provisioning: string }>(
+        await read(`teams/${teamId}/configuration/onboarding`).expect(200),
+      );
 
       return body.provisioning === 'done';
     });

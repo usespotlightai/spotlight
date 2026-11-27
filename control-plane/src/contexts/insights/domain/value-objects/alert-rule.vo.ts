@@ -55,9 +55,11 @@ export class AlertRule {
     below?: number | null;
     over: number;
   }): AlertRule {
-    const set = ALERT_CONDITIONS.filter(
-      (each) => (input[each] ?? null) !== null,
-    );
+    const set = ALERT_CONDITIONS.flatMap((condition) => {
+      const threshold = input[condition] ?? null;
+
+      return threshold === null ? [] : [{ condition, threshold }];
+    });
 
     if (!isMeasure(input.measure)) {
       throw new InvalidAlertError(
@@ -70,8 +72,7 @@ export class AlertRule {
       );
     }
 
-    const [condition] = set as [AlertCondition];
-    const threshold = input[condition] as number;
+    const [{ condition, threshold }] = set;
 
     if (!Number.isFinite(threshold) || threshold < 0) {
       throw new InvalidAlertError('threshold must be 0 or more');

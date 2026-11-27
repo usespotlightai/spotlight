@@ -5,6 +5,7 @@ import { MemoryHandleLink } from '@/components/features/runs/memories/MemoryHand
 import { PillLink } from '@/components/shared/PillLink';
 import { inboxItemPath } from '@/lib/inbox';
 import { KIND_LABELS, proposalStateOf, type RunProposal } from '@/lib/memory';
+import { nonEmpty } from '@/lib/non-empty';
 
 type ProposedMemoryItemProps = {
   slug: string;
@@ -27,8 +28,10 @@ export function ProposedMemoryItem({
       body={proposal.body}
       about={[
         KIND_LABELS[proposal.kind],
-        ...(waiting ? [] : [proposalStateOf(proposal)]),
-        ...(proposal.handle
+        ...(waiting !== null && waiting !== false && waiting !== ''
+          ? []
+          : [proposalStateOf(proposal)]),
+        ...(nonEmpty(proposal.handle)
           ? [
               <MemoryHandleLink
                 key="handle"
@@ -41,7 +44,9 @@ export function ProposedMemoryItem({
           : []),
       ]}
       action={
-        waiting && (
+        waiting !== null &&
+        waiting !== false &&
+        waiting !== '' && (
           <PillLink to={inboxItemPath(slug, waiting)}>
             <Inbox aria-hidden className="size-3" />
             {proposalStateOf(proposal)}

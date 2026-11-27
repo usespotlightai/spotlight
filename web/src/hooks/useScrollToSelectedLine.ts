@@ -8,7 +8,7 @@ export function useScrollToSelectedLine(
   container: RefObject<HTMLElement | null>,
   lines: LineRange | null,
   ready: boolean,
-) {
+): void {
   useEffect(() => {
     if (!ready || !lines) {
       return;

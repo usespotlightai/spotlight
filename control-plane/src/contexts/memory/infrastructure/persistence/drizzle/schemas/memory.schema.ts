@@ -81,10 +81,7 @@ export const memoryProposal = pgTable(
       'memory_proposal_retires_with_reason',
       sql`(${table.retires} is null) = (${table.retireReason} is null) and (${table.retires} is null or ${table.supersedes} is null)`,
     ),
-    uniqueIndex('memory_proposal_position_idx').on(
-      table.setId,
-      table.position,
-    ),
+    uniqueIndex('memory_proposal_position_idx').on(table.setId, table.position),
     check(
       'memory_proposal_decided_matches_state',
       sql`(${table.state} = 'proposed') = (${table.decidedAt} is null) and (${table.decidedById} is null) = (${table.decidedAt} is null)`,
@@ -159,7 +156,10 @@ export const memoryUse = pgTable(
   ],
 );
 
-export const memoryUpkeepChange = pgEnum('memory_upkeep_change', UPKEEP_CHANGES);
+export const memoryUpkeepChange = pgEnum(
+  'memory_upkeep_change',
+  UPKEEP_CHANGES,
+);
 export const memoryUpkeepFinding = pgEnum(
   'memory_upkeep_finding',
   UPKEEP_FINDINGS,

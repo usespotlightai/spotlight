@@ -34,7 +34,10 @@ export function HostHead({
       {HOST_HEADINGS.map((heading, column) => (
         <span
           key={heading.label}
-          className={cn('relative min-w-0', heading.numeric && 'text-right')}
+          className={cn(
+            'relative min-w-0',
+            heading.numeric === true && 'text-right',
+          )}
         >
           <span className="block truncate">{heading.label}</span>
           {(column < HOST_HEADINGS.length - 1 || trailing) && (

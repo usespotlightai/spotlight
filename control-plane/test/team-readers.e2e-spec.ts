@@ -10,6 +10,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -39,8 +40,8 @@ const inboxRequestsIn = async (userId: string): Promise<string[]> => {
 
   expect(answer.status).toBe(200);
 
-  return (
-    answer.body as { items: { id: string; inboxRequest: unknown }[] }
+  return bodyOf<{ items: { id: string; inboxRequest: object | null }[] }>(
+    answer,
   ).items.flatMap((each) => (each.inboxRequest ? [each.id] : []));
 };
 
@@ -150,7 +151,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('who may read a team’s station outcomes', () => {

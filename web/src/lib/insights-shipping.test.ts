@@ -4,17 +4,23 @@ import type {
   ByTypeResponseDto,
   FlowStageResponseDto,
   InsightsShippingResponseDto,
+  LineResponseDto,
   PercentilesResponseDto,
   StageTimesResponseDto,
+  StationResponseDto,
 } from '@/lib/api';
 import { stationNamesOf } from '@/lib/insights';
 import {
   durationTicks,
   flowStages,
   formatDurationTick,
+  type InsightsShipping,
   shippingOf,
   slowestFirst,
+  type TypeMerge,
 } from '@/lib/insights-shipping';
+import { nonEmpty } from '@/lib/non-empty';
+import { partial } from '@/test/partial';
 
 const HOUR = 3_600_000;
 
@@ -52,7 +58,7 @@ const stage = (
   stationId: string | null = null,
 ): FlowStageResponseDto => ({
   kind,
-  lineId: stationId ? 'line_1' : null,
+  lineId: nonEmpty(stationId) ? 'line_1' : null,
   stationId,
   times: byTyped,
 });
@@ -87,7 +93,7 @@ const NOTHING: InsightsShippingResponseDto = {
 };
 
 const NAMES = stationNamesOf([
-  {
+  partial<LineResponseDto>({
     id: 'line_1',
     key: 'delivery',
     name: 'Delivery',
@@ -96,7 +102,7 @@ const NAMES = stationNamesOf([
     source: null,
     replayCheck: null,
     stations: [
-      {
+      partial<StationResponseDto>({
         id: 'station_build',
         key: 'build',
         name: 'Implementation',
@@ -111,10 +117,10 @@ const NAMES = stationNamesOf([
         judge: null,
         alerts: [],
         skills: [],
-      },
+      }),
     ],
-  },
-] as never);
+  }),
+]);
 
 describe('shippingOf', () => {
   const shipping = shippingOf(
@@ -255,7 +261,7 @@ describe('shippingOf', () => {
       worst: false,
       longestPart: 'queued',
     });
-    expect(gone?.parts).toBeNull();
+    expect(gone.parts).toBeNull();
     expect(inReview).toMatchObject({
       ms: 18 * HOUR,
       bottleneckRatio: 1,
@@ -281,16 +287,22 @@ describe('shippingOf', () => {
       worst: false,
       longestPart: null,
     });
-    expect(inReview?.ms).toBe(6 * HOUR);
+    expect(inReview.ms).toBe(6 * HOUR);
   });
 });
 
 describe('slowestFirst', () => {
   it('orders the types as the server ranked them at the percentile', () => {
-    const merges = {
+    const merges = partial<InsightsShipping>({
       types: [
-        { type: 'feature', merged: 3 },
-        { type: 'fix', merged: 1 },
+        partial<TypeMerge>({
+          type: 'feature',
+          merged: { spotlight: 2, people: 1 },
+        }),
+        partial<TypeMerge>({
+          type: 'fix',
+          merged: { spotlight: 1, people: 0 },
+        }),
       ],
       slowestFirst: {
         p50: ['fix', 'feature'],
@@ -298,7 +310,7 @@ describe('slowestFirst', () => {
         p90: [],
         p95: [],
       },
-    } as never;
+    });
 
     expect(slowestFirst(merges, 'p50').map((each) => each.type)).toEqual([
       'fix',

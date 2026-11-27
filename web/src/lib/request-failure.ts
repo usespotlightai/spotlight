@@ -1,3 +1,6 @@
+import { nonEmpty } from '@/lib/non-empty';
+import { fieldOf, isRecord } from '@/lib/record';
+
 export type SentRequest = {
   readonly method: string;
   readonly path: string;
@@ -42,12 +45,18 @@ export const withSentRequest = (
   return Object.assign(failure, { [SENT]: sent });
 };
 
+const isSentRequest = (value: unknown): value is SentRequest =>
+  isRecord(value) &&
+  typeof value.method === 'string' &&
+  typeof value.path === 'string' &&
+  (typeof value.status === 'number' || value.status === null);
+
 export const sentRequestOf = (thrown: unknown): SentRequest | null => {
-  const sent = (thrown as Record<string, unknown> | null)?.[SENT];
-  return sent && typeof sent === 'object' ? (sent as SentRequest) : null;
+  const sent = fieldOf(thrown, SENT);
+  return isSentRequest(sent) ? sent : null;
 };
 
-const STATUS_TEXT: Record<number, string> = {
+const STATUS_TEXT: Partial<Record<number, string>> = {
   400: 'Bad Request',
   401: 'Unauthorized',
   403: 'Forbidden',
@@ -65,8 +74,7 @@ const STATUS_TEXT: Record<number, string> = {
 };
 
 const statusOf = (thrown: unknown): number | null => {
-  const body = thrown as { status?: unknown; statusCode?: unknown } | null;
-  const status = body?.status ?? body?.statusCode;
+  const status = fieldOf(thrown, 'status') ?? fieldOf(thrown, 'statusCode');
   return typeof status === 'number' ? status : null;
 };
 
@@ -75,12 +83,13 @@ export const failureHeadline = (thrown: unknown): string => {
   const status = sent?.status ?? statusOf(thrown);
 
   if (status !== null) {
-    const body = thrown as { error?: unknown; title?: unknown } | null;
+    const error = fieldOf(thrown, 'error');
+    const title = fieldOf(thrown, 'title');
     const reason =
       STATUS_TEXT[status] ??
-      (typeof body?.error === 'string' ? body.error : null) ??
-      (typeof body?.title === 'string' ? body.title : null);
-    return reason ? `${status} ${reason}` : `HTTP ${status}`;
+      (typeof error === 'string' ? error : null) ??
+      (typeof title === 'string' ? title : null);
+    return nonEmpty(reason) ? `${status} ${reason}` : `HTTP ${status}`;
   }
 
   if (sent) {

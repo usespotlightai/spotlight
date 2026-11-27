@@ -3,6 +3,7 @@ import type { CauseLink } from '@integrations/domain/value-objects/causal-chain.
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -102,7 +103,7 @@ export class HookCallbackToken {
   noteIdempotencyKey(idempotencyKey: string | null): string | null {
     const { taskId, firing, hook } = this.issued;
 
-    return idempotencyKey
+    return nonEmpty(idempotencyKey)
       ? `callback:${taskId.value}:${firing?.value ?? hook.value}:${idempotencyKey}`
       : null;
   }

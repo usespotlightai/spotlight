@@ -39,6 +39,7 @@ import {
   type ProfileTranslator,
   type TranslatedProfile,
 } from '@runs/infrastructure/harnesses/profiles/profile-translator';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { EFFORTS } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
@@ -387,7 +388,7 @@ const harnessVariables = (
 ): readonly string[] => [
   ...Object.keys(def.env),
   ...Object.keys(def.profile.translate(profile).env),
-  ...(def.configEnv ? [def.configEnv] : []),
+  ...(nonEmpty(def.configEnv) ? [def.configEnv] : []),
   ...(def.modelBinding.kind === 'env' ? [def.modelBinding.name] : []),
   ...(def.effortBinding?.kind === 'env' ? [def.effortBinding.name] : []),
   ...def.harnessKeys,
@@ -474,7 +475,7 @@ const commandOf = (
 
   const configured = { ...config, ...overrides };
 
-  if (def.configEnv && Object.keys(configured).length > 0) {
+  if (nonEmpty(def.configEnv) && Object.keys(configured).length > 0) {
     env[def.configEnv] = JSON.stringify(configured);
   }
 

@@ -5,7 +5,7 @@ export const textOf = (value: unknown): string =>
   typeof value === 'string' ? value : '';
 
 const textsOf = (raw: unknown): Record<string, string> =>
-  raw && typeof raw === 'object'
+  typeof raw === 'object' && raw !== null
     ? Object.fromEntries(
         Object.entries(raw).filter(
           (each): each is [string, string] => typeof each[1] === 'string',

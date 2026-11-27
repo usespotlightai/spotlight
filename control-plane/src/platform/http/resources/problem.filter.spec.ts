@@ -4,7 +4,8 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { HttpAdapterHost } from '@nestjs/core';
+import type { AbstractHttpAdapter, HttpAdapterHost } from '@nestjs/core';
+import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
 import { ProblemException } from '@platform/http/resources/problem.exception';
 import { ProblemFilter } from '@platform/http/resources/problem.filter';
@@ -17,6 +18,7 @@ import { UpstreamError } from '@shared-kernel/application/errors/upstream.error'
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -40,33 +42,32 @@ forbiddenActs.register({
 
 const responseTo = (exception: unknown) => {
   const headers = new Map<string, string>();
-  const reply = vi.fn();
+  const reply =
+    vi.fn<(response: unknown, body: unknown, statusCode?: number) => void>();
   const error = vi.fn();
   const report = vi.fn<ErrorReportsPort['report']>();
   const count = vi.fn();
-  const adapterHost = {
-    httpAdapter: {
+  const adapterHost = partial<HttpAdapterHost>({
+    httpAdapter: partial<AbstractHttpAdapter>({
       setHeader: (_: unknown, name: string, value: string) =>
         headers.set(name, value),
       reply,
-    },
-  } as unknown as HttpAdapterHost;
-  const host = {
-    switchToHttp: () => ({
-      getRequest: () => ({ method: 'GET', url: '/api/integrations/1' }),
-      getResponse: () => ({}),
     }),
-  } as unknown as ArgumentsHost;
+  });
+  const host: ArgumentsHost = new ExecutionContextHost([
+    { method: 'GET', url: '/api/integrations/1' },
+    {},
+  ]);
 
   new ProblemFilter(
     adapterHost,
-    { error } as unknown as LoggerPort,
+    partial<LoggerPort>({ error }),
     { report },
-    { count } as unknown as TelemetryPort,
+    partial<TelemetryPort>({ count }),
     forbiddenActs,
   ).catch(exception, host);
 
-  const [, body, status] = reply.mock.calls[0] as [unknown, unknown, number];
+  const [, body, status] = reply.mock.calls[0];
 
   return { body, status, headers, error, report, count };
 };

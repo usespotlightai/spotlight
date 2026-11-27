@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import type { Server } from 'node:http';
 import { connect } from 'node:net';
 
 import {
@@ -10,13 +9,16 @@ import type { INestApplication } from '@nestjs/common';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf, parsedAs } from './support/body';
 import { eventually } from './support/eventually';
+import { httpServerOf, addressOf } from './support/http-server';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
@@ -31,15 +33,14 @@ const tokenOf = (seed: string): string =>
 describe('sandbox editors (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  let team: Awaited<ReturnType<typeof createTeam>>;
+  let team: Awaited<ReturnType<typeof createTeam>> | undefined;
   let host: string;
   let poolToken: string;
   const opened: WebSocket[] = [];
 
   const http = () => served(app);
 
-  const base = () =>
-    `ws://127.0.0.1:${((app.getHttpServer() as Server).address() as { port: number }).port}`;
+  const base = () => `ws://127.0.0.1:${addressOf(httpServerOf(app)).port}`;
 
   const socket = (path: string, headers: Record<string, string> = {}) => {
     const each = new WebSocket(`${base()}${path}`, { headers });
@@ -73,7 +74,7 @@ describe('sandbox editors (e2e)', () => {
     readonly sandboxId: string;
   }
 
-  const owner = () => ({ [TEST_USER_HEADER]: team.owner.value });
+  const owner = () => ({ [TEST_USER_HEADER]: present(team).owner.value });
 
   const asking = (
     body: Record<string, string>,
@@ -86,14 +87,12 @@ describe('sandbox editors (e2e)', () => {
   ) => http().get('/api/editor-connections').query(query).set(headers);
 
   const connected = async (query: Record<string, string>) =>
-    ((await reading(query).expect(200)).body as { connected: boolean })
-      .connected;
+    bodyOf<{ connected: boolean }>(await reading(query).expect(200)).connected;
 
   const lease = async (
     body: Record<string, string> = { task: taskId() },
     headers?: Record<string, string>,
-  ): Promise<Ticket> =>
-    (await asking(body, headers).expect(201)).body as Ticket;
+  ): Promise<Ticket> => bodyOf<Ticket>(await asking(body, headers).expect(201));
 
   const editor = (ticket: Ticket, headers: Record<string, string> = owner()) =>
     socket(
@@ -101,7 +100,7 @@ describe('sandbox editors (e2e)', () => {
       headers,
     );
 
-  const taskId = () => team.list.id.value;
+  const taskId = () => present(team).list.id.value;
 
   const sandboxOf = async (key: string) => {
     const rows = await db
@@ -142,7 +141,7 @@ describe('sandbox editors (e2e)', () => {
             : null;
         },
         readBearer: async (token): Promise<AuthenticatedUser | null> =>
-          token === LOGIN && team
+          token === LOGIN && team !== undefined
             ? {
                 id: team.owner.value,
                 email: 'ada@example.com',
@@ -161,9 +160,9 @@ describe('sandbox editors (e2e)', () => {
     poolToken = tokenOf('e');
     await http()
       .post(
-        `/api/v1/resources/workspaces/${team.workspaceId.value}/runner-pools`,
+        `/api/v1/resources/workspaces/${present(team).workspaceId.value}/runner-pools`,
       )
-      .set(TEST_USER_HEADER, team.owner.value)
+      .set(TEST_USER_HEADER, present(team).owner.value)
       .set('Idempotency-Key', randomUUID())
       .send({ key: 'editors', token: poolToken })
       .expect(201);
@@ -182,12 +181,12 @@ describe('sandbox editors (e2e)', () => {
     }, 10_000);
     await db
       .delete(schema.sandbox)
-      .where(eq(schema.sandbox.workspaceId, team.workspaceId.value));
+      .where(eq(schema.sandbox.workspaceId, present(team).workspaceId.value));
   });
 
   afterAll(async () => {
-    await deleteRunnersOf(db, team.workspaceId.value);
-    await app?.close();
+    await deleteRunnersOf(db, present(team).workspaceId.value);
+    await app.close();
   });
 
   it('leases no sandbox with no session, for a person outside the workspace or another workspace, or without one task or one chat', async () => {
@@ -196,9 +195,12 @@ describe('sandbox editors (e2e)', () => {
       { task: taskId() },
       { [TEST_USER_HEADER]: randomUUID() },
     ).expect(404);
-    await asking({ workspace: team.slug }).expect(400);
+    await asking({ workspace: present(team).slug }).expect(400);
     await asking({ task: taskId(), chat: randomUUID() }).expect(400);
-    await asking({ task: taskId(), workspace: `not-${team.slug}` }).expect(404);
+    await asking({
+      task: taskId(),
+      workspace: `not-${present(team).slug}`,
+    }).expect(404);
     expect(await sandboxOf(`work/task-${taskId()}`)).toBeNull();
   });
 
@@ -208,19 +210,23 @@ describe('sandbox editors (e2e)', () => {
       { task: taskId() },
       { [TEST_USER_HEADER]: randomUUID() },
     ).expect(404);
-    await reading({ workspace: team.slug }).expect(400);
+    await reading({ workspace: present(team).slug }).expect(400);
     await reading({ task: taskId(), chat: randomUUID() }).expect(400);
-    await reading({ task: taskId(), workspace: `not-${team.slug}` }).expect(
-      404,
-    );
-    expect(await connected({ task: taskId(), workspace: team.slug })).toBe(
-      false,
-    );
+    await reading({
+      task: taskId(),
+      workspace: `not-${present(team).slug}`,
+    }).expect(404);
+    expect(
+      await connected({ task: taskId(), workspace: present(team).slug }),
+    ).toBe(false);
     expect(await sandboxOf(`work/task-${taskId()}`)).toBeNull();
   });
 
   it('refuses a socket with no session, another site’s page, no lease, an unknown lease, and a second socket on one lease', async () => {
-    const ticket = await lease({ task: taskId(), workspace: team.slug });
+    const ticket = await lease({
+      task: taskId(),
+      workspace: present(team).slug,
+    });
 
     expect(await refusal(editor(ticket, {}))).toBe(401);
     expect(
@@ -251,7 +257,7 @@ describe('sandbox editors (e2e)', () => {
 
   it('holds the task’s sandbox with an editor lease while connected, with a session or a login token, and lets go on close', async () => {
     const cookie = editor(
-      await lease({ task: taskId(), workspace: team.slug }),
+      await lease({ task: taskId(), workspace: present(team).slug }),
     );
     await opening(cookie);
     const login = { authorization: `Bearer ${LOGIN}` };
@@ -282,7 +288,7 @@ describe('sandbox editors (e2e)', () => {
     await opening(tunnel);
     const asked = new Promise<Asked>((done) =>
       tunnel.once('message', (data: Buffer) =>
-        done(JSON.parse(data.toString()) as Asked),
+        done(parsedAs<Asked>(data.toString())),
       ),
     );
 
@@ -298,10 +304,10 @@ describe('sandbox editors (e2e)', () => {
       .set('Authorization', `Bearer ${poolToken}`)
       .send({ host, image: IMAGE })
       .expect(200);
-    const answer = claimed.body as {
+    const answer = bodyOf<{
       sandboxId: string;
       work: { kind: string };
-    };
+    }>(claimed);
     expect(answer.work.kind).toBe('sandbox');
     await heartbeat([answer.sandboxId]).expect(200);
 
@@ -325,14 +331,13 @@ describe('sandbox editors (e2e)', () => {
   });
 
   it('lets go of the editor lease when the upgrade itself fails', async () => {
-    const port = ((app.getHttpServer() as Server).address() as { port: number })
-      .port;
+    const port = addressOf(httpServerOf(app)).port;
     const ticket = await lease();
     const raw = connect(port, '127.0.0.1');
     raw.write(
       `GET /api/sandboxes/connect?sandbox=${ticket.sandboxId}&holder=${ticket.holder} HTTP/1.1\r\n` +
         `Host: 127.0.0.1:${port}\r\n` +
-        `${TEST_USER_HEADER}: ${team.owner.value}\r\n` +
+        `${TEST_USER_HEADER}: ${present(team).owner.value}\r\n` +
         'Upgrade: websocket\r\nConnection: Upgrade\r\n\r\n',
     );
     const answer = await new Promise<string>((done) =>

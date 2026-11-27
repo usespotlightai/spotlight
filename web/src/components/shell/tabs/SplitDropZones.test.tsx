@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SplitDropZones } from '@/components/shell/tabs/SplitDropZones';
 import type { SplitSide } from '@/lib/app-tabs';
+import { partial } from '@/test/partial';
 
 const paneWidth = (width: number) =>
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width);
@@ -38,8 +39,12 @@ const resizedTo = (width: number) => {
   return (next = width) =>
     act(() =>
       observed(
-        [{ contentRect: { width: next } } as ResizeObserverEntry],
-        {} as ResizeObserver,
+        [
+          partial<ResizeObserverEntry>({
+            contentRect: partial<DOMRectReadOnly>({ width: next }),
+          }),
+        ],
+        partial<ResizeObserver>({}),
       ),
     );
 };

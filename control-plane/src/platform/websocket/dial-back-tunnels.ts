@@ -12,6 +12,7 @@ import {
   upgradeUrl,
 } from '@platform/websocket/upgrades';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { createWebSocketStream, type WebSocket, WebSocketServer } from 'ws';
 
 const PING_MS = 30_000;
@@ -113,7 +114,7 @@ export class DialBackTunnels {
     const local = this.openPeer(peer);
     const owner = local ? null : await this.ownerOf(peer);
 
-    if (!local && !owner) {
+    if (!local && !nonEmpty(owner)) {
       return null;
     }
 
@@ -143,7 +144,7 @@ export class DialBackTunnels {
             error ? failed(error) : sent(),
           ),
         );
-      } else if (owner) {
+      } else if (nonEmpty(owner)) {
         await this.directory.claimStream(stream);
 
         if (!(await this.directory.ask(owner, peer, asked))) {
@@ -166,7 +167,7 @@ export class DialBackTunnels {
   ): Promise<void> {
     const { refusals, logger } = this.options;
 
-    if (request.headers.origin) {
+    if (nonEmpty(request.headers.origin)) {
       refuseUpgrade(socket, 403, refusals.browser);
       return;
     }
@@ -188,7 +189,7 @@ export class DialBackTunnels {
         ? null
         : await this.directory.ownerOfStream(stream).catch(() => null);
 
-      if (owner && owner !== this.directory.address) {
+      if (nonEmpty(owner) && owner !== this.directory.address) {
         forwardUpgrade(request, socket, head, owner);
         return;
       }

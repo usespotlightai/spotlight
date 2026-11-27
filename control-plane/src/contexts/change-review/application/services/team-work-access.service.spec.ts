@@ -7,6 +7,7 @@ import { TeamWorkAccess } from '@change-review/application/services/team-work-ac
 import { TeamMembershipRequiredError } from '@change-review/domain/exceptions/team-membership-required.error';
 import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
 import { UnknownReviewError } from '@change-review/domain/exceptions/unknown-review.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -39,7 +40,7 @@ const access = (
       actsOnTeam: async () => over.actsOnTeam ?? over.member !== false,
       find: async () => ({ name: 'Ada', image: null }),
     },
-    {
+    partial<WorkPort>({
       run: async (): Promise<RunForReview | null> =>
         over.run === null
           ? null
@@ -74,7 +75,7 @@ const access = (
             },
       teamOfRun: async () =>
         over.ranFor === undefined ? TeamId.of('team_1') : over.ranFor,
-    } as unknown as WorkPort,
+    }),
   );
 
 const reviewing = (over: Parameters<typeof access>[0] = {}) =>

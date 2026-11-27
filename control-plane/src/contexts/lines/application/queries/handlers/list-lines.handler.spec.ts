@@ -6,6 +6,7 @@ import type {
 import type { SkillToolsPort } from '@lines/application/ports/skill-tools.port';
 import { ListLinesHandler } from '@lines/application/queries/handlers/list-lines.handler';
 import { ListLinesQuery } from '@lines/application/queries/list-lines.query';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const LINE_SEARCH = {
@@ -85,9 +86,9 @@ const reader = (result: LineDetail[]): LineReaderPort => ({
 });
 
 const access = (sees = true) =>
-  ({
+  partial<WorkspaceAccessPort>({
     inWorkspaceOfTeam: vi.fn().mockResolvedValue(sees ? {} : null),
-  }) as unknown as WorkspaceAccessPort;
+  });
 
 const skillTools = (known: Record<string, string[]> = {}): SkillToolsPort => ({
   ofTeam: vi.fn().mockResolvedValue(new Map(Object.entries(known))),

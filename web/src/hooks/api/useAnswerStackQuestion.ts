@@ -1,7 +1,11 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { changeStackKeys } from '@/hooks/api/useRunChangeStacks';
-import { answerStackQuestion } from '@/lib/api';
+import { answerStackQuestion, type QuestionAnswerResponseDto } from '@/lib/api';
 import { answeredIn, type ChangeStacks } from '@/lib/change-stack';
 
 type AnswerStackQuestionInput = {
@@ -13,7 +17,11 @@ type AnswerStackQuestionInput = {
 
 const LISTS = [changeStackKeys.ofRuns, changeStackKeys.ofTasks];
 
-export function useAnswerStackQuestion() {
+export function useAnswerStackQuestion(): UseMutationResult<
+  QuestionAnswerResponseDto,
+  Error,
+  AnswerStackQuestionInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

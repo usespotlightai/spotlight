@@ -7,18 +7,19 @@ import {
   storeBoardView,
   storedBoardView,
 } from '@/lib/board';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function useBoardView(
   lineId: string | undefined,
 ): [BoardView, (next: BoardView) => void] {
   const [params, setParams] = useSearchParams();
   const inUrl = params.get('view');
-  const view: BoardView = BOARD_VIEWS.some((each) => each.id === inUrl)
-    ? (inUrl as BoardView)
-    : storedBoardView(lineId ?? '');
+  const view: BoardView =
+    BOARD_VIEWS.find((each) => each.id === inUrl)?.id ??
+    storedBoardView(lineId ?? '');
 
   useEffect(() => {
-    if (lineId) {
+    if (nonEmpty(lineId)) {
       storeBoardView(lineId, view);
     }
   }, [lineId, view]);

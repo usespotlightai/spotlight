@@ -1,3 +1,5 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ToolDeclaration } from '@work/application/contracts/tools.contract';
@@ -28,7 +30,7 @@ describe('TeamIntegrations', () => {
       toolsOnAnyMark: nothing,
     });
 
-    const tools = await service.provided({ teamId: TEAM } as LineMap, [
+    const tools = await service.provided(partial<LineMap>({ teamId: TEAM }), [
       Tool.of('linear.comment'),
       Tool.of('pull-request'),
     ]);
@@ -47,9 +49,11 @@ describe('TeamIntegrations', () => {
       toolsOnAnyMark: nothing,
     });
 
-    const [tool] = await service.provided({ teamId: TEAM } as LineMap, [
-      Tool.of('linear.comment'),
-    ]);
+    const tool = firstOf(
+      await service.provided(partial<LineMap>({ teamId: TEAM }), [
+        Tool.of('linear.comment'),
+      ]),
+    );
 
     expect(tool?.inferredOutput).toEqual(inferredOutput);
   });
@@ -63,7 +67,7 @@ describe('TeamIntegrations', () => {
     });
 
     expect(
-      await service.provided({ teamId: TEAM } as LineMap, [
+      await service.provided(partial<LineMap>({ teamId: TEAM }), [
         Tool.of('pull-request'),
       ]),
     ).toEqual([]);
@@ -78,11 +82,14 @@ describe('TeamIntegrations', () => {
       toolsOnAnyMark: nothing,
     });
 
-    const tools = await service.toolsOnMarks({ teamId: TEAM } as LineMap, [
-      Mark.of('sentry.issue', '4507'),
-      Mark.of('sentry.issue', '4508'),
-      Mark.of('sentry.link', 'https://sentry.io/issues/4507/'),
-    ]);
+    const tools = await service.toolsOnMarks(
+      partial<LineMap>({ teamId: TEAM }),
+      [
+        Mark.of('sentry.issue', '4507'),
+        Mark.of('sentry.issue', '4508'),
+        Mark.of('sentry.link', 'https://sentry.io/issues/4507/'),
+      ],
+    );
 
     expect(tools.map((each) => each.value)).toEqual(['sentry.get-issue']);
     expect(toolsOnMarks).toHaveBeenCalledWith(TEAM, [
@@ -100,9 +107,9 @@ describe('TeamIntegrations', () => {
       toolsOnAnyMark: nothing,
     });
 
-    expect(await service.toolsOnMarks({ teamId: TEAM } as LineMap, [])).toEqual(
-      [],
-    );
+    expect(
+      await service.toolsOnMarks(partial<LineMap>({ teamId: TEAM }), []),
+    ).toEqual([]);
     expect(toolsOnMarks).not.toHaveBeenCalled();
   });
 
@@ -114,7 +121,9 @@ describe('TeamIntegrations', () => {
       toolsOnAnyMark,
     });
 
-    const tools = await service.toolsOnAnyMark({ teamId: TEAM } as LineMap);
+    const tools = await service.toolsOnAnyMark(
+      partial<LineMap>({ teamId: TEAM }),
+    );
 
     expect(tools.map((each) => each.value)).toEqual(['sentry.get-issue']);
     expect(toolsOnAnyMark).toHaveBeenCalledWith(TEAM);

@@ -6,6 +6,7 @@ import { PushEndpoint } from '@notifications/domain/value-objects/push-endpoint.
 import { PushKeys } from '@notifications/domain/value-objects/push-keys.vo';
 import { pushSubscription } from '@notifications/infrastructure/persistence/drizzle/schemas/push-subscription.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { and, eq } from 'drizzle-orm';
 
@@ -22,17 +23,17 @@ const toSubscription = (row: Row): PushSubscription =>
   });
 
 @Injectable()
-export class DrizzlePushSubscriptionRepository
-  implements PushSubscriptionRepository
-{
+export class DrizzlePushSubscriptionRepository implements PushSubscriptionRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async find(endpoint: PushEndpoint): Promise<PushSubscription | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(pushSubscription)
-      .where(eq(pushSubscription.endpoint, endpoint.url))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(pushSubscription)
+        .where(eq(pushSubscription.endpoint, endpoint.url))
+        .limit(1),
+    );
 
     return row ? toSubscription(row) : null;
   }

@@ -3,8 +3,13 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RequireAuth } from '@/components/shell/auth/RequireAuth';
-import { useSession } from '@/hooks/api/useSession';
+import { type SessionUser, useSession } from '@/hooks/api/useSession';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
+import { partial } from '@/test/partial';
+
+type SessionState = ReturnType<typeof useSession>;
+type WorkspacesState = ReturnType<typeof useWorkspaces>;
+type Workspace = NonNullable<WorkspacesState['data']>[number];
 
 vi.mock('@/hooks/api/useSession', () => ({ useSession: vi.fn() }));
 vi.mock('@/hooks/api/useWorkspaces', () => ({ useWorkspaces: vi.fn() }));
@@ -16,21 +21,27 @@ const mockSession = vi.mocked(useSession);
 const mockWorkspaces = vi.mocked(useWorkspaces);
 
 const signedIn = () =>
-  mockSession.mockReturnValue({
-    data: { user: { email: 'dev@example.com' } },
-    isPending: false,
-  } as never);
+  mockSession.mockReturnValue(
+    partial<SessionState>({
+      data: { user: partial<SessionUser>({ email: 'dev@example.com' }) },
+      isPending: false,
+    }),
+  );
 
 const owning = (count: number) =>
-  mockWorkspaces.mockReturnValue({
-    data: Array.from({ length: count }, (_, index) => ({
-      id: `ws_${index}`,
-      name: 'Acme',
-      slug: 'acme',
-    })),
-    isPending: false,
-    errorUpdateCount: 0,
-  } as never);
+  mockWorkspaces.mockReturnValue(
+    partial<WorkspacesState>({
+      data: Array.from({ length: count }, (_, index) =>
+        partial<Workspace>({
+          id: `ws_${index}`,
+          name: 'Acme',
+          slug: 'acme',
+        }),
+      ),
+      isPending: false,
+      errorUpdateCount: 0,
+    }),
+  );
 
 const renderAt = (path: string) =>
   render(
@@ -61,7 +72,9 @@ describe('RequireAuth', () => {
   });
 
   it('redirects to the login screen without a session', () => {
-    mockSession.mockReturnValue({ data: null, isPending: false } as never);
+    mockSession.mockReturnValue(
+      partial<SessionState>({ data: null, isPending: false }),
+    );
 
     renderAt('/');
 
@@ -70,7 +83,9 @@ describe('RequireAuth', () => {
   });
 
   it('renders neither while the session is still resolving', () => {
-    mockSession.mockReturnValue({ data: null, isPending: true } as never);
+    mockSession.mockReturnValue(
+      partial<SessionState>({ data: undefined, isPending: true }),
+    );
 
     renderAt('/');
 
@@ -80,11 +95,13 @@ describe('RequireAuth', () => {
 
   it('waits for the workspace list before deciding where to send anyone', () => {
     signedIn();
-    mockWorkspaces.mockReturnValue({
-      data: undefined,
-      isPending: true,
-      errorUpdateCount: 0,
-    } as never);
+    mockWorkspaces.mockReturnValue(
+      partial<WorkspacesState>({
+        data: undefined,
+        isPending: true,
+        errorUpdateCount: 0,
+      }),
+    );
 
     renderAt('/');
 
@@ -120,11 +137,13 @@ describe('RequireAuth', () => {
 
   it('does not send anyone to create a workspace when the list could not be loaded', () => {
     signedIn();
-    mockWorkspaces.mockReturnValue({
-      data: undefined,
-      isPending: false,
-      errorUpdateCount: 1,
-    } as never);
+    mockWorkspaces.mockReturnValue(
+      partial<WorkspacesState>({
+        data: undefined,
+        isPending: false,
+        errorUpdateCount: 1,
+      }),
+    );
 
     renderAt('/');
 

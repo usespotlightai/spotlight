@@ -2,17 +2,18 @@ import { generateKeyPairSync } from 'node:crypto';
 
 import { GitHubAppIdentity } from '@github/infrastructure/github/github-app.identity';
 import type { Env } from '@platform/config/env.schema';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 
-const env = {
+const env = partial<Env>({
   GITHUB_APP_ID: '1',
   GITHUB_APP_PRIVATE_KEY: privateKey.export({
     type: 'pkcs1',
     format: 'pem',
   }),
-} as Env;
+});
 
 const answering = (body: unknown, ok = true) =>
   vi

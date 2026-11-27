@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CustomSettingsPageDto } from '@/lib/api';
 import { CustomSettingsPage } from '@/routes/CustomSettingsPage';
+import { htmlElement } from '@/test/elements';
 
 const ELEMENT = 'x-custom-test-page';
 
@@ -80,7 +81,8 @@ const show = (at = '/w/acme/settings/custom/handbook') =>
     </MemoryRouter>,
   );
 
-const shownElement = () => document.querySelector(ELEMENT) as HTMLElement;
+const shownElement = (): HTMLElement =>
+  htmlElement(document.querySelector(ELEMENT));
 
 describe('CustomSettingsPage', () => {
   beforeEach(() => {

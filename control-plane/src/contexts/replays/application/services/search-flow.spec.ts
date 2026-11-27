@@ -48,17 +48,17 @@ import {
   aSet,
   endOf,
   FINGERPRINT,
+  JUDGE,
+  later,
   LIVE_FINGERPRINT,
   LIVE_HASHES,
-  later,
   measuresOf,
   NOW,
-  JUDGE,
   replayedAs,
   runIds,
-  STATION,
   sha256,
   slots,
+  STATION,
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
 import { tasksWithTaskCause } from '@replays/domain/services/reflected-tasks';
@@ -78,6 +78,7 @@ import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -430,10 +431,6 @@ const advancing = () =>
 const seeded = async (budget = BUDGET) => {
   const started = await start({ budget });
 
-  if (started.outcome !== 'started') {
-    throw new Error('the search did not start');
-  }
-
   await delivered();
   await replayed(started.seedReplayId, () => true, 0.5);
 
@@ -469,23 +466,19 @@ describe('a search’s iterations', () => {
 
     expect(search.current).toBe('searching');
     expect(search.iterations[0]?.current).toBe('running');
-    expect(order?.iteration).toBe(1);
-    expect(order?.agent.harness).toBe('claude-code');
-    expect(order?.briefing).toContain('spotlight history --station build');
-    expect(order?.briefing).toContain('spotlight candidate --name <name>');
-    expect(order?.briefing).toContain('3 more tasks you never see');
-    expect(order?.briefing).toContain('at most 2 candidates');
+    expect(order.iteration).toBe(1);
+    expect(order.agent.harness).toBe('claude-code');
+    expect(order.briefing).toContain('spotlight history --station build');
+    expect(order.briefing).toContain('spotlight candidate --name <name>');
+    expect(order.briefing).toContain('3 more tasks you never see');
+    expect(order.briefing).toContain('at most 2 candidates');
     for (const heldOut of search.split.heldOut) {
-      expect(order?.briefing).not.toContain(heldOut.taskId.value);
+      expect(order.briefing).not.toContain(heldOut.taskId.value);
     }
   });
 
   it('is stopped when its search policy is turned off while seeding: its seed replay stops and its agent never runs', async () => {
     const started = await start();
-
-    if (started.outcome !== 'started') {
-      throw new Error('the search did not start');
-    }
 
     await turnedOff();
     await delivered();
@@ -497,10 +490,6 @@ describe('a search’s iterations', () => {
 
   it('stops as station-gone, never running its agent, when its station left its line before its seed ended', async () => {
     const started = await start();
-
-    if (started.outcome !== 'started') {
-      throw new Error('the search did not start');
-    }
 
     await delivered();
     suppliers.lines.station = async () => null;
@@ -604,10 +593,6 @@ describe('a stalled search looking into why', () => {
   ) => {
     const started = await start({ budget });
 
-    if (started.outcome !== 'started') {
-      throw new Error('the search did not start');
-    }
-
     await delivered();
     await replayed(started.seedReplayId, (original) => !failing(original), 0.5);
     await runEnds(activeRun(), 'failed');
@@ -615,9 +600,9 @@ describe('a stalled search looking into why', () => {
   };
 
   const searchedAt = (at: number) => {
-    const entry = theSearch().split.searched[at];
+    const entry = theSearch().split.searched.find((_, place) => place === at);
 
-    if (!entry) {
+    if (entry === undefined) {
       throw new Error(`no searched task ${at}`);
     }
 
@@ -658,9 +643,9 @@ describe('a stalled search looking into why', () => {
       searchedAt(0).taskId,
       searchedAt(1).taskId,
     ]);
-    expect(order?.briefing).toContain(`| \`${searchedAt(0).taskId.value}\` |`);
+    expect(order.briefing).toContain(`| \`${searchedAt(0).taskId.value}\` |`);
     for (const heldOut of theSearch().split.heldOut) {
-      expect(order?.briefing).not.toContain(heldOut.taskId.value);
+      expect(order.briefing).not.toContain(heldOut.taskId.value);
       await expect(
         cause(run, heldOut.taskId.value, 'task'),
       ).rejects.toMatchObject({ kind: 'not-found' });
@@ -752,14 +737,14 @@ describe('a stalled search looking into why', () => {
 
     const set = [...memory.sets.values()][0];
 
-    await refreshingFor(memory, suppliers).refreshBefore(set?.id);
+    await refreshingFor(memory, suppliers).refreshBefore(set.id);
 
     const refreshed = [...memory.sets.values()][0];
 
-    expect(refreshed?.entries.map((each) => each.taskId.value)).not.toContain(
+    expect(refreshed.entries.map((each) => each.taskId.value)).not.toContain(
       searchedAt(0).taskId.value,
     );
-    expect(refreshed?.entries.map((each) => each.taskId.value)).toContain(
+    expect(refreshed.entries.map((each) => each.taskId.value)).toContain(
       searchedAt(1).taskId.value,
     );
   });
@@ -1016,10 +1001,6 @@ describe('SearchVisibilities', () => {
     });
     const started = await start();
 
-    if (started.outcome !== 'started') {
-      throw new Error('the search did not start');
-    }
-
     await delivered();
     const seed = memory.replays.get(started.seedReplayId);
 
@@ -1039,7 +1020,7 @@ describe('SearchVisibilities', () => {
     const reserved = seed.reserving(slots(seed.entries.length), runIds());
     await memory.replayRepository.save(
       reserved.entries.reduce((held, entry, at) => {
-        const run = entry.run as RunId;
+        const run = present(entry.run);
 
         return held
           .confirm(run, FINGERPRINT, NOW)
@@ -1124,7 +1105,7 @@ describe('DeleteSearches', () => {
       (each): each is SearchDeleted => each instanceof SearchDeleted,
     );
 
-    expect(deleted?.runToCancel?.value).toBe(run);
+    expect(deleted.runToCancel?.value).toBe(run);
     await deleting().cancelRunOf(deleted);
     expect(suppliers.dispatch.cancelledSearchRuns).toEqual([run]);
   });
@@ -1193,11 +1174,11 @@ describe('AdvanceSearches', () => {
     const replay = memory.replays.get(proposed.replayId);
 
     await memory.replayRepository.save(
-      replayedAs(replay as never, () => 'completed', 0.5),
+      replayedAs(present(replay), () => 'completed', 0.5),
     );
     memory.events.splice(0);
     suppliers.dispatch.runStatuses.set(first, {
-      run: theSearch().activeRun as never,
+      run: present(theSearch().activeRun),
       phase: 'ended',
       failed: false,
       started: true,
@@ -1209,15 +1190,15 @@ describe('AdvanceSearches', () => {
 
     const iteration = theSearch().iterations[0];
 
-    expect(iteration?.current).toBe('ended');
-    expect(iteration?.proposals[0]?.replay.end).toBe('finished');
-    expect(iteration?.agentSpent?.unpriced).toBe(1);
+    expect(iteration.current).toBe('ended');
+    expect(iteration.proposals[0].replay.end).toBe('finished');
+    expect(iteration.agentSpent?.unpriced).toBe(1);
     expect(theSearch().iterations).toHaveLength(2);
 
     const second = theSearch().activeRun;
 
     suppliers.dispatch.runStatuses.set(second?.value ?? '', {
-      run: second as never,
+      run: present(second),
       phase: 'queued',
       failed: true,
       started: false,
@@ -1249,7 +1230,7 @@ describe('AdvanceSearches', () => {
     const first = activeRun();
 
     suppliers.dispatch.runStatuses.set(first, {
-      run: theSearch().activeRun as never,
+      run: present(theSearch().activeRun),
       phase: 'queued',
       failed: true,
       started: false,

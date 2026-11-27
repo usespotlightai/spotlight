@@ -2,9 +2,12 @@ const MAX_TOOL_OUTPUT = 16_000;
 
 const NOTHING = 'null';
 
+const stringified = (value: unknown): string | undefined =>
+  JSON.stringify(value);
+
 const jsonOf = (answer: unknown): string | null => {
   try {
-    return JSON.stringify(answer ?? null) ?? null;
+    return stringified(answer ?? null) ?? null;
   } catch {
     return null;
   }

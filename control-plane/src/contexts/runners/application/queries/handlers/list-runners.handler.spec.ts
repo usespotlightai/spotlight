@@ -14,6 +14,7 @@ import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -116,9 +117,9 @@ const listing = (
   const readyToRun = vi.fn().mockResolvedValue(input.readyToRun ?? false);
 
   const handler = new ListRunnersHandler(
-    {
+    partial<WorkspaceAccessPort>({
       inWorkspace: vi.fn().mockResolvedValue(membership),
-    } as unknown as WorkspaceAccessPort,
+    }),
     {
       inWorkspace,
       hostsIn,
@@ -130,7 +131,7 @@ const listing = (
       hasPlatformRunners: vi.fn(),
       hasEgressCapableRunner: vi.fn(),
     },
-    { aliveInWorkspace } as unknown as RunnerRepository,
+    partial<RunnerRepository>({ aliveInWorkspace }),
     { lastRanIn },
     clock(),
   );
@@ -351,7 +352,8 @@ describe('ListRunnersHandler', () => {
         idleSandbox({ id: each, key: null, warmLineId: 'line_1' }),
       ),
     });
-    const [onHost] = fleet?.hosts ?? [];
+    const hosts = fleet?.hosts ?? [];
+    const onHost = hosts.length > 0 ? hosts[0] : undefined;
 
     expect(onHost).toEqual(
       expect.objectContaining({ slotsTaken: 6, slotsOffered: 0 }),

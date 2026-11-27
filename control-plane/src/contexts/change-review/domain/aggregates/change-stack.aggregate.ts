@@ -235,9 +235,10 @@ export class ChangeStack
       throw InvalidChangeStackError.because(PUSHED_OUTSIDE_TASK);
     }
 
-    const repository = input.repository?.trim()
-      ? RepositoryName.of(input.repository)
-      : null;
+    const repository =
+      input.repository !== null && input.repository.trim() !== ''
+        ? RepositoryName.of(input.repository)
+        : null;
     const previous = PreviousStack.chosenFrom(input.taskStacks ?? [], {
       id: input.id,
       taskId: owner.taskId,
@@ -253,7 +254,9 @@ export class ChangeStack
       input.workspaceId,
       input.owner,
       repository,
-      input.base?.trim() ? baseOf(input.base) : null,
+      input.base !== null && input.base.trim() !== ''
+        ? baseOf(input.base)
+        : null,
       input.diff,
       input.facts,
       [],

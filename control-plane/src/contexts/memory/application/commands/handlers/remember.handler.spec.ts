@@ -1,5 +1,6 @@
 import { RememberHandler } from '@memory/application/commands/handlers/remember.handler';
 import { RememberCommand } from '@memory/application/commands/remember.command';
+import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
 import { ReadProposedMemoryHandler } from '@memory/application/queries/handlers/read-proposed-memory.handler';
 import { ReadProposedMemoryQuery } from '@memory/application/queries/read-proposed-memory.query';
@@ -11,6 +12,7 @@ import type { DuplicateCheckRepository } from '@memory/domain/repositories/dupli
 import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -42,7 +44,7 @@ const LEASED: LeasedRun = {
 const remembering = (run: LeasedRun | null = LEASED) => {
   const added: MemoryProposalSet[] = [];
   let ids = 0;
-  const work = {
+  const work = partial<WorkPort>({
     leasedBy: async () => run,
     task: async () => ({
       id: TASK,
@@ -52,9 +54,9 @@ const remembering = (run: LeasedRun | null = LEASED) => {
     }),
     stationContextOf: async () => ({
       teamId: TEAM,
-      lineId: 'line_1',
+      lineId: LineId.of('line_1'),
       lineName: 'Delivery',
-      stationId: 'station_1',
+      stationId: StationId.of('station_1'),
       stationName: 'Build',
       repositories: [Repository.of('acme/api')],
     }),
@@ -63,18 +65,18 @@ const remembering = (run: LeasedRun | null = LEASED) => {
     ],
     notesOf: async () => [],
     harnessOf: async () => 'claude-code',
-  } as unknown as WorkPort;
+  });
 
   const handler = new RememberHandler(
     new RunProposing(
       new RunnerMemoryLoader(work),
       work,
-      {
+      partial<MemoryProposalSetRepository>({
         forTask: async () => null,
         add: async (set: MemoryProposalSet) => {
           added.push(set);
         },
-      } as unknown as MemoryProposalSetRepository,
+      }),
       { inTransaction: <T>(each: () => Promise<T>) => each() },
       {
         generate: () => {
@@ -84,19 +86,19 @@ const remembering = (run: LeasedRun | null = LEASED) => {
       },
       { now: () => NOW, sleep: async () => undefined },
     ),
-    {} as MemoryRepository,
+    partial<MemoryRepository>({}),
   );
 
   const reading = new ReadProposedMemoryHandler(
     new RunnerMemoryLoader(work),
-    {
+    partial<MemoryProposalSetRepository>({
       forTask: async () => added[added.length - 1] ?? null,
-    } as unknown as MemoryProposalSetRepository,
+    }),
     new MemoryReviews(
       work,
-      { find: async () => null } as never,
-      { findAll: async () => [] } as unknown as MemoryRepository,
-      { of: async () => null } as unknown as DuplicateCheckRepository,
+      partial<PeoplePort>({ find: async () => null }),
+      partial<MemoryRepository>({ findAll: async () => [] }),
+      partial<DuplicateCheckRepository>({ of: async () => null }),
     ),
   );
 

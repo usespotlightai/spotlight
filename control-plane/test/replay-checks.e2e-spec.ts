@@ -5,7 +5,6 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
-import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
@@ -23,9 +22,12 @@ import {
   WORKING_COPY_ARCHIVE_STORE,
   type WorkingCopyArchiveStorePort,
 } from '@runs/application/ports/working-copy-archive-store.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   ATTACHMENT_STORE,
@@ -43,6 +45,7 @@ import {
   served,
   TEST_USER_HEADER,
 } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
 import { deleteRunnersOf } from './support/runners';
@@ -66,12 +69,12 @@ const LIVE_CHECK = {
   minGain: 0.05,
 };
 
-const attachmentStore = {
+const attachmentStore = partial<AttachmentStorePort>({
   received: async () => [],
   stored: async () => true,
   taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
-} as unknown as AttachmentStorePort;
+});
 
 const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
@@ -124,7 +127,9 @@ const bearing = (token: string) => ({
       .set('Authorization', `Bearer ${token}`)
       .set('Spotlight-Client', 'cli/1.2.3');
 
-    return (key ? request.set('Idempotency-Key', key) : request).send(body);
+    return (nonEmpty(key) ? request.set('Idempotency-Key', key) : request).send(
+      body,
+    );
   },
   delete: (path: string) =>
     http().delete(path).set('Authorization', `Bearer ${token}`),
@@ -165,9 +170,11 @@ interface CheckRead {
   attempt: number;
   candidateId: string;
   scoringPinnedToLive: string[];
+  reused?: boolean;
   threshold: {
     maxRegressions: number;
     ceiling: { amount: number; currency: string };
+    unpricedRun?: { amount: number; currency: string } | null;
   };
   taskCount: number;
   compared: number;
@@ -265,8 +272,9 @@ const createSet = (runs: readonly string[]) =>
   keptSet(app, { workspaceId: team.workspaceId.value, stationId: BUILD }, runs);
 
 const readCheck = async (id: string, token = readToken): Promise<CheckRead> =>
-  (await bearing(token).get(`${teamPath()}/replay-checks/${id}`).expect(200))
-    .body as CheckRead;
+  bodyOf<CheckRead>(
+    await bearing(token).get(`${teamPath()}/replay-checks/${id}`).expect(200),
+  );
 
 const replayStarted = (replayId: string) =>
   eventually(
@@ -281,11 +289,11 @@ const replayStarted = (replayId: string) =>
   );
 
 const startCheck = async (station: unknown): Promise<CheckRead> => {
-  const started = (
+  const started = bodyOf<CheckRead>(
     await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody(station))
-      .expect(201)
-  ).body as CheckRead;
+      .expect(201),
+  );
 
   await replayStarted(started.replayId);
 
@@ -490,7 +498,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 describe('a replay check', () => {
@@ -606,10 +614,12 @@ describe('a replay check', () => {
     expect(check).not.toHaveProperty('replayUrl');
     expect(check.tasks).toHaveLength(3);
 
-    const [candidate] = await db
-      .select()
-      .from(schema.replayCandidate)
-      .where(eq(schema.replayCandidate.id, check.candidateId));
+    const candidate = firstOf(
+      await db
+        .select()
+        .from(schema.replayCandidate)
+        .where(eq(schema.replayCandidate.id, check.candidateId)),
+    );
     expect(candidate?.kind).toBe('planned');
     expect(candidate?.name).toBe('Planned change, PR #42');
     expect(candidate?.referenceCommit).toBe(COMMIT);
@@ -629,10 +639,12 @@ describe('a replay check', () => {
       ceilingAmount: 4,
       ceilingCurrency: 'USD',
     });
-    const [baseline] = await db
-      .select()
-      .from(schema.replay)
-      .where(eq(schema.replay.id, await baselineOf(check)));
+    const baseline = firstOf(
+      await db
+        .select()
+        .from(schema.replay)
+        .where(eq(schema.replay.id, await baselineOf(check))),
+    );
     expect(baseline?.baseline).toBe(true);
 
     await db
@@ -671,13 +683,9 @@ describe('a replay check', () => {
     }>;
     expect(elsewhere.body).toMatchObject({ reused: false });
     expect(elsewhere.body.id).not.toBe(check.id);
-    const fresh = check as CheckRead & {
-      reused: boolean;
-      threshold: { unpricedRun: { amount: number; currency: string } };
-    };
-    expect(fresh.reused).toBe(false);
-    expect(fresh.threshold.unpricedRun.currency).toBe('USD');
-    expect(fresh.threshold.unpricedRun.amount).toBeCloseTo(4 / 3, 5);
+    expect(check.reused).toBe(false);
+    expect(check.threshold.unpricedRun?.currency).toBe('USD');
+    expect(check.threshold.unpricedRun?.amount).toBeCloseTo(4 / 3, 5);
 
     const key = randomUUID();
     const once = (await bearing(planToken)
@@ -814,7 +822,7 @@ describe('a replay check', () => {
       check: 'npm test',
       passesTo: ['ship'],
     };
-    const imaged = (
+    const imaged = bodyOf<CheckRead>(
       await bearing(planToken)
         .post(`${teamPath()}/replay-checks`, {
           ...checkBody({ ...live, runners: ['gpu'] }),
@@ -828,14 +836,16 @@ describe('a replay check', () => {
             ],
           },
         })
-        .expect(201)
-    ).body as CheckRead;
+        .expect(201),
+    );
 
     expect(imaged.scoringPinnedToLive).toEqual(['runners']);
-    const [candidate] = await db
-      .select()
-      .from(schema.replayCandidate)
-      .where(eq(schema.replayCandidate.id, imaged.candidateId));
+    const candidate = firstOf(
+      await db
+        .select()
+        .from(schema.replayCandidate)
+        .where(eq(schema.replayCandidate.id, imaged.candidateId)),
+    );
     expect(candidate?.lineFields).toEqual({
       repositories: [
         { name: 'acme/api', setup: 'npm ci', image: 'ghcr.io/acme/api:next' },
@@ -906,10 +916,12 @@ describe('a replay check', () => {
     const baseline = await baselineOf(check);
 
     await eventually(async () => {
-      const [row] = await db
-        .select()
-        .from(schema.replayCheck)
-        .where(eq(schema.replayCheck.id, check.id));
+      const row = firstOf(
+        await db
+          .select()
+          .from(schema.replayCheck)
+          .where(eq(schema.replayCheck.id, check.id)),
+      );
 
       return row?.baseline === 'found';
     });
@@ -929,8 +941,9 @@ describe('a replay check', () => {
       .get(`${teamPath()}/replay-sets/${keptSetId}/replay-checks`)
       .expect(404);
 
-    const lines = (await owner().get(`${teamPath()}/lines`).expect(200))
-      .body as { id: string; replayCheck: unknown }[];
+    const lines = bodyOf<{ id: string; replayCheck: unknown }[]>(
+      await owner().get(`${teamPath()}/lines`).expect(200),
+    );
     expect(lines.find((each) => each.id === DELIVERY)?.replayCheck).toEqual(
       LIVE_CHECK,
     );
@@ -940,10 +953,11 @@ describe('a replay check', () => {
 describe('a stored replay check', () => {
   it('keeps the search replays it reuses, and no replay of its own when they cover every run', async () => {
     const checks = app.get(DrizzleReplayCheckRepository);
-    const set = (await app
-      .get(DrizzleReplaySetRepository)
-      .find(ReplaySetId.of(keptSetId))) as ReplaySet;
-    const [first, ...rest] = set.runs as [RunId, ...RunId[]];
+    const set = present(
+      await app.get(DrizzleReplaySetRepository).find(ReplaySetId.of(keptSetId)),
+    );
+    const first = present(firstOf(set.runs));
+    const rest = set.runs.slice(1);
     const reused = ReusedReplays.of({
       seed: ReplayId.of(randomUUID()),
       parts: [

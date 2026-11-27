@@ -11,6 +11,7 @@ import {
 } from '@insights/infrastructure/persistence/drizzle/mappers/run-parts.mapper';
 import type { runFact } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -85,12 +86,14 @@ export const factOfRow = (row: RunFactRow): RunFact => {
     memories: memoriesOf(parts),
     opening: row.taskOpenedAt
       ? {
-          by: row.openedById ? UserId.of(row.openedById) : null,
+          by: nonEmpty(row.openedById) ? UserId.of(row.openedById) : null,
           at: row.taskOpenedAt,
         }
       : null,
     pullRequest:
-      row.pullRequest && row.pullRequestState && row.pullRequestOpenedAt
+      nonEmpty(row.pullRequest) &&
+      row.pullRequestState &&
+      row.pullRequestOpenedAt
         ? {
             pullRequest: PullRequestUrl.of(row.pullRequest),
             state: row.pullRequestState,

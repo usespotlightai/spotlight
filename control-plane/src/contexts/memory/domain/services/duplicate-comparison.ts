@@ -11,6 +11,7 @@ import {
 import { DuplicateVerdict } from '@memory/domain/value-objects/duplicate-verdict.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import type { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 /** The most memories one proposal is compared with: the most specific to where it applies, then the newest. */
@@ -81,9 +82,9 @@ export const checkFor = (input: {
   runId: RunId;
   now: Date;
 }): DuplicateCheck | null => {
-  const [first] = input.set.comparableIn(input.runId);
+  const first = firstOf(input.set.comparableIn(input.runId));
 
-  return first
+  return first !== undefined
     ? DuplicateCheck.due({
         runId: input.runId,
         workspaceId: input.set.workspaceId,

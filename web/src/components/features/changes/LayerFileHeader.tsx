@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type { LayerFile } from '@/lib/change-stack';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 const STATUS: Record<LayerFile['file']['status'], string | null> = {
@@ -55,7 +56,7 @@ export function LayerFileHeader({
           )}
         />
         <span className="min-w-0 truncate font-medium text-foreground">
-          {file.previousPath && (
+          {nonEmpty(file.previousPath) && (
             <span className="text-muted-foreground">
               {file.previousPath} →{' '}
             </span>
@@ -63,7 +64,9 @@ export function LayerFileHeader({
           {file.path}
         </span>
 
-        {status && <span className="shrink-0 text-faint">{status}</span>}
+        {nonEmpty(status) && (
+          <span className="shrink-0 text-faint">{status}</span>
+        )}
       </button>
 
       <div className="flex shrink-0 items-center gap-1 pr-3">

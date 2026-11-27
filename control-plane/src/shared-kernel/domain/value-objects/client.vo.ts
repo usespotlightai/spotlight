@@ -1,9 +1,15 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 const VERSIONED =
   /^(terraform-provider|cli)\/([0-9A-Za-z][0-9A-Za-z.+-]{0,63})$/;
 
 const WEB = 'web';
 
 export type ClientKind = 'terraform-provider' | 'cli' | 'web' | 'unknown';
+
+const isVersionedKind = (
+  kind: string | undefined,
+): kind is 'terraform-provider' | 'cli' =>
+  kind === 'terraform-provider' || kind === 'cli';
 
 export class Client {
   private constructor(
@@ -18,14 +24,14 @@ export class Client {
       return new Client('web', null);
     }
 
-    const versioned = VERSIONED.exec(value);
+    const [, kind, version] = VERSIONED.exec(value) ?? [];
 
-    return versioned
-      ? new Client(versioned[1] as ClientKind, versioned[2])
+    return isVersionedKind(kind)
+      ? new Client(kind, version)
       : new Client('unknown', null);
   }
 
   toString(): string {
-    return this.version ? `${this.kind}/${this.version}` : this.kind;
+    return nonEmpty(this.version) ? `${this.kind}/${this.version}` : this.kind;
   }
 }

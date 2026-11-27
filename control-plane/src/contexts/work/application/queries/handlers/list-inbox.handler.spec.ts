@@ -1,3 +1,5 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { InboxItemDto } from '@work/application/dto/inbox.dto';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
@@ -104,7 +106,7 @@ const SCOPE: InboxScope = {
 };
 
 const access = (scope: InboxScope | null = SCOPE): WorkAccess =>
-  ({ inboxOf: vi.fn(async () => scope) }) as unknown as WorkAccess;
+  partial<WorkAccess>({ inboxOf: vi.fn(async () => scope) });
 
 const handle = (inbox: InboxReaderPort, seen = access()) =>
   new ListInboxHandler(inbox, seen).execute(
@@ -240,7 +242,7 @@ describe('ReadInboxItemHandler', () => {
     expect(found?.notes.map((each) => each.at)).toEqual([
       '2026-09-26T09:15:00.000Z',
     ]);
-    const [visit] = found?.folded ?? [];
+    const visit = firstOf(found?.folded ?? []);
 
     expect(visit?.first.at).toBe('2026-09-26T09:15:00.000Z');
     expect(visit?.endedAt).toBe('2026-09-26T09:20:00.000Z');

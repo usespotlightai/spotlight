@@ -1,17 +1,20 @@
 import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleSecretUseLocks } from '@secrets/infrastructure/persistence/drizzle/secret-use-locks';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const contextWith = (transacting: boolean) => {
-  const execute = vi.fn(async () => ({ rows: [] }));
+  const execute = vi.fn().mockResolvedValue({ rows: [] });
 
   return {
     execute,
-    locks: new DrizzleSecretUseLocks({
-      transacting,
-      db: { execute },
-    } as unknown as DrizzleContext),
+    locks: new DrizzleSecretUseLocks(
+      partial<DrizzleContext>({
+        transacting,
+        db: partial<DrizzleContext['db']>({ execute }),
+      }),
+    ),
   };
 };
 

@@ -13,7 +13,7 @@ export class ReplaySetId {
   }
 
   equals(other: ReplaySetId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof ReplaySetId && this.value === other.value;
   }
 
   toString(): string {

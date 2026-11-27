@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -21,19 +22,19 @@ const TASK = TaskId.of('task_1');
 
 const takingUp = (takesUp = true) => {
   const runs = recordingRuns();
-  const dispatches = {
+  const dispatches = partial<DispatchRepository>({
     find: async () => null,
-  } as unknown as DispatchRepository;
+  });
   const handler = new TakeUpAnsweredRun(
-    {
+    partial<TaskRepository>({
       find: async () =>
-        ({
+        partial<Task>({
           takesUp: () => takesUp,
           stationId: StationId.of('station_1'),
-        }) as unknown as Task,
-    } as unknown as TaskRepository,
+        }),
+    }),
     dispatches,
-    { findByStation: async () => null } as unknown as LineMapsPort,
+    partial<LineMapsPort>({ findByStation: async () => null }),
     resumingWith(runs, dispatches),
   );
 

@@ -15,6 +15,7 @@ import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/wor
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -69,10 +70,10 @@ export const holding = (...owners: readonly string[]): ArchiveHolders => {
 };
 
 export const runsOf = (...runs: readonly Run[]): RunRepository =>
-  ({
+  partial<RunRepository>({
     findById: async (id: RunId) =>
       runs.find((each) => each.id.equals(id)) ?? null,
-  }) as unknown as RunRepository;
+  });
 
 export class InMemoryArchives implements WorkingCopyArchiveRepository {
   readonly stored = new Map<string, WorkingCopyArchive>();

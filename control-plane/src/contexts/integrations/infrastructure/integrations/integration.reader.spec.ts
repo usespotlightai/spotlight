@@ -1,10 +1,12 @@
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import { defined } from '@integrations/integrations.definitions.fake-spec';
+import {
+  defined,
+  mappingOf,
+} from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { describe, expect, it } from 'vitest';
-import { parse as parseYaml } from 'yaml';
 
 const expressions = new CelExpressionEngine();
 
@@ -121,7 +123,7 @@ tools:
     const planned = (enabledOnMark: string) =>
       reader
         .enabledOnAnyMarkAsPlanned(
-          parseYaml(`${WHOLE}actions:
+          mappingOf(`${WHOLE}actions:
   get:
     request:
       method: GET
@@ -133,7 +135,7 @@ tools:
 ${enabledOnMark}    inputs:
       issue:
         required: true
-`) as Record<string, unknown>,
+`),
         )
         ?.map((each) => each.value);
 

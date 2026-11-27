@@ -10,6 +10,7 @@ import {
   sized,
   sizeProblem,
 } from '@/lib/attachment';
+import { partial } from '@/test/partial';
 
 describe('attachmentPath', () => {
   it('addresses the file within its workspace', () => {
@@ -69,20 +70,20 @@ describe('filesIn', () => {
   it('finds the files a drop or a paste carried', () => {
     const file = new File(['x'], 'notes.txt');
 
-    expect(filesIn({ files: [file] } as unknown as DataTransfer)).toEqual([
-      file,
-    ]);
+    expect(
+      filesIn(partial<DataTransfer>({ files: partial<FileList>([file]) })),
+    ).toEqual([file]);
   });
 
   it('finds a file that a drag carries only as an item', () => {
     const file = new File(['x'], 'shot.png', { type: 'image/png' });
-    const carried = {
-      files: [],
-      items: [
-        { kind: 'string', getAsFile: () => null },
-        { kind: 'file', getAsFile: () => file },
-      ],
-    } as unknown as DataTransfer;
+    const carried = partial<DataTransfer>({
+      files: partial<FileList>([]),
+      items: partial<DataTransferItemList>([
+        partial<DataTransferItem>({ kind: 'string', getAsFile: () => null }),
+        partial<DataTransferItem>({ kind: 'file', getAsFile: () => file }),
+      ]),
+    });
 
     expect(filesIn(carried)).toEqual([file]);
   });
@@ -90,12 +91,12 @@ describe('filesIn', () => {
 
 describe('carriesFiles', () => {
   it('tells a drag of files from a drag of text', () => {
-    expect(carriesFiles({ types: ['Files'] } as unknown as DataTransfer)).toBe(
+    expect(carriesFiles(partial<DataTransfer>({ types: ['Files'] }))).toBe(
       true,
     );
-    expect(
-      carriesFiles({ types: ['text/plain'] } as unknown as DataTransfer),
-    ).toBe(false);
+    expect(carriesFiles(partial<DataTransfer>({ types: ['text/plain'] }))).toBe(
+      false,
+    );
     expect(carriesFiles(null)).toBe(false);
   });
 });

@@ -67,6 +67,7 @@ import type {
 } from '@runs/domain/value-objects/working-copy-key.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -163,7 +164,7 @@ const orderProblem = (ordered: RunOrdered, spec: RunSpec): string | null => {
     ? null
     : actsBeyondItselfIn(spec.value);
 
-  return beyond ? `acts only on itself, yet ${beyond}` : null;
+  return nonEmpty(beyond) ? `acts only on itself, yet ${beyond}` : null;
 };
 
 export class Run extends EventRecorder {
@@ -233,7 +234,7 @@ export class Run extends EventRecorder {
     });
     const problem = orderProblem(ordered, input.spec);
 
-    if (problem) {
+    if (nonEmpty(problem)) {
       throw new InvalidRunOrderError(problem);
     }
 
@@ -498,7 +499,7 @@ export class Run extends EventRecorder {
     }
     const problem = orderProblem(input.ordered, input.spec);
 
-    if (problem) {
+    if (nonEmpty(problem)) {
       throw new InconsistentStateError('run', problem);
     }
     if (input.askedAPerson && input.ordered.policy.asks !== 'recorded') {

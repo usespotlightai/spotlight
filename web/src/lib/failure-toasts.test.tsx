@@ -6,10 +6,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { failuresToasted } from '@/lib/failure-toasts';
 import { withSentRequest } from '@/lib/request-failure';
 
-const added = vi.fn<(...args: unknown[]) => unknown>();
+type Shown = { type: string; title: string; description: ReactNode };
+
+const added = vi.fn<(shown: Shown) => unknown>();
 
 vi.mock('@/lib/toast', () => ({
-  toast: { add: (shown: unknown) => added(shown) },
+  toast: { add: (shown: Shown) => added(shown) },
 }));
 
 const failing = async (thrown: unknown, meta?: { quiet?: boolean }) => {
@@ -27,11 +29,7 @@ const failing = async (thrown: unknown, meta?: { quiet?: boolean }) => {
 };
 
 const shown = () => {
-  const toast = added.mock.calls[0]?.[0] as {
-    type: string;
-    title: string;
-    description: ReactNode;
-  };
+  const [toast] = added.mock.calls[0];
   render(<div>{toast.description}</div>);
   return toast;
 };

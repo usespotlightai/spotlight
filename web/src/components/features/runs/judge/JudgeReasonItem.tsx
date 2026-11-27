@@ -10,6 +10,7 @@ import {
   formatStep,
   type JudgeReason,
 } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 
 const keyOf = (citation: Citation): string =>
   citation.kind === 'step'
@@ -27,7 +28,9 @@ export function JudgeReasonItem({ reason }: JudgeReasonItemProps) {
     const key = keyOf(citation);
 
     if (citation.hunk) {
-      const reveal = citation.hunk.path ? targets.hunk(citation.hunk) : null;
+      const reveal = nonEmpty(citation.hunk.path)
+        ? targets.hunk(citation.hunk)
+        : null;
       const label = formatHunk(citation.hunk);
       const title = citation.hunk.path ?? undefined;
 

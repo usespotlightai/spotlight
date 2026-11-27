@@ -23,6 +23,9 @@ export function NestedTable({
   children,
 }: NestedTableProps) {
   const columns = useColumnWidths(headings.length);
+  const nestedColumns: CSSProperties & Record<`--${string}`, string> = {
+    '--nested-columns': columnTemplate(headings, columns.widths, trailing),
+  };
 
   return (
     <ScrollArea
@@ -32,15 +35,7 @@ export function NestedTable({
     >
       <div
         className="grid gap-x-6 text-sm @4xl:min-w-min @4xl:grid-cols-[var(--nested-columns)] @lg:group-data-compact/nested:min-w-min @lg:group-data-compact/nested:grid-cols-[var(--nested-columns)]"
-        style={
-          {
-            '--nested-columns': columnTemplate(
-              headings,
-              columns.widths,
-              trailing,
-            ),
-          } as CSSProperties
-        }
+        style={nestedColumns}
       >
         {headed && (
           <NestedHeadings

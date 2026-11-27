@@ -12,6 +12,7 @@ import { useNavigationRequests } from '@/hooks/useNavigationRequests';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { CustomSettingsPageDto } from '@/lib/api';
 import { CONTRACT_VERSION } from '@/lib/custom-settings-page-element';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed } from '@/lib/query';
 import type { Role } from '@/lib/role';
 import { seesCustomSettingsPage, workspaceGeneralPath } from '@/lib/settings';
@@ -72,7 +73,7 @@ export function CustomSettingsPage() {
   const pages = useCustomSettingsPages();
   const workspace = useWorkspace(slug);
 
-  if (!slug) {
+  if (!nonEmpty(slug)) {
     return null;
   }
 

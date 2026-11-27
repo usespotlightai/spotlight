@@ -5,8 +5,14 @@ import type { ReplayCheckPolicy } from '@lines/domain/value-objects/replay-check
 import type { ReviewPolicy } from '@lines/domain/value-objects/review-policy.vo';
 import type {
   ConfigSourceRow,
+  lineReaction,
+  lineRepository,
   ReplayCheckRow,
   ReviewsRow,
+  station,
+  stationRoute,
+  stationSkill,
+  stationTool,
 } from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
 import { stationSearchRow } from '@lines/infrastructure/persistence/drizzle/search-rows';
 
@@ -41,7 +47,7 @@ export const sourceRow = (
 ): ConfigSourceRow | null =>
   source ? { repository: source.repository.value, path: source.path } : null;
 
-export const routeRowsOf = (line: Line) =>
+export const routeRowsOf = (line: Line): (typeof stationRoute.$inferInsert)[] =>
   line.stations.flatMap((each) =>
     each.routes.stations.map((to) => ({
       stationId: each.id.value,
@@ -49,7 +55,7 @@ export const routeRowsOf = (line: Line) =>
     })),
   );
 
-export const toolRowsOf = (line: Line) =>
+export const toolRowsOf = (line: Line): (typeof stationTool.$inferInsert)[] =>
   line.stations.flatMap((each) =>
     each.tools.map((tool, position) => ({
       stationId: each.id.value,
@@ -58,7 +64,7 @@ export const toolRowsOf = (line: Line) =>
     })),
   );
 
-export const skillRowsOf = (line: Line) =>
+export const skillRowsOf = (line: Line): (typeof stationSkill.$inferInsert)[] =>
   line.stations.flatMap((each) =>
     each.skills.map((skill, position) => ({
       stationId: each.id.value,
@@ -67,7 +73,9 @@ export const skillRowsOf = (line: Line) =>
     })),
   );
 
-export const reactionRowsOf = (line: Line) =>
+export const reactionRowsOf = (
+  line: Line,
+): (typeof lineReaction.$inferInsert)[] =>
   line.reactions.map((each) => ({
     lineId: line.id.value,
     happening: each.happening.value,
@@ -75,7 +83,9 @@ export const reactionRowsOf = (line: Line) =>
     toStationId: each.to.value,
   }));
 
-export const repositoryRowsOf = (line: Line) =>
+export const repositoryRowsOf = (
+  line: Line,
+): (typeof lineRepository.$inferInsert)[] =>
   line.repositories.entries.map((each) => ({
     lineId: line.id.value,
     repository: each.repository.value,
@@ -83,7 +93,9 @@ export const repositoryRowsOf = (line: Line) =>
     setup: each.setup?.value ?? null,
   }));
 
-export const stationColumnsOf = (each: Station) => ({
+export const stationColumnsOf = (
+  each: Station,
+): Omit<typeof station.$inferInsert, 'id' | 'workspaceId' | 'lineId'> => ({
   key: each.key.value,
   name: each.name.value,
   position: each.position,

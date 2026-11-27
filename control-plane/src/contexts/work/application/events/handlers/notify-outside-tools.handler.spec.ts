@@ -1,4 +1,6 @@
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -91,15 +93,17 @@ const notifying = (
   const notify = vi.fn(async () => marks);
   const notifyRequest = vi.fn(async () => marks);
   const handler = new NotifyOutsideTools(
-    {
+    partial<TaskRepository>({
       find: async () => task,
       findByCorrelation: async () => (markedTask ? [markedTask] : []),
       owningPullRequest: async () => null,
       reviewingPullRequest: async () => null,
       holdingMark: async () => [],
       save,
-    } as unknown as TaskRepository,
-    { find: async () => request } as unknown as InboxRequestRepository,
+    }),
+    partial<InboxRequestRepository>({
+      find: async () => request,
+    }),
     { notify, notifyRequest } satisfies OutboundTaskNotifier,
     { inTransaction: (work) => work() } satisfies TransactionPort,
     { now: () => new Date('2026-09-17T10:00:00.000Z'), sleep: async () => {} },
@@ -231,7 +235,7 @@ describe('NotifyOutsideTools', () => {
       ),
     );
 
-    const [marked] = save.mock.calls.map(([each]) => each);
+    const marked = firstOf(save.mock.calls.map(([each]) => each));
     expect(save).toHaveBeenCalledTimes(1);
     expect(marked?.marks).toEqual([thread]);
     expect(marked?.pullEvents().map((each) => each.kind)).toContain(

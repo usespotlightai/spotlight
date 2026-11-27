@@ -7,6 +7,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { isOneOf } from '@/lib/one-of';
 import { nameOfRole, type Role } from '@/lib/role';
 
 type MemberRoleProps = {
@@ -46,7 +47,11 @@ export function MemberRole({
       <DropdownMenuContent align="end" sideOffset={6} className="min-w-36">
         <DropdownMenuRadioGroup
           value={role}
-          onValueChange={(next) => onChange(String(next) as Role)}
+          onValueChange={(next) => {
+            if (isOneOf(onOffer, next)) {
+              onChange(next);
+            }
+          }}
         >
           {onOffer.map((each) => (
             <DropdownMenuRadioItem key={each} value={each}>

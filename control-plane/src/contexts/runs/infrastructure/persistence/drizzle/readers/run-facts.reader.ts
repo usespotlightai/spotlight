@@ -14,6 +14,7 @@ import {
   runWait,
 } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import { workingCopyArchive } from '@runs/infrastructure/persistence/drizzle/schemas/working-copy-archive.schema';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import {
@@ -87,34 +88,38 @@ export class DrizzleRunFactsReader implements RunFactsReaderPort {
     team: TeamId,
     owner: string,
   ): Promise<RunId | null> {
-    const [row] = await this.context.db
-      .select({ id: run.id })
-      .from(run)
-      .where(
-        and(
-          eq(run.teamId, team.value),
-          eq(run.requesterOwner, owner),
-          eq(run.state, 'completed'),
-        ),
-      )
-      .orderBy(desc(run.createdAt), desc(run.id))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select({ id: run.id })
+        .from(run)
+        .where(
+          and(
+            eq(run.teamId, team.value),
+            eq(run.requesterOwner, owner),
+            eq(run.state, 'completed'),
+          ),
+        )
+        .orderBy(desc(run.createdAt), desc(run.id))
+        .limit(1),
+    );
 
     return row ? RunId.of(row.id) : null;
   }
 
   async newestArchiveOf(runId: RunId): Promise<WorkingCopyArchive | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(workingCopyArchive)
-      .where(
-        and(
-          eq(workingCopyArchive.grantedToRunId, runId.value),
-          isNotNull(workingCopyArchive.completedAt),
-        ),
-      )
-      .orderBy(desc(workingCopyArchive.completedAt))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(workingCopyArchive)
+        .where(
+          and(
+            eq(workingCopyArchive.grantedToRunId, runId.value),
+            isNotNull(workingCopyArchive.completedAt),
+          ),
+        )
+        .orderBy(desc(workingCopyArchive.completedAt))
+        .limit(1),
+    );
 
     return row ? toArchive(row) : null;
   }

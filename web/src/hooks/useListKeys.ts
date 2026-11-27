@@ -7,7 +7,7 @@ import { checkboxOf, focusedItem, focusNext } from '@/lib/list-focus';
 export function useListKeys(
   list: RefObject<HTMLElement | null>,
   onClear?: () => void,
-) {
+): void {
   const within = (act: (container: HTMLElement) => void) => () => {
     if (list.current) {
       act(list.current);

@@ -5,6 +5,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
+import { nonEmpty } from '@/lib/non-empty';
 import { pillClass } from '@/lib/pill';
 import { pullRequestOf } from '@/lib/pull-request-link';
 import {
@@ -30,7 +31,7 @@ export function TaskPullRequestPill({
         rel="noreferrer"
         data-slot="pull-request-pill"
         data-state={state ?? undefined}
-        aria-label={`Pull request ${number} in ${repository}${named ? `, ${named.toLowerCase()}` : ''}`}
+        aria-label={`Pull request ${number} in ${repository}${nonEmpty(named) ? `, ${named.toLowerCase()}` : ''}`}
         className={pillClass(
           'outline',
           'max-w-64 gap-1.5 px-2.5 font-normal text-sm',

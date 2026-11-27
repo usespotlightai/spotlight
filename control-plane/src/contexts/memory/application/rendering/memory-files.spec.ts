@@ -7,6 +7,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -58,19 +59,21 @@ const replacing = Memory.create({
 
 describe('memory files', () => {
   it('say what a memory contains, where it applies, where it came from and what it replaced', () => {
-    const [file] = memoryFilesOf([replacing], {
-      lines: [
-        {
-          id: LineId.of('line_1'),
-          name: 'Delivery',
-          stations: [{ id: StationId.of('station_1'), name: 'Build' }],
-          repositories: [],
-        },
-      ],
-      replaced: new Map([[old.id.value, old]]),
-      names: new Map([[ADA.value, 'Ada']]),
-      briefed: new Set(),
-    });
+    const file = firstOf(
+      memoryFilesOf([replacing], {
+        lines: [
+          {
+            id: LineId.of('line_1'),
+            name: 'Delivery',
+            stations: [{ id: StationId.of('station_1'), name: 'Build' }],
+            repositories: [],
+          },
+        ],
+        replaced: new Map([[old.id.value, old]]),
+        names: new Map([[ADA.value, 'Ada']]),
+        briefed: new Set(),
+      }),
+    );
 
     expect(file?.path).toBe(
       '.spotlight/memory/repositories/acme/api/src/uploads/M-18.md',
@@ -91,12 +94,14 @@ describe('memory files', () => {
   });
 
   it('say a person wrote one that cites no run', () => {
-    const [file] = memoryFilesOf([old], {
-      lines: [],
-      replaced: new Map(),
-      names: new Map(),
-      briefed: new Set(),
-    });
+    const file = firstOf(
+      memoryFilesOf([old], {
+        lines: [],
+        replaced: new Map(),
+        names: new Map(),
+        briefed: new Set(),
+      }),
+    );
 
     expect(file?.path).toBe('.spotlight/memory/team/M-7.md');
     expect(file?.body).toContain('- Applies to: the whole team');
@@ -131,15 +136,17 @@ describe('memory files', () => {
   });
 
   it('lay out what another station learned about the same repository apart, never as briefed', () => {
-    const [file] = memoryFilesOf(
-      [replacing],
-      {
-        lines: [],
-        replaced: new Map(),
-        names: new Map(),
-        briefed: new Set([replacing.id.value]),
-      },
-      true,
+    const file = firstOf(
+      memoryFilesOf(
+        [replacing],
+        {
+          lines: [],
+          replaced: new Map(),
+          names: new Map(),
+          briefed: new Set([replacing.id.value]),
+        },
+        true,
+      ),
     );
 
     expect(file?.path).toBe(

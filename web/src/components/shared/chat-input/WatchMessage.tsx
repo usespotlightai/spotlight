@@ -5,7 +5,7 @@ export function WatchMessage({
   onChange,
 }: {
   onChange: (written: Written) => void;
-}) {
+}): null {
   useWatchMessage(onChange);
 
   return null;

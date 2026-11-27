@@ -13,7 +13,7 @@ export class LineId {
   }
 
   equals(other: LineId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof LineId && this.value === other.value;
   }
 
   toString(): string {

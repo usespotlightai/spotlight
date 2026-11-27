@@ -17,6 +17,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -50,7 +52,7 @@ const progressOf = (row: Row): NetworkCallProgress => {
     };
   }
 
-  if (!row.claimedBy || !row.claimedAt) {
+  if (!nonEmpty(row.claimedBy) || !row.claimedAt) {
     throw new InconsistentStateError(
       'network call',
       `is ${row.state} by no host (${row.id})`,
@@ -64,7 +66,6 @@ const progressOf = (row: Row): NetworkCallProgress => {
   }
 
   if (
-    row.state !== 'answered' ||
     !row.respondedAt ||
     row.responseStatus === null ||
     row.responseMs === null
@@ -224,11 +225,13 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
   }
 
   async find(id: NetworkCallId): Promise<NetworkCall | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(networkCall)
-      .where(eq(networkCall.id, id.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(networkCall)
+        .where(eq(networkCall.id, id.value))
+        .limit(1),
+    );
 
     return row ? toCall(row) : null;
   }
@@ -274,19 +277,21 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
     workspaceId: WorkspaceId,
     now: Date,
   ): Promise<NetworkCall | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(networkCall)
-      .where(
-        and(
-          eq(networkCall.workspaceId, workspaceId.value),
-          eq(networkCall.state, 'waiting'),
-          gt(networkCall.expiresAt, now),
-        ),
-      )
-      .orderBy(asc(networkCall.queuedAt))
-      .limit(1)
-      .for('update', { skipLocked: true });
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(networkCall)
+        .where(
+          and(
+            eq(networkCall.workspaceId, workspaceId.value),
+            eq(networkCall.state, 'waiting'),
+            gt(networkCall.expiresAt, now),
+          ),
+        )
+        .orderBy(asc(networkCall.queuedAt))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
     return row ? toCall(row) : null;
   }

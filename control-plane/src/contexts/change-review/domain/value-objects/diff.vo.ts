@@ -1,5 +1,6 @@
 import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.error';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 
 const MAX_HUNKS = 2_000;
 
@@ -55,8 +56,10 @@ export const patchRowsOf = (
   header: string,
   lines: readonly string[],
 ): PatchRow[] => {
-  const [, oldStart, oldCount, newStart, newCount] =
-    HUNK_HEADER.exec(header) ?? [];
+  const counts = HUNK_HEADER.exec(header) ?? [];
+  const [oldStart, oldCount, newStart, newCount] = [1, 2, 3, 4].map((group) =>
+    itemAt(counts, group),
+  );
   let old = Number(oldStart ?? 0) - (Number(oldCount ?? 1) > 0 ? 1 : 0);
   let added = Number(newStart ?? 0) - (Number(newCount ?? 1) > 0 ? 1 : 0);
   const rows: {
@@ -67,7 +70,7 @@ export const patchRowsOf = (
   }[] = [];
 
   for (const line of lines) {
-    const last = rows[rows.length - 1];
+    const last = itemAt(rows, rows.length - 1);
 
     if (line.startsWith('\\')) {
       last?.lines.push(line);
@@ -139,7 +142,7 @@ const sameFile = (a: DiffFile, b: DiffFile): boolean =>
   a.binary === b.binary &&
   a.hunks.length === b.hunks.length &&
   a.hunks.every((hunk, at) => {
-    const other = b.hunks[at];
+    const other = itemAt(b.hunks, at);
     return other !== undefined && sameHunk(hunk, other);
   });
 
@@ -157,7 +160,7 @@ export const splitHunk = (
   const groups: [number, number][] = [];
 
   for (const at of changed) {
-    const open = groups[groups.length - 1];
+    const open = itemAt(groups, groups.length - 1);
 
     if (open && at - open[1] - 1 <= 2 * CONTEXT_LINES) {
       open[1] = at;
@@ -174,7 +177,7 @@ export const splitHunk = (
     const slice = rows.slice(from, to + 1);
     const oldLines = slice.filter((row) => row.sign !== '+').length;
     const newLines = slice.filter((row) => row.sign !== '-').length;
-    const start = slice[0] ?? rows[0];
+    const start = firstOf(slice) ?? firstOf(rows);
     const oldStart = (start?.old ?? 0) + (oldLines > 0 ? 1 : 0);
     const newStart = (start?.new ?? 0) + (newLines > 0 ? 1 : 0);
     const whole = from === 0 && to === rows.length - 1;
@@ -278,7 +281,7 @@ export class Diff {
     return (
       this.files.length === other.files.length &&
       this.files.every((file, at) => {
-        const theirs = other.files[at];
+        const theirs = itemAt(other.files, at);
         return theirs !== undefined && sameFile(file, theirs);
       })
     );

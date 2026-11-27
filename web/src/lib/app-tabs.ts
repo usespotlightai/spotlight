@@ -12,7 +12,10 @@ import { matchPath } from 'react-router';
 
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { inboxPath } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
+import { fieldOf, isRecord } from '@/lib/record';
 import { type Team, teamSectionPath } from '@/lib/team';
+import { isTrail } from '@/lib/trail';
 import { workspacePath } from '@/lib/workspace';
 
 export const APP_TABS_KEY = 'spotlight.tabs';
@@ -103,12 +106,12 @@ export const back = (
   tabs: AppTabs,
   id: string | undefined = tabs.activeId,
 ): AppTabs =>
-  !tabWith(tabs, id)?.back.length
+  (tabWith(tabs, id)?.back.length ?? 0) === 0
     ? tabs
     : changeTab(tabs, id, (tab) => {
         const previous = tab.back.at(-1);
 
-        return previous
+        return previous !== undefined
           ? {
               id: tab.id,
               title: tab.title,
@@ -126,12 +129,12 @@ export const forward = (
   tabs: AppTabs,
   id: string | undefined = tabs.activeId,
 ): AppTabs =>
-  !tabWith(tabs, id)?.forward.length
+  (tabWith(tabs, id)?.forward.length ?? 0) === 0
     ? tabs
     : changeTab(tabs, id, (tab) => {
-        const next = tab.forward[0];
+        const next = tab.forward.at(0);
 
-        return next
+        return next !== undefined
           ? {
               id: tab.id,
               title: tab.title,
@@ -166,7 +169,7 @@ const shownSideBySide = (
   splitId: string | undefined,
   splitSide: SplitSide = 'right',
 ): AppTabs =>
-  splitId && splitId !== activeId
+  nonEmpty(splitId) && splitId !== activeId
     ? { tabs, activeId, splitId, splitSide }
     : { tabs, activeId };
 
@@ -219,13 +222,13 @@ export const placed = (tabs: AppTabs, id: string, side: SplitSide): AppTabs => {
       ? (there ?? neighbourOf(tabs, id)?.id)
       : (panes[other] ?? tabs.activeId);
 
-  return stays ? shownSideBySide(tabs.tabs, id, stays, other) : tabs;
+  return nonEmpty(stays) ? shownSideBySide(tabs.tabs, id, stays, other) : tabs;
 };
 
 export const withoutPane = (tabs: AppTabs, side: SplitSide): AppTabs => {
   const kept = panesOf(tabs)[opposite(side)];
 
-  return kept ? shownSideBySide(tabs.tabs, kept, undefined) : tabs;
+  return nonEmpty(kept) ? shownSideBySide(tabs.tabs, kept, undefined) : tabs;
 };
 
 export const moved = (tabs: AppTabs, id: string, to: string): AppTabs => {
@@ -283,9 +286,11 @@ export const newTabPath = (
   from: string,
 ): string => {
   const here = teamIdAt(from);
-  const team = teams.find((each) => each.id === here) ?? teams[0];
+  const team = teams.find((each) => each.id === here) ?? teams.at(0);
 
-  return team ? teamSectionPath(slug, team.id, 'agent') : inboxPath(slug);
+  return team !== undefined
+    ? teamSectionPath(slug, team.id, 'agent')
+    : inboxPath(slug);
 };
 
 export const tabPathOf = (
@@ -322,7 +327,7 @@ const hrefAt = (target: Element | null, origin: string): string | null => {
 
   const path = holder?.getAttribute(LINK_ATTRIBUTE);
 
-  return path ? new URL(path, origin).href : null;
+  return nonEmpty(path) ? new URL(path, origin).href : null;
 };
 
 export const workspaceLinkAt = (
@@ -331,9 +336,12 @@ export const workspaceLinkAt = (
   slug: string,
 ): WorkspaceLink | null => {
   const href = hrefAt(target, origin);
-  const path = href && tabPathOf(href, origin, slug);
+  if (!nonEmpty(href)) {
+    return null;
+  }
+  const path = tabPathOf(href, origin, slug);
 
-  return path ? { href, path } : null;
+  return nonEmpty(path) ? { href, path } : null;
 };
 
 const TAB_ICONS: readonly (readonly [string, LucideIcon])[] = [
@@ -349,17 +357,8 @@ export const tabIconOf = (path: string): LucideIcon =>
   TAB_ICONS.find(([pattern]) => matchPath(pattern, pathnameOf(path)))?.[1] ??
   Package;
 
-const isTrail = (value: unknown): value is BreadcrumbSegment[] =>
-  Array.isArray(value) &&
-  value.every(
-    (crumb) =>
-      typeof crumb === 'object' &&
-      crumb !== null &&
-      typeof (crumb as BreadcrumbSegment).label === 'string',
-  );
-
 const trailOf = (state: unknown): BreadcrumbSegment[] | undefined => {
-  const trail = (state as { trail?: unknown } | null)?.trail;
+  const trail = fieldOf(state, 'trail');
 
   return isTrail(trail) && trail.length > 0 ? trail : undefined;
 };
@@ -367,7 +366,9 @@ const trailOf = (state: unknown): BreadcrumbSegment[] | undefined => {
 const storablePlace = (place: Place): Place => {
   const trail = trailOf(place.state);
 
-  return trail ? { path: place.path, state: { trail } } : { path: place.path };
+  return trail !== undefined
+    ? { path: place.path, state: { trail } }
+    : { path: place.path };
 };
 
 const placesOf = (value: unknown): Place[] =>
@@ -375,19 +376,16 @@ const placesOf = (value: unknown): Place[] =>
     ? value
         .filter(
           (place): place is Place =>
-            typeof place === 'object' &&
-            place !== null &&
-            typeof (place as Place).path === 'string',
+            isRecord(place) && typeof place.path === 'string',
         )
         .map(storablePlace)
     : [];
 
 const tabOf = (value: unknown): AppTab | null => {
-  const tab = value as Partial<Record<keyof AppTab, unknown>> | null;
+  const tab = value;
 
   if (
-    typeof tab !== 'object' ||
-    tab === null ||
+    !isRecord(tab) ||
     typeof tab.id !== 'string' ||
     typeof tab.path !== 'string'
   ) {
@@ -420,20 +418,17 @@ export const storedTabs = (
   here: Place,
 ): AppTabs => {
   try {
-    const parsed = JSON.parse(stored ?? 'null') as {
-      tabs?: unknown;
-      activeId?: unknown;
-      splitId?: unknown;
-      splitSide?: unknown;
-    } | null;
-    const tabs = Array.isArray(parsed?.tabs)
-      ? parsed.tabs.map(tabOf).filter((tab): tab is AppTab => tab !== null)
+    const parsed: unknown = JSON.parse(stored ?? 'null');
+    const storedList = fieldOf(parsed, 'tabs');
+    const tabs = Array.isArray(storedList)
+      ? storedList.map(tabOf).filter((tab): tab is AppTab => tab !== null)
       : [];
     const showing = tabs.find((tab) => tab.path === here.path);
-    const active = tabs.find((tab) => tab.id === parsed?.activeId) ?? tabs[0];
-    const split = tabs.find((tab) => tab.id === parsed?.splitId);
+    const active =
+      tabs.find((tab) => tab.id === fieldOf(parsed, 'activeId')) ?? tabs.at(0);
+    const split = tabs.find((tab) => tab.id === fieldOf(parsed, 'splitId'));
 
-    if (!active) {
+    if (active === undefined) {
       return firstTabs(id, here);
     }
 
@@ -441,10 +436,12 @@ export const storedTabs = (
       tabs,
       active.id,
       split?.id,
-      parsed?.splitSide === 'left' ? 'left' : 'right',
+      fieldOf(parsed, 'splitSide') === 'left' ? 'left' : 'right',
     );
 
-    return showing ? selected(remembered, showing.id) : remembered;
+    return showing !== undefined
+      ? selected(remembered, showing.id)
+      : remembered;
   } catch {
     return firstTabs(id, here);
   }

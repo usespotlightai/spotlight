@@ -6,6 +6,7 @@ import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -92,7 +93,7 @@ export class WorkRunLookup implements WorkRunLookupPort {
   ) {}
 
   async run(runId: RunId): Promise<RunLookup | null> {
-    const [run] = await this.facts.of([runId]);
+    const run = firstOf(await this.facts.of([runId]));
 
     if (!run) {
       return null;
@@ -124,8 +125,9 @@ export class WorkRunLookup implements WorkRunLookupPort {
   }
 
   async locationOf(runId: RunId): Promise<RunLocation | null> {
-    const [run] = await this.facts.of([runId]);
-    const dispatched = run ? await this.dispatches.of(runId) : null;
+    const run = firstOf(await this.facts.of([runId]));
+    const dispatched =
+      run !== undefined ? await this.dispatches.of(runId) : null;
     const stationId = stationOf(dispatched);
     const line = stationId ? await this.lines.findByStation(stationId) : null;
     const station = stationId ? line?.stationAt(stationId) : null;
@@ -146,13 +148,14 @@ export class WorkRunLookup implements WorkRunLookupPort {
     runId: RunId,
     throughAttempt: number | null,
   ): Promise<RunReasoning | null> {
-    const [run] = await this.facts.of([runId]);
-    const steps = run
-      ? this.readings.stepsThrough(
-          await this.journals.attemptsOfRun(runId),
-          throughAttempt,
-        )
-      : null;
+    const run = firstOf(await this.facts.of([runId]));
+    const steps =
+      run !== undefined
+        ? this.readings.stepsThrough(
+            await this.journals.attemptsOfRun(runId),
+            throughAttempt,
+          )
+        : null;
 
     return steps && { steps: steps.flatMap(reasoned) };
   }
@@ -184,9 +187,11 @@ export class WorkRunLookup implements WorkRunLookupPort {
   }
 
   async contextOfRun(runId: RunId): Promise<RunContext | null> {
-    const [run] = await this.facts.of([runId]);
+    const run = firstOf(await this.facts.of([runId]));
 
-    return run ? this.contextOf(run, await this.dispatches.of(runId)) : null;
+    return run !== undefined
+      ? this.contextOf(run, await this.dispatches.of(runId))
+      : null;
   }
 
   async filesReadUnder(

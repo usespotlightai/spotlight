@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { patchInboxEntry } from '@/hooks/api/inboxEntryPatch';
 import { inboxKeys } from '@/hooks/api/useInbox';
@@ -41,7 +45,12 @@ const reopening = ({ slug, entry }: ReopenInboxEntryInput) => {
       });
 };
 
-export function useReopenInboxEntry() {
+export function useReopenInboxEntry(): UseMutationResult<
+  void,
+  Error,
+  ReopenInboxEntryInput,
+  { rollback: () => void }
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

@@ -1,7 +1,8 @@
 import { mayRecordDecisions } from '@change-review/domain/services/decision-policy';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const RUN = { taskId: 'task_1', trial: false, decisions: true };
+const RUN = { taskId: TaskId.of('task_1'), trial: false, decisions: true };
 const TASK = { reviewing: false };
 
 describe('which runs may record decisions', () => {

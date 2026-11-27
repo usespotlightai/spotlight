@@ -7,17 +7,17 @@ export const setupInput = (
     return null;
   }
 
-  const { repository, folder } = value as Record<string, unknown>;
-
   if (
     typeof value !== 'object' ||
-    typeof repository !== 'string' ||
-    typeof folder !== 'string'
+    !('repository' in value) ||
+    !('folder' in value) ||
+    typeof value.repository !== 'string' ||
+    typeof value.folder !== 'string'
   ) {
     throw new BadRequestException(
       'Field setup must contain a repository and a folder, both text.',
     );
   }
 
-  return { repository, folder };
+  return { repository: value.repository, folder: value.folder };
 };

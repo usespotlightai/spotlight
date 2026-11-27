@@ -22,6 +22,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq } from 'drizzle-orm';
@@ -121,22 +122,26 @@ export class DrizzleOidcTrustRepository implements OidcTrustRepository {
   }
 
   async find(id: OidcTrustId): Promise<OidcTrust | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(oidcTrust)
-      .where(eq(oidcTrust.id, id.value))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(oidcTrust)
+        .where(eq(oidcTrust.id, id.value))
+        .limit(1),
+    );
 
     return found ? toTrust(found) : null;
   }
 
   async findLocked(id: OidcTrustId): Promise<OidcTrust | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(oidcTrust)
-      .where(eq(oidcTrust.id, id.value))
-      .for('share')
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(oidcTrust)
+        .where(eq(oidcTrust.id, id.value))
+        .for('share')
+        .limit(1),
+    );
 
     return found ? toTrust(found) : null;
   }
@@ -145,17 +150,19 @@ export class DrizzleOidcTrustRepository implements OidcTrustRepository {
     workspaceId: WorkspaceId,
     key: OidcTrustKey,
   ): Promise<OidcTrust | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(oidcTrust)
-      .where(
-        and(
-          eq(oidcTrust.workspaceId, workspaceId.value),
-          eq(oidcTrust.key, key.value),
-        ),
-      )
-      .for('update')
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(oidcTrust)
+        .where(
+          and(
+            eq(oidcTrust.workspaceId, workspaceId.value),
+            eq(oidcTrust.key, key.value),
+          ),
+        )
+        .for('update')
+        .limit(1),
+    );
 
     return found ? toTrust(found) : null;
   }

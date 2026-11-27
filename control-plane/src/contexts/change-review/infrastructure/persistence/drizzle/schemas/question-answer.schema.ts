@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm';
 import {
   ANSWER_GRADINGS,
   type AnswerGrading,
@@ -9,6 +8,7 @@ import {
 } from '@change-review/domain/value-objects/answer-verdict.vo';
 import type { StoredModelUsage } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { sql } from 'drizzle-orm';
 import {
   check,
   index,

@@ -18,6 +18,9 @@ import {
   TOKEN_ISSUER,
   type TokenIssuer,
 } from '@shared-kernel/application/ports/token-issuer.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { eq } from 'drizzle-orm';
 import type { Response, Test } from 'supertest';
 import {
@@ -31,6 +34,7 @@ import {
 } from 'vitest';
 
 import { type Answer, openApp, served, TEST_USER_HEADER } from './app';
+import { bodyOf } from './body';
 import * as schema from './schema';
 
 type Body = Readonly<Record<string, unknown>>;
@@ -98,8 +102,15 @@ const problem = (answer: Response, status: number, slug: string): Body => {
     status,
   });
 
-  return answer.body as Body;
+  return bodyOf<Body>(answer);
 };
+
+const isResourceOperation = (value: string): value is ResourceOperation =>
+  (RESOURCE_OPERATIONS as readonly string[]).includes(value);
+
+const operationsOf = (methods: object): DocumentedOperation[] =>
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  Object.values(methods) as DocumentedOperation[];
 
 const documented = (
   app: INestApplication,
@@ -108,11 +119,11 @@ const documented = (
   const found = new Map<ResourceOperation, DocumentedOperation>();
 
   for (const methods of Object.values(buildOpenApiDocument(app).paths)) {
-    for (const each of Object.values(methods) as DocumentedOperation[]) {
-      const marked = each?.[RESOURCE_EXTENSION];
+    for (const each of operationsOf(methods)) {
+      const marked = each[RESOURCE_EXTENSION];
 
-      if (marked?.kind === kind) {
-        found.set(marked.operation as ResourceOperation, each);
+      if (marked?.kind === kind && isResourceOperation(marked.operation)) {
+        found.set(marked.operation, each);
       }
     }
   }
@@ -152,7 +163,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         create: (body: Body, key: string | null = randomUUID()) => {
           const test = signed(http.post(fixture.collection)).send(body);
 
-          return key ? test.set('Idempotency-Key', key) : test;
+          return nonEmpty(key) ? test.set('Idempotency-Key', key) : test;
         },
         read: (id: string) => signed(http.get(fixture.item(id))),
         update: (id: string, body: Body, version: number | null) => {
@@ -176,7 +187,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       expect(answer.status).toBe(200);
       expect(answer.body).toEqual({ items: expect.any(Array) as unknown });
 
-      return (answer.body as { readonly items: Body[] }).items;
+      return bodyOf<{ readonly items: Body[] }>(answer).items;
     };
 
     const memberElsewhere = async () => {
@@ -283,7 +294,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       }
 
       for (const [name, operation] of [...served].filter(
-        ([name]) => name === 'list' && fixture.listsAcrossWorkspaces,
+        ([name]) => name === 'list' && fixture.listsAcrossWorkspaces === true,
       )) {
         expect(operation.responses['404'], name).toBeUndefined();
       }
@@ -293,14 +304,11 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       )) {
         const answered = operation.responses[name === 'create' ? '201' : '200'];
 
-        expect(answered?.headers, name).toHaveProperty(['ETag']);
+        expect(answered.headers, name).toHaveProperty(['ETag']);
       }
 
       const everyId = Object.values(buildOpenApiDocument(app).paths).flatMap(
-        (methods) =>
-          (Object.values(methods) as DocumentedOperation[]).map(
-            (each) => each?.operationId,
-          ),
+        (methods) => operationsOf(methods).map((each) => each.operationId),
       );
 
       for (const [name, operation] of served) {
@@ -310,19 +318,17 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         ).toHaveLength(1);
       }
 
-      const create = served.get('create') as DocumentedOperation;
+      const create = present(served.get('create'));
       const update = served.get('update');
-      const remove = served.get('delete') as DocumentedOperation;
-      const importing = served.get('import') as DocumentedOperation;
+      const remove = present(served.get('delete'));
+      const importing = present(served.get('import'));
 
       const read = answeredSchema(served.get('read'));
       const list = answeredSchema(served.get('list'));
       const schemas = buildOpenApiDocument(app).components?.schemas ?? {};
 
       expect(read).toBeDefined();
-      expect(
-        schemas[list?.split('/').pop() ?? ''] as Record<string, unknown>,
-      ).toMatchObject({
+      expect(schemas[list?.split('/').pop() ?? '']).toMatchObject({
         required: ['items'],
         properties: { items: { type: 'array', items: { $ref: read } } },
       });
@@ -474,7 +480,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       const attempts = await Promise.all(
         Array.from({ length: 8 }, () => admin().create(fixture.valid, key)),
       );
-      const [first] = attempts;
+      const first = firstOf(attempts);
 
       for (const each of attempts) {
         expect(each.status).toBe(201);
@@ -546,7 +552,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         ]);
         const [won, lost] = [...deletes].sort((a, b) => a.status - b.status);
 
-        expect(won?.status).toBe(204);
+        expect(won.status).toBe(204);
         problem(lost, 404, 'not-found');
       },
     );
@@ -561,12 +567,12 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         ])) as Answer<Made>[];
         const [won, lost] = [...writes].sort((a, b) => a.status - b.status);
 
-        expect(won?.status).toBe(200);
-        expect(lost?.headers.etag).toBe(`"${won?.body.version}"`);
+        expect(won.status).toBe(200);
+        expect(lost.headers.etag).toBe(`"${won.body.version}"`);
         expect(problem(lost, 409, 'version-conflict').currentVersion).toBe(
-          won?.body.version,
+          won.body.version,
         );
-        expect((await admin().read(made.id)).body).toEqual(won?.body);
+        expect((await admin().read(made.id)).body).toEqual(won.body);
       },
     );
 
@@ -631,7 +637,9 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
     it('lets someone who may not configure it read it, and nothing more', async () => {
       const made = await created();
       const viewer = as(
-        fixture.viewerToken ? { bearer: fixture.viewerToken } : fixture.viewer,
+        nonEmpty(fixture.viewerToken)
+          ? { bearer: fixture.viewerToken }
+          : fixture.viewer,
       );
 
       await fixture.allowViewer?.(made);

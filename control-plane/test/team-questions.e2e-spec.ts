@@ -16,6 +16,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -100,13 +101,11 @@ const asked = async (shaped: (task: Task) => Task = (task) => task) => {
 };
 
 const inboxOf = async (viewer: UserId): Promise<readonly Entry[]> =>
-  (
-    (
-      await served(app)
-        .get(`/api/workspaces/${team.slug}/inbox`)
-        .set(TEST_USER_HEADER, viewer.value)
-        .expect(200)
-    ).body as { readonly items: Entry[] }
+  bodyOf<{ readonly items: Entry[] }>(
+    await served(app)
+      .get(`/api/workspaces/${team.slug}/inbox`)
+      .set(TEST_USER_HEADER, viewer.value)
+      .expect(200),
   ).items;
 
 const entryOf = async (viewer: UserId, taskId: string) =>
@@ -128,7 +127,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('a question on a task without an assignee', () => {

@@ -3,6 +3,7 @@ import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import type { TileBones } from '@/lib/insights-tiles';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 export function InsightsTileSkeleton({
@@ -25,23 +26,27 @@ export function InsightsTileSkeleton({
           ) : (
             <span className="line-clamp-1">{label}</span>
           )}
-          {tooltip && <InfoTooltip tooltip={tooltip} />}
+          {nonEmpty(tooltip) && <InfoTooltip tooltip={tooltip} />}
         </dt>
         <dd className="flex flex-1 flex-col">
           <span className="flex flex-col items-start gap-0.5">
             <SkeletonLine
               className={cn(wide ? 'w-20' : 'w-12', 'text-xl leading-7')}
             />
-            {delta && <SkeletonLine className="w-12 text-sm leading-5" />}
+            {delta === true && (
+              <SkeletonLine className="w-12 text-sm leading-5" />
+            )}
             {typeof detail === 'string' ? (
               <span className="text-muted-foreground text-sm leading-5">
                 {detail}
               </span>
             ) : (
-              detail && <SkeletonLine className="w-20 text-sm leading-5" />
+              detail === true && (
+                <SkeletonLine className="w-20 text-sm leading-5" />
+              )
             )}
           </span>
-          {trend && (
+          {trend === true && (
             <span className="mt-auto pt-2">
               <Skeleton className="h-6 w-full" />
             </span>

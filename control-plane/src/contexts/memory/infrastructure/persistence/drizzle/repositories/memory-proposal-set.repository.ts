@@ -8,10 +8,9 @@ import { MemoryProposalSetVersionConflictError } from '@memory/domain/exceptions
 import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
-import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import {
@@ -24,6 +23,9 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -45,7 +47,7 @@ const retiringOf = (row: ProposalRow): Retiring | null => {
     );
   }
 
-  return row.retires && row.retireReason
+  return nonEmpty(row.retires) && nonEmpty(row.retireReason)
     ? { memory: MemoryId.of(row.retires), reason: row.retireReason }
     : null;
 };
@@ -59,7 +61,9 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
       teamId: TeamId.of(row.teamId),
       lineId: row.lineId === null ? null : LineId.of(row.lineId),
       stationId: row.stationId === null ? null : StationId.of(row.stationId),
-      repository: row.repository ? Repository.of(row.repository) : null,
+      repository: nonEmpty(row.repository)
+        ? Repository.of(row.repository)
+        : null,
       paths: row.paths.map(MemoryPath.of),
     }),
     provenance: MemoryProvenance.of({
@@ -69,12 +73,12 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
       notes: row.notes,
     }),
     source: row.source,
-    supersedes: row.supersedes ? MemoryId.of(row.supersedes) : null,
+    supersedes: nonEmpty(row.supersedes) ? MemoryId.of(row.supersedes) : null,
     retires: retiringOf(row),
     recordedAt: row.recordedAt,
     state: row.state,
     decision:
-      row.decidedById && row.decidedAt
+      nonEmpty(row.decidedById) && row.decidedAt
         ? MemoryDecision.of({
             by: UserId.of(row.decidedById),
             at: row.decidedAt,
@@ -194,22 +198,26 @@ export class DrizzleMemoryProposalSetRepository implements MemoryProposalSetRepo
   }
 
   async forTask(taskId: TaskId): Promise<MemoryProposalSet | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(memoryProposalSet)
-      .where(eq(memoryProposalSet.taskId, taskId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(memoryProposalSet)
+        .where(eq(memoryProposalSet.taskId, taskId.value))
+        .limit(1),
+    );
 
     return row ? this.withProposals(row) : null;
   }
 
   async forTaskLocked(taskId: TaskId): Promise<MemoryProposalSet | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(memoryProposalSet)
-      .where(eq(memoryProposalSet.taskId, taskId.value))
-      .limit(1)
-      .for('update');
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(memoryProposalSet)
+        .where(eq(memoryProposalSet.taskId, taskId.value))
+        .limit(1)
+        .for('update'),
+    );
 
     return row ? this.withProposals(row) : null;
   }

@@ -6,6 +6,7 @@ import {
 } from '@runners/domain/aggregates/sandbox.fake-spec';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -29,7 +30,7 @@ const keeping = () => {
   const service = new WarmSandboxes(
     sandboxes,
     { generate: () => `sandbox_w${++next}` },
-    { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as LoggerPort,
+    partial<LoggerPort>({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
   );
   const place = async (id: string) => {
     const found = stored.get(id);

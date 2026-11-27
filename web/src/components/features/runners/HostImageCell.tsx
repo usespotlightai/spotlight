@@ -6,6 +6,7 @@ import { UnavailableImagesPill } from '@/components/features/runners/Unavailable
 import { Pill } from '@/components/shared/Pill';
 import { useOverflows } from '@/hooks/useOverflows';
 import type { HostImageResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { imageShortName } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 
@@ -16,14 +17,16 @@ export function HostImageCell({
 }) {
   const cell = useRef<HTMLSpanElement>(null);
   const overflows = useOverflows(cell, true, 'x');
-  const defaultImage = images.find((image) => image.isDefault) ?? images[0];
+  const defaultImage = images.find((image) => image.isDefault) ?? images.at(0);
 
-  if (!defaultImage) {
+  if (defaultImage === undefined) {
     return <span className="text-muted-foreground text-xs">–</span>;
   }
 
   const others = images.filter((image) => image !== defaultImage);
-  const unavailable = others.filter((image) => image.unavailableReason);
+  const unavailable = others.filter((image) =>
+    nonEmpty(image.unavailableReason),
+  );
 
   return (
     <span
@@ -34,7 +37,7 @@ export function HostImageCell({
           '[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]',
       )}
     >
-      {defaultImage.unavailableReason ? (
+      {nonEmpty(defaultImage.unavailableReason) ? (
         <UnavailableImagesPill
           unavailable={[defaultImage]}
           className="min-w-20 shrink-[100]"

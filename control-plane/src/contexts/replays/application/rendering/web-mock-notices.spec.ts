@@ -21,9 +21,7 @@ const pointsOfMock = (id: string): readonly string[] => {
   const at = MOCK.indexOf(`id: ${id},`);
   const points = MOCK.slice(at).match(/points: \[([\s\S]*?)\],/)?.[1] ?? '';
 
-  return [...points.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map(
-    (each) => each[1] ?? '',
-  );
+  return [...points.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map((each) => each[1]);
 };
 
 const STALLED = [

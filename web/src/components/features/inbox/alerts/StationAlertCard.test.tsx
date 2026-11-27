@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { StationAlertCard } from '@/components/features/inbox/alerts/StationAlertCard';
 import type { StationAlertFiring } from '@/lib/station-alert';
+import { partial } from '@/test/partial';
 
 type Queried = {
   data: unknown;
@@ -57,7 +58,7 @@ vi.mock('@/hooks/api/useLines', () => ({
   }),
 }));
 
-const ALERT = {
+const ALERT = partial<StationAlertFiring>({
   alertId: 'alert_1',
   lineId: 'line_1',
   stationId: 'station_impl',
@@ -88,7 +89,7 @@ const ALERT = {
     { runId: 'run_1', endedAt: '2026-09-29T10:00:00.000Z', value: 0.2 },
     { runId: 'run_2', endedAt: '2026-09-30T10:00:00.000Z', value: 0.4 },
   ],
-} as unknown as StationAlertFiring;
+});
 
 const showing = () =>
   render(

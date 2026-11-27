@@ -8,6 +8,7 @@ import type {
 } from '@/lib/api';
 import type { ApprovalStatus } from '@/lib/approval-status';
 import type { Citation, JudgeReason, RunScores } from '@/lib/judge';
+import { nonEmpty } from '@/lib/non-empty';
 import type { Person } from '@/lib/person';
 
 export type JudgeDisagreement = JudgeDisagreementResponseDto;
@@ -47,7 +48,7 @@ const titleOf = (
     case 'open':
       return WAITING_FOR_YOUR_ANSWER;
     case 'answered':
-      return answerer ? formatAnsweredBy(answerer) : 'Answered';
+      return nonEmpty(answerer) ? formatAnsweredBy(answerer) : 'Answered';
     case 'withdrawn':
       return WITHDRAWN;
   }
@@ -179,7 +180,7 @@ export const answererOf = (
   me: Person | null,
   members: readonly Person[] | undefined,
 ): string | null => {
-  if (!answeredBy) {
+  if (!nonEmpty(answeredBy)) {
     return null;
   }
 
@@ -254,7 +255,7 @@ export const noteRequired = (draft: NotMetDraft): boolean =>
 export const notMetAnswerOf = (draft: NotMetDraft): NotMetAnswer | null => {
   const note = draft.note.trim() || null;
 
-  if (draft.notMet === null || (noteRequired(draft) && !note)) {
+  if (draft.notMet === null || (noteRequired(draft) && note === null)) {
     return null;
   }
 

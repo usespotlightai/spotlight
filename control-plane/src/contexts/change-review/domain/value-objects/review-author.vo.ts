@@ -1,5 +1,7 @@
+import { textOrNull } from '@change-review/domain/services/text-or-null';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -27,7 +29,7 @@ export class ReviewAuthor {
       'github',
       null,
       null,
-      login?.trim() || null,
+      textOrNull(login?.trim()),
       AuthorName.onGitHub(login),
     );
   }
@@ -68,7 +70,9 @@ export class ReviewAuthor {
 
     return this.kind === 'agent'
       ? true
-      : (this.userId?.equals(other.userId as UserId) ?? false);
+      : this.userId !== null &&
+          other.userId !== null &&
+          this.userId.equals(other.userId);
   }
 
   equals(other: ReviewAuthor): boolean {
@@ -76,8 +80,8 @@ export class ReviewAuthor {
       this.kind === other.kind &&
       this.login === other.login &&
       this.name.equals(other.name) &&
-      (this.userId?.equals(other.userId as UserId) ?? other.userId === null) &&
-      (this.runId?.equals(other.runId as RunId) ?? other.runId === null)
+      sameOrBothNone(this.userId, other.userId) &&
+      sameOrBothNone(this.runId, other.runId)
     );
   }
 }

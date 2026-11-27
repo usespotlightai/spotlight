@@ -1,3 +1,6 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -63,7 +66,7 @@ const owning = (...pullRequests: PullRequestUrl[]) =>
 
 const tracking = (stored: readonly Task[]) => {
   const saved: Task[] = [];
-  const tasks = {
+  const tasks = partial<TaskRepository>({
     owningPullRequest: async (_at: WorkspaceId, pullRequest: PullRequestUrl) =>
       stored.find((each) =>
         each.pullRequests.some((owned) => owned.equals(pullRequest)),
@@ -75,7 +78,7 @@ const tracking = (stored: readonly Task[]) => {
     save: async (each: Task) => {
       saved.push(each);
     },
-  } as unknown as TaskRepository;
+  });
 
   return {
     saved,
@@ -208,7 +211,8 @@ describe('TrackTaskPullRequests', () => {
         owner.branch.value,
       );
 
-      const added = saved[0]?.notes[saved[0].notes.length - 1];
+      const { notes } = present(saved[0]);
+      const added = itemAt(notes, notes.length - 1);
       expect(added?.voice.isWorld).toBe(true);
       expect(added?.body.value).toBe(
         'Pull request https://github.com/acme/api/pull/8 is open from the branch of this task. It is now the pull request of the task.',

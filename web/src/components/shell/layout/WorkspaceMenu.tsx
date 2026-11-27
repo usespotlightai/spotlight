@@ -100,7 +100,7 @@ export function WorkspaceMenu({
           <DropdownMenuSubContent className="min-w-60">
             <DropdownMenuGroup>
               <DropdownMenuLabel className="truncate text-muted-foreground">
-                {session?.user?.email}
+                {session?.user.email}
               </DropdownMenuLabel>
 
               <DropdownMenuRadioGroup

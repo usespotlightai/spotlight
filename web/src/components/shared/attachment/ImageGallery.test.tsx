@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { ImageThumbs } from '@/components/shared/chat-input/ImageThumbs';
 import type { Attachment, ImageAttachment } from '@/lib/attachment';
+import { htmlElement } from '@/test/elements';
 
 const image = (id: string, name: string): Attachment => ({
   id,
@@ -49,7 +50,7 @@ const openAt = async (name: string) => {
   await view(name);
   await vi.waitFor(() =>
     expect(screen.getByRole('dialog')).toContainElement(
-      document.activeElement as HTMLElement,
+      htmlElement(document.activeElement),
     ),
   );
 
@@ -219,7 +220,7 @@ describe('ImageGallery', () => {
     tiles(three);
     const user = await openAt('b.png');
 
-    await user.click(peek('next') as HTMLElement);
+    await user.click(htmlElement(peek('next')));
 
     expect(await view('c.png')).toBeInTheDocument();
     expect(screen.getByText('3 of 3')).toBeInTheDocument();
@@ -305,9 +306,9 @@ describe('ImageThumbs gallery', () => {
   it('skips an image that does not load', async () => {
     render(<Composer initial={[thumb('a'), thumb('b'), thumb('c')]} />);
     fireEvent.error(
-      screen
-        .getByRole('button', { name: 'View b.png' })
-        .querySelector('img') as HTMLImageElement,
+      htmlElement(
+        screen.getByRole('button', { name: 'View b.png' }).querySelector('img'),
+      ),
     );
     const user = await openAt('a.png');
 

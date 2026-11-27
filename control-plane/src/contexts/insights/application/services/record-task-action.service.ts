@@ -11,6 +11,7 @@ import { actionKindOf } from '@insights/domain/value-objects/person-action.vo';
 import { TaskAction } from '@insights/domain/value-objects/task-action.vo';
 import { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -56,7 +57,7 @@ export class RecordTaskAction {
       teamId: TeamId.of(event.teamId),
       lineId: LineId.of(event.lineId),
       stationId: StationId.of(event.stationId),
-      by: event.by ? UserId.of(event.by) : null,
+      by: nonEmpty(event.by) ? UserId.of(event.by) : null,
       at: new Date(event.at),
     });
 

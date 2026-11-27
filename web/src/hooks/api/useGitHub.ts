@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { readGitHub } from '@/lib/api';
+import { readGitHub, type GitHubConnectionStatusResponseDto } from '@/lib/api';
+import { required } from '@/lib/required';
 
 export const gitHubKeys = {
   status: (slug?: string) => ['github', 'status', slug ?? null] as const,
@@ -12,14 +13,16 @@ export const gitHubKeys = {
 
 const POLL_MS = 10_000;
 
-export function useGitHub(slug: string | undefined) {
+export function useGitHub(
+  slug: string | undefined,
+): UseQueryResult<GitHubConnectionStatusResponseDto> {
   return useQuery({
     queryKey: gitHubKeys.status(slug),
     enabled: Boolean(slug),
     refetchInterval: (query) => (query.state.data?.connected ? false : POLL_MS),
     queryFn: async () => {
       const { data } = await readGitHub({
-        path: { slug: slug as string },
+        path: { slug: required(slug) },
         throwOnError: true,
       });
       return data;

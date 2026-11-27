@@ -7,6 +7,7 @@ import type {
 } from '@insights/domain/services/flow';
 import { NO_SPREAD, type Spread } from '@insights/domain/services/measures';
 import { inboxWaits } from '@insights/infrastructure/persistence/drizzle/readers/insights/inbox.sql';
+import { pullRequestDeliveriesIn } from '@insights/infrastructure/persistence/drizzle/readers/insights/pull-request-deliveries.sql';
 import {
   asUtc,
   factsInPeriod,
@@ -19,7 +20,6 @@ import {
   spreadOver,
   stationsInEndOrder,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
-import { pullRequestDeliveriesIn } from '@insights/infrastructure/persistence/drizzle/readers/insights/pull-request-deliveries.sql';
 import { runFact } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { sql } from 'drizzle-orm';
@@ -137,14 +137,12 @@ const windowOf = (
     }),
   inbox: inbox
     .filter((each) => each.is_current === current)
-    .map(
-      (each): StationInboxCounts => ({
-        stationId: each.station_id,
-        asks: each.asks,
-        unanswered: each.unanswered,
-        inbox: each.inbox,
-      }),
-    ),
+    .map((each): StationInboxCounts => ({
+      stationId: each.station_id,
+      asks: each.asks,
+      unanswered: each.unanswered,
+      inbox: each.inbox,
+    })),
 });
 
 export const flowCountsIn = async (

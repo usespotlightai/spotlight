@@ -1,22 +1,26 @@
-import type { HttpAdapterHost } from '@nestjs/core';
+import type { AbstractHttpAdapter, HttpAdapterHost } from '@nestjs/core';
 import {
   GRACE_MS,
   GracefulShutdown,
 } from '@platform/lifecycle/graceful-shutdown';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const shuttingDown = (server: unknown) => {
-  const logger = {
+  const logger = partial<LoggerPort>({
     info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
     debug: vi.fn(),
-  } as unknown as LoggerPort;
+  });
 
-  const adapters = {
-    httpAdapter: server ? { getHttpServer: () => server } : undefined,
-  } as unknown as HttpAdapterHost;
+  const adapters = partial<HttpAdapterHost>({
+    httpAdapter:
+      server === undefined
+        ? undefined
+        : partial<AbstractHttpAdapter>({ getHttpServer: () => server }),
+  });
 
   return { shutdown: new GracefulShutdown(adapters, logger), logger };
 };

@@ -55,8 +55,8 @@ import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -252,7 +252,7 @@ const judgedTwice = async (
   });
   const reserved = started.reserving(slots(started.entries.length), runIds());
   const judged = reserved.entries.reduce((built, entry) => {
-    const run = entry.run as RunId;
+    const run = present(entry.run);
 
     return built
       .confirm(run, LIVE_FINGERPRINT, NOW)
@@ -263,7 +263,7 @@ const judgedTwice = async (
   }, reserved);
   const rejudged = judged.entries.reduce(
     (built, entry, place) =>
-      built.recordRejudgment(entry.run as RunId, verdictOf(secondOf(place))),
+      built.recordRejudgment(present(entry.run), verdictOf(secondOf(place))),
     judged,
   );
 
@@ -318,10 +318,10 @@ describe('StationChangeTests', () => {
 
     const [search] = searches();
 
-    expect(search?.trigger).toBe('request');
-    expect(search?.agent).toBeNull();
-    expect(search?.budget.agentRuns).toBe(false);
-    expect(search?.requests.map((each) => each.requestedBy.value)).toEqual([
+    expect(search.trigger).toBe('request');
+    expect(search.agent).toBeNull();
+    expect(search.budget.agentRuns).toBe(false);
+    expect(search.requests.map((each) => each.requestedBy.value)).toEqual([
       'user_asking',
     ]);
   });
@@ -498,7 +498,7 @@ describe('StationChangeTests', () => {
     const schedule = memory.schedules.get(STATION.stationId.value);
 
     await memory.scheduleRepository.save(
-      (schedule as StationSearchSchedule)
+      present(schedule)
         .requested(joinOf('a'))
         .requested(joinOf('b'))
         .requested(joinOf('c')),
@@ -529,7 +529,7 @@ describe('StationChangeTests', () => {
     const schedule = memory.schedules.get(STATION.stationId.value);
 
     await memory.scheduleRepository.save(
-      (schedule as StationSearchSchedule)
+      present(schedule)
         .requested(joinOf('a'))
         .requested(joinOf('b'))
         .requested(joinOf('c')),
@@ -543,7 +543,7 @@ describe('StationChangeTests', () => {
     const schedule = memory.schedules.get(STATION.stationId.value);
 
     await memory.scheduleRepository.save(
-      (schedule as StationSearchSchedule).started({
+      present(schedule).started({
         searched: [],
         inSet: [],
         at: now,

@@ -13,6 +13,8 @@ import {
   type SessionFailureReason,
 } from '@change-review/domain/value-objects/session-failure.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 /** The purpose of the sessions that draft and redraft change stacks. */
 export const DRAFTING_PURPOSE = 'change-review.change-stack';
@@ -46,15 +48,18 @@ const DRAFTING_KEY = /^(.+):(?:draft|redraft:(first|recheck)):(\d+)$/;
 const GRADING_KEY = /^(.+):(\d+):(\d+)$/;
 
 const draftingRoundOf = (key: string): DraftingRound | null => {
-  const [, stack, check, attempt] = DRAFTING_KEY.exec(key) ?? [];
+  const drafting = DRAFTING_KEY.exec(key) ?? [];
+  const [stack, check, attempt] = [1, 2, 3].map((group) =>
+    itemAt(drafting, group),
+  );
 
-  if (!stack || attempt === undefined) {
+  if (!nonEmpty(stack) || attempt === undefined) {
     return null;
   }
 
   const stackId = ChangeStackId.of(stack);
 
-  return check
+  return nonEmpty(check)
     ? DraftingRound.redraft(
         StackCheckId.of(stackId, check === 'recheck'),
         Number(attempt),
@@ -63,9 +68,12 @@ const draftingRoundOf = (key: string): DraftingRound | null => {
 };
 
 const gradingRoundOf = (key: string): GradingRound | null => {
-  const [, answer, at, attempt] = GRADING_KEY.exec(key) ?? [];
+  const grading = GRADING_KEY.exec(key) ?? [];
+  const [answer, at, attempt] = [1, 2, 3].map((group) =>
+    itemAt(grading, group),
+  );
 
-  return answer && at !== undefined && attempt !== undefined
+  return nonEmpty(answer) && at !== undefined && attempt !== undefined
     ? GradingRound.of({
         answerId: QuestionAnswerId.of(answer),
         answeredAt: new Date(Number(at)),

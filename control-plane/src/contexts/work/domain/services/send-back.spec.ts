@@ -1,10 +1,10 @@
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { SendBack } from '@work/domain/services/send-back';
 import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import type { Station } from '@work/domain/value-objects/station.vo';
 import { describe, expect, it } from 'vitest';
 
 let next = 0;
@@ -15,7 +15,7 @@ const line = deliveryLineOf({
 });
 
 const keyed = (on: LineMap, key: string) =>
-  on.stations.find((each) => each.key.value === key) as Station;
+  present(on.stations.find((each) => each.key.value === key));
 
 describe('SendBack', () => {
   const at = (key: string, finished: boolean) => ({

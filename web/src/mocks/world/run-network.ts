@@ -114,7 +114,7 @@ export const egressEnforcementOf = (
   NETWORKS[runId]?.egressEnforcement ?? null;
 
 export const runNetworkOf = (runId: string): RunNetworkResponseDto | null =>
-  taskOfRun(runId)
+  (taskOfRun(runId) ?? '') !== ''
     ? {
         runId,
         attempt: 1,

@@ -26,6 +26,8 @@ import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerp
 import { listingSizeOf } from '@insights/domain/value-objects/listing.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -55,16 +57,17 @@ export class ReadStationInsightsHandler implements QueryHandlerPort<
         stationId: StationId.of(query.stationId),
         last: listingSizeOf(query.last),
       });
-      const oldest = records[records.length - 1];
-      const carried = oldest
-        ? await this.facts.lastConfigRunsBefore(access.teamId, [
-            {
-              stationId: StationId.of(query.stationId),
-              from: oldest.end.beganAt,
-              fromRun: oldest.runId,
-            },
-          ])
-        : [];
+      const oldest = itemAt(records, records.length - 1);
+      const carried =
+        oldest !== undefined
+          ? await this.facts.lastConfigRunsBefore(access.teamId, [
+              {
+                stationId: StationId.of(query.stationId),
+                from: oldest.end.beganAt,
+                fromRun: oldest.runId,
+              },
+            ])
+          : [];
       const newestFirst = fingerprintGroupsNewestFirst(records, carried);
       const pairs = newestFirst.map((group) => ({
         previous: group.previous,
@@ -84,7 +87,7 @@ export class ReadStationInsightsHandler implements QueryHandlerPort<
         [
           ...new Set(
             newestFirst.flatMap((group) =>
-              group.fingerprint
+              nonEmpty(group.fingerprint)
                 ? [ConfigFingerprint.of(group.fingerprint)]
                 : [],
             ),

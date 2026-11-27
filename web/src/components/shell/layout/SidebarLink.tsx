@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useActiveCommand } from '@/hooks/useActiveCommand';
 import { shortcutOf } from '@/lib/commands/shortcuts';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type SidebarLinkProps = {
@@ -38,7 +39,7 @@ export function SidebarLink({
         cn(
           'flex h-7 items-center pointer-coarse:h-11 gap-2 rounded-md px-2 text-muted-foreground text-sm outline-none transition-colors',
           'hover:bg-sidebar-hover hover:text-foreground',
-          (isActive || active) &&
+          (isActive || active === true) &&
             'bg-sidebar-selected font-medium text-foreground hover:bg-sidebar-selected',
           className,
         )
@@ -62,7 +63,9 @@ export function SidebarLink({
       <TooltipContent side="right" align="center">
         <ShortcutHint id={command.id}>
           {command.title ?? shortcutOf(command.id).title}
-          {hint && <span className="text-muted-foreground">{hint}</span>}
+          {nonEmpty(hint) && (
+            <span className="text-muted-foreground">{hint}</span>
+          )}
         </ShortcutHint>
       </TooltipContent>
     </Tooltip>

@@ -4,6 +4,7 @@ import type {
   InboxItemView,
   RunPrompt,
 } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 
 export const stationOf = (item: InboxItem): ConversationItem['station'] => ({
   name: item.station,
@@ -19,7 +20,9 @@ export const carriesItsOwn = (item: InboxItemView): boolean =>
   item.notes[0]?.form === 'setup';
 
 export const promptOf = (item: InboxItemView): RunPrompt | null => {
-  const runId = item.notes[0]?.runId;
+  const runId = item.notes.at(0)?.runId;
 
-  return runId && item.briefing ? { runId, text: item.briefing } : null;
+  return nonEmpty(runId) && nonEmpty(item.briefing)
+    ? { runId, text: item.briefing }
+    : null;
 };

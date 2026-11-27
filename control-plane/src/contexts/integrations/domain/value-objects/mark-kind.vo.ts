@@ -25,7 +25,7 @@ export class MarkKind {
   }
 
   equals(other: MarkKind): boolean {
-    return this.of === other.of && this.value === other.value;
+    return this.value === other.value;
   }
 
   toString(): string {

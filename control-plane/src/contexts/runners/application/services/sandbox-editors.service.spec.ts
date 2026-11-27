@@ -1,6 +1,7 @@
 import type { EditorSandboxesPort } from '@runners/application/ports/editor-sandboxes.port';
 import type { SandboxTunnelsPort } from '@runners/application/ports/sandbox-tunnels.port';
 import { SandboxEditors } from '@runners/application/services/sandbox-editors.service';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-10-30T10:00:00.000Z');
@@ -16,8 +17,8 @@ const setUp = (input: { held?: boolean[] } = {}) => {
   };
   let next = 0;
   const editors = new SandboxEditors(
-    sandboxes as unknown as EditorSandboxesPort,
-    {} as SandboxTunnelsPort,
+    partial<EditorSandboxesPort>(sandboxes),
+    partial<SandboxTunnelsPort>({}),
     { generate: () => `conn_${++next}` },
     { now: () => NOW, sleep: async () => {} },
   );

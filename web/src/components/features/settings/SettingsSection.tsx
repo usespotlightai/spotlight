@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
-import type { TooltipText } from '@/lib/tooltip-note';
+import { nonEmpty } from '@/lib/non-empty';
+import { hasTooltip, type TooltipText } from '@/lib/tooltip-note';
 
 type SettingsSectionProps = {
   id?: string;
@@ -22,11 +23,11 @@ export function SettingsSection({
   listLabel,
   children,
 }: SettingsSectionProps) {
-  const Body = listLabel ? 'ul' : 'div';
+  const Body = nonEmpty(listLabel) ? 'ul' : 'div';
 
   return (
     <section id={id} className="flex scroll-mt-6 flex-col gap-3">
-      {(title || count !== undefined || action) && (
+      {(nonEmpty(title) || count !== undefined || Boolean(action)) && (
         <div className="flex min-h-7 items-center justify-between gap-2.5">
           <span className="flex min-w-0 items-center gap-1.5">
             <h2 className="flex items-center gap-2.5 font-medium text-foreground text-sm">
@@ -37,7 +38,7 @@ export function SettingsSection({
                 </span>
               )}
             </h2>
-            {description && <InfoTooltip tooltip={description} />}
+            {hasTooltip(description) && <InfoTooltip tooltip={description} />}
           </span>
 
           {action}

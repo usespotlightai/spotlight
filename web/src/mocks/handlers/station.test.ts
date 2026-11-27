@@ -25,7 +25,7 @@ describe('the mock station', () => {
       query: { last: 200 },
       throwOnError: true,
     });
-    const [current] = data.groups;
+    const current = data.groups.at(0);
     const runIds = data.groups.flatMap((group) =>
       group.runs.map((run) => run.runId),
     );
@@ -81,7 +81,7 @@ describe('the mock station', () => {
       query: { period: '30d' },
       throwOnError: true,
     });
-    const [billing] = data.stations[0]?.sets ?? [];
+    const billing = (data.stations[0]?.sets ?? []).at(0);
 
     expect(billing?.setId).toBe('set_billing_work');
     expect(billing?.baseline?.replayId).toBe('replay_live_4');

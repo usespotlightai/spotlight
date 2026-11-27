@@ -222,7 +222,7 @@ describe('RunGrants', () => {
   it('hands out a copy of its grants, never its own list', () => {
     const granted = begun().grant(FIRST, [grant()]);
 
-    (granted.grants as SecretGrant[]).push(grant('uploads.linear.app'));
+    Array.prototype.push.call(granted.grants, grant('uploads.linear.app'));
 
     expect(granted.allows(FIRST, grant('uploads.linear.app'))).toBe(false);
   });

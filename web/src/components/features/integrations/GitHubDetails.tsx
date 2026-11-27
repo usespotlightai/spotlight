@@ -3,6 +3,7 @@ import { IntegrationFacts } from '@/components/features/integrations/Integration
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { inaccessibleOf } from '@/lib/github';
+import { nonEmpty } from '@/lib/non-empty';
 
 type GitHubDetailsProps = {
   slug: string;
@@ -39,7 +40,7 @@ export function GitHubDetails({
                 Agents read code and open pull requests through it.
               </span>
             </div>
-            {href && (
+            {nonEmpty(href) && (
               <GitHubAppLink slug={slug} href={href} installed={installed} />
             )}
           </div>

@@ -9,6 +9,7 @@ import {
   AssistSideBySideJudge,
   PAIR_RESULT,
 } from '@insights/infrastructure/judging/assist-side-by-side-judge';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -52,7 +53,7 @@ describe('judging two changes side by side in an assist session', () => {
 
     const answer = await judging(sessions);
 
-    const [order] = sessions.orders;
+    const order = firstOf(sessions.orders);
     expect(order).toMatchObject({
       purpose: 'insights.pair-judge',
       key: 'pair-judging:replay_1:replay_2:1:run-first',

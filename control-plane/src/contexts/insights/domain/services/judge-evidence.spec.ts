@@ -3,6 +3,7 @@ import {
   type JudgedStep,
   JudgeEvidence,
 } from '@insights/domain/services/judge-evidence';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -153,9 +154,10 @@ describe('JudgeEvidence', () => {
       ],
     });
 
-    const [generated, uploads] = evidence.hunks;
+    const generated = firstOf(evidence.hunks);
+    const uploads = itemAt(evidence.hunks, 1);
     expect(generated?.lines).toHaveLength(201);
-    expect(generated?.lines[200]).toBe('… 1300 more lines');
+    expect(itemAt(generated?.lines ?? [], 200)).toBe('… 1300 more lines');
     expect(uploads?.id).toBe('api/src/uploads.ts#1');
     expect(evidence.hunksLeftOut).toBe(0);
   });

@@ -1,6 +1,7 @@
 import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import { connectionsInMemory } from '@runs/application/ports/run-connections.fake-spec';
 import type { RunUsageReaderPort } from '@runs/application/ports/run-usage-reader.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
   RunResultShape,
@@ -268,7 +269,7 @@ describe('ReadRunnerHistoryHandler', () => {
       { fingerprint: FP, config: PARTS },
     ]);
 
-    const [run] = answer.history.runs;
+    const run = firstOf(answer.history.runs);
 
     expect(run?.outcome?.ending).toBe('failed');
     expect(run?.outcome?.usage).toEqual({

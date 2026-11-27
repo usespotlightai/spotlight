@@ -10,6 +10,7 @@ import {
   EXPRESSION_FAILED,
   type ExpressionFailure,
 } from '@platform/expressions/readings';
+import { fieldOf } from '@platform/json/field-of';
 import {
   CLOCK,
   type ClockPort,
@@ -22,6 +23,17 @@ import { OncePer } from '@shared-kernel/application/services/once-per';
 
 const NOTED_FOR_MS = 10 * 60_000;
 
+const isExpressionFailure = (
+  message: unknown,
+): message is ExpressionFailure => {
+  const location = fieldOf(message, 'location');
+
+  return (
+    (location === null || typeof location === 'string') &&
+    typeof fieldOf(message, 'error') === 'string'
+  );
+};
+
 @Injectable()
 export class ExpressionFailures implements OnModuleInit, OnModuleDestroy {
   readonly #noted = new OncePer(NOTED_FOR_MS);
@@ -32,7 +44,11 @@ export class ExpressionFailures implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   readonly #failed = (message: unknown): void => {
-    const { location, error } = message as ExpressionFailure;
+    if (!isExpressionFailure(message)) {
+      return;
+    }
+
+    const { location, error } = message;
     if (!this.#noted.due(`${location ?? ''}\n${error}`, this.clock.now())) {
       return;
     }

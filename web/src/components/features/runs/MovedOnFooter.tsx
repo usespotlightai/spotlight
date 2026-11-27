@@ -32,7 +32,7 @@ export function MovedOnFooter({
   const there = newestRunAt(runs, current.id);
   const refused = there && messageRefusal(there.yourMessage);
 
-  if (refused) {
+  if (there !== null && refused !== null && refused !== '') {
     return (
       <ClosedTaskComposer
         slug={slug}

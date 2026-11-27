@@ -8,6 +8,7 @@ import type { StationSearchScheduleRepository } from '@replays/domain/repositori
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -26,7 +27,7 @@ export class KeepReplaySets {
     workspaceId: WorkspaceId,
     drivenByAPerson: boolean,
   ): Promise<void> {
-    if (!ranAt || drivenByAPerson) {
+    if (!nonEmpty(ranAt) || drivenByAPerson) {
       return;
     }
 

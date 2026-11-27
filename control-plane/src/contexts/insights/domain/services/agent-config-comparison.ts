@@ -8,6 +8,7 @@ import { rateOf } from '@insights/domain/services/measures';
 import { paretoFrontier } from '@insights/domain/services/pareto';
 import { type RunTally, tallyOf } from '@insights/domain/services/run-tally';
 import type { StationLocation } from '@insights/domain/services/station-ranking';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export const OUTCOME_MEASURES = [
   'accepted',
@@ -137,7 +138,9 @@ export const agentConfigsFrom = (
   });
 
   const currency = mostUsed(
-    measured.flatMap((each) => (each.currency ? [each.currency] : [])),
+    measured.flatMap((each) =>
+      nonEmpty(each.currency) ? [each.currency] : [],
+    ),
   );
   const frontiers = new Map(
     OUTCOME_MEASURES.map((measure) => [
@@ -169,8 +172,8 @@ export const agentConfigsFrom = (
         priced: each.costPerRun !== null && each.currency === currency,
         outcomes: each.outcomes,
         judge: each.judge,
-        frontier: OUTCOME_MEASURES.filter((measure) =>
-          frontiers.get(measure)?.has(each.key),
+        frontier: OUTCOME_MEASURES.filter(
+          (measure) => frontiers.get(measure)?.has(each.key) === true,
         ),
       }))
       .sort(

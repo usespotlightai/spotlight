@@ -14,7 +14,7 @@ export class AnswerInboxItemRequestDto {
     description:
       'What the person writes back. It joins the task’s trail. May be empty where files are attached.',
   })
-  readonly body!: string;
+  readonly body?: string;
 
   @ApiPropertyOptional({
     type: String,

@@ -2,6 +2,9 @@ export const LIVE_FEED = Symbol('LIVE_FEED');
 
 export type LiveChannel = `workspace:${string}` | `person:${string}`;
 
+export const isLiveChannel = (channel: string): channel is LiveChannel =>
+  /^(workspace|person):.+$/.test(channel);
+
 export const workspaceChannel = (workspaceId: string): LiveChannel =>
   `workspace:${workspaceId}`;
 

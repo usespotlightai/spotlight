@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { nonEmpty } from '@/lib/non-empty';
 import {
   configFingerprint,
   countedColumnsOf,
@@ -13,6 +14,7 @@ import {
   stationTableColumns,
   resolutionLabel,
 } from '@/lib/station-insights';
+import { partial } from '@/test/partial';
 
 describe('runSpent', () => {
   it('shows a dash where a run cost nothing known', () => {
@@ -32,13 +34,15 @@ describe('runSpent', () => {
 
 describe('recentRuns', () => {
   const group = (fingerprint: string | null, ...runIds: string[]) =>
-    ({
+    partial<FingerprintGroup>({
       fingerprint,
-      runs: runIds.map((runId, at) => ({
-        runId,
-        endedAt: `2026-10-0${at + 1}T00:00:00.000Z`,
-      })),
-    }) as unknown as FingerprintGroup;
+      runs: runIds.map((runId, at) =>
+        partial<StationRunOutcome>({
+          runId,
+          endedAt: `2026-10-0${at + 1}T00:00:00.000Z`,
+        }),
+      ),
+    });
 
   it('lists only the live config, in the listing’s start order', () => {
     expect(
@@ -56,10 +60,10 @@ describe('recentRuns', () => {
 
 describe('hasRuns', () => {
   const group = (fingerprint: string | null, ...runIds: string[]) =>
-    ({
+    partial<FingerprintGroup>({
       fingerprint,
-      runs: runIds.map((runId) => ({ runId })),
-    }) as unknown as FingerprintGroup;
+      runs: runIds.map((runId) => partial<StationRunOutcome>({ runId })),
+    });
 
   it('counts runs in any group, with or without a config', () => {
     expect(hasRuns([group(null, 'run_1')])).toBe(true);
@@ -129,11 +133,11 @@ describe('configFingerprint', () => {
     firstDay: string | null,
     pullRequest: string | null = null,
   ) =>
-    ({
+    partial<FingerprintGroup>({
       fingerprint,
       firstDay,
-      pullRequest: pullRequest ? { url: pullRequest } : null,
-    }) as unknown as FingerprintGroup;
+      pullRequest: nonEmpty(pullRequest) ? { url: pullRequest } : null,
+    });
 
   it('names the newest config, when it started and the pull request that brought it', () => {
     expect(
@@ -198,7 +202,7 @@ describe('outcomeTone', () => {
     const run = (
       resolution: StationRunOutcome['resolution'],
       ending: StationRunOutcome['ending'],
-    ) => ({ resolution, ending }) as StationRunOutcome;
+    ) => partial<StationRunOutcome>({ resolution, ending });
 
     expect(outcomeTone(run('accepted', 'failed'))).toBe('done');
     expect(outcomeTone(run('moved-on', 'completed'))).toBe('movedOn');
@@ -211,7 +215,7 @@ describe('outcomeTone', () => {
     const run = (
       resolution: StationRunOutcome['resolution'],
       ending: StationRunOutcome['ending'],
-    ) => ({ resolution, ending }) as StationRunOutcome;
+    ) => partial<StationRunOutcome>({ resolution, ending });
 
     expect(resolutionLabel(run('accepted', 'failed'))).toBe('Accepted');
     expect(resolutionLabel(run('moved-on', 'completed'))).toBe('Moved on');

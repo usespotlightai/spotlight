@@ -19,14 +19,23 @@ import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
-import type { WaitingHookStep } from '@integrations/domain/value-objects/hook-step-outcome.vo';
+import type {
+  HookStepOutcome,
+  WaitingHookStep,
+} from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
+import {
+  headersOf,
+  callAt,
+} from '@integrations/integrations.requests.fake-spec';
+import { fieldOf } from '@platform/json/field-of';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type { NetworkCallsPort } from '@runs/application/ports/network-calls.port';
 import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { Mock } from 'vitest';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T10:00:00.000Z');
@@ -95,7 +104,7 @@ const requests = (
   hosts: WorkspaceOutboundScopePort = unscoped,
   signs = true,
 ) => {
-  const fetch = vi.fn(reply);
+  const fetch = vi.fn<typeof globalThis.fetch>(reply);
   const signed = vi.fn(async () => 'jwt');
 
   return {
@@ -123,11 +132,16 @@ const requests = (
   };
 };
 
-const sentHeaders = (fetch: ReturnType<typeof vi.fn>) =>
-  (fetch.mock.calls[0] as [string, RequestInit])[1].headers as Record<
-    string,
-    string
-  >;
+const sentHeaders = (fetch: Mock<typeof globalThis.fetch>) =>
+  headersOf(callAt(fetch)[1]);
+
+const waitingOf = (outcome: HookStepOutcome): WaitingHookStep => {
+  if (outcome.status !== 'waiting') {
+    throw new Error('expected a waiting step');
+  }
+
+  return outcome;
+};
 
 describe('HookRequests', () => {
   it('signs as Standard Webhooks do, with a callback token and a stable id', async () => {
@@ -199,9 +213,7 @@ describe('HookRequests', () => {
 
     const stepResult = await sending.sent(hookRequest(), TOKEN, NOW);
 
-    expect((stepResult.outcome as { output: string }).output).toHaveLength(
-      16 * 1024,
-    );
+    expect(fieldOf(stepResult.outcome, 'output')).toHaveLength(16 * 1024);
   });
 
   it('fails a call whose answer stops early, in place of keeping part of it', async () => {
@@ -529,7 +541,7 @@ describe('HookRequests', () => {
     await expect(
       sending.resumed(
         hookRequest({ fromNetwork: true, waitMode: 'suspend' }),
-        first.outcome as WaitingHookStep,
+        waitingOf(first.outcome),
         NOW,
       ),
     ).resolves.toBeNull();
@@ -548,7 +560,7 @@ describe('HookRequests', () => {
     await expect(
       sending.resumed(
         hookRequest({ fromNetwork: true, waitMode: 'suspend' }),
-        first.outcome as WaitingHookStep,
+        waitingOf(first.outcome),
         NOW,
       ),
     ).resolves.toMatchObject({

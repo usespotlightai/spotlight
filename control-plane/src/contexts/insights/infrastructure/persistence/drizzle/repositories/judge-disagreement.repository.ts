@@ -4,8 +4,8 @@ import type {
   AnsweredDisagreements,
   JudgeDisagreementRepository,
 } from '@insights/domain/repositories/judge-disagreement.repository';
-import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { ClaimAnswer } from '@insights/domain/value-objects/claim-answer.vo';
+import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { JudgeDisagreementId } from '@insights/domain/value-objects/judge-disagreement-id.vo';
 import { NotMetAnswer } from '@insights/domain/value-objects/not-met-answer.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
@@ -24,6 +24,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -69,7 +71,7 @@ const toDisagreement = (row: JudgeDisagreementRow): JudgeDisagreement =>
       reasons: row.reasons.map(judgeReasonOf),
     },
     labelFrom: row.labelFrom,
-    askedOf: row.askedOfId ? UserId.of(row.askedOfId) : null,
+    askedOf: nonEmpty(row.askedOfId) ? UserId.of(row.askedOfId) : null,
     openedAt: row.openedAt,
     claimAnswers: row.claimAnswers.map((each) =>
       ClaimAnswer.of({
@@ -186,11 +188,13 @@ export class DrizzleJudgeDisagreementRepository implements JudgeDisagreementRepo
   }
 
   async find(id: JudgeDisagreementId): Promise<JudgeDisagreement | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(judgeDisagreement)
-      .where(eq(judgeDisagreement.id, id.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(judgeDisagreement)
+        .where(eq(judgeDisagreement.id, id.value))
+        .limit(1),
+    );
 
     return row ? toDisagreement(row) : null;
   }

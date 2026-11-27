@@ -40,7 +40,7 @@ export class ToolSources {
     run: LeasedRunFacts,
     context: ToolContext,
     runnerId: string,
-  ) {
+  ): Promise<ResolvedTool | null> {
     return this.from[tool.origin](tool, run, context, runnerId);
   }
 }

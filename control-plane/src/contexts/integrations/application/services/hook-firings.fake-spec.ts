@@ -27,8 +27,10 @@ import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { Hook } from '@integrations/domain/value-objects/hook.vo';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { type Mock, vi } from 'vitest';
+import { type Mock, type Mocked, vi } from 'vitest';
 
 export const NOW = new Date('2026-09-26T10:00:00.000Z');
 
@@ -38,7 +40,7 @@ export const EVENT = usedTool('grafana.search', { inputs: { query: 'cpu' } });
 
 export const USING = usingTool('grafana.search', { query: 'cpu' });
 
-export const later = (ms: number) => new Date(NOW.getTime() + ms);
+export const later = (ms: number): Date => new Date(NOW.getTime() + ms);
 
 export const hookNamed = (
   key: string,
@@ -125,7 +127,9 @@ export const failed = (
   trace: null,
 });
 
-export const stateOf = (firing: HookFiring) => ({
+export const stateOf = (
+  firing: HookFiring,
+): Parameters<typeof HookFiring.rehydrate>[0] => ({
   id: firing.id,
   hookId: firing.hookId,
   workspaceId: firing.workspaceId,
@@ -147,22 +151,35 @@ export const stateOf = (firing: HookFiring) => ({
   version: firing.version,
 });
 
-export const firingsInMemory = (stored: HookFiring | null = null) => {
+interface FiringsInMemory {
+  readonly firings: Mocked<HookFiringRepository>;
+  readonly saved: HookFiring[];
+  readonly last: () => HookFiring | undefined;
+}
+
+export const firingsInMemory = (
+  stored: HookFiring | null = null,
+): FiringsInMemory => {
   const byId = new Map<string, HookFiring>(
     stored ? [[stored.id.value, stored]] : [],
   );
   const saved: HookFiring[] = [];
   const firings = {
-    add: vi.fn(async (_firing: HookFiring) => true),
-    withId: vi.fn(async (id: HookFiringId) => byId.get(id.value) ?? null),
-    claimCandidates: vi.fn(async (now: Date) =>
-      [...byId.values()].filter(
-        (each) =>
-          each.progress.kind === 'pending' &&
-          each.progress.dueAt.getTime() <= now.getTime(),
-      ),
+    add: vi.fn<HookFiringRepository['add']>(
+      async (_firing: HookFiring) => true,
     ),
-    save: vi.fn(async (firing: HookFiring) => {
+    withId: vi.fn<HookFiringRepository['withId']>(
+      async (id: HookFiringId) => byId.get(id.value) ?? null,
+    ),
+    claimCandidates: vi.fn<HookFiringRepository['claimCandidates']>(
+      async (now: Date) =>
+        [...byId.values()].filter(
+          (each) =>
+            each.progress.kind === 'pending' &&
+            each.progress.dueAt.getTime() <= now.getTime(),
+        ),
+    ),
+    save: vi.fn<HookFiringRepository['save']>(async (firing: HookFiring) => {
       if (byId.get(firing.id.value)?.version !== firing.version) {
         throw new HookFiringVersionConflictError(firing.id.value);
       }
@@ -182,7 +199,7 @@ export const firingsInMemory = (stored: HookFiring | null = null) => {
         }),
       );
     }),
-    finishedBefore: vi.fn(
+    finishedBefore: vi.fn<HookFiringRepository['finishedBefore']>(
       async (_at: Date, _most: number): Promise<readonly HookFiring[]> => [],
     ),
   } satisfies HookFiringRepository;
@@ -197,15 +214,15 @@ export const firingsInMemory = (stored: HookFiring | null = null) => {
 export const runtimeOf = (
   hooks: ListeningHook[],
   whenHolds: () => boolean = () => true,
-) =>
+): Mocked<HookRuntimePort> =>
   ({
-    listening: vi.fn(async () => hooks),
-    hook: vi.fn(
+    listening: vi.fn<HookRuntimePort['listening']>(async () => hooks),
+    hook: vi.fn<HookRuntimePort['hook']>(
       async (id: HookDefinitionId) =>
         hooks.find((each) => each.id.equals(id)) ?? null,
     ),
-    whenHolds: vi.fn(whenHolds),
-    written: vi.fn((): WrittenStep => {
+    whenHolds: vi.fn<HookRuntimePort['whenHolds']>(whenHolds),
+    written: vi.fn<HookRuntimePort['written']>((): WrittenStep => {
       throw new Error('This test writes out no step.');
     }),
   }) satisfies HookRuntimePort;
@@ -213,8 +230,19 @@ export const runtimeOf = (
 export const stepsOf = (
   step: (request: StepRequest) => StepResult,
   calls: HookCallsPort = { record: vi.fn(async () => {}) },
-) => {
-  const take = vi.fn(async (request: StepRequest) => step(request));
+): {
+  readonly take: Mock<(request: StepRequest) => Promise<StepResult>>;
+  readonly traced: Mock<
+    (instance: HookEventInstance, stepResult: StepResult) => Promise<void>
+  >;
+  readonly steps: HookSteps;
+} => {
+  const take = vi.fn(
+    (request: StepRequest) =>
+      new Promise<StepResult>((resolve) => {
+        resolve(step(request));
+      }),
+  );
   const traced = vi.fn(
     async (instance: HookEventInstance, stepResult: StepResult) => {
       if (stepResult.trace && instance.run) {
@@ -226,7 +254,7 @@ export const stepsOf = (
   return {
     take,
     traced,
-    steps: { take, traced } as unknown as HookSteps,
+    steps: partial<HookSteps>({ take, traced }),
   };
 };
 
@@ -240,4 +268,4 @@ export const logger = (): Record<
   error: vi.fn(),
 });
 
-export const clock = { now: () => NOW, sleep: async () => {} };
+export const clock: ClockPort = { now: () => NOW, sleep: async () => {} };

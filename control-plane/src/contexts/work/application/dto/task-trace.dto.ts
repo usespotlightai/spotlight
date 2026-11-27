@@ -14,7 +14,7 @@ import type {
 } from '@work/application/dto/run-journal.dto';
 
 const listOf = <T extends string>(all: Record<T, true>): readonly T[] =>
-  Object.keys(all) as T[];
+  Object.keys(all).filter((key): key is T => key in all);
 
 export const TRACE_CONNECTION_OUTCOMES = listOf<ConnectionOutcome>({
   passthrough: true,

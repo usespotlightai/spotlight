@@ -2,14 +2,15 @@ import type { Leadership } from '@platform/redis/leadership';
 import type { WarmSandboxKeeping } from '@runs/application/services/warm-sandbox-keeping.service';
 import { WarmSandboxesWorker } from '@runs/presentation/workers/warm-sandboxes.worker';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const workerWith = (leads: boolean) => {
   const keep = vi.fn(async () => {});
   const worker = new WarmSandboxesWorker(
-    { keep } as unknown as WarmSandboxKeeping,
-    { held: () => leads } as unknown as Leadership,
-    { error: vi.fn() } as unknown as LoggerPort,
+    partial<WarmSandboxKeeping>({ keep }),
+    partial<Leadership>({ held: () => leads }),
+    partial<LoggerPort>({ error: vi.fn() }),
   );
 
   return { worker, keep };

@@ -1,6 +1,7 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -16,7 +17,7 @@ import { describe, expect, it } from 'vitest';
 const ASKED_AT = new Date('2026-11-11T10:00:00.000Z');
 const PLATFORM = TeamId.of('team_platform');
 
-const notice = {
+const notice = partial<InboxEntrySummary>({
   kind: 'notice',
   id: 'ntc_1',
   teamId: PLATFORM.value,
@@ -24,38 +25,38 @@ const notice = {
   points: ['The pass rate fell.'],
   unread: true,
   askedAt: ASKED_AT,
-} as unknown as InboxEntrySummary;
+});
 
-const chat = {
+const chat = partial<InboxEntrySummary>({
   kind: 'chat',
   id: 'chat_1',
   teamId: PLATFORM.value,
   askedAt: ASKED_AT,
   unread: true,
-} as unknown as InboxEntrySummary;
+});
 
 const inboxesWith = () => {
   const opened: InboxScope[] = [];
-  const access = {
+  const access = partial<WorkspaceAccessPort>({
     teamAccessOfMembers: async () => [
       {
         workspaceId: WorkspaceId.of('ws_1'),
         viewer: UserId.of('admin_1'),
-        teams: [{ teamId: PLATFORM, sees: true, actsOn: true }],
+        teams: [{ teamId: PLATFORM, sees: true, actsOn: true, joined: false }],
       },
       {
         workspaceId: WorkspaceId.of('ws_1'),
         viewer: UserId.of('member_1'),
-        teams: [{ teamId: PLATFORM, sees: true, actsOn: false }],
+        teams: [{ teamId: PLATFORM, sees: true, actsOn: false, joined: false }],
       },
     ],
-  } as unknown as WorkspaceAccessPort;
-  const reader: InboxReaderPort = {
+  });
+  const reader: InboxReaderPort = partial<InboxReaderPort>({
     open: async (scope: InboxScope) => {
       opened.push(scope);
       return [notice, chat];
     },
-  } as unknown as InboxReaderPort;
+  });
 
   return {
     opened,
@@ -63,8 +64,8 @@ const inboxesWith = () => {
       reader,
       new WorkAccess(
         access,
-        {} as WorkspaceReaderPort,
-        {} as TeamDirectoryPort,
+        partial<WorkspaceReaderPort>({}),
+        partial<TeamDirectoryPort>({}),
       ),
     ),
   };

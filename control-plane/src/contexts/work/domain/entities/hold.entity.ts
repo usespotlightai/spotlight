@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -145,7 +146,7 @@ export class Hold {
   static rehydrate(state: HoldState): Hold {
     const problem = problemOf(state);
 
-    if (problem) {
+    if (nonEmpty(problem)) {
       throw new InconsistentStateError('hold', problem);
     }
 

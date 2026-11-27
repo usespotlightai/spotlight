@@ -53,10 +53,10 @@ const covers = (sequences: Sequences, positions: readonly Position[]) =>
 
 export class LiveSequences {
   #applied = new Map<string, number>();
-  #ahead = new Map<string, Set<number>>();
+  readonly #ahead = new Map<string, Set<number>>();
   #settled = new Map<string, number>();
   #settles: Settle[] = [];
-  #waiters = new Set<Waiter>();
+  readonly #waiters = new Set<Waiter>();
 
   reset(stored: Sequences): void {
     this.#applied = new Map(Object.entries(stored));

@@ -13,7 +13,7 @@ import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { GradingRound } from '@change-review/domain/value-objects/grading-round.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
@@ -27,6 +27,7 @@ import {
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -111,10 +112,7 @@ const RUN_STACK = stackOf('stack-1', StackOrigin.run(RunId.of('run-1')));
 
 const PUSHED_STACK = stackOf(
   'stack-2',
-  StackOrigin.push(
-    CommitSha.parsed('b'.repeat(40)) as CommitSha,
-    Pusher.of('octocat'),
-  ),
+  StackOrigin.push(commitSha('b'), Pusher.of('octocat')),
 );
 
 const answered = (stack: ChangeStack, reply: string | null = 'The bot.') =>
@@ -135,19 +133,19 @@ const grading = (
   let stored = initial;
   const grade = vi.fn(answer);
 
-  const answers = {
+  const answers = partial<QuestionAnswerRepository>({
     find: async () => stored,
     save: async (saved: QuestionAnswer) => {
       stored = saved;
     },
     nextDueGrading: async (at: Date) =>
       stored.hasPendingJob && stored.job.isDue(at) ? stored : null,
-  } as unknown as QuestionAnswerRepository;
-  const stackRepository = {
+  });
+  const stackRepository = partial<ChangeStackRepository>({
     find: async (id: ChangeStackId) =>
       stacks.find((each) => each.id.equals(id)) ?? null,
     ofTask: async () => stacks,
-  } as unknown as ChangeStackRepository;
+  });
   const grader: AnswerGraderPort = { grade };
   let now = NOW;
 
@@ -156,7 +154,7 @@ const grading = (
     stackRepository,
     grader,
     { inTransaction: <T>(work: () => Promise<T>) => work() },
-    { now: () => now, sleep: async () => undefined },
+    { now: () => now, sleep: async () => {} },
     QUIET,
     { report: () => undefined },
     telemetryInMemory(),

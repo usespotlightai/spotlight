@@ -21,6 +21,7 @@ import { EgressReference } from '@runners/domain/value-objects/egress-reference.
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -50,26 +51,26 @@ const egressOf = (
   } = {},
 ) =>
   new RunnerEgress(
-    {
+    partial<RunnerRepository>({
       findByEgressTokenHash: async (hash: TokenHash) =>
         stored?.egressTokenHash?.equals(hash) ? stored : null,
       findByProxyCredentialHash: async (hash: TokenHash) =>
         stored?.proxyCredentialHash?.equals(hash) ? stored : null,
-    } as unknown as RunnerRepository,
-    {
+    }),
+    partial<TokenIssuer>({
       hash: (token: string) => (HASHES[token] ?? 'f').repeat(64),
-    } as TokenIssuer,
-    {
+    }),
+    partial<EgressRepository>({
       find: async () => input.egress ?? null,
       findByTokenHash: async (hash: TokenHash) =>
         input.egress?.tokenHash.equals(hash) ? input.egress : null,
-    } as unknown as EgressRepository,
-    {
+    }),
+    partial<RunnerPoolRepository>({
       find: async () => input.pool ?? null,
-    } as unknown as RunnerPoolRepository,
-    {
+    }),
+    partial<WorkspaceReaderPort>({
       isOpen: async () => input.open ?? true,
-    } as unknown as WorkspaceReaderPort,
+    }),
     input.platform === undefined ? PLATFORM : input.platform,
   );
 

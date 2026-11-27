@@ -157,6 +157,7 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { AckMessagesCommand } from '@work/application/commands/ack-messages.command';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AnswerConversationCommand } from '@work/application/commands/answer-conversation.command';
@@ -1091,7 +1092,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     provide: CONTROL_PLANE_RELEASE,
     inject: [ENV],
     useFactory: (env: Env): ControlPlaneReleasePort => ({
-      release: env.SPOTLIGHT_RELEASE || null,
+      release: !nonEmpty(env.SPOTLIGHT_RELEASE) ? null : env.SPOTLIGHT_RELEASE,
     }),
   },
 

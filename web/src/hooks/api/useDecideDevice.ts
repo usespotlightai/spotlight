@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { deviceKeys } from '@/hooks/api/useDeviceCode';
 import { authClient } from '@/lib/authClient';
@@ -19,7 +23,9 @@ const REASONS: Record<number, string> = {
   429: TOO_MANY_ATTEMPTS,
 };
 
-export function useDecideDevice(userCode: string) {
+export function useDecideDevice(
+  userCode: string,
+): UseMutationResult<void, Error, DeviceDecision> {
   const queryClient = useQueryClient();
 
   return useMutation({

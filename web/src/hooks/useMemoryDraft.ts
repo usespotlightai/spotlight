@@ -1,6 +1,10 @@
-import { useState } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 
-import type { LineResponseDto, WriteMemoryRequestDto } from '@/lib/api';
+import type {
+  LineResponseDto,
+  WriteMemoryRequestDto,
+  StationResponseDto,
+} from '@/lib/api';
 import {
   kindOf,
   type MemoryKind,
@@ -8,6 +12,7 @@ import {
   type TeamMemory,
   workStationsOf,
 } from '@/lib/memory';
+import { nonEmpty } from '@/lib/non-empty';
 
 type Draftable = Pick<
   TeamMemory,
@@ -20,10 +25,31 @@ const pathsIn = (typed: string): string[] =>
     .map((each) => each.trim())
     .filter(Boolean);
 
+export type MemoryDraftResult = {
+  kind: MemoryKind;
+  setKind: (next: string | null) => void;
+  body: string;
+  setBody: Dispatch<SetStateAction<string>>;
+  lineId: string | null;
+  chooseLine: (next: string | null) => void;
+  stationId: string | null;
+  setStationId: Dispatch<SetStateAction<string | null>>;
+  repository: string | null;
+  setRepository: Dispatch<SetStateAction<string | null>>;
+  paths: string;
+  setPaths: Dispatch<SetStateAction<string>>;
+  line: LineResponseDto | undefined;
+  stations: StationResponseDto[];
+  repositories: string[];
+  empty: boolean;
+  reset: (from: Draftable) => void;
+  written: () => WriteMemoryRequestDto;
+};
+
 export function useMemoryDraft(
   initial: Draftable | null,
   lines: readonly LineResponseDto[],
-) {
+): MemoryDraftResult {
   const [kind, setKind] = useState<MemoryKind>(() =>
     kindOf(initial?.kind ?? null),
   );
@@ -70,7 +96,7 @@ export function useMemoryDraft(
       lineId,
       stationId,
       repository,
-      paths: repository ? pathsIn(paths) : [],
+      paths: nonEmpty(repository) ? pathsIn(paths) : [],
     }),
   };
 }

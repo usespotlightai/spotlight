@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { shortened } from '@work/application/rendering/approval-asked';
 import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import type { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
@@ -17,7 +18,7 @@ export const PermissionAsked = {
   },
 
   because(profile: string | null): string {
-    return profile
+    return nonEmpty(profile)
       ? `The ${profile} harness profile says to ask a person first.`
       : 'The harness asked before doing it.';
   },

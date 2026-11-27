@@ -25,6 +25,8 @@ import {
 } from '@platform/http/resources/resource-headers';
 import { ResourceInterceptor } from '@platform/http/resources/resource.interceptor';
 
+export type ApiDecorator = ReturnType<typeof applyDecorators>;
+
 export const operationIdOf = (verb: string, kind: string): string =>
   [
     verb,
@@ -33,7 +35,10 @@ export const operationIdOf = (verb: string, kind: string): string =>
       .map((each) => each.charAt(0).toUpperCase() + each.slice(1)),
   ].join('');
 
-export const ApiProblemResponse = (status: number, description: string) =>
+export const ApiProblemResponse = (
+  status: number,
+  description: string,
+): MethodDecorator & ClassDecorator =>
   ApiResponse({
     status,
     description,
@@ -44,7 +49,10 @@ export const ApiProblemResponse = (status: number, description: string) =>
     },
   });
 
-export const ConventionalApiController = (path: string, tag: string) =>
+export const ConventionalApiController = (
+  path: string,
+  tag: string,
+): ApiDecorator =>
   applyDecorators(
     Controller(path),
     ApiTags(tag),

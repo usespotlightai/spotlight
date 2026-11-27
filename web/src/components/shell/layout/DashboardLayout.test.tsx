@@ -15,6 +15,8 @@ import {
   type Pane,
 } from '@/components/shell/layout/DashboardLayout';
 import { SPRING_MS } from '@/lib/motion';
+import { htmlElement } from '@/test/elements';
+import { partial } from '@/test/partial';
 
 const render = (ui: ReactElement) =>
   renderPlain(ui, { wrapper: CommandsProvider });
@@ -128,9 +130,9 @@ describe('DashboardLayout split view', () => {
   const splitHandle = () =>
     screen.getByRole('separator', { name: 'Resize split view' });
 
-  const splitColumn = () => splitHandle().parentElement as HTMLElement;
+  const splitColumn = () => htmlElement(splitHandle().parentElement);
 
-  const row = () => splitColumn().parentElement as HTMLElement;
+  const row = () => htmlElement(splitColumn().parentElement);
 
   const drag = (to: number) => {
     pointer.pointerDown(splitHandle(), { clientX: 0, pointerId: 1 });
@@ -245,7 +247,7 @@ describe('DashboardLayout split view', () => {
 
   it('shows the main pane moved into the split at its final width', () => {
     const { show } = renderSplit(vi.fn(), ['a']);
-    const column = pane('a slot')?.parentElement?.parentElement as HTMLElement;
+    const column = htmlElement(pane('a slot')?.parentElement?.parentElement);
     const measured: string[] = [];
     column.getBoundingClientRect = () => {
       measured.push(column.style.transition);
@@ -458,7 +460,7 @@ describe('DashboardLayout sidebar', () => {
     screen.getByRole('separator', { name: 'Resize sidebar' });
 
   const gutter = () =>
-    document.querySelector('[data-slot="sidebar-gutter"]') as HTMLElement;
+    htmlElement(document.querySelector('[data-slot="sidebar-gutter"]'));
 
   const aside = () => screen.getByText('sidebar slot').closest('aside');
 
@@ -513,11 +515,11 @@ describe('DashboardLayout sidebar', () => {
   };
 
   const edge = () =>
-    document.querySelector('[data-slot="sidebar-peek"]') as Element;
+    htmlElement(document.querySelector('[data-slot="sidebar-peek"]'));
 
   const peek = () => {
     fireEvent.pointerEnter(
-      document.querySelector('[data-slot="sidebar-expand"]') as Element,
+      htmlElement(document.querySelector('[data-slot="sidebar-expand"]')),
     );
     wait(75);
   };
@@ -843,9 +845,9 @@ describe('DashboardLayout sidebar', () => {
 
   it('shows the closed sidebar once the pointer rests on the expand button', () => {
     renderCollapsed();
-    const slot = document.querySelector(
-      '[data-slot="sidebar-expand"]',
-    ) as Element;
+    const slot = htmlElement(
+      document.querySelector('[data-slot="sidebar-expand"]'),
+    );
 
     fireEvent.pointerEnter(slot);
     wait(74);
@@ -897,7 +899,7 @@ describe('DashboardLayout sidebar', () => {
   it('hides the shown sidebar 300 ms after the pointer leaves the panel and the expand button', () => {
     renderCollapsed();
     peek();
-    const panel = aside() as HTMLElement;
+    const panel = htmlElement(aside());
     for (const [key, value] of Object.entries({
       offsetLeft: 0,
       offsetTop: 44,
@@ -907,7 +909,7 @@ describe('DashboardLayout sidebar', () => {
       Object.defineProperty(panel, key, { value });
     }
     expandButton().getBoundingClientRect = () =>
-      ({ left: 8, top: 8, width: 28, height: 28 }) as DOMRect;
+      partial<DOMRect>({ left: 8, top: 8, width: 28, height: 28 });
     const move = (clientX: number, clientY: number) =>
       pointer.pointerMove(document, { clientX, clientY });
 
@@ -943,7 +945,7 @@ describe('DashboardLayout sidebar', () => {
 
     peek();
     fireEvent.click(
-      document.querySelector('[data-slot="sidebar-backdrop"]') as Element,
+      htmlElement(document.querySelector('[data-slot="sidebar-backdrop"]')),
     );
 
     expect(aside()).not.toHaveAttribute('data-peeking');
@@ -1057,7 +1059,7 @@ describe('DashboardLayout sidebar', () => {
       renderLayout();
 
       fireEvent.pointerEnter(
-        document.querySelector('[data-slot="sidebar-expand"]') as Element,
+        htmlElement(document.querySelector('[data-slot="sidebar-expand"]')),
       );
       wait(100);
 
@@ -1077,7 +1079,9 @@ describe('DashboardLayout sidebar', () => {
         'a click on the backdrop',
         () =>
           fireEvent.click(
-            document.querySelector('[data-slot="sidebar-backdrop"]') as Element,
+            htmlElement(
+              document.querySelector('[data-slot="sidebar-backdrop"]'),
+            ),
           ),
       ],
       [

@@ -1,5 +1,6 @@
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { RunsPort } from '@runs/application/ports/runs.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -94,15 +95,15 @@ const dispatches: DispatchRepository = {
   },
 };
 
-const tasks = {
+const tasks = partial<TaskRepository>({
   find: async () => {
     const held = holds.shift() ?? false;
 
-    return { hasCurrentRun: () => held } as unknown as Task;
+    return partial<Task>({ hasCurrentRun: () => held });
   },
-} as unknown as TaskRepository;
+});
 
-const runs = {
+const runs = partial<RunsPort>({
   enqueue: vi.fn(async () => {
     calls.push('enqueue');
 
@@ -114,10 +115,10 @@ const runs = {
     calls.push('cancel');
     return { was: 'unknown' as const, started: false };
   }),
-} as unknown as RunsPort;
+});
 
 const handler = () =>
-  new EnqueueOrderedRun(dispatches, tasks, {} as ChatRepository, runs, {
+  new EnqueueOrderedRun(dispatches, tasks, partial<ChatRepository>({}), runs, {
     now: () => NOW,
     sleep: async () => {},
   });

@@ -16,6 +16,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -43,7 +45,7 @@ const progressOf = (row: Row): AssistProgress => {
         result: row.result ?? inconsistent('was submitted without a result'),
       };
     case 'failed':
-      return row.failure && isAssistFailureReason(row.failure)
+      return nonEmpty(row.failure) && isAssistFailureReason(row.failure)
         ? { status: 'failed', reason: row.failure }
         : inconsistent(`failed for an unknown reason ${row.failure}`);
     default:
@@ -210,11 +212,9 @@ export class DrizzleAssistSessionRepository implements AssistSessionRepository {
   }
 
   private async first(where: SQL | undefined): Promise<AssistSession | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(assistSession)
-      .where(where)
-      .limit(1);
+    const row = firstOf(
+      await this.context.db.select().from(assistSession).where(where).limit(1),
+    );
 
     return row ? toSession(row) : null;
   }

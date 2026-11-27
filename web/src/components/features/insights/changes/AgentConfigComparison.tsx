@@ -21,6 +21,7 @@ import {
   type OutcomeMeasure,
   outcomeLabel,
 } from '@/lib/insights-changes';
+import { nonEmpty } from '@/lib/non-empty';
 
 type AgentConfigComparisonProps = {
   slug: string;
@@ -51,7 +52,7 @@ export function AgentConfigComparison({
   );
   const points = agentConfigPoints(comparison.agentConfigs, measure, harnesses);
   const stationReplayed =
-    narrowed.stationId && candidates.data
+    nonEmpty(narrowed.stationId) && candidates.data
       ? stationReplayedPoints(
           candidates.data,
           narrowed.stationId,
@@ -59,7 +60,7 @@ export function AgentConfigComparison({
         )
       : null;
   const hiddenFor = lowerIsBetter(measure) ? outcomeLabel(measure) : null;
-  const replayed = hiddenFor ? [] : (stationReplayed ?? []);
+  const replayed = nonEmpty(hiddenFor) ? [] : (stationReplayed ?? []);
   const scattered =
     comparison.agentConfigs.length > 0 &&
     points.length > 0 &&
@@ -115,7 +116,7 @@ export function AgentConfigComparison({
             harnesses={harnesses}
             judged={judged}
           />
-          {replayed.length > 0 && comparison.currency && (
+          {replayed.length > 0 && nonEmpty(comparison.currency) && (
             <ReplayedAgentConfigTable
               points={replayed}
               currency={comparison.currency}
@@ -129,7 +130,7 @@ export function AgentConfigComparison({
         <p className="py-6 text-center text-muted-foreground text-sm">
           No runs match these filters in this period.
         </p>
-      ) : !scattered || !comparison.currency ? (
+      ) : !scattered || !nonEmpty(comparison.currency) ? (
         <p className="py-6 text-center text-muted-foreground text-sm">
           No priced runs to chart. Show the table for outcomes alone.
         </p>

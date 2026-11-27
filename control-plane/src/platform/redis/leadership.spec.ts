@@ -1,15 +1,16 @@
 import { Instance } from '@platform/cluster/instance';
 import { Leadership, type LeaseStore } from '@platform/redis/leadership';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import RedisMock from 'ioredis-mock';
 import { describe, expect, it, vi } from 'vitest';
 
-const logger = {
+const logger = partial<LoggerPort>({
   info: vi.fn(),
   error: vi.fn(),
   warn: vi.fn(),
   debug: vi.fn(),
-} as unknown as LoggerPort;
+});
 
 const leading = (store: LeaseStore | null) => {
   let now = 0;
@@ -69,7 +70,8 @@ describe('Leadership', () => {
       Promise.reject(new Error('Redis is not reachable')),
     ];
     const { leadership, elapse } = leading({
-      eval: () => answers.shift() as Promise<unknown>,
+      eval: () =>
+        answers.shift() ?? Promise.reject(new Error('no answer left')),
     });
     await leadership.renew();
 

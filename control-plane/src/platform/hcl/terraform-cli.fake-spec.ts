@@ -3,6 +3,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { z } from 'zod';
+
 export const TERRAFORM_INSTALLED =
   spawnSync('terraform', ['version'], { encoding: 'utf8' }).status === 0;
 
@@ -37,7 +39,7 @@ export const evaluatedByTerraform = (
       throw new Error(evaluated.stderr);
     }
 
-    return JSON.parse(JSON.parse(evaluated.stdout) as string);
+    return JSON.parse(z.string().parse(JSON.parse(evaluated.stdout)));
   } finally {
     rmSync(module, { recursive: true, force: true });
   }

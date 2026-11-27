@@ -1,3 +1,4 @@
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 /** How many decisions one call may record, and how many a task keeps in all. */
 export const DECISION_LIMITS = { atOnce: 20, perTask: 50 } as const;
 
@@ -6,7 +7,7 @@ export interface DecidedTask {
 }
 
 export interface DecidingRun {
-  readonly taskId: unknown;
+  readonly taskId: TaskId | null;
   readonly trial: boolean;
   /** Whether the station of the run keeps decisions. */
   readonly decisions: boolean;

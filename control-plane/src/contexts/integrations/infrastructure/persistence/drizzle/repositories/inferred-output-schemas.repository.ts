@@ -6,6 +6,7 @@ import { OutputShape } from '@integrations/domain/value-objects/output-shape.vo'
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { inferredOutputSchema } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, eq } from 'drizzle-orm';
 
@@ -21,25 +22,25 @@ const rehydrate = (row: Row): InferredOutputSchema =>
     version: row.version,
   });
 
-export class DrizzleInferredOutputSchemas
-  implements InferredOutputSchemaRepository
-{
+export class DrizzleInferredOutputSchemas implements InferredOutputSchemaRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async of(
     teamId: TeamId,
     tool: ToolName,
   ): Promise<InferredOutputSchema | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(inferredOutputSchema)
-      .where(
-        and(
-          eq(inferredOutputSchema.teamId, teamId.value),
-          eq(inferredOutputSchema.tool, tool.value),
-        ),
-      )
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(inferredOutputSchema)
+        .where(
+          and(
+            eq(inferredOutputSchema.teamId, teamId.value),
+            eq(inferredOutputSchema.tool, tool.value),
+          ),
+        )
+        .limit(1),
+    );
 
     return found ? rehydrate(found) : null;
   }

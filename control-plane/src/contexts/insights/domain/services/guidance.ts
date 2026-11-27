@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { judgeGuidanceOf } from '@shared-kernel/domain/value-objects/judge-guidance';
 
@@ -36,7 +37,7 @@ export const guardedGuidanceOf = (
 ): string | null => {
   const text = judgeGuidanceOf(guidance);
 
-  if (!text || NUMBERED_CLAIM.test(text)) {
+  if (!nonEmpty(text) || NUMBERED_CLAIM.test(text)) {
     return null;
   }
 

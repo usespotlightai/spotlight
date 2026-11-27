@@ -7,6 +7,7 @@ import {
   owns,
   sameJson,
 } from '@shared-kernel/domain/json-value';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 const INPUT_TYPES = [
@@ -175,7 +176,7 @@ const normalised = (
   }
 
   const description = textOf(raw.description);
-  if (description) {
+  if (nonEmpty(description)) {
     written.description = description;
   }
 
@@ -208,7 +209,7 @@ const normalised = (
 
   for (const key of ['pattern', 'format'] as const) {
     const read = textOf(raw[key]);
-    if (read) {
+    if (nonEmpty(read)) {
       written[key] = read;
     }
   }
@@ -218,9 +219,9 @@ const normalised = (
 
 const typesOf = (node: JsonObject): readonly InputType[] =>
   Array.isArray(node.type)
-    ? (node.type as readonly InputType[])
-    : typeof node.type === 'string'
-      ? [node.type as InputType]
+    ? node.type.filter(isInputType)
+    : isInputType(node.type)
+      ? [node.type]
       : [];
 
 const kindOf = (node: JsonObject): InputType | null => {
@@ -401,7 +402,9 @@ export class InputSchema {
     type: ScalarInputType,
     description: string | null = null,
   ): InputSchema {
-    return InputSchema.of(description ? { type, description } : { type });
+    return InputSchema.of(
+      nonEmpty(description) ? { type, description } : { type },
+    );
   }
 
   get type(): InputType | null {

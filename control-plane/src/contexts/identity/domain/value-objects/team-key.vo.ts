@@ -28,7 +28,7 @@ export class TeamKey {
   }
 
   equals(other: TeamKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof TeamKey && this.value === other.value;
   }
 
   toString(): string {

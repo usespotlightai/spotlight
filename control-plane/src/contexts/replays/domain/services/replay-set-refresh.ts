@@ -12,6 +12,7 @@ import {
   type OriginalOutcome,
   originalOutcomeOf,
 } from '@replays/domain/services/composition';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
@@ -64,7 +65,7 @@ const filled = (
   const picks: Pickable[] = [];
 
   while (picks.length < room && left.length > 0) {
-    const [balancing] = balancingPicks(outcomes, left, 1);
+    const balancing = firstOf(balancingPicks(outcomes, left, 1));
     const picked = balancing ?? left[0];
 
     left.splice(left.indexOf(picked), 1);

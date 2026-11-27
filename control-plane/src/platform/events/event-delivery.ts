@@ -32,6 +32,8 @@ import {
   type TelemetryPort,
 } from '@shared-kernel/application/ports/telemetry.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 import {
   and,
@@ -193,7 +195,7 @@ export class EventDelivery {
             isNull(eventDelivery.deliveredAt),
             isNotNull(eventDelivery.deadLetteredAt),
             gte(eventOutbox.recordedAt, since),
-            after ? gt(eventDelivery.eventId, after) : undefined,
+            nonEmpty(after) ? gt(eventDelivery.eventId, after) : undefined,
           ),
         )
         .orderBy(asc(eventDelivery.eventId))
@@ -259,20 +261,22 @@ export class EventDelivery {
   }
 
   private async stillDue(): Promise<number> {
-    const [row] = await this.context.db
-      .select({ due: count() })
-      .from(eventDelivery)
-      .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
-      .where(
-        and(
-          heardDeliveries(
-            DELIVERY_LANES.flatMap((lane) => this.subscribers.lane(lane)),
+    const row = firstOf(
+      await this.context.db
+        .select({ due: count() })
+        .from(eventDelivery)
+        .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
+        .where(
+          and(
+            heardDeliveries(
+              DELIVERY_LANES.flatMap((lane) => this.subscribers.lane(lane)),
+            ),
+            isNull(eventDelivery.deliveredAt),
+            isNull(eventDelivery.deadLetteredAt),
+            lte(eventDelivery.dueAt, this.clock.now()),
           ),
-          isNull(eventDelivery.deliveredAt),
-          isNull(eventDelivery.deadLetteredAt),
-          lte(eventDelivery.dueAt, this.clock.now()),
         ),
-      );
+    );
 
     return row?.due ?? 0;
   }
@@ -575,30 +579,32 @@ export class EventDelivery {
       return null;
     }
 
-    const [row] = await this.context.db
-      .select({
-        eventId: eventDelivery.eventId,
-        subscriber: eventDelivery.subscriber,
-        attempts: eventDelivery.attempts,
-        kind: eventOutbox.kind,
-        payload: eventOutbox.payload,
-        cause: eventOutbox.cause,
-        traceparent: eventOutbox.traceparent,
-        recordedAt: eventOutbox.recordedAt,
-      })
-      .from(eventDelivery)
-      .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
-      .where(
-        and(
-          isNull(eventDelivery.deliveredAt),
-          isNull(eventDelivery.deadLetteredAt),
-          lte(eventDelivery.dueAt, this.clock.now()),
-          heardDeliveries(hearings),
-        ),
-      )
-      .orderBy(asc(eventDelivery.dueAt), asc(eventOutbox.recordedAt))
-      .limit(1)
-      .for('update', { of: eventDelivery, skipLocked: true });
+    const row = firstOf(
+      await this.context.db
+        .select({
+          eventId: eventDelivery.eventId,
+          subscriber: eventDelivery.subscriber,
+          attempts: eventDelivery.attempts,
+          kind: eventOutbox.kind,
+          payload: eventOutbox.payload,
+          cause: eventOutbox.cause,
+          traceparent: eventOutbox.traceparent,
+          recordedAt: eventOutbox.recordedAt,
+        })
+        .from(eventDelivery)
+        .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
+        .where(
+          and(
+            isNull(eventDelivery.deliveredAt),
+            isNull(eventDelivery.deadLetteredAt),
+            lte(eventDelivery.dueAt, this.clock.now()),
+            heardDeliveries(hearings),
+          ),
+        )
+        .orderBy(asc(eventDelivery.dueAt), asc(eventOutbox.recordedAt))
+        .limit(1)
+        .for('update', { of: eventDelivery, skipLocked: true }),
+    );
 
     return row ?? null;
   }

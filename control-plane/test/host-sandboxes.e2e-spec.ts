@@ -6,6 +6,8 @@ import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
 import { DrizzleRunnerRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner.repository';
 import { DrizzleWorkingCopyImages } from '@runs/infrastructure/persistence/drizzle/readers/working-copy-images.reader';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -74,7 +76,7 @@ const runner = (over: Partial<typeof schema.runner.$inferInsert>) => ({
 beforeAll(async () => {
   database = await openDatabase('host_sandboxes');
   db = database.db;
-  reader = new DrizzleRunnerReader(db, { now: () => NOW } as never, {
+  reader = new DrizzleRunnerReader(db, partial<ClockPort>({ now: () => NOW }), {
     platformEgressSet: false,
   });
   runners = new DrizzleRunnerRepository(new DrizzleContext(db), {
@@ -93,7 +95,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 describe('the sandboxes that wait on a host', () => {

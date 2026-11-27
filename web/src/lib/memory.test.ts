@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import {
   appliesTo,
   authorOf,
@@ -19,6 +20,7 @@ import {
   suppliedMemories,
   type TeamMemory,
 } from '@/lib/memory';
+import { partial } from '@/test/partial';
 
 const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
   id: 'memory_1',
@@ -141,12 +143,17 @@ describe('filterOf and paramsOf', () => {
 
 describe('placeTreeOf', () => {
   const lines = [
-    {
+    partial<LineResponseDto>({
       id: 'line_delivery',
       name: 'Delivery',
-      stations: [{ id: 'station_build', name: 'Implementation' }],
-    },
-  ] as unknown as Parameters<typeof placeTreeOf>[1];
+      stations: [
+        partial<StationResponseDto>({
+          id: 'station_build',
+          name: 'Implementation',
+        }),
+      ],
+    }),
+  ];
 
   it('nests the station, repository and each path under the line', () => {
     expect(
@@ -272,14 +279,14 @@ describe('the memories of a run', () => {
   });
 
   it('supplies what was briefed, then what was recalled on top of it, once each', () => {
-    const briefed = { id: 'memory_b' } as TeamMemory;
-    const both = { id: 'memory_both' } as TeamMemory;
-    const recalled = { id: 'memory_r' } as TeamMemory;
+    const briefed = partial<TeamMemory>({ id: 'memory_b' });
+    const both = partial<TeamMemory>({ id: 'memory_both' });
+    const recalled = partial<TeamMemory>({ id: 'memory_r' });
 
     expect(
       suppliedMemories({
         briefed: [briefed, both],
-        omitted: [{ id: 'memory_c' } as TeamMemory],
+        omitted: [partial<TeamMemory>({ id: 'memory_c' })],
         recalled: [both, recalled],
         proposed: [],
         reviewItemId: null,

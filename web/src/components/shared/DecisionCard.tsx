@@ -18,7 +18,13 @@ export function DecisionCard({
 
   return (
     <Card
-      ref={ref as Ref<HTMLLIElement & HTMLElement>}
+      ref={(node: HTMLElement | null) => {
+        if (typeof ref === 'function') {
+          ref(node);
+        } else if (ref) {
+          ref.current = node;
+        }
+      }}
       data-decision
       tabIndex={-1}
       className={cn(

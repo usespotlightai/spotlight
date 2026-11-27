@@ -22,7 +22,8 @@ import { LineLoader } from '@work/application/services/line-loader.service';
 import { LineResuming } from '@work/application/services/line-resuming.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
+import { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
+import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
@@ -246,8 +247,8 @@ describe('MoveTaskHandler', () => {
       saved
         ?.pullEvents()
         .map((each) =>
-          each.kind === 'task.run-detached' || each.kind === 'task.run-assigned'
-            ? [each.kind, (each as TaskRunDetached).runId.value]
+          each instanceof TaskRunDetached || each instanceof TaskRunAssigned
+            ? [each.kind, each.runId.value]
             : [each.kind],
         ),
     ).toEqual([

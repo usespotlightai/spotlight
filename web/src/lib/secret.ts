@@ -1,4 +1,5 @@
 import type { SecretValueOrigin, WorkspaceSecretResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { since } from '@/lib/since';
 
 export type WorkspaceSecret = WorkspaceSecretResponseDto;
@@ -17,7 +18,7 @@ const ORIGIN_NOTES: Record<SecretValueOrigin, string> = {
 };
 
 export const describeValue = (secret: WorkspaceSecret): string =>
-  secret.valueSetAt && secret.valueOrigin === 'spotlight'
+  nonEmpty(secret.valueSetAt) && secret.valueOrigin === 'spotlight'
     ? `Set ${since(secret.valueSetAt)}`
     : ORIGIN_LABELS[secret.valueOrigin];
 

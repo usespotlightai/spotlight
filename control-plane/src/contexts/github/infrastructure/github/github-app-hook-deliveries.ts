@@ -8,15 +8,20 @@ import { answered, call } from '@github/infrastructure/github/github.rest';
 import { Inject, Injectable } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
+import { z } from 'zod';
 
 const PER_PAGE = 100;
 
-interface DeliveryAnswer {
-  readonly id: string;
-  readonly guid: string;
-  readonly delivered_at: string;
-  readonly status_code?: number | null;
-}
+const DELIVERY_ANSWERS = z.array(
+  z.object({
+    id: z.string(),
+    guid: z.string(),
+    delivered_at: z.string(),
+    status_code: z.number().nullish(),
+  }),
+);
+
+type DeliveryAnswer = z.infer<typeof DELIVERY_ANSWERS>[number];
 
 interface Parsed {
   readonly source?: string;
@@ -43,7 +48,7 @@ const answersIn = async (response: Response): Promise<DeliveryAnswer[]> => {
     await answered(response, LIST_FAILED);
   }
 
-  return JSON.parse(await response.text(), exactIds) as DeliveryAnswer[];
+  return DELIVERY_ANSWERS.parse(JSON.parse(await response.text(), exactIds));
 };
 
 const NEXT = /<([^>]+)>;\s*rel="next"/;
@@ -51,7 +56,7 @@ const NEXT = /<([^>]+)>;\s*rel="next"/;
 const cursorIn = (link: string | null | undefined): string | null => {
   const next = link?.match(NEXT)?.[1];
 
-  return next ? new URL(next).searchParams.get('cursor') : null;
+  return next !== undefined ? new URL(next).searchParams.get('cursor') : null;
 };
 
 const attemptOf = (answer: DeliveryAnswer): HookDeliveryAttempt => ({
@@ -68,7 +73,7 @@ export class GitHubAppHookDeliveries implements AppHookDeliveriesPort {
   async page(cursor: string | null): Promise<HookDeliveryPage> {
     const query = new URLSearchParams({ per_page: `${PER_PAGE}` });
 
-    if (cursor) {
+    if (cursor !== null) {
       query.set('cursor', cursor);
     }
 

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { StationConfigCandidates } from '@replays/infrastructure/acl/station-config-candidates.adapter';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type {
@@ -29,7 +30,9 @@ const sha256 = (text: string): string =>
 
 const live = () =>
   new StationConfigCandidates(
-    { live: async () => LIVE } as unknown as StationConfigCandidatesPort,
+    partial<StationConfigCandidatesPort>({
+      live: async () => LIVE,
+    }),
     { sha256 },
   ).live(LineId.of('line_1'), StationId.of('station_1'));
 

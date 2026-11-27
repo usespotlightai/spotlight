@@ -3,7 +3,7 @@ import { InvalidAvatarError } from '@identity/domain/exceptions/invalid-avatar.e
 const SHA_256 = /^[0-9a-f]{64}$/;
 
 export class AvatarDigest {
-  private readonly kind = 'avatar-digest' as const;
+  private readonly kind = 'avatar-digest';
 
   private constructor(readonly value: string) {}
 
@@ -22,6 +22,6 @@ export class AvatarDigest {
   }
 
   equals(other: AvatarDigest): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof AvatarDigest && this.value === other.value;
   }
 }

@@ -1,7 +1,15 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { teamMemoryKeys } from '@/hooks/api/useTeamMemories';
-import { editMemory, type WriteMemoryRequestDto } from '@/lib/api';
+import {
+  editMemory,
+  type WriteMemoryRequestDto,
+  type TeamMemoryDetailResponseDto,
+} from '@/lib/api';
 
 type EditMemoryInput = {
   teamId: string;
@@ -9,7 +17,11 @@ type EditMemoryInput = {
   memory: WriteMemoryRequestDto;
 };
 
-export function useEditMemory() {
+export function useEditMemory(): UseMutationResult<
+  TeamMemoryDetailResponseDto,
+  Error,
+  EditMemoryInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

@@ -4,6 +4,7 @@ import type { InboundDeliveryRepository } from '@integrations/domain/repositorie
 import { InboundDeliveryId } from '@integrations/domain/value-objects/inbound-delivery-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -37,9 +38,12 @@ const retentionOf = (deliveries: readonly InboundDelivery[]) => {
   } satisfies InboundDeliveryRepository;
 
   return {
-    retention: new InboundDeliveryRetention(repository, {
-      now: () => NOW,
-    } as ClockPort),
+    retention: new InboundDeliveryRetention(
+      repository,
+      partial<ClockPort>({
+        now: () => NOW,
+      }),
+    ),
     repository,
   };
 };

@@ -16,16 +16,12 @@ interface Reporting {
   readonly environment: string | null;
 }
 
-const isReporting = (value: unknown): value is Reporting => {
-  const reporting = value as Partial<Reporting> | null;
-
-  return (
-    typeof reporting === 'object' &&
-    reporting !== null &&
-    typeof reporting.dsn === 'string' &&
-    reporting.dsn.startsWith('https://')
-  );
-};
+const isReporting = (value: unknown): value is Reporting =>
+  typeof value === 'object' &&
+  value !== null &&
+  'dsn' in value &&
+  typeof value.dsn === 'string' &&
+  value.dsn.startsWith('https://');
 
 export class ErrorReporting {
   private readonly path: string;
@@ -66,14 +62,18 @@ export class ErrorReporting {
   async refresh(origin: string): Promise<void> {
     try {
       const response = await net.fetch(`${origin}/api/error-reporting`);
-      const answer = (await response.json()) as {
-        dsn?: unknown;
-        environment?: unknown;
-      };
+      const answer: unknown = await response.json();
+
+      if (typeof answer !== 'object' || answer === null) {
+        return;
+      }
+
       const reporting = {
-        dsn: answer.dsn,
+        dsn: 'dsn' in answer ? answer.dsn : undefined,
         environment:
-          typeof answer.environment === 'string' ? answer.environment : null,
+          'environment' in answer && typeof answer.environment === 'string'
+            ? answer.environment
+            : null,
       };
 
       writeFileSync(

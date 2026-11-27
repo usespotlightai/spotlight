@@ -33,7 +33,8 @@ type SignalRowProps = {
 };
 
 export function SignalRow({ reading, nested = true, action }: SignalRowProps) {
-  const pictured = action
+  const acted = Boolean(action);
+  const pictured = acted
     ? {}
     : { role: 'img' as const, 'aria-label': formatSignal(reading) };
 
@@ -57,7 +58,7 @@ export function SignalRow({ reading, nested = true, action }: SignalRowProps) {
       </span>
 
       <div
-        {...(action
+        {...(acted
           ? { role: 'img' as const, 'aria-label': formatSignal(reading) }
           : {})}
         className="col-span-full min-w-0 pl-(--cell-indent,0.5rem) @4xl:col-span-1 @4xl:pl-0 @lg:group-data-compact/nested:col-span-1 @lg:group-data-compact/nested:pl-0"
@@ -71,7 +72,7 @@ export function SignalRow({ reading, nested = true, action }: SignalRowProps) {
         </NestedCell>
       ))}
 
-      {action && (
+      {acted && (
         <span className="col-span-full flex justify-end @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1">
           {action}
         </span>

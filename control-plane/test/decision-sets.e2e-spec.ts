@@ -13,6 +13,8 @@ import { WorkingCopyPath } from '@change-review/domain/value-objects/working-cop
 import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.repository';
 import { DrizzleDecisionReader } from '@change-review/infrastructure/persistence/drizzle/repositories/decision.reader';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -84,7 +86,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 describe('storing a task’s decisions', () => {
@@ -188,11 +190,13 @@ describe('storing a task’s decisions', () => {
     await sets.remove(read);
 
     expect(await sets.forTask(set.taskId)).toBeNull();
-    const [left] = (
-      await database.db.execute(
-        sql`select count(*)::int as n from decision where set_id = ${set.id.value}`,
-      )
-    ).rows as { n: number }[];
+    const left = firstOf(
+      (
+        await database.db.execute(
+          sql`select count(*)::int as n from decision where set_id = ${set.id.value}`,
+        )
+      ).rows,
+    );
     expect(left?.n).toBe(0);
   });
 
@@ -401,7 +405,7 @@ describe('reading the decisions of a task with a pull request in each repository
   const seek = (repository: string | null) =>
     reader().merged({
       workspaceId: WORKSPACE,
-      repository: repository ? Repository.of(repository) : null,
+      repository: nonEmpty(repository) ? Repository.of(repository) : null,
       within: [],
       since: null,
       until: null,

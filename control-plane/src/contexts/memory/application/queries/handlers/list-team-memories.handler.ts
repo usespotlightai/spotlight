@@ -16,6 +16,7 @@ import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { parseMemoryStatus } from '@memory/domain/value-objects/memory-status';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -24,7 +25,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 const pathOf = (raw: string | null): string | null => {
   try {
-    return raw?.trim() ? MemoryPath.of(raw).value : null;
+    return raw === null || raw.trim() === '' ? null : MemoryPath.of(raw).value;
   } catch (error) {
     if (error instanceof InvalidMemoryError) {
       return null;
@@ -33,8 +34,11 @@ const pathOf = (raw: string | null): string | null => {
   }
 };
 
-const textOf = (raw: string | null | undefined): string | null =>
-  raw?.trim() || null;
+const textOf = (raw: string | null | undefined): string | null => {
+  const trimmed = raw?.trim();
+
+  return !nonEmpty(trimmed) ? null : trimmed;
+};
 
 const criteriaOf = (listing: MemoryListing): MemoryCriteria => {
   const kind = textOf(listing.kind);
@@ -44,10 +48,10 @@ const criteriaOf = (listing: MemoryListing): MemoryCriteria => {
 
   return {
     status: parseMemoryStatus(listing.status ?? 'active'),
-    kind: kind ? parseMemoryKind(kind) : null,
-    lineId: lineId ? LineId.of(lineId) : null,
-    stationId: stationId ? StationId.of(stationId) : null,
-    repository: repository ? Repository.of(repository) : null,
+    kind: nonEmpty(kind) ? parseMemoryKind(kind) : null,
+    lineId: nonEmpty(lineId) ? LineId.of(lineId) : null,
+    stationId: nonEmpty(stationId) ? StationId.of(stationId) : null,
+    repository: nonEmpty(repository) ? Repository.of(repository) : null,
     path: pathOf(listing.path),
   };
 };

@@ -209,7 +209,7 @@ describe('people’s verdict across every run', () => {
 
   it('never passes a run that failed', () => {
     for (const { each, passes } of runs) {
-      expect(each.ending !== 'failed' || passes !== true).toBe(true);
+      expect(each.ending !== 'failed' || !passes).toBe(true);
     }
   });
 });

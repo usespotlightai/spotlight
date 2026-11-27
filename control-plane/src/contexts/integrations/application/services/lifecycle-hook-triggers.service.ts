@@ -10,6 +10,7 @@ import type { DispatchEndedIntegrationEvent } from '@shared-kernel/application/i
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import type { TaskMovedIntegrationEvent } from '@shared-kernel/application/integration-events/task-moved.integration-event';
 import type { TaskOpenedIntegrationEvent } from '@shared-kernel/application/integration-events/task-opened.integration-event';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -36,7 +37,7 @@ export class LifecycleHookTriggers {
     }
 
     const run = RunId.of(event.runId);
-    const task = event.taskId
+    const task = nonEmpty(event.taskId)
       ? await this.tasks.of(TaskId.of(event.taskId), run)
       : null;
 

@@ -9,6 +9,7 @@ import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface RunEnded {
@@ -62,7 +63,12 @@ export class RecordRunEnding {
   async ended(event: RunEnded): Promise<void> {
     const { ending } = event;
 
-    if (!ending || !event.taskId || !event.stationId || !isLineWork(event)) {
+    if (
+      !ending ||
+      !nonEmpty(event.taskId) ||
+      !nonEmpty(event.stationId) ||
+      !isLineWork(event)
+    ) {
       return;
     }
 

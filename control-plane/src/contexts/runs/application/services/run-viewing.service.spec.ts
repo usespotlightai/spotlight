@@ -4,6 +4,7 @@ import {
   type ListedRun,
   RunViewing,
 } from '@runs/application/services/run-viewing.service';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -20,8 +21,10 @@ const run = (id: string, owner: string, listed = true): ListedRun => ({
 
 const viewing = (member: boolean) =>
   new RunViewing(
-    {} as RunFactsPort,
-    { mayView: async () => member } as unknown as WorkspaceAccessPort,
+    partial<RunFactsPort>({}),
+    partial<WorkspaceAccessPort>({
+      mayView: async () => member,
+    }),
   );
 
 describe('RunViewing', () => {
@@ -45,7 +48,10 @@ describe('RunViewing', () => {
 
   it('lets an owner’s viewer source decide for its own runs only', async () => {
     const viewers = viewing(true);
-    viewers.register({ owner: 'work', readableAmong: async () => new Set() });
+    viewers.register({
+      owner: 'work',
+      readableAmong: async () => new Set(),
+    });
 
     expect(
       await viewers.readableAmong(

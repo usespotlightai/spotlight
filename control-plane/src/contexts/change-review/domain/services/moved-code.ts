@@ -10,6 +10,7 @@ import type { StackParts } from '@change-review/domain/services/stack-part';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 
 const MAX_COMBINATIONS = 64;
 
@@ -47,9 +48,10 @@ const splitIn = (
   const targetAnchors = new Map<number, HunkId>();
 
   for (const hunk of hunks) {
-    const [layer, ...again] = placements.get(hunk) ?? [];
+    const layers = placements.get(hunk) ?? [];
+    const layer = firstOf(layers);
 
-    if (layer === undefined || again.length > 0) {
+    if (layer === undefined || layers.length > 1) {
       return null;
     }
     if (!targetAnchors.has(layer)) {
@@ -74,7 +76,7 @@ const withGroupsMoved = (
   targetAnchors: readonly HunkId[],
 ): ProposedCohort | null =>
   groups.reduce<ProposedCohort | null>((current, group, g) => {
-    const targetAnchor = targetAnchors[g];
+    const targetAnchor = itemAt(targetAnchors, g);
     const target =
       current && targetAnchor !== undefined
         ? (placementIndexOf(current).get(targetAnchor)?.[0] ?? -1)

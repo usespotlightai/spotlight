@@ -127,7 +127,7 @@ describe('laidOut', () => {
     const tree = trace();
     const turn = tree.roots[0]?.children[0];
 
-    expect(turn && laidOut(turn, tree)).toEqual({
+    expect(laidOut(turn, tree)).toEqual({
       left: 20,
       width: (38 / 60) * 100,
     });

@@ -1,6 +1,11 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import {
+  queryOptions,
+  useQuery,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 import { type OnboardingResponseDto, readOnboarding } from '@/lib/api';
+import { required } from '@/lib/required';
 import { setupStatusPollFor } from '@/lib/setup-status';
 
 const onboardingKeys = {
@@ -19,26 +24,33 @@ const onboardingQuery = (teamId: string | undefined) =>
     refetchInterval: (query) => {
       const onboarding = query.state.data;
 
-      return (
-        provisioningPoll(onboarding) ||
-        (onboarding?.steps.every((step) => step.done) ? false : POLL_MS)
-      );
+      const provisioning = provisioningPoll(onboarding);
+
+      if (provisioning !== false && provisioning !== 0) {
+        return provisioning;
+      }
+
+      return onboarding?.steps.every((step) => step.done) ? false : POLL_MS;
     },
     queryFn: async () => {
       const { data } = await readOnboarding({
-        path: { teamId: teamId as string },
+        path: { teamId: required(teamId) },
         throwOnError: true,
       });
       return data;
     },
   });
 
-export const provisioningQuery = (teamId: string) =>
+type OnboardingQuery = ReturnType<typeof onboardingQuery>;
+
+export const provisioningQuery = (teamId: string): OnboardingQuery =>
   queryOptions({
     ...onboardingQuery(teamId),
     refetchInterval: (query) => provisioningPoll(query.state.data),
   });
 
-export function useOnboarding(teamId: string | undefined) {
+export function useOnboarding(
+  teamId: string | undefined,
+): UseQueryResult<OnboardingResponseDto> {
   return useQuery(onboardingQuery(teamId));
 }

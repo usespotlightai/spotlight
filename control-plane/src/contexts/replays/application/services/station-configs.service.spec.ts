@@ -46,7 +46,9 @@ describe('StationConfigs', () => {
       BLOCK,
     );
 
-    expect(validated?.ok && validated.block.value).toMatchObject(BLOCK);
+    expect(validated?.ok === true && validated.block.value).toMatchObject(
+      BLOCK,
+    );
   });
 
   it('passes on the problems Work found without asking the line', async () => {

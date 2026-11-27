@@ -19,6 +19,6 @@ export class TokenDescription {
   }
 
   equals(other: TokenDescription): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof TokenDescription && this.value === other.value;
   }
 }

@@ -33,7 +33,7 @@ export class HookAddress {
 
   equals(other: HookAddress): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof HookAddress &&
       this.teamKey === other.teamKey &&
       this.key.equals(other.key)
     );

@@ -1,6 +1,14 @@
 import { type FocusEvent, useState } from 'react';
 
-export function useFocusWithin() {
+export type FocusWithinResult = {
+  focused: boolean;
+  handlers: {
+    onFocus: () => void;
+    onBlur: (event: FocusEvent<HTMLElement>) => void;
+  };
+};
+
+export function useFocusWithin(): FocusWithinResult {
   const [focused, setFocused] = useState(false);
 
   return {

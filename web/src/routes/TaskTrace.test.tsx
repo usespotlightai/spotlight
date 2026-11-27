@@ -5,9 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TaskTrace } from '@/routes/TaskTrace';
 
-const listed = vi.fn();
+const listed =
+  vi.fn<() => { id: string; [key: string]: unknown }[] | undefined>();
 const traced = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -18,9 +19,7 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 
 vi.mock('@/hooks/api/useTasks', () => ({
   useTask: (_teamId: string, taskId: string) => ({
-    data: (listed() as { id: string }[] | undefined)?.find(
-      (each) => each.id === taskId,
-    ),
+    data: listed()?.find((each) => each.id === taskId),
     isPending: listed() === undefined,
     errorUpdateCount: 0,
   }),

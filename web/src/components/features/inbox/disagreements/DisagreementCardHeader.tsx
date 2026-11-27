@@ -10,6 +10,7 @@ import {
   OPEN_THE_TRACE,
   SENDING_ANSWER,
 } from '@/lib/judge-disagreement';
+import { nonEmpty } from '@/lib/non-empty';
 
 type DisagreementCardHeaderProps = {
   state: DisagreementCardState;
@@ -44,7 +45,7 @@ export function DisagreementCardHeader({
               {sending ? SENDING_ANSWER : null}
             </span>
           ) : (
-            at && (
+            nonEmpty(at) && (
               <p className="text-muted-foreground text-xs tabular-nums">
                 {formatDay(at.slice(0, 10))}
               </p>

@@ -18,6 +18,14 @@ import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
+const writtenIn = (event: unknown): TerraformStateWritten => {
+  if (!(event instanceof TerraformStateWritten)) {
+    throw new Error('expected a written Terraform state');
+  }
+
+  return event;
+};
+
 const AT = new Date('2026-10-26T10:00:00Z');
 
 const opened = () =>
@@ -229,13 +237,9 @@ describe('TerraformState', () => {
 
   it('records the first write as created and later ones as updated', () => {
     const first = opened().write(writing(null)).state;
-    const firstChange = first.pullEvents()[0] as unknown as {
-      change: { action: string; resource: string; key: string };
-    };
+    const firstChange = writtenIn(first.pullEvents()[0]);
     const second = first.write(writing(null, 'version_2')).state;
-    const secondChange = second.pullEvents()[0] as unknown as {
-      change: { action: string; recordedDetail: Record<string, unknown> };
-    };
+    const secondChange = writtenIn(second.pullEvents()[0]);
 
     expect(firstChange.change).toMatchObject({
       action: 'created',
@@ -276,17 +280,13 @@ describe('TerraformState', () => {
       state = state.write(writing(null, `version_${at}`)).state;
     }
 
-    const written = state.pullEvents().slice(-1)[0] as TerraformStateWritten;
+    const written = writtenIn(state.pullEvents().slice(-1)[0]);
 
     expect(state.versions).toHaveLength(100);
     expect(state.versions[0]?.number).toBe(2);
     expect(written.dropped.map((each) => each.value)).toEqual(['version_1']);
     expect(
-      (
-        opened()
-          .write(writing(null))
-          .state.pullEvents()[0] as TerraformStateWritten
-      ).dropped,
+      writtenIn(opened().write(writing(null)).state.pullEvents()[0]).dropped,
     ).toEqual([]);
   });
 

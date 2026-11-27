@@ -5,9 +5,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { TaskState } from '@/components/features/board/task/TaskState';
 import type { Task } from '@/lib/task';
+import { partial } from '@/test/partial';
 
 const task = (over: Partial<Task> = {}) =>
-  ({
+  partial<Task>({
     id: 'task_1',
     stationId: 'station_1',
     title: 'Fix the queue',
@@ -18,7 +19,7 @@ const task = (over: Partial<Task> = {}) =>
     waitingForYou: false,
     note: null,
     ...over,
-  }) as Task;
+  });
 
 vi.mock('@/hooks/useMe', () => ({
   useMe: () => ({ id: 'user_1', name: 'Leon', image: null }),

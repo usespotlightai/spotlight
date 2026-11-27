@@ -14,6 +14,25 @@ interface Payload {
   readonly exp: number;
 }
 
+const isPayload = (value: unknown): value is Payload =>
+  typeof value === 'object' &&
+  value !== null &&
+  'teamId' in value &&
+  typeof value.teamId === 'string' &&
+  'integration' in value &&
+  typeof value.integration === 'string' &&
+  'by' in value &&
+  typeof value.by === 'string' &&
+  'exp' in value &&
+  typeof value.exp === 'number' &&
+  'nonce' in value &&
+  typeof value.nonce === 'string' &&
+  value.nonce.length > 0 &&
+  'owner' in value &&
+  (value.owner === 'team' || value.owner === 'person') &&
+  'returnTo' in value &&
+  (value.returnTo === null || typeof value.returnTo === 'string');
+
 export interface OAuth2Intent {
   readonly teamId: string;
   readonly integration: string;
@@ -64,24 +83,15 @@ export class OAuth2State {
       return null;
     }
 
-    let payload: Payload;
+    let payload: unknown;
 
     try {
-      payload = JSON.parse(
-        Buffer.from(body, 'base64url').toString('utf8'),
-      ) as Payload;
+      payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
     } catch {
       return null;
     }
 
-    if (
-      typeof payload.exp !== 'number' ||
-      payload.exp < this.now() ||
-      typeof payload.nonce !== 'string' ||
-      payload.nonce.length === 0 ||
-      (payload.owner !== 'team' && payload.owner !== 'person') ||
-      (payload.returnTo !== null && typeof payload.returnTo !== 'string')
-    ) {
+    if (!isPayload(payload) || payload.exp < this.now()) {
       return null;
     }
 

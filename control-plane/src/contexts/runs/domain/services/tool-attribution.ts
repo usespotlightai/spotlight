@@ -3,6 +3,7 @@ import {
   ToolUse,
 } from '@runs/domain/value-objects/tool-use.vo';
 import { BUILT_IN_SKILL_KEY_LIST } from '@shared-kernel/domain/built-in-skills';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   isSlug,
   SLUG_SHAPE,
@@ -45,7 +46,7 @@ export const skillsReadBy = (
 ): readonly string[] => [
   ...new Set(
     [
-      ...(step.requestedSkill ? [step.requestedSkill] : []),
+      ...(nonEmpty(step.requestedSkill) ? [step.requestedSkill] : []),
       ...step.paths.flatMap((text) => readUnder(text, homes)),
     ].filter(teamSkill),
   ),

@@ -386,8 +386,8 @@ describe('compileLine', () => {
   ])('points at a default assignee of "%s"', (defaultAssignee, reason) => {
     const [problem] = problemsOf({ ...DELIVERY, defaultAssignee });
 
-    expect(dottedOf(problem?.field)).toBe('defaultAssignee');
-    expect(problem?.reason).toBe(reason);
+    expect(dottedOf(problem.field)).toBe('defaultAssignee');
+    expect(problem.reason).toBe(reason);
   });
 
   it('reads the threshold a planned change is checked against, filling in what it leaves out', () => {

@@ -3,6 +3,7 @@ import type {
   LogFields,
   LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
   EndedStationRun,
@@ -44,9 +45,9 @@ const workOf = (fingerprint: string | null) => {
     },
     error: () => {},
   };
-  const stations = {
+  const stations = partial<StationRunsPort>({
     ended: async () => endedRun(fingerprint),
-  } as unknown as StationRunsPort;
+  });
 
   return { work: new Work(stations, logger), warned };
 };

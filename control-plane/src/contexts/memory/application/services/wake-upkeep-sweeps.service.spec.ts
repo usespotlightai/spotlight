@@ -7,6 +7,7 @@ import {
 import { MemoryUpkeepScheduleVersionConflictError } from '@memory/domain/exceptions/memory-upkeep-schedule-version-conflict.error';
 import type { MemoryUpkeepScheduleRepository } from '@memory/domain/repositories/memory-upkeep.repository';
 import type { ConsolidationRound } from '@memory/domain/value-objects/consolidation-round.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -29,16 +30,16 @@ const waking = (
   save: (schedule: MemoryUpkeepSchedule) => Promise<void> = async () => {},
 ) => {
   const saved: MemoryUpkeepSchedule[] = [];
-  const consolidator = {
+  const consolidator = partial<MemoryConsolidatorPort>({
     roundOf: () => round,
-  } as unknown as MemoryConsolidatorPort;
-  const schedules = {
+  });
+  const schedules = partial<MemoryUpkeepScheduleRepository>({
     ofTeam: async () => waiting,
     save: async (schedule: MemoryUpkeepSchedule) => {
       saved.push(schedule);
       await save(schedule);
     },
-  } as unknown as MemoryUpkeepScheduleRepository;
+  });
 
   return {
     saved,

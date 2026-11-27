@@ -1,19 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { reloadOnStaleBuild } from '@/lib/stale-build';
+import { partial } from '@/test/partial';
 
 const fakeWindow = () => {
   const target = new EventTarget();
   const stored = new Map<string, string>();
   const reload = vi.fn();
 
-  return Object.assign(target, {
-    sessionStorage: {
+  return partial<Window>({
+    addEventListener: target.addEventListener.bind(target),
+    removeEventListener: target.removeEventListener.bind(target),
+    dispatchEvent: target.dispatchEvent.bind(target),
+    sessionStorage: partial<Storage>({
       getItem: (key: string) => stored.get(key) ?? null,
       setItem: (key: string, value: string) => stored.set(key, value),
-    },
-    location: { reload },
-  }) as unknown as Window & { location: { reload: typeof reload } };
+    }),
+    location: partial<Location>({ reload }),
+  });
 };
 
 const preloadError = () => new Event('vite:preloadError', { cancelable: true });

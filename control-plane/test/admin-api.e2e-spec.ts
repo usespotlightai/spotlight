@@ -6,6 +6,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import * as schema from './support/schema';
 
 const ADMIN_TOKEN = `admin.${randomUUID()}`;
@@ -80,8 +81,8 @@ describe('admin API (e2e)', () => {
   });
 
   afterAll(async () => {
-    await unset?.close();
-    await app?.close();
+    await unset.close();
+    await app.close();
   });
 
   it('answers 404 on every admin route when no admin token is set', async () => {
@@ -133,7 +134,7 @@ describe('admin API (e2e)', () => {
 
     expect(first.status).toBe(200);
 
-    const page = first.body as AdminPage;
+    const page = bodyOf<AdminPage>(first);
 
     expect(page.items.map((each) => each.slug)).toEqual([
       'admin-acme',
@@ -148,11 +149,11 @@ describe('admin API (e2e)', () => {
     });
     expect(page.next).not.toBeNull();
 
-    const second = (
+    const second = bodyOf<AdminPage>(
       await admin()
         .get(`/api/admin/workspaces?limit=2&after=${page.next}`)
-        .expect(200)
-    ).body as AdminPage;
+        .expect(200),
+    );
 
     expect(second.items.map((each) => each.slug)).toEqual(['admin-initech']);
     expect(second.next).toBeNull();
@@ -163,7 +164,7 @@ describe('admin API (e2e)', () => {
       .get(`/api/admin/workspaces?since=${at(2).toISOString()}`)
       .expect(200);
 
-    expect((answer.body as AdminPage).items.map((each) => each.slug)).toEqual([
+    expect(bodyOf<AdminPage>(answer).items.map((each) => each.slug)).toEqual([
       'admin-globex',
       'admin-initech',
     ]);

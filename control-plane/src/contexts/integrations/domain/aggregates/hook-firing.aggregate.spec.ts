@@ -18,6 +18,7 @@ import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.
 import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import { valueAt } from '@integrations/integrations.requests.fake-spec';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -160,10 +161,7 @@ describe('HookFiring', () => {
 
     expect(firing.event.fields).toMatchObject({ inputs: { marks: ['db'] } });
     expect(
-      Object.isFrozen(
-        (firing.event.fields as unknown as { inputs: { marks: string[] } })
-          .inputs.marks,
-      ),
+      Object.isFrozen(valueAt(firing.event.fields, 'inputs', 'marks')),
     ).toBe(true);
   });
 

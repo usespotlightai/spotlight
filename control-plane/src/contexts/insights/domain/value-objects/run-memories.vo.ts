@@ -29,13 +29,16 @@ export type MemoryReference = string & {
   readonly brand: 'memory-reference';
 };
 
+const isMemoryReference = (raw: string): raw is MemoryReference =>
+  raw.trim() !== '';
+
 export const MemoryReference = {
   of(raw: string): MemoryReference {
-    if (!raw.trim()) {
+    if (!isMemoryReference(raw)) {
       throw new InvalidOutcomeError('must name each memory used');
     }
 
-    return raw as MemoryReference;
+    return raw;
   },
 };
 

@@ -125,7 +125,9 @@ export class OutboxRetention {
       .where(
         and(
           lt(eventOutbox.recordedAt, before),
-          this.#after ? gt(eventOutbox.id, this.#after) : undefined,
+          this.#after !== null && this.#after !== ''
+            ? gt(eventOutbox.id, this.#after)
+            : undefined,
         ),
       )
       .groupBy(eventOutbox.id)

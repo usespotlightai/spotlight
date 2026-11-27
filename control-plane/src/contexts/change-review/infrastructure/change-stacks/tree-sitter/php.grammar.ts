@@ -11,11 +11,12 @@ import {
   suffixes,
   unquoted,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 const STRINGS = new Set(['string', 'encapsed_string']);
 
-const ATTRIBUTE_VERBS: Readonly<Record<string, string | null>> = {
+const ATTRIBUTE_VERBS: Readonly<Partial<Record<string, string | null>>> = {
   Route: null,
   Get: 'GET',
   Post: 'POST',
@@ -158,7 +159,7 @@ export const PHP_GRAMMAR: Grammar = {
       .flatMap((clause): GrammarImport[] => {
         const target = clause ? named(clause)[0] : undefined;
         const specifier = (
-          group ? `${group}\\${target?.text}` : (target?.text ?? '')
+          nonEmpty(group) ? `${group}\\${target?.text}` : (target?.text ?? '')
         ).replace(/^\\/, '');
         const imported = lastSegment(specifier);
         const local =

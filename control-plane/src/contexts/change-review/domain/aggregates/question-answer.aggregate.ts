@@ -6,6 +6,7 @@ import {
   sharesAnswers,
 } from '@change-review/domain/services/shown-answer';
 import { assertOneOwner } from '@change-review/domain/services/stack-owner';
+import { textOrNull } from '@change-review/domain/services/text-or-null';
 import type { AnswerGrading } from '@change-review/domain/value-objects/answer-grading.vo';
 import type { AnswerVerdict } from '@change-review/domain/value-objects/answer-verdict.vo';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -18,6 +19,7 @@ import type { QuestionId } from '@change-review/domain/value-objects/stack-ids';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   type ModelCall,
   ModelUsage,
@@ -43,9 +45,9 @@ const MAX_REPLY = 4_000;
 const MAX_FEEDBACK = 2_000;
 
 const replyOf = (raw: string | null): string | null => {
-  const reply = raw?.trim() || null;
+  const reply = textOrNull(raw?.trim());
 
-  if (reply && reply.length > MAX_REPLY) {
+  if (reply !== null && reply.length > MAX_REPLY) {
     throw new InvalidAnswerError(`must be at most ${MAX_REPLY} characters`);
   }
 
@@ -65,7 +67,7 @@ interface Answered {
 const answeredWith = (raw: string | null): Answered => {
   const reply = replyOf(raw);
 
-  return reply
+  return nonEmpty(reply)
     ? { reply, grading: 'pending', verdict: null }
     : { reply: null, grading: 'graded', verdict: 'missed' };
 };

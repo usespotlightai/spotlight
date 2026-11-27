@@ -11,7 +11,7 @@ export const readStored = (storageKey: string): string | null => {
   }
 };
 
-export const writeStored = (storageKey: string, value: string) => {
+export const writeStored = (storageKey: string, value: string): void => {
   try {
     localStorage.setItem(storageKey, value);
   } catch {

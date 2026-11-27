@@ -13,7 +13,9 @@ export class IntegrationDefinitionId {
   }
 
   equals(other: IntegrationDefinitionId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return (
+      other instanceof IntegrationDefinitionId && this.value === other.value
+    );
   }
 
   toString(): string {

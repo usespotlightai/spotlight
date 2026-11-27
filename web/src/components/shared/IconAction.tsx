@@ -37,12 +37,12 @@ export function IconAction({
             aria-label={label}
             aria-pressed={pressed}
             disabled={disabled}
-            data-focus-next={focusNext || undefined}
+            data-focus-next={focusNext === true || undefined}
             onClick={onClick}
             className={cn(
               ICON_ACTION,
               'disabled:pointer-events-none disabled:opacity-50',
-              pressed && 'bg-accent text-foreground',
+              pressed === true && 'bg-accent text-foreground',
             )}
           >
             {children}

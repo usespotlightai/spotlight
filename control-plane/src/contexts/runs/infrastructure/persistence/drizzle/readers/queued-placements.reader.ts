@@ -4,6 +4,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { QueuedPlacementsPort } from '@runs/application/ports/queued-placements.port';
 import { waitsForAnyRunnerAt } from '@runs/domain/value-objects/run-waiting';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -35,7 +36,7 @@ export class DrizzleQueuedPlacements implements QueuedPlacementsPort {
       .map((row) =>
         RunnerPlacement.ofLabelGroups(
           row.placement,
-          row.image ? RunnerImage.of(row.image) : null,
+          nonEmpty(row.image) ? RunnerImage.of(row.image) : null,
         ),
       );
   }

@@ -13,9 +13,9 @@ import {
 import { RUN_TURN_STATES } from '@runs/domain/value-objects/run-turn.vo';
 import { WAIT_REASONS } from '@runs/domain/value-objects/run-waiting';
 import { RUNNER_SOURCE_KINDS } from '@runs/domain/value-objects/runner-source.vo';
-import type { CheckoutHeadParts } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { WORKING_COPY_RESTORES } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { JsonValue } from '@shared-kernel/domain/json-value';
+import type { CheckoutHeadParts } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { sql } from 'drizzle-orm';
 import {
   bigint,

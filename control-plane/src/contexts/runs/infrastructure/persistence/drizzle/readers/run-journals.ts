@@ -8,12 +8,12 @@ import type {
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunJournalsPort } from '@runs/application/ports/run-journals.port';
 import { stepNumber } from '@runs/domain/services/journal-step-numbers';
+import { HARNESS_CONNECTED } from '@runs/domain/value-objects/journal-entry-type';
 import { isJournalledAttempt } from '@runs/domain/value-objects/run-journalled-attempts';
 import {
   CHANGED_PATHS_TYPES,
   ChangedPaths,
 } from '@runs/infrastructure/journal/changed-paths';
-import { HARNESS_CONNECTED } from '@runs/domain/value-objects/journal-entry-type';
 import {
   HARNESS_FRAME,
   harnessConnectedOf,
@@ -26,16 +26,10 @@ import {
   run,
   runJournalEntry,
 } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import {
-  and,
-  asc,
-  eq,
-  inArray,
-  ne,
-  type SQL,
-  sql,
-} from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, type SQL, sql } from 'drizzle-orm';
 
 const idsOf = (runIds: readonly RunId[]): string[] => [
   ...new Set(runIds.map((each) => each.value)),
@@ -55,12 +49,11 @@ export class DrizzleRunJournals implements RunJournalsPort {
     const journals = await this.readings(ids);
 
     return [...journals.entries()].map(([at, reading]) => {
-      const [runId, attempt] = at.split(':');
-
-      const attempted = Number(attempt ?? 1);
+      const parts = at.split(':');
+      const attempted = Number(itemAt(parts, 1) ?? 1);
 
       return {
-        runId: runId ?? '',
+        runId: itemAt(parts, 0) ?? '',
         attempt: attempted,
         firstStep: stepNumber(attempted, 0),
         steps: reading.journal.steps(),
@@ -109,7 +102,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
       and(
         inArray(runJournalEntry.runId, ids),
         inArray(runJournalEntry.type, [...CHANGED_PATHS_TYPES]),
-      ) as SQL,
+      ),
       [
         asc(run.createdAt),
         asc(run.id),
@@ -197,7 +190,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
         event?.type === 'message' &&
         event.data.role === 'agent' &&
         event.data.text.length > 0 &&
-        !(event.data.session && children.has(event.data.session));
+        !(nonEmpty(event.data.session) && children.has(event.data.session));
 
       if (toThePerson && (!latest || row.receivedAt > latest)) {
         latest = row.receivedAt;
@@ -212,7 +205,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
       and(
         inArray(runJournalEntry.runId, ids),
         ne(runJournalEntry.type, HARNESS_FRAME),
-      ) as SQL,
+      ),
       [
         asc(runJournalEntry.runId),
         asc(runJournalEntry.attempt),
@@ -245,7 +238,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
     return journals;
   }
 
-  private async journalled(which: SQL, order: SQL[]) {
+  private async journalled(which: SQL | undefined, order: SQL[]) {
     const rows = await this.db
       .select({
         runId: runJournalEntry.runId,

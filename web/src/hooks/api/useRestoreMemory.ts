@@ -1,8 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { memoryReviewKeys } from '@/hooks/api/useMemoryReview';
-import { restoreMemory } from '@/lib/api';
+import { restoreMemory, type MemoryReviewResponseDto } from '@/lib/api';
 import { type ProposedMemory, restoredMemory } from '@/lib/memory';
 
 type RestoreMemoryInput = {
@@ -13,7 +17,12 @@ type RestoreMemoryInput = {
   memoryId: string;
 };
 
-export function useRestoreMemory() {
+export function useRestoreMemory(): UseMutationResult<
+  MemoryReviewResponseDto,
+  Error,
+  RestoreMemoryInput,
+  void
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

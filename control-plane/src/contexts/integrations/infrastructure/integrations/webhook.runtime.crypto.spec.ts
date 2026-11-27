@@ -14,6 +14,7 @@ import {
   signingFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
@@ -57,7 +58,7 @@ const runtimeOf = (
     signingFor(),
     { now: () => new Date(NOW * 1000), sleep: async () => {} },
     jwks,
-    {} as HttpOutbound,
+    partial<HttpOutbound>({}),
     credentialsFor(),
     unlimited,
     unscoped,

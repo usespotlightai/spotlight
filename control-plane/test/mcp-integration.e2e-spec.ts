@@ -5,7 +5,6 @@ import {
   LISTED_SERVERS,
   type ListedServersPort,
 } from '@integrations/application/ports/listed-servers.port';
-import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import {
   INTEGRATION_DEFINITIONS,
@@ -19,6 +18,8 @@ import {
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { ToolDeclarationMapper } from '@work/application/mappers/tool-declaration.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import {
@@ -32,6 +33,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
 import { aDispatch, requestedByTask } from './support/runs';
@@ -57,7 +59,7 @@ interface ReceivedRequest {
   readonly form: URLSearchParams;
 }
 
-const bodyOf = (request: IncomingMessage): Promise<string> =>
+const requestBodyOf = (request: IncomingMessage): Promise<string> =>
   new Promise((resolve) => {
     const chunks: Buffer[] = [];
 
@@ -107,7 +109,7 @@ const authorizing = (received: ReceivedRequest[]) => {
     }
 
     if (path === '/as/token' && request.method === 'POST') {
-      const form = new URLSearchParams(await bodyOf(request));
+      const form = new URLSearchParams(await requestBodyOf(request));
 
       received.push({ path, form });
       answer(reply, {
@@ -151,26 +153,24 @@ const runner = (token: string) => ({
 });
 
 const integrationNamed = async (integration: string) =>
-  (
-    (
-      await asOwner
-        .get(
-          `/api/v1/resources/workspaces/${team.workspaceId.value}/integrations`,
-        )
-        .expect(200)
-    ).body as {
-      readonly items: {
-        integration: string;
-        version: number;
-        tools: Record<string, string>;
-        spec: {
-          kind: string;
-          problem: string | null;
-          tools: number;
-          readAt: string;
-        };
-      }[];
-    }
+  bodyOf<{
+    readonly items: {
+      integration: string;
+      version: number;
+      tools: Record<string, string>;
+      spec: {
+        kind: string;
+        problem: string | null;
+        tools: number;
+        readAt: string;
+      };
+    }[];
+  }>(
+    await asOwner
+      .get(
+        `/api/v1/resources/workspaces/${team.workspaceId.value}/integrations`,
+      )
+      .expect(200),
   ).items.find((each) => each.integration === integration);
 
 const createIntegration = (body: object) =>
@@ -257,13 +257,13 @@ const aClaimedRun = async (): Promise<{
     })
     .expect(200);
 
-  const assignment = (
+  const assignment = bodyOf<{ token: string; work: { run: { id: string } } }>(
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
       .send({ host: HOST, image: IMAGE })
-      .expect(200)
-  ).body as { token: string; work: { run: { id: string } } };
+      .expect(200),
+  );
 
   expect(assignment.work.run.id).toBe(runId);
 
@@ -281,7 +281,7 @@ const toolsUsed = async (runId: string) =>
           sql`${schema.eventOutbox.payload}->'runId'->>'value' = ${runId}`,
         ),
       )
-  ).map((each) => each.payload as Record<string, unknown>);
+  ).map((each) => each.payload);
 
 beforeAll(async () => {
   tracker = await fakeMcpServer();
@@ -355,9 +355,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
-  await tracker?.close();
-  await guarded?.close();
+  await app.close();
+  await tracker.close();
+  await guarded.close();
   vi.unstubAllEnvs();
 });
 
@@ -442,10 +442,9 @@ describe('an integration naming a remote MCP server (e2e)', () => {
 
     expect(listed).toEqual(['tracker']);
 
-    const stored = (await definitions.of(
-      team.teamId,
-      IntegrationKey.of('tracker'),
-    )) as IntegrationDefinition;
+    const stored = present(
+      await definitions.of(team.teamId, IntegrationKey.of('tracker')),
+    );
     const claims = await Promise.allSettled([
       definitions.save(stored.relistClaimed(at, due)),
       definitions.save(stored.relistClaimed(at, due)),
@@ -503,9 +502,11 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     ).toEqual([{ tool: 'tracker.search-issues', failed: false }]);
 
     const inferred = await eventually(async () => {
-      const [found] = await app
-        .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-        .provided(team.teamId, ['tracker.search-issues']);
+      const found = firstOf(
+        await app
+          .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
+          .provided(team.teamId, ['tracker.search-issues']),
+      );
 
       return found?.inferredOutput ?? null;
     });
@@ -527,9 +528,8 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     ).toEqual([]);
 
     const item = await eventually(async () =>
-      (
-        (await asOwner.get(`/api/workspaces/${team.slug}/inbox`).expect(200))
-          .body as { readonly items: InboxItem[] }
+      bodyOf<{ readonly items: InboxItem[] }>(
+        await asOwner.get(`/api/workspaces/${team.slug}/inbox`).expect(200),
       ).items.find((each) => each.taskId === taskId),
     );
 

@@ -60,16 +60,21 @@ import {
   personRulesFrom,
 } from '@integrations/integrations.policies.fake-spec';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
-import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
+import {
+  answerOf,
+  resolvedTool,
+} from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { fieldOf } from '@platform/json/field-of';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
-import type { IntegrationTool } from '@work/application/ports/integration-tool-calls.port';
 import { describe, expect, it } from 'vitest';
 
 const integrationToolCalls = (
@@ -94,9 +99,9 @@ const integrationToolCalls = (
     ),
   );
 
-const NO_LINKS = {
+const NO_LINKS = partial<InboxLinksPort>({
   task: async () => 'https://app.example/tasks/task_1',
-} as unknown as InboxLinksPort;
+});
 
 const NOW = new Date('2026-10-05T10:00:00.000Z');
 const TEAM = TeamId.of('team_1');
@@ -142,7 +147,7 @@ const asJson = (body: unknown, status = 200) =>
   });
 
 const formOf = (init?: RequestInit) =>
-  new URLSearchParams((init?.body as string | undefined) ?? '');
+  new URLSearchParams(typeof init?.body === 'string' ? init.body : '');
 
 class FakeLinear {
   issued = 1;
@@ -166,10 +171,10 @@ class FakeLinear {
 
     if (url === 'https://linear.app/oauth/register') {
       this.registrations++;
-      const registration = JSON.parse(
-        (init?.body as string | undefined) ?? '{}',
-      ) as { redirect_uris?: string[] };
-      this.redirectUris.push(registration.redirect_uris);
+      const registration: unknown = JSON.parse(
+        typeof init?.body === 'string' ? init.body : '{}',
+      );
+      this.redirectUris.push(fieldOf(registration, 'redirect_uris'));
       return asJson({ client_id: 'dcr-client', client_secret: 'dcr-secret' });
     }
 
@@ -210,7 +215,7 @@ class FakeLinear {
       this.verifiers.push(verifier);
 
       if (
-        !challenge ||
+        !nonEmpty(challenge) ||
         createHash('sha256').update(verifier).digest('base64url') !== challenge
       ) {
         return asJson({ error: 'invalid_grant' }, 400);
@@ -340,7 +345,7 @@ const settingUp = ({
   blocked = false,
 } = {}) => {
   const linear = new FakeLinear();
-  const clock = { now: () => NOW } as ClockPort;
+  const clock = partial<ClockPort>({ now: () => NOW });
   const connections = new InMemoryIntegrationConnections();
   const registrations = new InMemoryRegistrations();
   if (registered) {
@@ -404,14 +409,14 @@ const settingUp = ({
     clients,
     exchange,
     blocked
-      ? ({
+      ? partial<OAuth2Discovery>({
           endpoints: async () => {
             throw new EgressBlockedError(
               'linear.app',
               "Host is not on the workspace's allowed list.",
             );
           },
-        } as unknown as OAuth2Discovery)
+        })
       : discoveringNothing(),
     callingNoServer(),
     unlimited,
@@ -421,20 +426,20 @@ const settingUp = ({
   );
   const connectionRefresh = new ConnectionRefresh(
     connections,
-    definitions as unknown as DefinedIntegrationsPort,
+    partial<DefinedIntegrationsPort>(definitions),
     runtime,
     clock,
     { for: () => new Promise((resolve) => setTimeout(resolve, 1)) },
   );
   const tools = integrationToolCalls(
-    definitions as unknown as DefinedIntegrationsPort,
+    partial<DefinedIntegrationsPort>(definitions),
     runtime,
     new CallAuthResolver(
       connections,
       TEAMS,
-      {
-        inWorkspaceOfTeam: async () => ({}) as TeamWorkspaceMembership,
-      } as unknown as WorkspaceAccessPort,
+      partial<WorkspaceAccessPort>({
+        inWorkspaceOfTeam: async () => partial<TeamWorkspaceMembership>({}),
+      }),
       injecting().injection,
       new InjectedCallCredentials(injecting().injection),
       connectionRefresh,
@@ -444,13 +449,13 @@ const settingUp = ({
     NO_LINKS,
   );
   const linked = new OAuth2Linking(
-    definitions as unknown as DefinedIntegrationsPort,
+    partial<DefinedIntegrationsPort>(definitions),
     new IntegrationReader(expressions, operations),
     discoveringNothing(),
     clients,
     exchange,
     TEAMS,
-    { slugOf: async () => 'acme' } as unknown as WorkspaceReaderPort,
+    partial<WorkspaceReaderPort>({ slugOf: async () => 'acme' }),
     new OAuth2State('a-secret'),
     { spend: async () => true },
     clock,
@@ -498,23 +503,27 @@ const settingUp = ({
     connections.of(TEAM, LINEAR, ConnectionOwner.person(ALICE));
 
   const issue = async () => {
-    const resolved = (await tools.resolve(
-      'linear.issue',
-      TASK,
-      { runId: 'run_1', attempt: 1 },
-      ALICE.value,
-    )) as IntegrationTool;
+    const resolved = await resolvedTool(
+      tools.resolve(
+        'linear.issue',
+        TASK,
+        { runId: 'run_1', attempt: 1 },
+        ALICE.value,
+      ),
+    );
 
     return answerOf(resolved.call({ id: 'ENG-12' }));
   };
 
   const comment = async (body = 'Fixed.') => {
-    const resolved = (await tools.resolve(
-      'linear.comment',
-      TASK,
-      { runId: 'run_1', attempt: 1 },
-      ALICE.value,
-    )) as IntegrationTool;
+    const resolved = await resolvedTool(
+      tools.resolve(
+        'linear.comment',
+        TASK,
+        { runId: 'run_1', attempt: 1 },
+        ALICE.value,
+      ),
+    );
 
     return answerOf(resolved.call({ body }));
   };

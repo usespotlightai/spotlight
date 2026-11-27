@@ -11,6 +11,8 @@ import {
   type NodeOptions,
   openTelemetryIntegration,
 } from '@sentry/nestjs';
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { DrizzleQueryError } from 'drizzle-orm';
 
 type SentryEnv = {
@@ -29,14 +31,15 @@ export function sentryOptions(
   env: SentryEnv,
   { openTelemetry = false }: { openTelemetry?: boolean } = {},
 ): NodeOptions | undefined {
-  if (!env.SENTRY_DSN) {
+  if (!nonEmpty(env.SENTRY_DSN)) {
     return undefined;
   }
 
   return {
     dsn: env.SENTRY_DSN,
-    environment: env.SENTRY_ENVIRONMENT || undefined,
-    release: env.SPOTLIGHT_RELEASE || undefined,
+    environment:
+      env.SENTRY_ENVIRONMENT === '' ? undefined : env.SENTRY_ENVIRONMENT,
+    release: env.SPOTLIGHT_RELEASE === '' ? undefined : env.SPOTLIGHT_RELEASE,
     dataCollection: {
       userInfo: false,
       cookies: false,
@@ -91,7 +94,8 @@ function scrubbed(event: ErrorEvent): ErrorEvent {
   }
 
   for (const exception of event.exception?.values ?? []) {
-    exception.value = exception.value && stripParams(exception.value);
+    exception.value =
+      exception.value === undefined ? undefined : stripParams(exception.value);
   }
 
   return event;
@@ -125,7 +129,7 @@ function* causeLinks(error: unknown): Generator<{ message?: unknown }> {
     depth += 1
   ) {
     yield each;
-    each = (each as { cause?: unknown }).cause;
+    each = Reflect.get(each, 'cause');
   }
 }
 
@@ -184,9 +188,9 @@ function fingerprint(event: ErrorEvent, hint: EventHint): ErrorEvent {
   }
 
   const values = event.exception?.values ?? [];
-  const main = values[values.length - 1];
+  const main = itemAt(values, values.length - 1);
 
-  if (main) {
+  if (main !== undefined) {
     event.extra = { ...event.extra, originalMessage: main.value };
     main.value = `The database is unavailable: ${unavailable}`;
   }

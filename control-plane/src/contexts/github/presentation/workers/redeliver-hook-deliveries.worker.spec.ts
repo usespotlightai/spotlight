@@ -2,16 +2,17 @@ import type { HookRedeliveries } from '@github/application/services/hook-redeliv
 import { RedeliverHookDeliveriesWorker } from '@github/presentation/workers/redeliver-hook-deliveries.worker';
 import type { Leadership } from '@platform/redis/leadership';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const workerWith = (leads: boolean, receivesWebhooks = true) => {
   const redeliver = vi.fn(async () => {});
-  const logger = { error: vi.fn() };
+  const logger = partial<LoggerPort>({ error: vi.fn() });
   const worker = new RedeliverHookDeliveriesWorker(
-    { redeliver } as unknown as HookRedeliveries,
+    partial<HookRedeliveries>({ redeliver }),
     receivesWebhooks,
-    { held: () => leads } as unknown as Leadership,
-    logger as unknown as LoggerPort,
+    partial<Leadership>({ held: () => leads }),
+    logger,
   );
 
   return { worker, redeliver, logger };

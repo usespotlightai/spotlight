@@ -10,6 +10,7 @@ import { WebhookProviders } from '@integrations/application/services/webhook-pro
 import type { InboundDelivery } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import type { InboundDeliveryRepository } from '@integrations/domain/repositories/inbound-delivery.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -26,19 +27,22 @@ const provider = (
     key: 'github',
     happenings: [],
     verifies: vi.fn(async (delivered: Delivered) => verifies(delivered)),
-    delivery: (delivered: Delivered) =>
-      (delivered.headers as Record<string, string>)['x-delivery'] ?? 'unnamed',
+    delivery: (delivered: Delivered) => {
+      const named = delivered.headers['x-delivery'];
+
+      return typeof named === 'string' ? named : 'unnamed';
+    },
     routes: async () => null,
     read: async () => [],
     ...over,
   }) satisfies WebhookProviderPort;
 
-const workspaces = {
+const workspaces = partial<WorkspaceReaderPort>({
   identifyTeam: async (_slug: string, teamKey: string) =>
     teamKey === 'platform'
       ? { workspaceId: WorkspaceId.of('ws_1'), teamId: TeamId.of('team_1') }
       : null,
-} as unknown as WorkspaceReaderPort;
+});
 
 const accepting = (
   providers: WebhookProviderPort[] = [provider()],
@@ -78,7 +82,7 @@ const accepting = (
       }),
       workspaces,
       deliveries,
-      { now: () => NOW } as ClockPort,
+      partial<ClockPort>({ now: () => NOW }),
       logger,
     ),
     deliveries,

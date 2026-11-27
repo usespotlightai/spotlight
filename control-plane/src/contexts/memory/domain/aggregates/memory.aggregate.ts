@@ -20,6 +20,7 @@ import type { MemoryStatus } from '@memory/domain/value-objects/memory-status';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -108,9 +109,10 @@ export class Memory extends EventRecorder {
     replacing: readonly Memory[];
     by: MemoryDecision;
   }): Memory {
-    const [first, ...rest] = input.replacing;
+    const first = firstOf(input.replacing);
+    const rest = input.replacing.slice(1);
 
-    if (!first || rest.length === 0) {
+    if (first === undefined || rest.length === 0) {
       throw new InvalidMemoryError('merges at least two memories');
     }
     if (

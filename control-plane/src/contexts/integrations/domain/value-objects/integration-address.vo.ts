@@ -35,7 +35,7 @@ export class IntegrationAddress {
 
   equals(other: IntegrationAddress): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof IntegrationAddress &&
       this.teamKey === other.teamKey &&
       this.integration.equals(other.integration)
     );

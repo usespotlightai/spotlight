@@ -2,8 +2,8 @@ import type { QueryClient } from '@tanstack/react-query';
 
 const JOURNALS_KEPT = 30;
 
-const isJournal = (queryKey: readonly unknown[]): boolean =>
-  queryKey[0] === 'journal';
+const isJournal = (queryKey: unknown): boolean =>
+  Array.isArray(queryKey) && queryKey[0] === 'journal';
 
 export const keepRecentJournals = (
   client: QueryClient,
@@ -15,8 +15,7 @@ export const keepRecentJournals = (
 
   return cache.subscribe((event) => {
     const { query } = event;
-
-    if (!isJournal(query.queryKey as readonly unknown[])) {
+    if (!isJournal(query.queryKey)) {
       return;
     }
 

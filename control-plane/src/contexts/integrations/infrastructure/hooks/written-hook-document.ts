@@ -15,7 +15,14 @@ const stepOf = (step: HookStepFile): WrittenHookStep => {
     return { name: step.name, call: step.call, with: { ...step.with } };
   }
 
-  const request = step.request as NonNullable<HookStepFile['request']>;
+  const request = step.request;
+
+  if (request === undefined) {
+    throw new InconsistentStateError(
+      'hook step',
+      `${step.name} neither calls a tool nor makes a request`,
+    );
+  }
 
   return {
     name: step.name,

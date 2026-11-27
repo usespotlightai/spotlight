@@ -51,7 +51,9 @@ export function AgentConfigRow({
         {formatCount(agentConfig.tally.runs)}
       </NestedCell>
       <NestedCell heading="Cost per run" strong>
-        {agentConfig.costPerRun === null || !agentConfig.currency
+        {agentConfig.costPerRun === null ||
+        agentConfig.currency === null ||
+        agentConfig.currency === ''
           ? '–'
           : spentIn(agentConfig.costPerRun, agentConfig.currency)}
       </NestedCell>

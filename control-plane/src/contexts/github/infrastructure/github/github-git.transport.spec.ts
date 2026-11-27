@@ -2,6 +2,8 @@ import { GitHubUnansweredError } from '@github/application/errors/github-unanswe
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubGitTransport } from '@github/infrastructure/github/github-git.transport';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -10,16 +12,16 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 
 const REPOSITORY = Repository.of('acme/docs');
 
-const access = {
+const access = partial<RepositoryAccessPort>({
   credential: vi.fn(async () => ({
     username: 'x-access-token',
     password: 'tok_1',
   })),
-} as unknown as RepositoryAccessPort;
+});
 
-const logger = {
+const logger = partial<LoggerPort>({
   warn: vi.fn(),
-} as unknown as LoggerPort;
+});
 
 const CALL = {
   method: 'POST',
@@ -48,14 +50,16 @@ describe('GitHubGitTransport', () => {
       .call(WORKSPACE, REPOSITORY, CALL)
       .catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(GitHubUnansweredError);
-    expect((failure as GitHubUnansweredError).kind).toBe('upstream-error');
-    expect((failure as GitHubUnansweredError).cause).toBeInstanceOf(TypeError);
+    if (!(failure instanceof GitHubUnansweredError)) {
+      throw new Error('expected a GitHubUnansweredError');
+    }
+    expect(failure.kind).toBe('upstream-error');
+    expect(failure.cause).toBeInstanceOf(TypeError);
     expect(logger.warn).toHaveBeenCalledOnce();
   });
 
   it('returns the answer and drops the caller authorization', async () => {
-    const fetcher = vi.fn(async () => ({
+    const fetcher = vi.fn(async (_url: string, _init: RequestInit) => ({
       status: 200,
       headers: new Headers({ 'content-type': 'x-git-result' }),
       body: null,
@@ -68,14 +72,12 @@ describe('GitHubGitTransport', () => {
       CALL,
     );
 
-    const init = (fetcher.mock.calls[0] as unknown as [string, RequestInit])[1];
+    const init = firstOf(fetcher.mock.calls)?.[1];
     expect(answer).toEqual({
       status: 200,
       headers: { 'content-type': 'x-git-result' },
       body: null,
     });
-    expect((init.headers as Record<string, string>).authorization).toMatch(
-      /^Basic /,
-    );
+    expect(new Headers(init?.headers).get('authorization')).toMatch(/^Basic /);
   });
 });

@@ -16,7 +16,6 @@ import { SetHealths } from '@replays/application/services/set-healths.service';
 import { StartSearch } from '@replays/application/services/start-search.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import { LineSearchBudget } from '@replays/domain/aggregates/line-search-budget.aggregate';
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
@@ -28,9 +27,9 @@ import {
   LIVE_HASHES,
   NOW,
   replayedAs,
-  STATION,
   searchRunIds,
   sha256,
+  STATION,
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
@@ -44,6 +43,7 @@ import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -190,25 +190,25 @@ describe('AutoSearches', () => {
 
     const [search] = searches();
 
-    expect(search?.trigger).toBe('schedule');
-    expect(search?.agent?.harness).toBe('claude-code');
-    expect(search?.agent?.model).toBe('opus');
-    expect(search?.budget.iterations).toBe(2);
-    expect(search?.budget.ceiling).toEqual(Money.ceiling(10, 'USD'));
+    expect(search.trigger).toBe('schedule');
+    expect(search.agent?.harness).toBe('claude-code');
+    expect(search.agent?.model).toBe('opus');
+    expect(search.budget.iterations).toBe(2);
+    expect(search.budget.ceiling).toEqual(Money.ceiling(10, 'USD'));
     expect(schedule().lastStartedAt).toEqual(NOW);
     expect(schedule().checkAfter).toEqual(new Date(NOW.getTime() + 3 * DAY));
     expect(
       schedule()
         .searchedTasks.map((each) => each.value)
         .sort(),
-    ).toEqual(search?.split.searched.map((each) => each.taskId.value).sort());
+    ).toEqual(search.split.searched.map((each) => each.taskId.value).sort());
   });
 
   it('calibrates a new set with the seed of its first search, and not again while the set and the live config stay, each seed three repeats a run', async () => {
     await auto().processDue();
 
-    const [first] = searches() as [Search];
-    const seed = memory.replays.get(first.seed.replay.replayId.value) as Replay;
+    const [first] = searches();
+    const seed = present(memory.replays.get(first.seed.replay.replayId.value));
 
     expect(first.calibrates).toBe(true);
     expect(seed.calibration).toBe(true);
@@ -224,12 +224,12 @@ describe('AutoSearches', () => {
 
     const [, second] = searches();
 
-    expect(second?.calibrates).toBe(false);
+    expect(second.calibrates).toBe(false);
+    expect(memory.replays.get(second.seed.replay.replayId.value)?.repeats).toBe(
+      3,
+    );
     expect(
-      memory.replays.get(second?.seed.replay.replayId.value ?? '')?.repeats,
-    ).toBe(3);
-    expect(
-      memory.replays.get(second?.seed.replay.replayId.value ?? '')?.calibration,
+      memory.replays.get(second.seed.replay.replayId.value)?.calibration,
     ).toBe(false);
   });
 
@@ -341,14 +341,12 @@ describe('AutoSearches', () => {
 
     const [first, second] = searches();
     const searchedFirst = new Set(
-      first?.split.searched.map((each) => each.taskId.value),
+      first.split.searched.map((each) => each.taskId.value),
     );
 
-    expect(second?.split.heldOut.length).toBeGreaterThanOrEqual(2);
+    expect(second.split.heldOut.length).toBeGreaterThanOrEqual(2);
     expect(
-      second?.split.heldOut.some((each) =>
-        searchedFirst.has(each.taskId.value),
-      ),
+      second.split.heldOut.some((each) => searchedFirst.has(each.taskId.value)),
     ).toBe(false);
   });
 

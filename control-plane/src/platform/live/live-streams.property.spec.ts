@@ -5,11 +5,12 @@ import type {
   SequencedNotice,
 } from '@platform/live/change-notices';
 import { InMemoryLiveFeed } from '@platform/live/in-memory-live-feed';
-import type {
-  LiveChannel,
-  LiveFeedPort,
-  LiveListener,
-  LiveMessage,
+import {
+  isLiveChannel,
+  type LiveChannel,
+  type LiveFeedPort,
+  type LiveListener,
+  type LiveMessage,
 } from '@platform/live/live-feed.port';
 import type {
   ChannelLog,
@@ -22,6 +23,7 @@ import { REPLAY_LIMIT } from '@platform/live/live-replay';
 import { LiveStreams } from '@platform/live/live-streams';
 import { Leadership } from '@platform/redis/leadership';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import fc from 'fast-check';
 import type { Subscription } from 'rxjs';
 import { describe, it } from 'vitest';
@@ -182,9 +184,9 @@ class SteppedLog implements LiveNoticeLogPort {
   }
 
   read(pick: number, fails: boolean): void {
-    const read = this.reading[pick % Math.max(this.reading.length, 1)];
+    const read = itemAt(this.reading, pick % Math.max(this.reading.length, 1));
 
-    if (!read) {
+    if (read === undefined) {
       return;
     }
 
@@ -359,9 +361,9 @@ interface Ready {
 
 const readyIn = (heard: readonly Heard[]): Ready | null => {
   const at = heard.findIndex((event) => event.type === 'ready');
-  const ready = heard[at];
+  const ready = itemAt(heard, at);
 
-  if (!ready) {
+  if (ready === undefined) {
     return null;
   }
 
@@ -838,7 +840,9 @@ const leavesNoSilentGap = (world: World) =>
       const floor = ready.complete
         ? (ready.heads.get(position.channel) ?? 0)
         : (ready.heads.get(position.channel) ??
-          session.since.get(position.channel as LiveChannel) ??
+          (isLiveChannel(position.channel)
+            ? session.since.get(position.channel)
+            : undefined) ??
           0);
 
       return (
@@ -928,7 +932,8 @@ describe('live streams under random publishes, reconnects, trims and feed faults
           const countOf = (list: readonly (Position | null)[], key: string) =>
             list.filter(
               (position) =>
-                position && `${position.channel}@${position.sequence}` === key,
+                position !== null &&
+                `${position.channel}@${position.sequence}` === key,
             ).length;
           const passed = session.heard
             .slice(ready ? ready.at + 1 : session.heard.length)

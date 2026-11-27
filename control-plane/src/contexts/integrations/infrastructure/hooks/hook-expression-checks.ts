@@ -87,7 +87,12 @@ const placeOf = (
     return { scope: firingScope(on), returns: 'bool' };
   }
 
-  if (first !== 'steps' || typeof index !== 'number' || !steps[index]) {
+  if (
+    first !== 'steps' ||
+    typeof index !== 'number' ||
+    index < 0 ||
+    index >= steps.length
+  ) {
     return null;
   }
 
@@ -132,7 +137,7 @@ export class HookExpressionChecks {
 
     const place = placeOf(
       FieldPath.of(position.segments.slice(1)),
-      read.data.on as HookEventName,
+      read.data.on,
       read.data.steps,
     );
 

@@ -14,7 +14,9 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { listed } from '@work/application/rendering/setup-steps';
+import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { welcomeTask } from '@work/domain/services/welcome-task';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq, inArray } from 'drizzle-orm';
@@ -24,11 +26,30 @@ import { insertStations, mapOf } from './stations';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
+export interface ListSetUp {
+  readonly stationId: StationId;
+  readonly line: LineMap;
+  readonly list: Task;
+}
+
+export interface CreatedTeam extends ListSetUp {
+  readonly slug: string;
+  readonly owner: UserId;
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+}
+
+export interface SeatedTeam {
+  readonly owner: string;
+  readonly member: string;
+  readonly unseat: () => Promise<void>;
+}
+
 export const listSetUp = async (
   db: DrizzleDatabase,
   tasks: DrizzleTaskRepository,
   of: { workspaceId: string; teamId: string; owner: string },
-) => {
+): Promise<ListSetUp> => {
   const { workspaceId, teamId, owner } = of;
   const stationId = randomUUID();
   const lineId = randomUUID();
@@ -108,7 +129,7 @@ export const createTeam = async (
   db: DrizzleDatabase,
   tasks: DrizzleTaskRepository,
   slug: string,
-) => {
+): Promise<CreatedTeam> => {
   const workspaceId = randomUUID();
   const teamId = randomUUID();
   const owner = randomUUID();
@@ -156,7 +177,10 @@ export const createTeam = async (
   };
 };
 
-export const seatTeam = async (db: DrizzleDatabase, id: string) => {
+export const seatTeam = async (
+  db: DrizzleDatabase,
+  id: string,
+): Promise<SeatedTeam> => {
   const owner = randomUUID();
   const member = randomUUID();
 
@@ -184,7 +208,7 @@ export const seatTeam = async (db: DrizzleDatabase, id: string) => {
   return {
     owner,
     member,
-    unseat: async () => {
+    unseat: async (): Promise<void> => {
       await db.delete(schema.task).where(eq(schema.task.workspaceId, id));
       await db.delete(schema.line).where(eq(schema.line.teamId, id));
       await db

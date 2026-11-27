@@ -1,5 +1,7 @@
 import type { ChangeStackReactions } from '@change-review/application/events/handlers/change-stack-reactions.handler';
+import type { DecisionReactions } from '@change-review/application/events/handlers/decision-reactions.handler';
 import type { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
+import type { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
 import type { TaskDeletionReactions } from '@change-review/application/events/handlers/task-deletion-reactions.handler';
 import type { TeamDeletionReactions } from '@change-review/application/events/handlers/team-deletion-reactions.handler';
 import type { ReviewWorkRunnersPort } from '@change-review/application/ports/review-work-runners.port';
@@ -33,9 +35,12 @@ import {
 } from '@shared-kernel/application/integration-events/pull-request-pushed.integration-event';
 import type { ReviewCommentReceivedIntegrationEvent } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
 import type { RunResumedIntegrationEvent } from '@shared-kernel/application/integration-events/run-resumed.integration-event';
+import type { TaskDeletedIntegrationEvent } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import type { TaskRunAssignedIntegrationEvent } from '@shared-kernel/application/integration-events/task-run-assigned.integration-event';
 import type { TaskTurnAwaitedIntegrationEvent } from '@shared-kernel/application/integration-events/task-turn-awaited.integration-event';
+import type { TeamDeletedIntegrationEvent } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -66,19 +71,19 @@ const RECEIVED: ReviewCommentReceivedIntegrationEvent = {
 const receiving = () => {
   const receive = vi.fn(async () => {});
   const subscriber = changeReviewSubscribers(
-    {} as unknown as ChangeStackReactions,
-    {} as unknown as StickyCommentPosterPort,
-    {} as unknown as TaskDeletionReactions,
-    {} as never,
-    {} as unknown as ReviewReactions,
-    { receive } as unknown as ReceiveReviewComment,
-    {} as unknown as SignalReviewing,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
+    partial<ChangeStackReactions>({}),
+    partial<StickyCommentPosterPort>({}),
+    partial<TaskDeletionReactions>({}),
+    partial<TeamDeletionReactions>({}),
+    partial<ReviewReactions>({}),
+    partial<ReceiveReviewComment>({ receive }),
+    partial<SignalReviewing>({}),
+    partial<StackCheckReactions>({}),
+    partial<ApplyPullRequestClose>({}),
+    partial<DecisionReactions>({}),
+    partial<ReviewWorkRunnersPort>({}),
+    partial<StackPushes>({}),
+    partial<WakeSessionWaits>({}),
   ).find((each) => each.kinds.includes(RECEIVED.kind));
 
   if (!subscriber) {
@@ -136,19 +141,19 @@ describe('change review receiving a run begin and end', () => {
   const signalled = () => {
     const signal = vi.fn(async (_task: TaskId) => {});
     const subscribers = changeReviewSubscribers(
-      {} as unknown as ChangeStackReactions,
-      {} as unknown as StickyCommentPosterPort,
-      {} as unknown as TaskDeletionReactions,
-      {} as never,
-      {} as unknown as ReviewReactions,
-      {} as unknown as ReceiveReviewComment,
-      { signal } as unknown as SignalReviewing,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
+      partial<ChangeStackReactions>({}),
+      partial<StickyCommentPosterPort>({}),
+      partial<TaskDeletionReactions>({}),
+      partial<TeamDeletionReactions>({}),
+      partial<ReviewReactions>({}),
+      partial<ReceiveReviewComment>({}),
+      partial<SignalReviewing>({ signal }),
+      partial<StackCheckReactions>({}),
+      partial<ApplyPullRequestClose>({}),
+      partial<DecisionReactions>({}),
+      partial<ReviewWorkRunnersPort>({}),
+      partial<StackPushes>({}),
+      partial<WakeSessionWaits>({}),
     );
     const receiving = (kind: string) => {
       const found = subscribers.find((each) => each.kinds.includes(kind));
@@ -219,19 +224,19 @@ describe('change review receiving a run begin and end', () => {
 describe('change review receiving a run end', () => {
   it('generates no decisions, since the run’s agent records its own', () => {
     const subscribers = changeReviewSubscribers(
-      {} as unknown as ChangeStackReactions,
-      {} as unknown as StickyCommentPosterPort,
-      {} as unknown as TaskDeletionReactions,
-      {} as never,
-      {} as unknown as ReviewReactions,
-      {} as unknown as ReceiveReviewComment,
-      {} as unknown as SignalReviewing,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
+      partial<ChangeStackReactions>({}),
+      partial<StickyCommentPosterPort>({}),
+      partial<TaskDeletionReactions>({}),
+      partial<TeamDeletionReactions>({}),
+      partial<ReviewReactions>({}),
+      partial<ReceiveReviewComment>({}),
+      partial<SignalReviewing>({}),
+      partial<StackCheckReactions>({}),
+      partial<ApplyPullRequestClose>({}),
+      partial<DecisionReactions>({}),
+      partial<ReviewWorkRunnersPort>({}),
+      partial<StackPushes>({}),
+      partial<WakeSessionWaits>({}),
     );
 
     expect(
@@ -246,19 +251,19 @@ describe('change review receiving a settled assist session', () => {
   it('wakes the job that waits for the session', async () => {
     const settled = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
-      {} as unknown as ChangeStackReactions,
-      {} as unknown as StickyCommentPosterPort,
-      {} as unknown as TaskDeletionReactions,
-      {} as never,
-      {} as unknown as ReviewReactions,
-      {} as unknown as ReceiveReviewComment,
-      {} as unknown as SignalReviewing,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      { settled } as unknown as WakeSessionWaits,
+      partial<ChangeStackReactions>({}),
+      partial<StickyCommentPosterPort>({}),
+      partial<TaskDeletionReactions>({}),
+      partial<TeamDeletionReactions>({}),
+      partial<ReviewReactions>({}),
+      partial<ReceiveReviewComment>({}),
+      partial<SignalReviewing>({}),
+      partial<StackCheckReactions>({}),
+      partial<ApplyPullRequestClose>({}),
+      partial<DecisionReactions>({}),
+      partial<ReviewWorkRunnersPort>({}),
+      partial<StackPushes>({}),
+      partial<WakeSessionWaits>({ settled }),
     ).find((each) => each.kinds.includes(ASSIST_SESSION_SETTLED));
 
     const event: AssistSessionSettledIntegrationEvent = {
@@ -285,19 +290,19 @@ describe('change review receiving a pull request close', () => {
   it('applies the close to the decisions of the task that has the pull request', async () => {
     const closed = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
-      {} as unknown as ChangeStackReactions,
-      {} as unknown as StickyCommentPosterPort,
-      {} as unknown as TaskDeletionReactions,
-      {} as never,
-      {} as unknown as ReviewReactions,
-      {} as unknown as ReceiveReviewComment,
-      {} as unknown as SignalReviewing,
-      {} as never,
-      { closed } as unknown as ApplyPullRequestClose,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
+      partial<ChangeStackReactions>({}),
+      partial<StickyCommentPosterPort>({}),
+      partial<TaskDeletionReactions>({}),
+      partial<TeamDeletionReactions>({}),
+      partial<ReviewReactions>({}),
+      partial<ReceiveReviewComment>({}),
+      partial<SignalReviewing>({}),
+      partial<StackCheckReactions>({}),
+      partial<ApplyPullRequestClose>({ closed }),
+      partial<DecisionReactions>({}),
+      partial<ReviewWorkRunnersPort>({}),
+      partial<StackPushes>({}),
+      partial<WakeSessionWaits>({}),
     ).find((each) => each.name === 'change-review.apply-pull-request-close');
 
     const merged: PullRequestClosedIntegrationEvent = {
@@ -327,19 +332,19 @@ describe('change review receiving a stack’s check end', () => {
   const releasing = () => {
     const released = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
-      {} as unknown as ChangeStackReactions,
-      {} as unknown as StickyCommentPosterPort,
-      {} as unknown as TaskDeletionReactions,
-      {} as never,
-      {} as unknown as ReviewReactions,
-      {} as unknown as ReceiveReviewComment,
-      {} as unknown as SignalReviewing,
-      {} as never,
-      {} as never,
-      {} as never,
-      { checkReleased: released } as unknown as ReviewWorkRunnersPort,
-      {} as never,
-      {} as never,
+      partial<ChangeStackReactions>({}),
+      partial<StickyCommentPosterPort>({}),
+      partial<TaskDeletionReactions>({}),
+      partial<TeamDeletionReactions>({}),
+      partial<ReviewReactions>({}),
+      partial<ReceiveReviewComment>({}),
+      partial<SignalReviewing>({}),
+      partial<StackCheckReactions>({}),
+      partial<ApplyPullRequestClose>({}),
+      partial<DecisionReactions>({}),
+      partial<ReviewWorkRunnersPort>({ checkReleased: released }),
+      partial<StackPushes>({}),
+      partial<WakeSessionWaits>({}),
     ).find(
       (each) => each.name === 'change-review.release-runner-of-checked-stack',
     );
@@ -399,19 +404,19 @@ describe('change review receiving that a check was deleted while a runner leased
   it('releases the runner that was checking it', async () => {
     const released = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
-      {} as unknown as ChangeStackReactions,
-      {} as unknown as StickyCommentPosterPort,
-      {} as unknown as TaskDeletionReactions,
-      {} as never,
-      {} as unknown as ReviewReactions,
-      {} as unknown as ReceiveReviewComment,
-      {} as unknown as SignalReviewing,
-      {} as never,
-      {} as never,
-      {} as never,
-      { checkReleased: released } as unknown as ReviewWorkRunnersPort,
-      {} as never,
-      {} as never,
+      partial<ChangeStackReactions>({}),
+      partial<StickyCommentPosterPort>({}),
+      partial<TaskDeletionReactions>({}),
+      partial<TeamDeletionReactions>({}),
+      partial<ReviewReactions>({}),
+      partial<ReceiveReviewComment>({}),
+      partial<SignalReviewing>({}),
+      partial<StackCheckReactions>({}),
+      partial<ApplyPullRequestClose>({}),
+      partial<DecisionReactions>({}),
+      partial<ReviewWorkRunnersPort>({ checkReleased: released }),
+      partial<StackPushes>({}),
+      partial<WakeSessionWaits>({}),
     ).find(
       (each) => each.name === 'change-review.release-runner-of-deleted-check',
     );
@@ -435,19 +440,19 @@ describe('change review receiving a check drop the runner reserved for it', () =
   const releasing = () => {
     const reservationDropped = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
-      {} as unknown as ChangeStackReactions,
-      {} as unknown as StickyCommentPosterPort,
-      {} as unknown as TaskDeletionReactions,
-      {} as never,
-      {} as unknown as ReviewReactions,
-      {} as unknown as ReceiveReviewComment,
-      {} as unknown as SignalReviewing,
-      {} as never,
-      {} as never,
-      {} as never,
-      { reservationDropped } as unknown as ReviewWorkRunnersPort,
-      {} as never,
-      {} as never,
+      partial<ChangeStackReactions>({}),
+      partial<StickyCommentPosterPort>({}),
+      partial<TaskDeletionReactions>({}),
+      partial<TeamDeletionReactions>({}),
+      partial<ReviewReactions>({}),
+      partial<ReceiveReviewComment>({}),
+      partial<SignalReviewing>({}),
+      partial<StackCheckReactions>({}),
+      partial<ApplyPullRequestClose>({}),
+      partial<DecisionReactions>({}),
+      partial<ReviewWorkRunnersPort>({ reservationDropped }),
+      partial<StackPushes>({}),
+      partial<WakeSessionWaits>({}),
     ).find((each) => each.name === 'change-review.release-reserved-runner');
 
     if (!subscriber) {
@@ -481,19 +486,19 @@ describe('change review receiving a push to a pull request', () => {
     const diffReleased = vi.fn(async () => {});
     const reservationDropped = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
-      {} as unknown as ChangeStackReactions,
-      {} as unknown as StickyCommentPosterPort,
-      {} as unknown as TaskDeletionReactions,
-      {} as never,
-      {} as unknown as ReviewReactions,
-      {} as unknown as ReceiveReviewComment,
-      {} as unknown as SignalReviewing,
-      {} as never,
-      {} as never,
-      {} as never,
-      { diffReleased, reservationDropped } as unknown as ReviewWorkRunnersPort,
-      { pushed, supersedeEarlier } as unknown as StackPushes,
-      {} as never,
+      partial<ChangeStackReactions>({}),
+      partial<StickyCommentPosterPort>({}),
+      partial<TaskDeletionReactions>({}),
+      partial<TeamDeletionReactions>({}),
+      partial<ReviewReactions>({}),
+      partial<ReceiveReviewComment>({}),
+      partial<SignalReviewing>({}),
+      partial<StackCheckReactions>({}),
+      partial<ApplyPullRequestClose>({}),
+      partial<DecisionReactions>({}),
+      partial<ReviewWorkRunnersPort>({ diffReleased, reservationDropped }),
+      partial<StackPushes>({ pushed, supersedeEarlier }),
+      partial<WakeSessionWaits>({}),
     ).find((each) => each.name === name);
 
     if (!subscriber) {
@@ -587,19 +592,19 @@ describe('change review receiving a push to a pull request', () => {
 describe('change review removing what a deleted task or team owned', () => {
   const removeStacks = vi.fn(async () => {});
   const subscribers = changeReviewSubscribers(
-    {} as unknown as ChangeStackReactions,
-    {} as unknown as StickyCommentPosterPort,
-    {} as unknown as TaskDeletionReactions,
-    { removeStacks } as unknown as TeamDeletionReactions,
-    {} as unknown as ReviewReactions,
-    {} as unknown as ReceiveReviewComment,
-    {} as unknown as SignalReviewing,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
+    partial<ChangeStackReactions>({}),
+    partial<StickyCommentPosterPort>({}),
+    partial<TaskDeletionReactions>({}),
+    partial<TeamDeletionReactions>({ removeStacks }),
+    partial<ReviewReactions>({}),
+    partial<ReceiveReviewComment>({}),
+    partial<SignalReviewing>({}),
+    partial<StackCheckReactions>({}),
+    partial<ApplyPullRequestClose>({}),
+    partial<DecisionReactions>({}),
+    partial<ReviewWorkRunnersPort>({}),
+    partial<StackPushes>({}),
+    partial<WakeSessionWaits>({}),
   );
 
   it('removes each aggregate type in its own reaction, each aggregate in its own transaction', () => {
@@ -639,32 +644,30 @@ describe('change review removing what a deleted task or team owned', () => {
   it('removes the push diffs of a deleted task, releasing their runners', async () => {
     const removePushDiffs = vi.fn(async () => {});
     const subscriber = changeReviewSubscribers(
-      {} as unknown as ChangeStackReactions,
-      {} as unknown as StickyCommentPosterPort,
-      { removePushDiffs } as unknown as TaskDeletionReactions,
-      {} as never,
-      {} as unknown as ReviewReactions,
-      {} as unknown as ReceiveReviewComment,
-      {} as unknown as SignalReviewing,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
+      partial<ChangeStackReactions>({}),
+      partial<StickyCommentPosterPort>({}),
+      partial<TaskDeletionReactions>({ removePushDiffs }),
+      partial<TeamDeletionReactions>({}),
+      partial<ReviewReactions>({}),
+      partial<ReceiveReviewComment>({}),
+      partial<SignalReviewing>({}),
+      partial<StackCheckReactions>({}),
+      partial<ApplyPullRequestClose>({}),
+      partial<DecisionReactions>({}),
+      partial<ReviewWorkRunnersPort>({}),
+      partial<StackPushes>({}),
+      partial<WakeSessionWaits>({}),
     ).find(
       (each) => each.name === 'change-review.remove-push-diffs-of-deleted-task',
     );
 
     expect(subscriber?.kinds).toEqual(['work.task-deleted.v1']);
-    await subscriber?.handle(
-      {
-        kind: 'work.task-deleted.v1',
-        workspaceId: 'ws_1',
-        taskId: 'task_1',
-      } as never,
-      anOutboxRecord(),
-    );
+    const deleted: TaskDeletedIntegrationEvent = {
+      kind: 'work.task-deleted.v1',
+      workspaceId: 'ws_1',
+      taskId: 'task_1',
+    };
+    await subscriber?.handle(deleted, anOutboxRecord());
 
     expect(removePushDiffs).toHaveBeenCalledWith(TaskId.of('task_1'));
   });
@@ -675,15 +678,13 @@ describe('change review removing what a deleted task or team owned', () => {
         each.name === 'change-review.remove-change-stacks-of-deleted-team',
     );
 
-    await subscriber?.handle(
-      {
-        kind: 'identity.team-deleted.v1',
-        workspaceId: 'ws_1',
-        teamId: 'team_1',
-        key: 'core',
-      } as never,
-      anOutboxRecord(),
-    );
+    const deleted: TeamDeletedIntegrationEvent = {
+      kind: 'identity.team-deleted.v1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      key: 'core',
+    };
+    await subscriber?.handle(deleted, anOutboxRecord());
 
     expect(removeStacks).toHaveBeenCalledWith(TeamId.of('team_1'));
   });
@@ -692,19 +693,19 @@ describe('change review removing what a deleted task or team owned', () => {
 describe('change review receiving a kept turn', () => {
   const subscribersWith = (signalling: Partial<SignalReviewing>) =>
     changeReviewSubscribers(
-      {} as unknown as ChangeStackReactions,
-      {} as unknown as StickyCommentPosterPort,
-      {} as unknown as TaskDeletionReactions,
-      {} as never,
-      {} as unknown as ReviewReactions,
-      {} as unknown as ReceiveReviewComment,
-      signalling as unknown as SignalReviewing,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
+      partial<ChangeStackReactions>({}),
+      partial<StickyCommentPosterPort>({}),
+      partial<TaskDeletionReactions>({}),
+      partial<TeamDeletionReactions>({}),
+      partial<ReviewReactions>({}),
+      partial<ReceiveReviewComment>({}),
+      partial<SignalReviewing>(signalling),
+      partial<StackCheckReactions>({}),
+      partial<ApplyPullRequestClose>({}),
+      partial<DecisionReactions>({}),
+      partial<ReviewWorkRunnersPort>({}),
+      partial<StackPushes>({}),
+      partial<WakeSessionWaits>({}),
     );
 
   it('signals the review again once a kept run resumes', async () => {

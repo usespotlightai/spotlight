@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { INestApplication } from '@nestjs/common';
+import { fieldOf } from '@platform/json/field-of';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
@@ -12,6 +13,7 @@ import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-con
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { RUN_RESUMED } from '@shared-kernel/application/integration-events/run-resumed.integration-event';
 import { TASK_TURN_AWAITED } from '@shared-kernel/application/integration-events/task-turn-awaited.integration-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -30,6 +32,7 @@ import { and, eq, isNotNull, ne } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
 import { aDispatch, requestedByTask } from './support/runs';
@@ -125,13 +128,13 @@ const claimed = async (runId: string): Promise<string> => {
   await lostEarlierSandboxes();
   await heartbeat();
 
-  const assignment = (
+  const assignment = bodyOf<{ token: string; work: { run: { id: string } } }>(
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
       .send({ host: HOST, image: IMAGE })
-      .expect(200)
-  ).body as { token: string; work: { run: { id: string } } };
+      .expect(200),
+  );
 
   expect(assignment.work.run.id).toBe(runId);
 
@@ -198,32 +201,28 @@ const askingForReview = {
 };
 
 const runRow = async (runId: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.run)
-    .where(eq(schema.run.id, runId));
+  const row = firstOf(
+    await db.select().from(schema.run).where(eq(schema.run.id, runId)),
+  );
 
   return row;
 };
 
 const taskRow = async (taskId: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.task)
-    .where(eq(schema.task.id, taskId));
+  const row = firstOf(
+    await db.select().from(schema.task).where(eq(schema.task.id, taskId)),
+  );
 
   return row;
 };
 
 const inboxItemOf = (taskId: string): Promise<InboxItem> =>
   eventually(async () =>
-    (
-      (
-        await http()
-          .get(`/api/workspaces/${team.slug}/inbox`)
-          .set(TEST_USER_HEADER, team.owner.value)
-          .expect(200)
-      ).body as { readonly items: InboxItem[] }
+    bodyOf<{ readonly items: InboxItem[] }>(
+      await http()
+        .get(`/api/workspaces/${team.slug}/inbox`)
+        .set(TEST_USER_HEADER, team.owner.value)
+        .expect(200),
     ).items.find((each) => each.kind === 'task' && each.taskId === taskId),
   );
 
@@ -241,6 +240,12 @@ interface AwaitedTurn {
   readonly handsOver: boolean;
 }
 
+const isAwaitedTurn = (value: unknown): value is AwaitedTurn =>
+  typeof fieldOf(value, 'runId') === 'string' &&
+  typeof fieldOf(value, 'taskId') === 'string' &&
+  typeof fieldOf(value, 'attempt') === 'number' &&
+  typeof fieldOf(value, 'handsOver') === 'boolean';
+
 const awaitedTurnsOf = (runId: string, count = 1): Promise<AwaitedTurn[]> =>
   eventually(async () => {
     const turns = (
@@ -249,7 +254,8 @@ const awaitedTurnsOf = (runId: string, count = 1): Promise<AwaitedTurn[]> =>
         .from(schema.eventOutbox)
         .where(eq(schema.eventOutbox.kind, TASK_TURN_AWAITED))
     )
-      .map((each) => each.payload as AwaitedTurn)
+      .map((each) => each.payload)
+      .filter(isAwaitedTurn)
       .filter((each) => each.runId === runId)
       .map(({ runId: run, taskId, attempt, handsOver }) => ({
         runId: run,
@@ -286,7 +292,7 @@ const deliveredTo = (
           ),
         )
     )
-      .filter((each) => (each.payload as { runId: string }).runId === runId)
+      .filter((each) => fieldOf(each.payload, 'runId') === runId)
       .map((each) => each.subscriber);
 
     return delivered.length >= count ? delivered : null;
@@ -406,7 +412,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 describe('a run that asks a person', () => {
@@ -445,14 +451,14 @@ describe('a run that asks a person', () => {
     const first = await claimed(runId);
 
     await journalled(first, runId, 'before the question');
-    const granted = (
+    const granted = bodyOf<{ id: string }>(
       await runner(first)
         .post(`/api/runs/${runId}/working-copy-archive`, {
           size: 2_048,
           sha256: SHA256,
         })
-        .expect(201)
-    ).body as { id: string };
+        .expect(201),
+    );
     await runner(first)
       .post(`/api/runs/${runId}/working-copy-archive/${granted.id}/complete`)
       .expect(204);
@@ -463,11 +469,11 @@ describe('a run that asks a person', () => {
     await answered(taskId, 'The default one.');
 
     const requeued = await runIn(runId, 'queued');
-    expect(requeued?.attempt).toBe(2);
-    expect(requeued?.spec).toMatchObject({
+    expect(requeued.attempt).toBe(2);
+    expect(requeued.spec).toMatchObject({
       resume: { sessionId: 'session_1', resumeSession: true },
     });
-    expect(requeued?.workingCopyKey).toBe(`work/task-${taskId}`);
+    expect(requeued.workingCopyKey).toBe(`work/task-${taskId}`);
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
     expect(await inboxItemOf(taskId)).toMatchObject({
       progress: 'queued',
@@ -482,20 +488,20 @@ describe('a run that asks a person', () => {
       .expect(200);
     expect(restored.body).toMatchObject({ id: granted.id, sha256: SHA256 });
 
-    const pending = (
-      await runner(second).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as PendingMessage[];
+    const pending = bodyOf<PendingMessage[]>(
+      await runner(second).get(`/api/runs/${runId}/messages`).expect(200),
+    );
     expect(pending.map((each) => each.body)).toEqual(['The default one.']);
 
     await journalled(second, runId, 'after the answer');
-    const journal = (
+    const journal = bodyOf<{ runId: string; attempt: number }[]>(
       await http()
         .get(
           `/api/workspaces/${team.slug}/inbox/tasks/${taskId}/journal/${runId}`,
         )
         .set(TEST_USER_HEADER, team.owner.value)
-        .expect(200)
-    ).body as { runId: string; attempt: number }[];
+        .expect(200),
+    );
     expect(
       journal
         .filter((each) => each.runId === runId)
@@ -512,12 +518,12 @@ describe('a run that asks a person', () => {
       .expect(204);
     await runIn(runId, 'completed');
 
-    const runs = (
+    const runs = bodyOf<{ id: string }[]>(
       await http()
         .get(`/api/teams/${team.teamId.value}/tasks/${taskId}/runs`)
         .set(TEST_USER_HEADER, team.owner.value)
-        .expect(200)
-    ).body as { id: string }[];
+        .expect(200),
+    );
     expect(runs.filter((each) => each.id === runId)).toHaveLength(1);
   });
 
@@ -538,8 +544,8 @@ describe('a run that asks a person', () => {
       .expect((response) => expect(response.status).toBeLessThan(300));
 
     const ended = await runIn(runId, 'completed');
-    expect(ended?.stopped).toBe(false);
-    expect(ended?.exitCode).toBe(0);
+    expect(ended.stopped).toBe(false);
+    expect(ended.exitCode).toBe(0);
     expect((await taskRow(taskId))?.currentRunId).not.toBe(runId);
   });
 
@@ -575,9 +581,9 @@ describe('a run that asks a person', () => {
     expect(unfinished.find((each) => each.runId === runId)?.startedAt).toEqual(
       resumed?.firstStartedAt,
     );
-    const pending = (
-      await runner(second).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as PendingMessage[];
+    const pending = bodyOf<PendingMessage[]>(
+      await runner(second).get(`/api/runs/${runId}/messages`).expect(200),
+    );
     await runner(second)
       .post(`/api/runs/${runId}/messages/ack`, {
         upTo: Math.max(...pending.map((each) => each.position)),
@@ -611,11 +617,9 @@ describe('a run that asks a person', () => {
       .expect((response) => expect(response.status).toBeLessThan(300));
 
     const ended = await runIn(runId, 'completed');
-    expect(ended?.endedAt).toEqual(suspended?.suspendedAt);
-    expect(ended?.firstStartedAt).toEqual(suspended?.startedAt);
-    expect(
-      (ended?.queuedMs ?? 0) + (ended?.runningMs ?? 0),
-    ).toBeLessThanOrEqual(
+    expect(ended.endedAt).toEqual(suspended?.suspendedAt);
+    expect(ended.firstStartedAt).toEqual(suspended?.startedAt);
+    expect(ended.queuedMs + ended.runningMs).toBeLessThanOrEqual(
       (suspended?.suspendedAt?.getTime() ?? 0) -
         (suspended?.queuedAt.getTime() ?? 0),
     );
@@ -636,12 +640,12 @@ describe('a run that asks a person', () => {
       .expect((response) => expect(response.status).toBeLessThan(300));
 
     const requeued = await runIn(runId, 'queued');
-    expect(requeued?.attempt).toBe(2);
+    expect(requeued.attempt).toBe(2);
 
     const next = await claimed(runId);
-    const pending = (
-      await runner(next).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as PendingMessage[];
+    const pending = bodyOf<PendingMessage[]>(
+      await runner(next).get(`/api/runs/${runId}/messages`).expect(200),
+    );
     expect(pending.map((each) => each.body)).toEqual([
       'Drain the default one.',
     ]);
@@ -774,10 +778,12 @@ describe('a message in a run chat', () => {
 
     await sendMessage(runId, 'Drain the default one first.');
 
-    const [hold] = await db
-      .select()
-      .from(schema.taskHold)
-      .where(eq(schema.taskHold.taskId, taskId));
+    const hold = firstOf(
+      await db
+        .select()
+        .from(schema.taskHold)
+        .where(eq(schema.taskHold.taskId, taskId)),
+    );
     expect(hold?.heldBy).toBe(team.owner.value);
     expect(hold?.endedAt).toBeNull();
     expect((await taskRow(taskId))?.currentRunId).not.toBe(runId);
@@ -813,13 +819,15 @@ describe('a message in a run chat', () => {
     expect((await runRow(runId))?.state).toBe('completed');
 
     const queued = await runIn(next, 'queued');
-    const [dispatched] = await db
-      .select()
-      .from(schema.dispatch)
-      .where(eq(schema.dispatch.id, next));
+    const dispatched = firstOf(
+      await db
+        .select()
+        .from(schema.dispatch)
+        .where(eq(schema.dispatch.id, next)),
+    );
     expect(dispatched?.stationId).toBe(DEPLOY);
-    expect(queued?.workingCopyKey).toBe(`work/task-${taskId}`);
-    expect(queued?.spec).toMatchObject({
+    expect(queued.workingCopyKey).toBe(`work/task-${taskId}`);
+    expect(queued.spec).toMatchObject({
       briefing: expect.stringContaining(
         'Deploy the docs with it too.',
       ) as unknown,

@@ -1,4 +1,5 @@
 import { distinct } from '@shared-kernel/domain/distinct';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -27,7 +28,7 @@ export const chatSetupOf = (
     ...new Set(
       lines.flatMap((line) => {
         const setup = line.repositories.setupOf(repository);
-        return setup ? [setup] : [];
+        return nonEmpty(setup) ? [setup] : [];
       }),
     ),
   ];

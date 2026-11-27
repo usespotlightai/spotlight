@@ -1,4 +1,5 @@
 import type { Keys } from '@/lib/commands/keys';
+import { keysOf } from '@/lib/one-of';
 
 export const SHORTCUT_GROUPS = [
   'General',
@@ -152,7 +153,7 @@ export type ShortcutId = keyof typeof SHORTCUTS;
 
 export const shortcutOf = (id: ShortcutId): Shortcut => SHORTCUTS[id];
 
-export const SHORTCUT_IDS = Object.keys(SHORTCUTS) as ShortcutId[];
+export const SHORTCUT_IDS: ShortcutId[] = keysOf(SHORTCUTS);
 
 export type DesktopShortcut = {
   readonly title: string;

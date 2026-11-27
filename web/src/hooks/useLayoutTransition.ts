@@ -36,7 +36,7 @@ export function useLayoutTransition(): LayoutTransition {
   return useMemo(
     () => ({
       play: (animations, end) => {
-        const [first] = animations;
+        const first = animations.at(0);
 
         if (!first) {
           end?.();

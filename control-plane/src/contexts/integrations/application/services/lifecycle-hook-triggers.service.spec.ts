@@ -13,6 +13,12 @@ import {
 import { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import type { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
+import type { DispatchEndedIntegrationEvent } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
+import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
+import type { TaskMovedIntegrationEvent } from '@shared-kernel/application/integration-events/task-moved.integration-event';
+import type { TaskOpenedIntegrationEvent } from '@shared-kernel/application/integration-events/task-opened.integration-event';
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -31,9 +37,9 @@ const setUp = (task: LinkedTaskView | null = TASK) => {
   } satisfies TasksForHooksPort;
 
   const occurred = (index = 0) => {
-    const each = queue.mock.calls[index]?.[1];
+    const each = itemAt(queue.mock.calls, index)?.[1];
 
-    return each
+    return each !== undefined
       ? {
           on: each.on,
           occurrence: each.key,
@@ -49,7 +55,7 @@ const setUp = (task: LinkedTaskView | null = TASK) => {
     occurred,
     tasks,
     triggers: new LifecycleHookTriggers(
-      { queue } as unknown as QueueHookFirings,
+      partial<QueueHookFirings>({ queue }),
       tasks,
     ),
   };
@@ -82,11 +88,13 @@ describe('LifecycleHookTriggers', () => {
   it('fires the hooks of the task a run ended on', async () => {
     const { triggers, occurred, tasks } = setUp();
 
-    await triggers.runEnded({
-      runId: 'run_1',
-      taskId: 'task_1',
-      outcome: 'handed-over',
-    } as never);
+    await triggers.runEnded(
+      partial<DispatchEndedIntegrationEvent>({
+        runId: 'run_1',
+        taskId: 'task_1',
+        outcome: 'completed',
+      }),
+    );
 
     expect(tasks.of).toHaveBeenCalledWith(
       TaskId.of('task_1'),
@@ -95,19 +103,21 @@ describe('LifecycleHookTriggers', () => {
     expect(occurred()).toMatchObject({
       on: 'run.ended',
       occurrence: HookOccurrenceKey.of('run-ended:run_1'),
-      event: runEnded('handed-over'),
+      event: runEnded('completed'),
     });
   });
 
   it('fires nothing for a turn a person drove', async () => {
     const { triggers, queue } = setUp();
 
-    await triggers.runEnded({
-      runId: 'run_1',
-      taskId: 'task_1',
-      driver: 'person',
-      outcome: 'handed-over',
-    } as never);
+    await triggers.runEnded(
+      partial<DispatchEndedIntegrationEvent>({
+        runId: 'run_1',
+        taskId: 'task_1',
+        driver: 'person',
+        outcome: 'completed',
+      }),
+    );
 
     expect(queue).not.toHaveBeenCalled();
   });
@@ -116,12 +126,16 @@ describe('LifecycleHookTriggers', () => {
     const taskless = setUp();
     const gone = setUp(null);
 
-    await taskless.triggers.runEnded({
-      runId: 'run_1',
-      taskId: null,
-      outcome: 'done',
-    } as never);
-    await gone.triggers.taskOpened({ taskId: 'task_1' } as never);
+    await taskless.triggers.runEnded(
+      partial<DispatchEndedIntegrationEvent>({
+        runId: 'run_1',
+        taskId: null,
+        outcome: 'completed',
+      }),
+    );
+    await gone.triggers.taskOpened(
+      partial<TaskOpenedIntegrationEvent>({ taskId: 'task_1' }),
+    );
 
     expect(taskless.queue).not.toHaveBeenCalled();
     expect(gone.queue).not.toHaveBeenCalled();
@@ -130,12 +144,14 @@ describe('LifecycleHookTriggers', () => {
   it('fires on a task that moved, naming where from and to', async () => {
     const { triggers, occurred } = setUp();
 
-    await triggers.taskMoved({
-      taskId: 'task_1',
-      from: 'triage',
-      to: 'build',
-      at: '2026-09-26T10:00:00.000Z',
-    } as never);
+    await triggers.taskMoved(
+      partial<TaskMovedIntegrationEvent>({
+        taskId: 'task_1',
+        from: 'triage',
+        to: 'build',
+        at: '2026-09-26T10:00:00.000Z',
+      }),
+    );
 
     expect(occurred()).toMatchObject({
       on: 'task.moved',
@@ -147,18 +163,22 @@ describe('LifecycleHookTriggers', () => {
   it('fires on a merged pull request, matching it once its changes are known', async () => {
     const { triggers, queue, occurred, tasks } = setUp();
 
-    await triggers.pullRequestClosed({
-      workspaceId: 'workspace_1',
-      pullRequest: PULL_REQUEST,
-      repository: 'acme/api',
-      mergeCommit: 'abc',
-      merged: true,
-    } as never);
-    await triggers.pullRequestClosed({
-      workspaceId: 'workspace_1',
-      pullRequest: PULL_REQUEST,
-      merged: false,
-    } as never);
+    await triggers.pullRequestClosed(
+      partial<PullRequestClosedIntegrationEvent>({
+        workspaceId: 'workspace_1',
+        pullRequest: PULL_REQUEST,
+        repository: 'acme/api',
+        mergeCommit: 'abc',
+        merged: true,
+      }),
+    );
+    await triggers.pullRequestClosed(
+      partial<PullRequestClosedIntegrationEvent>({
+        workspaceId: 'workspace_1',
+        pullRequest: PULL_REQUEST,
+        merged: false,
+      }),
+    );
 
     expect(tasks.ofPullRequest).toHaveBeenCalledOnce();
     expect(tasks.ofPullRequest).toHaveBeenCalledWith(

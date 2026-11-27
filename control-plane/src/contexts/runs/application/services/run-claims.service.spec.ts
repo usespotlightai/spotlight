@@ -1,7 +1,10 @@
 import type { ExclusiveClaimLocksPort } from '@runs/application/ports/exclusive-claim-locks.port';
 import { RunClaims } from '@runs/application/services/run-claims.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import {
+  orderedFor,
+  workingCopyKeyOf,
+} from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import type { Claimant } from '@runs/domain/value-objects/claimant';
@@ -9,6 +12,7 @@ import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -55,19 +59,17 @@ const claimsOver = (waiting: readonly Run[]) => {
     leasedAmong: vi.fn(async () => []),
   };
   const claims = new RunClaims(
-    runs as unknown as RunRepository,
-    { measure: vi.fn() } as unknown as TelemetryPort,
+    partial<RunRepository>(runs),
+    partial<TelemetryPort>({ measure: vi.fn() }),
     { linkActiveSpanTo: vi.fn() },
-    {
-      claimingFor: vi.fn(
-        async (_requester: unknown, claim: () => Promise<boolean>) => claim(),
-      ),
-    } as unknown as ExclusiveClaimLocksPort,
-    {
+    partial<ExclusiveClaimLocksPort>({
+      claimingFor: <T>(_requester: unknown, claim: () => Promise<T>) => claim(),
+    }),
+    partial<WorkingCopyArchiveRepository>({
       completedKeysAmong: vi.fn(async () => []),
-    } as unknown as WorkingCopyArchiveRepository,
+    }),
     waits,
-    logger as unknown as LoggerPort,
+    partial<LoggerPort>(logger),
   );
 
   return { claims, runs, waits, logger };
@@ -103,10 +105,7 @@ describe('RunClaims', () => {
     const { claims } = claimsOver([avoided, queued('task_2', 'codex')]);
 
     expect(
-      await claims.waitsFor(
-        avoiding([avoided.workingCopyKey as WorkingCopyKey]),
-        NOW,
-      ),
+      await claims.waitsFor(avoiding([workingCopyKeyOf(avoided)]), NOW),
     ).toBe(false);
   });
 });

@@ -9,6 +9,7 @@ import { WorkspaceContextMenu } from '@/components/shell/context-menu/WorkspaceC
 import type { Run } from '@/lib/run';
 import type { Task } from '@/lib/task';
 import { progressOfState } from '@/mocks/world/run-progress';
+import { partial } from '@/test/partial';
 
 const stop = vi.hoisted(() => vi.fn());
 
@@ -22,7 +23,7 @@ const run = (
   review: Run['review'] = null,
   waitingForYou = state === 'suspended' || review?.state === 'pending',
 ) =>
-  ({
+  partial<Run>({
     id: 'run_1',
     state,
     progress: progressOfState(state),
@@ -32,7 +33,7 @@ const run = (
     review,
     waitingForYou,
     stoppableByYou: true,
-  }) as unknown as Run;
+  });
 
 const PENDING = { state: 'pending', conversationId: 'task_1:3' } as const;
 
@@ -47,9 +48,7 @@ describe('RunRow, what a run is doing', () => {
     const inRuns = shown(<RunRow run={run('claimed')} to="/runs/run_1" />);
     const onBoard = shown(
       <TaskState
-        task={
-          { progress: 'in-progress', awaitingReview: false } as unknown as Task
-        }
+        task={partial<Task>({ progress: 'in-progress', awaitingReview: null })}
       />,
     );
 
@@ -66,12 +65,10 @@ describe('RunRow, what a run is doing', () => {
     const inRuns = shown(<RunRow run={run('queued')} to="/runs/run_1" />);
     const onBoard = shown(
       <TaskState
-        task={
-          {
-            progress: 'queued',
-            awaitingReview: false,
-          } as unknown as Task
-        }
+        task={partial<Task>({
+          progress: 'queued',
+          awaitingReview: null,
+        })}
       />,
     );
 

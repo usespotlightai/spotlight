@@ -1,15 +1,16 @@
 import type { LiveMessage } from '@platform/live/live-feed.port';
 import { RedisLiveFeed } from '@platform/live/redis-live-feed';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import RedisMock from 'ioredis-mock';
 import { describe, expect, it, vi } from 'vitest';
 
-const logger = {
+const logger = partial<LoggerPort>({
   info: vi.fn(),
   warn: vi.fn(),
   error: vi.fn(),
   debug: vi.fn(),
-} as unknown as LoggerPort;
+});
 
 const CHANGED: LiveMessage = {
   type: 'changed',

@@ -10,10 +10,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
-import {
-  BriefedTask,
-  type BriefedTaskParts,
-} from '@work/domain/value-objects/briefed-task.vo';
+import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import {
   lineMapOf,
   stationOf,
@@ -92,9 +89,7 @@ describe('BriefedTask', () => {
 
   it('reads back as it was stored', () => {
     const briefed = withBriefing().briefedOn(line);
-    const read = BriefedTask.rehydrate(
-      JSON.parse(JSON.stringify(briefed.parts)) as BriefedTaskParts,
-    );
+    const read = BriefedTask.rehydrate(structuredClone(briefed.parts));
 
     expect(read.equals(briefed)).toBe(true);
     expect(read.parts).toEqual(briefed.parts);

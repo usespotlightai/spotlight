@@ -12,6 +12,7 @@ import type {
   SearchPick,
   SearchPickDecline,
 } from '@replays/domain/value-objects/search-pick';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 type Scored = SearchScores['candidates'][number];
 
@@ -72,9 +73,9 @@ export const autoPickOf = (
   const ranked = rankedOf([scores.seed, ...heldOut], objective).filter(
     (each) => !each.seed,
   );
-  const top = ranked[0] ?? heldOut[0];
+  const top = firstOf(ranked) ?? firstOf(heldOut);
 
-  if (!top) {
+  if (top === undefined) {
     return { outcome: 'declined', reason: 'no-candidate' };
   }
 

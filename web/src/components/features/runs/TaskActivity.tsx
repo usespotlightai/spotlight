@@ -2,6 +2,7 @@ import { ReviewMarker } from '@/components/features/runs/ReviewMarker';
 import { RunRow } from '@/components/features/runs/RunRow';
 import { useTaskRuns } from '@/hooks/api/useTaskRuns';
 import type { TaskHoldResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { runPath } from '@/lib/run';
 
 type TaskActivityProps = {
@@ -45,7 +46,11 @@ export function TaskActivity({
             key={run.id}
             run={run}
             teamId={teamId}
-            to={slug && teamId ? runPath(slug, teamId, run.id) : ''}
+            to={
+              nonEmpty(slug) && nonEmpty(teamId)
+                ? runPath(slug, teamId, run.id)
+                : ''
+            }
             inTrail
             onHold={hold?.runId === run.id ? hold : null}
           />,

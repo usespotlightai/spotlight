@@ -15,5 +15,5 @@ export const creatingOf = (state: unknown): number | null =>
 export const entryStationOf = (line: LineResponseDto): string | null =>
   (
     line.stations.find((station) => station.kind === 'backlog') ??
-    line.stations[0]
+    line.stations.at(0)
   )?.id ?? null;

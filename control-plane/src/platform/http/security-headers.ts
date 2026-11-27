@@ -11,7 +11,7 @@ export const securityHeaders = (
   _request: Request,
   response: Response,
   next: NextFunction,
-) => {
+): void => {
   response.set(SECURITY_HEADERS);
   next();
 };

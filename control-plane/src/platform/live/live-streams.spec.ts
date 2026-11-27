@@ -15,6 +15,7 @@ import {
   LiveStreams,
 } from '@platform/live/live-streams';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const CHANNELS: readonly LiveChannel[] = ['workspace:ws_1', 'person:user_1'];
@@ -49,7 +50,7 @@ const failing: LiveNoticeLogPort = {
   prune: async () => 0,
 };
 
-const logger = { warn: vi.fn() } as unknown as LoggerPort;
+const logger = partial<LoggerPort>({ warn: vi.fn() });
 
 const watching = ({
   random = 0,

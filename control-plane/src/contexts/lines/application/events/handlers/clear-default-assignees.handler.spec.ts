@@ -6,6 +6,7 @@ import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { ConfigSource } from '@lines/domain/value-objects/config-source.vo';
 import { DefaultAssignee } from '@lines/domain/value-objects/default-assignee.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -45,9 +46,9 @@ const clearing = (found: readonly Line[], emails = ['ada@example.com']) => {
   const withDefaultAssignee = vi.fn(async () => found);
   const warn = vi.fn();
   const clearer = new ClearDefaultAssignees(
-    { withDefaultAssignee, save } as unknown as LineRepository,
-    { emailsOf: async () => emails } as unknown as MemberLookupPort,
-    { warn } as unknown as LoggerPort,
+    partial<LineRepository>({ withDefaultAssignee, save }),
+    partial<MemberLookupPort>({ emailsOf: async () => emails }),
+    partial<LoggerPort>({ warn }),
   );
 
   return { clearer, save, withDefaultAssignee, warn };
@@ -76,10 +77,10 @@ describe('ClearDefaultAssignees', () => {
 
     const saved = save.mock.calls[0]?.[0];
 
-    expect(saved?.defaultAssignee).toBeNull();
-    expect(saved?.version).toBe(1);
-    expect(saved?.stations).toEqual(line.stations);
-    expect(saved?.name).toEqual(line.name);
+    expect(saved.defaultAssignee).toBeNull();
+    expect(saved.version).toBe(1);
+    expect(saved.stations).toEqual(line.stations);
+    expect(saved.name).toEqual(line.name);
   });
 
   it('leaves a line that Terraform manages, which would bring them back', async () => {

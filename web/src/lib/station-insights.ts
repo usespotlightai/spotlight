@@ -78,7 +78,10 @@ export const formatPullRequestState = (
 ): string => (state ? PULL_REQUEST_STATES[state] : '–');
 
 export const runSpent = (usage: StationRunOutcome['usage']): string =>
-  usage !== null && usage.cost !== null && usage.currency
+  usage !== null &&
+  usage.cost !== null &&
+  usage.currency !== null &&
+  usage.currency !== ''
     ? spentIn(usage.cost, usage.currency)
     : '–';
 
@@ -248,9 +251,9 @@ export const configFingerprint = (
     (group): group is FingerprintGroup & { fingerprint: string } =>
       group.fingerprint !== null,
   );
-  const current = versioned[0];
+  const current = versioned.at(0);
 
-  return current
+  return current !== undefined
     ? {
         fingerprint: current.fingerprint.slice(0, 8),
         since: current.firstDay,

@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -30,13 +33,13 @@ beforeAll(async () => {
   chats = new DrizzleChatRepository(context, { dispatch: async () => {} });
   reader = new DrizzleChatReader(
     database.db,
-    { find: async () => null } as never,
+    partial<PersonReaderPort>({ find: async () => null }),
     { progressOf: async () => [] },
   );
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const WORKSPACE = randomUUID();
@@ -56,7 +59,7 @@ const startedBy = (viewer: string) =>
   });
 
 const ended = (chat: Chat) =>
-  chat.runEnded(chat.currentRunId as RunId, {
+  chat.runEnded(present(chat.currentRunId), {
     session: HarnessSession.of('session_1'),
     claimedBy: null,
     lastWordsAt: null,

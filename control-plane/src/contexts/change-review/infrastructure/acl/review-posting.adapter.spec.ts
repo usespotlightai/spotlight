@@ -4,28 +4,37 @@ import { GitHubReviewPosting } from '@change-review/infrastructure/acl/review-po
 import { GitHubUnansweredError } from '@github/application/errors/github-unanswered.error';
 import type { PullRequestReviewsPort } from '@github/application/ports/pull-request-reviews.port';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const removing = (error: unknown) =>
-  new GitHubReviewPosting({
-    remove: async () => {
-      throw error;
-    },
-  } as unknown as PullRequestReviewsPort).remove({
+const removing = (error: Error) =>
+  new GitHubReviewPosting(
+    partial<PullRequestReviewsPort>({
+      remove: async () => {
+        throw error;
+      },
+    }),
+  ).remove({
     workspaceId: WorkspaceId.of('workspace_1'),
     pullRequest: PullRequestUrl.of('https://github.com/acme/web/pull/7'),
     by: { kind: 'spotlight' },
     commentId: 1,
   });
 
-const failureOf = async (error: unknown): Promise<DeliveryFailure> => {
+const caughtOf = async (error: Error): Promise<ReviewPostingFailedError> => {
   const caught = await removing(error).catch((thrown: unknown) => thrown);
 
-  expect(caught).toBeInstanceOf(ReviewPostingFailedError);
+  if (!(caught instanceof ReviewPostingFailedError)) {
+    throw new Error('expected a review posting failure');
+  }
 
-  return (caught as ReviewPostingFailedError).failure;
+  return caught;
+};
+
+const failureOf = async (error: Error): Promise<DeliveryFailure> => {
+  return (await caughtOf(error)).failure;
 };
 
 describe('GitHubReviewPosting', () => {
@@ -44,12 +53,8 @@ describe('GitHubReviewPosting', () => {
   });
 
   it('marks the outcome unknown only where GitHub sent no answer', async () => {
-    const outcomeUnknown = async (error: unknown) =>
-      (
-        (await removing(error).catch(
-          (thrown: unknown) => thrown,
-        )) as ReviewPostingFailedError
-      ).outcomeUnknown;
+    const outcomeUnknown = async (error: Error) =>
+      (await caughtOf(error)).outcomeUnknown;
 
     expect(
       await outcomeUnknown(
@@ -84,9 +89,11 @@ describe('GitHubReviewPosting', () => {
       postedAs: 'comment' as const,
       comments: [{ id: 100, url: 'https://github.com/c/100' }, null],
     }));
-    const posting = new GitHubReviewPosting({
-      submit,
-    } as unknown as PullRequestReviewsPort);
+    const posting = new GitHubReviewPosting(
+      partial<PullRequestReviewsPort>({
+        submit,
+      }),
+    );
 
     const posted = await posting.submit({
       workspaceId: WorkspaceId.of('workspace_1'),
@@ -120,9 +127,11 @@ describe('GitHubReviewPosting', () => {
   it('replies to a thread as a reply to GitHub’s comment', async () => {
     const reply = vi.fn(async () => ({ id: 5, url: 'https://github.com/c/5' }));
 
-    await new GitHubReviewPosting({
-      reply,
-    } as unknown as PullRequestReviewsPort).reply({
+    await new GitHubReviewPosting(
+      partial<PullRequestReviewsPort>({
+        reply,
+      }),
+    ).reply({
       workspaceId: WorkspaceId.of('workspace_1'),
       pullRequest: PullRequestUrl.of('https://github.com/acme/web/pull/7'),
       by: { kind: 'spotlight' },

@@ -7,6 +7,8 @@ import {
   suffixes,
   unquoted,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 const STRINGS = new Set([
@@ -46,12 +48,14 @@ const isRoute = (attribute: Node): boolean => {
 };
 
 const templateOf = (attribute: Node): string | null => {
-  const first = named(
-    named(attribute).find(
-      (child) => child.type === 'attribute_argument_list',
-    ) ?? null,
-  )[0];
-  const value = named(first ?? null)[0];
+  const first = firstOf(
+    named(
+      named(attribute).find(
+        (child) => child.type === 'attribute_argument_list',
+      ) ?? null,
+    ),
+  );
+  const value = firstOf(named(first ?? null));
 
   return value && STRINGS.has(value.type) ? unquoted(value.text) : null;
 };
@@ -61,13 +65,15 @@ const token = (name: string | undefined, suffix: string): string =>
 
 const callRoute = (node: Node): GrammarRoute | null => {
   const verb = field(node, 'function')?.text.split('.').pop() ?? '';
-  const [, method] = verb.match(MAP_CALL) ?? [];
+  const method = itemAt(verb.match(MAP_CALL) ?? [], 1);
   const path = named(field(node, 'arguments'))
-    .map((argument) => named(argument)[0])
+    .map((argument) => firstOf(named(argument)))
     .find((value) => STRINGS.has(value?.type ?? ''));
   const literal = path ? unquoted(path.text) : '';
 
-  return MAP_CALL.test(verb) && path && (method || literal.startsWith('/'))
+  return MAP_CALL.test(verb) &&
+    path &&
+    (nonEmpty(method) || literal.startsWith('/'))
     ? { method: method?.toUpperCase() ?? 'ANY', path: literal }
     : null;
 };
@@ -162,7 +168,7 @@ export const CSHARP_GRAMMAR: Grammar = {
       named(node).find((child) => child.id !== alias?.id)?.text ?? '';
     const imported = specifier.split('.').pop();
 
-    return alias && imported
+    return alias && nonEmpty(imported)
       ? [{ local: alias.text, imported, specifier }]
       : [];
   },

@@ -39,7 +39,7 @@ const setUp = (managesSecrets = true) => {
   const creates = new InMemoryCreates();
   const as = { managesSecrets };
   const access = accessFor(() => as.managesSecrets);
-  const clock = { now: () => NOW, sleep: async () => undefined };
+  const clock = { now: () => NOW, sleep: async () => {} };
   const definitions = new SecretDefinitions();
 
   const creating = new CreateSecretHandler(

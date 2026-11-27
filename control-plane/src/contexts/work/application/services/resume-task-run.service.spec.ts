@@ -1,4 +1,5 @@
 import type { RunResumption } from '@runs/application/ports/runs.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -22,7 +23,7 @@ import { describe, expect, it } from 'vitest';
 
 const RUN = RunId.of('run_1');
 const TEAM = TeamId.of('team_1');
-const LINE = { teamId: TEAM } as unknown as LineMap;
+const LINE = partial<LineMap>({ teamId: TEAM });
 const ISSUE = Tool.of('sentry.get-issue');
 const LINEAR = Tool.of('linear.get-issue');
 
@@ -151,10 +152,10 @@ const resuming = ({
       error: () => undefined,
     },
   );
-  const task = {
+  const task = partial<Task>({
     id: TaskId.of('task_1'),
     marks: [Mark.of('sentry.issue', '158744890')],
-  } as unknown as Task;
+  });
   const resume = (line: LineMap | null = LINE) =>
     service.resume({
       task,

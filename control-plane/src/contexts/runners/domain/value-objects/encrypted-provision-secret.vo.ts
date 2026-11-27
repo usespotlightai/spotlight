@@ -17,6 +17,8 @@ export class EncryptedProvisionSecret {
   }
 
   equals(other: EncryptedProvisionSecret): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return (
+      other instanceof EncryptedProvisionSecret && this.value === other.value
+    );
   }
 }

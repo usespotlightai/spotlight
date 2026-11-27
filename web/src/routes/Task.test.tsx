@@ -35,8 +35,9 @@ const worked = vi.fn((): unknown[] => []);
 const journalled = vi.fn((): unknown[] => []);
 const moved = vi.fn();
 const deleted = vi.fn();
-const listed = vi.fn();
-const failing = vi.fn();
+const listed =
+  vi.fn<() => { id: string; [key: string]: unknown }[] | undefined>();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 const LEON = { id: 'user_1', name: 'Leon', image: null };
 const members = vi.fn((): unknown[] => [LEON]);
@@ -49,9 +50,7 @@ vi.mock('@/hooks/api/useStopRun', () => ({
 
 vi.mock('@/hooks/api/useTasks', () => ({
   useTask: (_teamId: string, taskId: string) => ({
-    data: (listed() as { id: string }[] | undefined)?.find(
-      (each) => each.id === taskId,
-    ),
+    data: listed()?.find((each) => each.id === taskId),
     isPending: listed() === undefined,
     errorUpdateCount: failing() ? 1 : 0,
     isFetching: false,
@@ -213,7 +212,7 @@ describe('Task', () => {
       expect(
         screen
           .getAllByRole('link')
-          .find((each) => each.textContent?.includes('On hold')),
+          .find((each) => each.textContent.includes('On hold')),
       ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_turn');
     });
 

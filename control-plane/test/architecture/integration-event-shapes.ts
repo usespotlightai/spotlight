@@ -1,8 +1,11 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import ts from 'typescript';
 
+import { parsedAs } from '../support/body';
 import { sourceFiles } from './source-index';
 
 const INTEGRATION_EVENTS = 'shared-kernel/application/integration-events/';
@@ -20,9 +23,9 @@ const nameOf = (statement: ts.Statement): string | null => {
   }
 
   if (ts.isVariableStatement(statement)) {
-    const [declaration] = statement.declarationList.declarations;
+    const declaration = itemAt(statement.declarationList.declarations, 0);
 
-    return declaration && ts.isIdentifier(declaration.name)
+    return declaration !== undefined && ts.isIdentifier(declaration.name)
       ? declaration.name.text
       : null;
   }
@@ -39,7 +42,7 @@ export const integrationEventShapes = (): Record<string, string> =>
         file.tree.statements.flatMap((statement) => {
           const name = nameOf(statement);
 
-          return name
+          return nonEmpty(name)
             ? [
                 [
                   `${file.path.slice(INTEGRATION_EVENTS.length)}:${name}`,
@@ -56,16 +59,13 @@ export const integrationEventShapes = (): Record<string, string> =>
 
 export const publishedShapes = (): Record<string, string> =>
   existsSync(PUBLISHED_SHAPES)
-    ? (JSON.parse(readFileSync(PUBLISHED_SHAPES, 'utf8')) as Record<
-        string,
-        string
-      >)
+    ? parsedAs<Record<string, string>>(readFileSync(PUBLISHED_SHAPES, 'utf8'))
     : {};
 
 // A published shape that changed or is gone. A new declaration is no problem.
 export const changedShapes = (
   published: Record<string, string>,
-  current: Record<string, string>,
+  current: Partial<Record<string, string>>,
 ): string[] =>
   Object.entries(published).flatMap(([name, shape]) =>
     current[name] === undefined

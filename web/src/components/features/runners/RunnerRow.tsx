@@ -10,6 +10,7 @@ import { HiddenRunTitle } from '@/components/features/runners/HiddenRunTitle';
 import { ImagePill } from '@/components/features/runners/ImagePill';
 import { StatusDot } from '@/components/features/runners/StatusDot';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { nonEmpty } from '@/lib/non-empty';
 import {
   type ActiveRunner,
   formatRun,
@@ -41,7 +42,7 @@ export function RunnerRow({ slug, runner, slots, harnesses }: RunnerRowProps) {
     >
       <span className="col-span-2 flex min-w-0 items-center gap-1.5 pl-1">
         <CornerDownRight aria-hidden className="size-3.5 shrink-0 text-faint" />
-        {path ? (
+        {nonEmpty(path) ? (
           <TrailLink
             to={path}
             title={label}
@@ -67,7 +68,7 @@ export function RunnerRow({ slug, runner, slots, harnesses }: RunnerRowProps) {
       </span>
 
       <span className="flex min-w-0">
-        {runner.image && (
+        {nonEmpty(runner.image) && (
           <ImagePill image={runner.image} title={runner.image} />
         )}
       </span>

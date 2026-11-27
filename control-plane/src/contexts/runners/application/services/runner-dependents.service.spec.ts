@@ -15,6 +15,7 @@ import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo'
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -36,17 +37,19 @@ const trust = RunnerTrust.rehydrate({
 
 const dependents = (declared: WorkspaceRunners | null) =>
   new RunnerDependents(
-    { inWorkspace: async () => [trust] } as unknown as RunnerTrustRepository,
-    {
+    partial<RunnerTrustRepository>({
+      inWorkspace: async () => [trust],
+    }),
+    partial<WorkspaceRunnersRepository>({
       ofWorkspace: async () => declared,
-    } as unknown as WorkspaceRunnersRepository,
-    {
+    }),
+    partial<RunnerPoolRepository>({
       inWorkspace: async () => [aPullPool(), aPlatformPool()],
       ownedIn: async () => [aPullPool()],
-    } as unknown as RunnerPoolRepository,
-    {
+    }),
+    partial<EgressRepository>({
       inWorkspace: async () => [anEgress()],
-    } as unknown as EgressRepository,
+    }),
   );
 
 describe('RunnerDependents', () => {

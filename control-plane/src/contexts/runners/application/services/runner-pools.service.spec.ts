@@ -20,6 +20,7 @@ import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
@@ -51,16 +52,16 @@ const pooling = (
   const inWorkspaces = vi.fn(async () => stored.provisioning ?? []);
 
   const pools = new RunnerPools(
-    { find, inWorkspaces } as unknown as RunnerPoolRepository,
-    {
+    partial<RunnerPoolRepository>({ find, inWorkspaces }),
+    partial<RunnerTrustRepository>({
       inWorkspaces: vi.fn(async () => stored.trusts ?? []),
-    } as unknown as RunnerTrustRepository,
-    {
+    }),
+    partial<RunnerRepository>({
       aliveIn: vi.fn(async () => stored.alive ?? []),
-    } as unknown as RunnerRepository,
-    {
+    }),
+    partial<SandboxPlacementsPort>({
       idleInPool: vi.fn(async () => stored.idleSandboxes ?? []),
-    } as unknown as SandboxPlacementsPort,
+    }),
     { authenticate } satisfies RunnerAuthenticatorPort,
     {
       platformEgressSet: stored.platform ?? true,

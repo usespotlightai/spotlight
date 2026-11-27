@@ -10,10 +10,11 @@ const rejectAt = (field: readonly string[], reason: string): never => {
   ]);
 };
 
-const fieldsOf = (body: unknown): Record<string, unknown> =>
-  typeof body === 'object' && body !== null && !Array.isArray(body)
-    ? (body as Record<string, unknown>)
-    : {};
+const isFields = (body: unknown): body is Record<string, unknown> =>
+  typeof body === 'object' && body !== null && !Array.isArray(body);
+
+export const fieldsOf = (body: unknown): Record<string, unknown> =>
+  isFields(body) ? body : {};
 
 export const textAt = (
   body: unknown,
@@ -126,13 +127,13 @@ const definitionAt = (
     return null;
   }
 
-  if (typeof definition !== 'object' || Array.isArray(definition)) {
+  if (!isFields(definition)) {
     return rejectAt(at, 'Must be the integration’s definition as planned.');
   }
 
   return Buffer.byteLength(JSON.stringify(definition)) > MAX_DEFINITION_BYTES
     ? rejectAt(at, 'Must be at most 16 KiB as JSON.')
-    : (definition as Record<string, unknown>);
+    : definition;
 };
 
 const listAt = <T>(

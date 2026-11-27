@@ -4,6 +4,7 @@ import type { FailureCause } from '@replays/domain/value-objects/failure-cause.v
 import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export const SEED_HYPOTHESIS =
   'The live config the search started from, replayed as it is.';
@@ -40,7 +41,7 @@ const foundOf = (causes: readonly FailureCause[]): string[] =>
           '',
           ...causes.map(
             (each) =>
-              `- Task \`${each.taskId.value}\`: ${each.evidence}${each.suggestion ? ` Suggested: ${each.suggestion}` : ''}`,
+              `- Task \`${each.taskId.value}\`: ${each.evidence}${nonEmpty(each.suggestion) ? ` Suggested: ${each.suggestion}` : ''}`,
           ),
         ].join('\n'),
       ];

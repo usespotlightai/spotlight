@@ -1,7 +1,11 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { taskKeys } from '@/hooks/api/useTasks';
-import { assignTask } from '@/lib/api';
+import { assignTask, type TaskResponseDto } from '@/lib/api';
 import type { Task } from '@/lib/task';
 
 type Person = { id: string; name: string; image: string | null };
@@ -12,7 +16,12 @@ type AssignTaskInput = {
   assignee: Person | null;
 };
 
-export function useAssignTask() {
+export function useAssignTask(): UseMutationResult<
+  TaskResponseDto,
+  Error,
+  AssignTaskInput,
+  { previous: TaskResponseDto[] | undefined }
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

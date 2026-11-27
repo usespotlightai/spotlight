@@ -3,6 +3,7 @@ import type {
   ConfigPart,
   StationConfigView,
 } from '@insights/application/ports/work.port';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 export interface ConfigPair {
   readonly previous: string | null;
@@ -33,9 +34,9 @@ export const configChangesOf = (
   const views = new Map(configs.map((each) => [each.fingerprint, each.config]));
   const pairs = new Map(
     configs.flatMap((each, at) => {
-      const previous = configs[at - 1];
+      const previous = itemAt(configs, at - 1);
 
-      return previous
+      return previous !== undefined
         ? [[keyOf(previous.fingerprint, each.fingerprint), each.changes]]
         : [];
     }),

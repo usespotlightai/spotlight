@@ -24,6 +24,7 @@ import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -38,12 +39,12 @@ const setUp = async (
   known = true,
 ) => {
   const stored = new Map<string, Run>([[run.id.value, run]]);
-  const runs = {
+  const runs = partial<RunRepository>({
     findById: async (id: { value: string }) => stored.get(id.value) ?? null,
     save: async (saved: Run) => {
       stored.set(saved.id.value, saved);
     },
-  } as unknown as RunRepository;
+  });
   const archives = new InMemoryArchives();
 
   await archives.add(aCompletedArchive());

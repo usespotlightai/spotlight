@@ -1,4 +1,5 @@
 import { formatDate } from '@/lib/date-format';
+import { nonEmpty } from '@/lib/non-empty';
 import { type Run, waitReason } from '@/lib/run';
 import { since } from '@/lib/since';
 
@@ -9,7 +10,7 @@ type RunRunnerNoticeProps = {
 export function RunRunnerNotice({ run }: RunRunnerNoticeProps) {
   const reason = waitReason(run);
 
-  if (reason && run.waiting) {
+  if (nonEmpty(reason) && run.waiting) {
     return (
       <p
         role="status"

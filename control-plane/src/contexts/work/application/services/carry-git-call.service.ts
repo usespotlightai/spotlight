@@ -4,6 +4,7 @@ import type { RunnerLeasesPort } from '@runners/application/ports/runner-leases.
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type {
@@ -92,7 +93,7 @@ export class CarryGitCall {
 
     const work = allowed.work;
     const answer =
-      answered && push && work && answered.status === OK
+      push !== null && work !== null && answered.status === OK
         ? push.reported(answered, (updates) =>
             work.pushed(allowed.repository, updates).catch((error: unknown) => {
               this.logger.error(
@@ -107,13 +108,11 @@ export class CarryGitCall {
           )
         : answered;
 
-    return (
-      answer && {
-        status: answer.status,
-        headers: answer.headers,
-        body: answer.body,
-      }
-    );
+    return {
+      status: answer.status,
+      headers: answer.headers,
+      body: answer.body,
+    };
   }
 
   private async checkedPush(
@@ -136,7 +135,7 @@ export class CarryGitCall {
 
     const refusal = await work.pushRefusal(repository, read.push.updates);
 
-    return refusal
+    return nonEmpty(refusal)
       ? { kind: 'answer', answer: await read.push.refused(refusal) }
       : { kind: 'carry', call: read.push.call, push: read.push };
   }

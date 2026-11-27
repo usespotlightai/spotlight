@@ -14,6 +14,7 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { WorkDeliveryReactions } from '@integrations/infrastructure/acl/delivery-reactions.adapter';
 import { ProviderDeliveryReader } from '@integrations/infrastructure/webhooks/provider-delivery-reader';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import type { HappeningsReaction } from '@work/application/ports/happening-reactions.port';
@@ -52,13 +53,13 @@ const reading = (
   const read = vi.fn(async () => carried);
   const causation = causationInMemory();
   const chains: string[] = [];
-  const firings = {
+  const firings = partial<HookFiringHistoryPort>({
     chainOf: vi.fn(async (workspaceId: WorkspaceId, firingId: HookFiringId) =>
       workspaceId.value === 'ws_1' && firingId.value === 'firing_1'
         ? FIRED
         : null,
     ),
-  } as unknown as HookFiringHistoryPort;
+  });
   react.mockImplementation(async () => {
     chains.push(causation.current().description);
     return { kind: 'reacted' };

@@ -19,7 +19,7 @@ export class IdempotencyKey {
   }
 
   equals(other: IdempotencyKey): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof IdempotencyKey && this.value === other.value;
   }
 
   toString(): string {

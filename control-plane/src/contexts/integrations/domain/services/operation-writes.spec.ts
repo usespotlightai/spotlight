@@ -33,8 +33,8 @@ describe('mcpToolWrites', () => {
 describe('httpOperationWrites', () => {
   it('takes a method that changes data as writing, and one that reads as reading', () => {
     expect(
-      ['POST', 'PUT', 'PATCH', 'DELETE'].every((method) =>
-        httpOperationWrites(method as 'POST'),
+      (['POST', 'PUT', 'PATCH', 'DELETE'] as const).every((method) =>
+        httpOperationWrites(method),
       ),
     ).toBe(true);
     expect(httpOperationWrites('GET')).toBe(false);

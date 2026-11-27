@@ -12,6 +12,7 @@ import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { notFound } from '@/lib/error';
 import { JournalDemandContext } from '@/lib/journal-demand';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, type Loadable, loading } from '@/lib/query';
 
 type Query = UseQueryResult;
@@ -33,7 +34,7 @@ const lostOf = (found: Query, conversation: Query) => {
     return found;
   }
 
-  return found.data && failed(conversation) ? conversation : null;
+  return Boolean(found.data) && failed(conversation) ? conversation : null;
 };
 
 export function Run() {
@@ -47,6 +48,7 @@ export function Run() {
   const conversation = conversationQuery.data;
   const journal = useTaskJournal(slug, conversation?.taskId, [
     runId,
+    // oxlint-disable-next-line typescript/no-unnecessary-condition
     conversation?.latestRun?.id,
   ]);
 
@@ -65,7 +67,7 @@ export function Run() {
     following: conversation?.latestRun,
   });
 
-  if (!slug || !teamId) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId)) {
     return null;
   }
 

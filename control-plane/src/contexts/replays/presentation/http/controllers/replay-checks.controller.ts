@@ -31,9 +31,10 @@ import type {
 } from '@replays/application/dto/replay-outcomes.dto';
 import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
 import {
+  changedIn,
+  fieldsOf,
   referenceIn,
   repeatsIn,
-  changedIn,
   textAt,
 } from '@replays/presentation/http/controllers/requests';
 import {
@@ -48,11 +49,6 @@ const KIND = 'replay check';
 interface Answerable {
   status(code: number): unknown;
 }
-
-const fieldsOf = (body: unknown): Record<string, unknown> =>
-  typeof body === 'object' && body !== null && !Array.isArray(body)
-    ? (body as Record<string, unknown>)
-    : {};
 
 const nothingToReplay = (scoringPinnedToLive: readonly string[]): never => {
   throw ProblemException.of({

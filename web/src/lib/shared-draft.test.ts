@@ -7,6 +7,7 @@ import {
   draftParts,
   taskDraftName,
 } from '@/lib/shared-draft';
+import { partial } from '@/test/partial';
 
 describe('shared drafts', () => {
   it('names the draft of a task the way the control plane does', () => {
@@ -15,10 +16,14 @@ describe('shared drafts', () => {
 
   it('connects over the same host, secure when the page is', () => {
     expect(
-      collabUrl({ protocol: 'https:', host: 'app.example.com' } as Location),
+      collabUrl(
+        partial<Location>({ protocol: 'https:', host: 'app.example.com' }),
+      ),
     ).toBe('wss://app.example.com/api/collab');
     expect(
-      collabUrl({ protocol: 'http:', host: 'localhost:5173' } as Location),
+      collabUrl(
+        partial<Location>({ protocol: 'http:', host: 'localhost:5173' }),
+      ),
     ).toBe('ws://localhost:5173/api/collab');
   });
 

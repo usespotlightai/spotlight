@@ -21,7 +21,11 @@ import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayEndState } from '@replays/domain/value-objects/replay-state';
+import {
+  isReplayEndState,
+  type ReplayEndState,
+} from '@replays/domain/value-objects/replay-state';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -57,7 +61,7 @@ const replayed = (
     current = current.reserving(slots(concurrency), ids('replay_run'));
 
     for (const entry of current.occupying) {
-      const run = entry.run as RunId;
+      const run = present(entry.run);
       const cost = priced(place++);
 
       current = current
@@ -95,7 +99,13 @@ const started = (
 const ended = (replay: Replay): ReplayEndState => {
   expect(replay.isDispatching).toBe(false);
 
-  return replay.current as ReplayEndState;
+  const current = replay.current;
+
+  if (!isReplayEndState(current)) {
+    throw new Error(`expected an ended replay, found ${current}`);
+  }
+
+  return current;
 };
 
 const searched = (

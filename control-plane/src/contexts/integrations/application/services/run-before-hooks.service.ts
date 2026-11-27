@@ -18,6 +18,7 @@ import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const reasonOf = (outcome: HookStepOutcome): string =>
   outcome.status === 'failed' ? outcome.reason : 'had no answer in time';
@@ -69,7 +70,7 @@ export class RunBeforeHooks {
     const budget = HookDecision.budgetFrom(instance.at, until);
 
     for (const hook of await this.runtime.listening(task.teamId, on)) {
-      if (hook.broken || !hook.written) {
+      if (nonEmpty(hook.broken) || !hook.written) {
         this.logger.warn(
           { hook: hook.key.value, reason: hook.broken },
           'A hook no longer reads as it was written',

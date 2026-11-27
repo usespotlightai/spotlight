@@ -107,7 +107,7 @@ const meta = {
         ...Object.fromEntries(
           MEMBER_SHOWS.map((each) => [each.value, each.label]),
         ),
-      } as Record<Filter, string>),
+      }),
     },
     script: ({ doing }) => SCRIPTS[doing],
   }),

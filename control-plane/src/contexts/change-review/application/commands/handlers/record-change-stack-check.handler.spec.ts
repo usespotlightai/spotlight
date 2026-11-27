@@ -100,18 +100,18 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
   const saved: StackCheck[] = [];
 
   const stacks: ChangeStackRepository = {
-    add: async () => undefined,
-    save: async () => undefined,
+    add: async () => {},
+    save: async () => {},
     find: async () => stack,
     nextDueJob: async () => null,
     ofRun: async () => [],
     ofTask: async () => [],
     ofTeam: async () => [],
-    remove: async () => undefined,
+    remove: async () => {},
   };
 
   const checks: StackCheckRepository = {
-    add: async () => undefined,
+    add: async () => {},
     save: async (each) => {
       saved.push(each);
     },
@@ -120,7 +120,7 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
     ofRun: async () => [],
     ofTask: async () => [],
     ofTeam: async () => [],
-    remove: async () => undefined,
+    remove: async () => {},
     waiting: async () => [],
     waitingIn: async () => [],
     workspacesWaiting: async () => [],

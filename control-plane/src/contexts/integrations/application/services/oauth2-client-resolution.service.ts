@@ -27,6 +27,7 @@ import type { IntegrationKey } from '@integrations/domain/value-objects/integrat
 import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const clientOf = (registration: OAuth2ClientRegistration): OAuth2Client => ({
@@ -105,7 +106,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
       return { id: configured.id, secret: configured.secret };
     }
 
-    if (!registration) {
+    if (!nonEmpty(registration)) {
       throw this.missing(integration, null);
     }
 

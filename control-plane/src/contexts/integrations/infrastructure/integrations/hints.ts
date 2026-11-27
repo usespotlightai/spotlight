@@ -1,3 +1,4 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 type Hint = string | { readonly [field: string]: Hint };
@@ -75,7 +76,7 @@ export const hintProblems = (
     }
 
     const reason = typeProblem(hint, known);
-    return reason ? [{ at: at.to(field), reason }] : [];
+    return nonEmpty(reason) ? [{ at: at.to(field), reason }] : [];
   });
 
 export const orderedTypes = (
@@ -87,7 +88,7 @@ export const orderedTypes = (
   let cycle: string | null = null;
 
   const visit = (name: string): void => {
-    if (done.has(name) || cycle) {
+    if (done.has(name) || nonEmpty(cycle)) {
       return;
     }
     if (doing.has(name)) {

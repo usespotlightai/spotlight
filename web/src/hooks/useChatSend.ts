@@ -14,6 +14,12 @@ type ChatSend = {
   clear: () => void;
 };
 
+export type ChatSendResult = {
+  send: (event?: SubmitEvent) => void;
+  unsendable: boolean;
+  stopping: (() => void) | null;
+};
+
 export function useChatSend({
   outgoing,
   empty,
@@ -24,7 +30,7 @@ export function useChatSend({
   onStop,
   onSend,
   clear,
-}: ChatSend) {
+}: ChatSend): ChatSendResult {
   const unsendable = disabled || empty || uploading || pending;
   const stopping = running && empty ? (onStop ?? null) : null;
 

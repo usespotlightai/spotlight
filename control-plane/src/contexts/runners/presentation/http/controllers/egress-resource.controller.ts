@@ -150,7 +150,7 @@ export class EgressResourceController {
       this.toResponse(id, actor.principal),
     );
 
-    if (made?.token) {
+    if (made !== null && made.token !== null && made.token !== '') {
       httpResponse.setHeader(EGRESS_TOKEN_HEADER, made.token);
     }
 

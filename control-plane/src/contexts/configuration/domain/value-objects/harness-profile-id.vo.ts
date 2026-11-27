@@ -14,7 +14,7 @@ export class HarnessProfileId {
   }
 
   equals(other: HarnessProfileId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof HarnessProfileId && this.value === other.value;
   }
 
   toString(): string {

@@ -13,6 +13,7 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { and, eq, lte, min } from 'drizzle-orm';
 
 const CONTROL_PLANE_ENTRY_TRIES = 5;
@@ -64,16 +65,18 @@ export class DrizzleRunJournal implements RunJournalPort {
     const data = encodedFacts(entry);
 
     for (let tried = 1; ; tried++) {
-      const [lowest] = await this.context.db
-        .select({ seq: min(runJournalEntry.seq) })
-        .from(runJournalEntry)
-        .where(
-          and(
-            eq(runJournalEntry.runId, attempt.runId.value),
-            eq(runJournalEntry.attempt, attempt.number),
-            lte(runJournalEntry.seq, JournalSeq.firstControlPlane),
+      const lowest = firstOf(
+        await this.context.db
+          .select({ seq: min(runJournalEntry.seq) })
+          .from(runJournalEntry)
+          .where(
+            and(
+              eq(runJournalEntry.runId, attempt.runId.value),
+              eq(runJournalEntry.attempt, attempt.number),
+              lte(runJournalEntry.seq, JournalSeq.firstControlPlane),
+            ),
           ),
-        );
+      );
       const seq = JournalSeq.controlPlaneBelow(lowest?.seq ?? null).value;
 
       const written = await this.context.db

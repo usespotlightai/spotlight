@@ -13,6 +13,7 @@ const answerOf = (change: {
 }) =>
   ClaimAnswer.of({
     claim: change.claim ?? 1,
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     answer: (change.answer ?? 'claim-wrong') as 'claim-wrong',
     note: change.note ?? null,
     by: UserId.of('user_ada'),

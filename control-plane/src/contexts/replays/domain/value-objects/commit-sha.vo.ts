@@ -2,14 +2,17 @@ import { InvalidConfigPullRequestError } from '@replays/domain/exceptions/invali
 
 export type CommitSha = string & { readonly brand: 'commit-sha' };
 
+const isCommitSha = (raw: string): raw is CommitSha =>
+  raw.length > 0 && !/\s/.test(raw);
+
 export const CommitSha = {
   of(raw: string): CommitSha {
-    if (raw.length === 0 || /\s/.test(raw)) {
+    if (!isCommitSha(raw)) {
       throw new InvalidConfigPullRequestError(
         'commit must be non-empty without whitespace',
       );
     }
 
-    return raw as CommitSha;
+    return raw;
   },
 };

@@ -21,6 +21,6 @@ export class ValueVersion {
   }
 
   equals(other: ValueVersion): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof ValueVersion && this.value === other.value;
   }
 }

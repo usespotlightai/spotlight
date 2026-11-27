@@ -18,6 +18,7 @@ import {
   ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
@@ -125,8 +126,9 @@ export class EditorConnectionController {
     description:
       'The caller is not a member of the team, nor a workspace admin',
   })
+  @ApiBody({ type: ConnectEditorRequestDto })
   async connect(
-    @Body() body: ConnectEditorRequestDto,
+    @Body() body: ConnectEditorRequestDto | undefined,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<EditorConnectionResponseDto> {
     const target = targetOf(body ?? {});

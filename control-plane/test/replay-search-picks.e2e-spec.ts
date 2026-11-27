@@ -5,7 +5,11 @@ import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-requ
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
-import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
+import {
+  PULL_REQUEST_CLOSED,
+  type PullRequestClosedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { eq } from 'drizzle-orm';
@@ -13,6 +17,7 @@ import { describe, expect, it } from 'vitest';
 
 import { autoSearched } from './support/app';
 import { activeSearchAt, dueNow, scheduleOf } from './support/auto-searches';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { startedReplay } from './support/replays';
 import * as schema from './support/schema';
@@ -77,13 +82,13 @@ describe('a search for a better station config, ranking and picking its candidat
     const agent = await leasedSearchRun(started.id, 1);
     const block = await liveBlock();
     const proposed = async (name: string, prompt: string) =>
-      (
+      bodyOf<{ replayId: string }>(
         await proposing(agent, {
           name,
           hypothesis: `${name} keeps the queue drained for less.`,
           station: { ...block, prompt },
-        }).expect(201)
-      ).body as { replayId: string };
+        }).expect(201),
+      );
     const cheap = await proposed('cheap', 'Build it, briefly.');
     const dear = await proposed('dear', 'Build it, at length.');
 
@@ -95,13 +100,13 @@ describe('a search for a better station config, ranking and picking its candidat
     );
 
     const next = await leasedSearchRun(started.id, 2);
-    const careless = (
+    const careless = bodyOf<{ replayId: string }>(
       await proposing(next, {
         name: 'careless',
         hypothesis: 'careless keeps the queue drained for less.',
         station: { ...block, prompt: 'Build it, carelessly.' },
-      }).expect(201)
-    ).body as { replayId: string };
+      }).expect(201),
+    );
     const plan = (replayId: string) =>
       replayId === cheap.replayId
         ? { score: 5, cost: 0.05 }
@@ -153,10 +158,12 @@ describe('a search for a better station config, ranking and picking its candidat
     expect(
       await eventually(async () => {
         await app.get(OpenConfigPullRequests).processDue();
-        const [row] = await db
-          .select()
-          .from(schema.configPullRequest)
-          .where(eq(schema.configPullRequest.searchId, started.id));
+        const row = firstOf(
+          await db
+            .select()
+            .from(schema.configPullRequest)
+            .where(eq(schema.configPullRequest.searchId, started.id)),
+        );
 
         return row?.state === 'failed' ? row : null;
       }, WITHIN),
@@ -186,13 +193,13 @@ describe('a search for a better station config, ranking and picking its candidat
 
     const agent = await leasedSearchRun(id, 1);
     const block = await liveBlock();
-    const proposed = (
+    const proposed = bodyOf<{ candidateId: string; replayId: string }>(
       await proposing(agent, {
         name: 'in-order',
         hypothesis: 'Draining in order stops the stall.',
         station: { ...block, prompt: 'Build it, draining in order.\n' },
-      }).expect(201)
-    ).body as { candidateId: string; replayId: string };
+      }).expect(201),
+    );
 
     await endedSearchRun(agent);
     await drained(() => ({ score: 5, cost: 0.1 }));
@@ -349,7 +356,7 @@ describe('a search for a better station config, ranking and picking its candidat
     ).toEqual([]);
     expect(github.opened).toHaveLength(1);
 
-    await delivered({
+    const closed: PullRequestClosedIntegrationEvent = {
       kind: PULL_REQUEST_CLOSED,
       workspaceId: team.workspaceId.value,
       pullRequest: `https://github.com/${CONFIG}/pull/1`,
@@ -358,7 +365,9 @@ describe('a search for a better station config, ranking and picking its candidat
       closedAt: new Date().toISOString(),
       merged: true,
       mergeCommit: 'merge_1',
-    } as never);
+    };
+
+    await delivered(closed);
 
     expect(
       (

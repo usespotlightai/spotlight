@@ -10,6 +10,7 @@ import {
   DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
 import { type MemberChange, rolesOffered } from '@/lib/members';
+import { isOneOf } from '@/lib/one-of';
 import { nameOfRole, type Role } from '@/lib/role';
 
 type MemberActionsProps = {
@@ -55,8 +56,8 @@ export function MemberActions({
               <DropdownMenuRadioGroup
                 value={role}
                 onValueChange={(next) => {
-                  if (next !== role) {
-                    onChangeRole(next as Role);
+                  if (next !== role && isOneOf(offered, next)) {
+                    onChangeRole(next);
                   }
                 }}
               >

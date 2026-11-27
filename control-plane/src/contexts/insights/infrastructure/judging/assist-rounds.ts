@@ -9,6 +9,7 @@ import { ClaimsRevisionId } from '@insights/domain/value-objects/claims-revision
 import { ClaimsRevisionRound } from '@insights/domain/value-objects/claims-revision-round.vo';
 import { JudgingRound } from '@insights/domain/value-objects/judging-round.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const JUDGE_PURPOSE = 'insights.judge';
@@ -29,7 +30,11 @@ const PASSES: readonly PairJudgmentOrderKind[] = ['run-first', 'other-first'];
 const keyOf = (...parts: readonly (string | number)[]): string =>
   parts.map((each) => encodeURIComponent(String(each))).join(':');
 
-const partsOf = (key: string, prefix: string, count: number) => {
+const partsOf = (
+  key: string,
+  prefix: string,
+  count: number,
+): readonly (string | undefined)[] | null => {
   const parts = key.split(':').map((each) => decodeURIComponent(each));
 
   return parts.length === count + 1 &&
@@ -98,7 +103,7 @@ const judgingRoundOf = (key: string): JudgeRound | null => {
   const rubricVersion = RubricVersion.readable(version ?? '');
   const tried = attemptOf(attempt);
 
-  return run && rubricVersion && tried
+  return nonEmpty(run) && rubricVersion && tried !== null && tried !== 0
     ? {
         of: 'judging',
         round: JudgingRound.of({
@@ -116,7 +121,11 @@ const candidateRoundOf = (key: string): JudgeRound | null => {
   const tried = attemptOf(attempt);
   const at = Number(candidate);
 
-  return revision && tried && run && /^\d+$/.test(candidate ?? '')
+  return nonEmpty(revision) &&
+    tried !== null &&
+    tried !== 0 &&
+    nonEmpty(run) &&
+    /^\d+$/.test(candidate ?? '')
     ? {
         of: 'candidate',
         round: ClaimsRevisionRound.of({
@@ -134,7 +143,11 @@ const changeRoundOf = (key: string): JudgeRound | null => {
   const judged = attemptOf(judging);
   const tried = attemptOf(attempt);
   const round: ChangeJudgmentRound | null =
-    run && judged && tried
+    nonEmpty(run) &&
+    judged !== null &&
+    judged !== 0 &&
+    tried !== null &&
+    tried !== 0
       ? { runId: RunId.of(run), judging: judged, attempt: tried }
       : null;
 
@@ -175,7 +188,11 @@ export const pairRoundOf = (
           partsOf(session.key, 'pair-judging', 4) ?? [];
         const tried = attemptOf(attempt);
 
-        return run && other && tried && PASSES.some((each) => each === pass)
+        return nonEmpty(run) &&
+          nonEmpty(other) &&
+          tried !== null &&
+          tried !== 0 &&
+          PASSES.some((each) => each === pass)
           ? {
               runId: RunId.of(run),
               otherRunId: RunId.of(other),
@@ -203,7 +220,7 @@ export const draftingRoundOf = (
           partsOf(session.key, 'claims-revision', 2) ?? [];
         const tried = attemptOf(attempt);
 
-        return revision && tried
+        return nonEmpty(revision) && tried !== null && tried !== 0
           ? ClaimsRevisionRound.of({
               revisionId: ClaimsRevisionId.of(revision),
               attempt: tried,

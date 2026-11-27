@@ -1,16 +1,17 @@
 import type { RedisPubSub } from '@platform/redis/redis-connection';
 import { RedisTunnelDirectory } from '@platform/websocket/redis-tunnel-directory';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { Redis } from 'ioredis';
 import RedisMock from 'ioredis-mock';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const logger = {
+const logger = partial<LoggerPort>({
   info: vi.fn(),
   error: vi.fn(),
   warn: vi.fn(),
   debug: vi.fn(),
-} as unknown as LoggerPort;
+});
 
 const connections: Redis[] = [];
 

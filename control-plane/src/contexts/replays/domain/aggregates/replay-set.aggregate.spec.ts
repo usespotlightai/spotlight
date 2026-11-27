@@ -247,9 +247,10 @@ describe('ReplaySet', () => {
       );
 
       expect(error).toBeInstanceOf(UnreplayableEntryError);
-      expect((error as UnreplayableEntryError).unreplayableReason).toBe(
-        'no-starting-point',
-      );
+      if (!(error instanceof UnreplayableEntryError)) {
+        throw new Error('expected UnreplayableEntryError');
+      }
+      expect(error.unreplayableReason).toBe('no-starting-point');
     });
 
     it('rejects a run that worked no task', () => {

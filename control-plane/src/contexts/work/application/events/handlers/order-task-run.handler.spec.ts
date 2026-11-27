@@ -1,3 +1,5 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -126,14 +128,16 @@ const ordering = (
     over.ordered === undefined ? ORDERED : over.ordered,
   );
   const handler = new OrderTaskRun(
-    { find: async () => task } as unknown as TaskRepository,
-    { findByStation: async () => delivery() } as unknown as LineMapsPort,
+    partial<TaskRepository>({ find: async () => task }),
+    partial<LineMapsPort>({
+      findByStation: async () => delivery(),
+    }),
     {
       find: async () => over.existing ?? null,
       add: added_,
       save: async () => undefined,
     } satisfies DispatchRepository,
-    { ordered: order } as unknown as DispatchTask,
+    partial<DispatchTask>({ ordered: order }),
     { now: () => NOW, sleep: async () => {} },
   );
 
@@ -148,7 +152,7 @@ describe('OrderTaskRun', () => {
 
     await handler.on(handed(task));
 
-    const dispatch = added.mock.calls[0]?.[0];
+    const dispatch = firstOf(added.mock.calls)?.[0];
     expect(dispatch?.subject).toEqual({
       kind: 'task',
       taskId: task.id,
@@ -176,7 +180,9 @@ describe('OrderTaskRun', () => {
   });
 
   it('orders nothing twice', async () => {
-    const { handler, task, order } = ordering({ existing: {} as Dispatch });
+    const { handler, task, order } = ordering({
+      existing: partial<Dispatch>({}),
+    });
 
     await handler.on(handed(task));
 
@@ -196,7 +202,7 @@ describe('OrderTaskRun', () => {
 
     await handler.on(handed(task));
 
-    const dispatch = added.mock.calls[0]?.[0];
+    const dispatch = firstOf(added.mock.calls)?.[0];
     expect(dispatch?.refusedBecause).toBe('no-order');
     expect(dispatch?.pullEvents().map((each) => each.kind)).toEqual([
       'dispatch.refused',

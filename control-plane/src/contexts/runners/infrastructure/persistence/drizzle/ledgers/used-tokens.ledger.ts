@@ -6,6 +6,7 @@ import type {
   TokenHolderKind,
 } from '@runners/domain/value-objects/token-holder.vo';
 import { usedToken } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { and, eq } from 'drizzle-orm';
 
@@ -14,16 +15,18 @@ export class DrizzleUsedTokens implements UsedTokensPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async wasUsed(kind: TokenHolderKind, token: TokenHash): Promise<boolean> {
-    const [used] = await this.context.db
-      .select({ tokenHash: usedToken.tokenHash })
-      .from(usedToken)
-      .where(
-        and(
-          eq(usedToken.holderKind, kind),
-          eq(usedToken.tokenHash, token.value),
-        ),
-      )
-      .limit(1);
+    const used = firstOf(
+      await this.context.db
+        .select({ tokenHash: usedToken.tokenHash })
+        .from(usedToken)
+        .where(
+          and(
+            eq(usedToken.holderKind, kind),
+            eq(usedToken.tokenHash, token.value),
+          ),
+        )
+        .limit(1),
+    );
 
     return used !== undefined;
   }

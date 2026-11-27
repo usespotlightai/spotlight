@@ -1,3 +1,4 @@
+import type { CandidateSearch } from '@replays/domain/aggregates/candidate.aggregate';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 
@@ -7,7 +8,7 @@ interface SearchColumns {
   readonly hypothesis: string | null;
 }
 
-export const candidateSearchOf = (row: SearchColumns) =>
+export const candidateSearchOf = (row: SearchColumns): CandidateSearch | null =>
   row.searchId !== null && row.iteration !== null && row.hypothesis !== null
     ? {
         searchId: SearchId.of(row.searchId),

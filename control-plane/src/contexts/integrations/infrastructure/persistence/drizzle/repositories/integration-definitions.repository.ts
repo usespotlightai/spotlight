@@ -19,6 +19,8 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
 
@@ -28,10 +30,10 @@ const collided = (error: unknown): boolean =>
 type Row = typeof integrationDefinition.$inferSelect;
 
 const readingOf = (row: Row): SpecFetchResult | null =>
-  row.specFingerprint && row.specReadAt
+  nonEmpty(row.specFingerprint) && row.specReadAt
     ? SpecFetchResult.rehydrate({
         fingerprint: row.specFingerprint,
-        hash: row.specHash ? ContentHash.of(row.specHash) : null,
+        hash: nonEmpty(row.specHash) ? ContentHash.of(row.specHash) : null,
         readAt: row.specReadAt,
         problem: row.specProblem,
         skipped: row.specSkipped ?? [],
@@ -65,9 +67,7 @@ const inPlace = (definition: IntegrationDefinition) =>
   );
 
 @Injectable()
-export class DrizzleIntegrationDefinitions
-  implements IntegrationDefinitionRepository
-{
+export class DrizzleIntegrationDefinitions implements IntegrationDefinitionRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -154,11 +154,13 @@ export class DrizzleIntegrationDefinitions
   private async first(
     where: SQL | undefined,
   ): Promise<IntegrationDefinition | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(integrationDefinition)
-      .where(where)
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(integrationDefinition)
+        .where(where)
+        .limit(1),
+    );
 
     return found ? rehydrated(found) : null;
   }

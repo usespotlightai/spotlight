@@ -3,6 +3,7 @@ import type { HarnessProfileShape } from '@runs/application/contracts/harness-pr
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { RunFacts } from '@runs/application/ports/run-facts.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -35,6 +36,7 @@ import type { StationSkills } from '@work/application/services/station-skills.se
 import { StationTrials } from '@work/application/services/station-trials.service';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
+import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -50,6 +52,7 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -211,8 +214,20 @@ const originalDispatch = (toolsOnMarks: readonly Tool[] = []) =>
     now: NOW,
   }).enqueuedAsRun();
 
+const ORIGINAL_CHECKOUT = { path: 'api', repository: 'acme/api', commit: API };
+
+const buildOf = (line: LineMap): Station => {
+  const station = line.stationAt(BUILD);
+
+  if (!station) {
+    throw new Error('expected the build station');
+  }
+
+  return station;
+};
+
 const factsOf = (over: Partial<RunFacts> = {}): RunFacts =>
-  ({
+  partial<RunFacts>({
     runId: ORIGINAL,
     workspaceId: WorkspaceId.of('ws_1'),
     ended: true,
@@ -220,10 +235,10 @@ const factsOf = (over: Partial<RunFacts> = {}): RunFacts =>
       archiveId: 'archive_1',
       archiveStored: true,
       at: NOW,
-      checkouts: [{ path: 'api', repository: 'acme/api', commit: API }],
+      checkouts: [ORIGINAL_CHECKOUT],
     },
     ...over,
-  }) as RunFacts;
+  });
 
 let facts: RunFacts | null = null;
 let candidate: LineMap = LINE;
@@ -275,23 +290,22 @@ const trialsOf = () =>
         );
       },
     },
-    {
-      find: async () => (taskGone ? null : { notes: taskNotes }),
-    } as unknown as TaskRepository,
-    {
-      live: async () => ({ line: LINE, station: LINE.stationAt(BUILD) }),
+    partial<TaskRepository>({
+      find: async () => (taskGone ? null : partial<Task>({ notes: taskNotes })),
+    }),
+    partial<CandidateLines>({
+      live: async () => ({ line: LINE, station: buildOf(LINE) }),
       withStation: async () => ({
         ok: true,
         line: candidate,
-        station: candidate.stationAt(BUILD),
-        definition: {},
+        station: buildOf(candidate),
       }),
-    } as unknown as CandidateLines,
+    }),
     new StationOrdering(
       harnesses,
       launch,
       { named: () => null },
-      { readyAt: async () => [] } as unknown as StationSkills,
+      partial<StationSkills>({ readyAt: async () => [] }),
       new RunCatalog({
         resolve: async () => ({
           tools: [],
@@ -306,7 +320,9 @@ const trialsOf = () =>
         }),
         call: async () => ({ kind: 'answered', output: null }),
       }),
-      { named: async (_team, key) => (key === 'linear' ? LINEAR : null) },
+      {
+        named: async (_team, key) => (key === 'linear' ? LINEAR : null),
+      },
       new Sha256ContentHash(),
       {
         boundIn: async (_workspace, names) => {
@@ -347,21 +363,22 @@ const trialsOf = () =>
         };
       },
     },
-    {
+    partial<AttachmentStorePort>({
       stored: async (_workspace: WorkspaceId, ids: readonly AttachmentId[]) =>
         !ids.some((each) => gone.includes(each.value)),
-    } as unknown as AttachmentStorePort,
+    }),
     {
       for: (taskId, runId) => `trace:${taskId.value}:${runId.value}`,
       forChat: (chatId, runId) => `trace:${chatId.value}:${runId.value}`,
     },
-    {
+    partial<RunEvidencePort>({
       of: async () => ({
         runId: ORIGINAL.value,
         taskId: 'task_1',
         title: 'Drain the queue',
         description: null,
         steps: [],
+        blockedTools: [],
         hunks: [
           {
             id: 'h1',
@@ -372,7 +389,7 @@ const trialsOf = () =>
           },
         ],
       }),
-    } as unknown as RunEvidencePort,
+    }),
     { now: () => NOW, sleep: async () => {} },
   );
 

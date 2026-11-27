@@ -1,4 +1,5 @@
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -89,11 +90,14 @@ const access = (teamId = 'team_1') =>
   workAccessSeeing((requested) => requested.value === teamId);
 
 const lines = (teamId = 'team_1', seen = access()) =>
-  new LineLoader(seen, {
-    findByStation: vi.fn(
-      async () => ({ teamId: TeamId.of(teamId) }) as LineMap,
-    ),
-  } as unknown as LineMapsPort);
+  new LineLoader(
+    seen,
+    partial<LineMapsPort>({
+      findByStation: vi.fn(async () =>
+        partial<LineMap>({ teamId: TeamId.of(teamId) }),
+      ),
+    }),
+  );
 
 const inOneTransaction = () => {
   const transaction = {

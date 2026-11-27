@@ -2,7 +2,11 @@ import type { GitHubAppPort } from '@github/application/ports/github-app.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import { ReadGitHubHandler } from '@github/application/queries/handlers/read-github.handler';
 import { ReadGitHubQuery } from '@github/application/queries/read-github.query';
-import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import type {
+  WorkspaceDetail,
+  WorkspaceReaderPort,
+} from '@identity/application/ports/workspace-reader.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -20,11 +24,11 @@ const reading = (
   } satisfies WorkspaceConnectionsPort;
 
   const handler = new ReadGitHubHandler(
-    {
+    partial<WorkspaceReaderPort>({
       findForMember: vi.fn(async () =>
-        over.member === false ? null : { id: 'ws_1' },
+        over.member === false ? null : partial<WorkspaceDetail>({ id: 'ws_1' }),
       ),
-    } as unknown as WorkspaceReaderPort,
+    }),
     connections,
     {
       installUrl: vi.fn(async () =>

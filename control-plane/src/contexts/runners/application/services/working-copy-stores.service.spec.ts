@@ -10,6 +10,7 @@ import type { SandboxRepository } from '@runners/domain/repositories/sandbox.rep
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { WorkingCopyStore } from '@runners/domain/value-objects/working-copy-store.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
@@ -24,26 +25,28 @@ const stores = (input: {
   trust?: Partial<RunnerTrust>;
 }) =>
   new WorkingCopyStores(
-    {
+    partial<RunnerRepository>({
       find: async () =>
-        input.runner ? ({ source: input.runner } as Runner) : null,
-    } as unknown as RunnerRepository,
-    {
+        input.runner ? partial<Runner>({ source: input.runner }) : null,
+    }),
+    partial<SandboxRepository>({
       find: async () =>
         input.sandbox === undefined
           ? null
-          : ({ source: input.sandbox } as Sandbox),
-    } as unknown as SandboxRepository,
-    {
+          : partial<Sandbox>({ source: input.sandbox }),
+    }),
+    partial<RunnerPoolRepository>({
       find: async () =>
-        input.pool ? ({ isDeleted: false, ...input.pool } as RunnerPool) : null,
-    } as unknown as RunnerPoolRepository,
-    {
+        input.pool
+          ? partial<RunnerPool>({ isDeleted: false, ...input.pool })
+          : null,
+    }),
+    partial<RunnerTrustRepository>({
       find: async () =>
         input.trust
-          ? ({ isDeleted: false, ...input.trust } as RunnerTrust)
+          ? partial<RunnerTrust>({ isDeleted: false, ...input.trust })
           : null,
-    } as unknown as RunnerTrustRepository,
+    }),
   );
 
 const pool = CredentialSource.ofId(PoolId.of('pool_1'));

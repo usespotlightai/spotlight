@@ -7,12 +7,13 @@ import {
 import { AuthorizeRunnerQuery } from '@runs/application/queries/egress.queries';
 import { AuthorizeRunnerHandler } from '@runs/application/queries/handlers/authorize-runner.handler';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const handler = new AuthorizeRunnerHandler(
   sharedEgress(Object.fromEntries([runOf('waiting', 'run_1', null)])),
   { hosts: () => ['storage.example.com'] },
-  { now: () => NOW } as ClockPort,
+  partial<ClockPort>({ now: () => NOW }),
   'app.example.com',
   443,
 );

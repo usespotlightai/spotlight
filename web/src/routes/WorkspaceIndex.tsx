@@ -1,11 +1,12 @@
 import { Navigate, useParams } from 'react-router';
 
 import { inboxPath } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 
 export function WorkspaceIndex() {
   const { slug } = useParams();
 
-  if (!slug) {
+  if (!nonEmpty(slug)) {
     return null;
   }
 

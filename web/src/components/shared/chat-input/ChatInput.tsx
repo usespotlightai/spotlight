@@ -192,7 +192,8 @@ type BelowInputProps = {
 };
 
 function BelowInput({ below, shared, disabled }: BelowInputProps) {
-  if (!below && !shared) {
+  const hasBelow = Boolean(below);
+  if (!hasBelow && !shared) {
     return null;
   }
 

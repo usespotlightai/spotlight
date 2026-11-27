@@ -4,6 +4,7 @@ import { useDisputeDecision } from '@/hooks/api/useDisputeDecision';
 import { useTaskDecisions } from '@/hooks/api/useTaskDecisions';
 import type { Decision } from '@/lib/decision';
 import { DecisionsContext } from '@/lib/decisions-context';
+import { nonEmpty } from '@/lib/non-empty';
 import { runPath } from '@/lib/run';
 
 type DecisionsProviderProps = {
@@ -25,7 +26,7 @@ export function DecisionsProvider({
 
   const deciding = useMemo(
     () =>
-      found && taskId
+      found && nonEmpty(taskId)
         ? {
             found,
             reasoningAt: (decision: Decision) =>

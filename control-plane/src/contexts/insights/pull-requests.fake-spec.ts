@@ -90,7 +90,7 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
     taskIds: readonly TaskId[],
   ): Promise<readonly PullRequestRecord[]> {
     return [...this.stored.values()].filter((each) =>
-      taskIds.some((taskId) => each.owner?.taskId.equals(taskId)),
+      taskIds.some((taskId) => each.owner?.taskId.equals(taskId) === true),
     );
   }
 

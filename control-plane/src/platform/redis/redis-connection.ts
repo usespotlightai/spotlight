@@ -1,5 +1,6 @@
 import type { OnApplicationShutdown } from '@nestjs/common';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import IORedis, { type Redis } from 'ioredis';
 
 const COMMAND_TIMEOUT_MS = 2_000;
@@ -17,7 +18,7 @@ export class RedisConnection implements OnApplicationShutdown {
     url: string | undefined,
     private readonly logger: LoggerPort,
   ) {
-    this.client = url
+    this.client = nonEmpty(url)
       ? this.watched(new IORedis(url, { commandTimeout: COMMAND_TIMEOUT_MS }))
       : null;
   }

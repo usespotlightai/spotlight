@@ -2,6 +2,7 @@ import { lastConfigsOf } from '@insights/domain/services/config-intervals';
 import { inStartOrder, startOf } from '@insights/domain/services/run-order';
 import { dayOf } from '@insights/domain/value-objects/insights-period.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface FingerprintGroup {
@@ -33,7 +34,7 @@ export const fingerprintGroupsNewestFirst = (
     const stationId = record.end.location.stationId.value;
     const intended = record.end.fingerprint;
     const running = inForce.get(stationId) ?? null;
-    const last = groups[groups.length - 1];
+    const last = itemAt(groups, groups.length - 1);
     const open = (fingerprint: string | null, ran: boolean): void => {
       groups.push({
         fingerprint,
@@ -81,9 +82,13 @@ export const configInForce = (
   const at = newestFirst.findIndex(
     (group) => group.ran && group.fingerprint !== null,
   );
-  const newest = newestFirst[at];
+  const newest = itemAt(newestFirst, at);
 
-  if (!newest?.fingerprint) {
+  if (
+    newest === undefined ||
+    newest.fingerprint === null ||
+    newest.fingerprint === ''
+  ) {
     return null;
   }
 

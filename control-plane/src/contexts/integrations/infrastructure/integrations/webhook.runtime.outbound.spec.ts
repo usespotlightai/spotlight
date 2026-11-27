@@ -14,6 +14,8 @@ import {
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
@@ -72,13 +74,13 @@ const runtimeFor = (...hosts: string[]) => {
       return new Map();
     },
   };
-  const outbound = {
+  const outbound = partial<HttpOutbound>({
     run: sending,
     bytes: async () => {
       policy.allow('https://files.tracker.example/download');
-      return { ok: true, status: 200, bytes: new Uint8Array() };
+      return new Uint8Array();
     },
-  } as unknown as HttpOutbound;
+  });
 
   return {
     keysWithin,
@@ -113,8 +115,8 @@ describe('a webhook within the workspace’s outbound hosts', () => {
   });
 
   it('never fetches a file from a host the workspace does not allow', async () => {
-    const [read] = await runtimeFor('api.tracker.example').runtime.read(
-      delivered,
+    const read = firstOf(
+      await runtimeFor('api.tracker.example').runtime.read(delivered),
     );
 
     await expect(read?.attachments?.[0]?.fetch()).rejects.toThrow(

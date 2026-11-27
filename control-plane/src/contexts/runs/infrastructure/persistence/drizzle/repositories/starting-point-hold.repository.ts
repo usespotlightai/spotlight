@@ -8,22 +8,23 @@ import {
   startingPointHold,
   startingPointHoldRun,
 } from '@runs/infrastructure/persistence/drizzle/schemas/starting-point-hold.schema';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq } from 'drizzle-orm';
 
 @Injectable()
-export class DrizzleStartingPointHoldRepository
-  implements StartingPointHoldRepository
-{
+export class DrizzleStartingPointHoldRepository implements StartingPointHoldRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async find(holder: HoldHolder): Promise<StartingPointHold | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(startingPointHold)
-      .where(eq(startingPointHold.holder, holder.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(startingPointHold)
+        .where(eq(startingPointHold.holder, holder.value))
+        .limit(1),
+    );
 
     if (!row) {
       return null;

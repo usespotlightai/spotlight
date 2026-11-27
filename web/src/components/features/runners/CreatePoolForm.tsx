@@ -2,6 +2,7 @@ import { type SubmitEvent, useId, useState } from 'react';
 
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
+import { nonEmpty } from '@/lib/non-empty';
 
 type CreatePoolFormProps = {
   defaultName: string;
@@ -56,7 +57,7 @@ export function CreatePoolForm({
         </Button>
       </div>
 
-      {refusal && (
+      {nonEmpty(refusal) && (
         <p role="alert" className="text-destructive text-xs">
           {refusal}
         </p>

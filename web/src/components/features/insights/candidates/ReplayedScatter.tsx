@@ -41,8 +41,8 @@ const TipContent = ({
   ) : null;
 };
 
-const mark = (props: unknown) => (
-  <ReplayedPointMark {...(props as ReplayedPointMarkProps)} />
+const mark = (props: ReplayedPointMarkProps) => (
+  <ReplayedPointMark {...props} />
 );
 
 const labelOf = (point: ReplayedPoint) => ({

@@ -11,6 +11,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { UpkeepProposalId } from '@memory/domain/value-objects/upkeep-proposal-id.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -67,14 +68,16 @@ const consolidated = (
 
 describe('consolidating what the team remembers', () => {
   it('merges memories that apply in the same place into one', () => {
-    const [merge] = consolidated([
-      {
-        change: 'merge',
-        handles: ['M-1', 'm-2'],
-        body: 'One rule.',
-        reason: 'M-1 and M-2 say the same.',
-      },
-    ]);
+    const merge = firstOf(
+      consolidated([
+        {
+          change: 'merge',
+          handles: ['M-1', 'm-2'],
+          body: 'One rule.',
+          reason: 'M-1 and M-2 say the same.',
+        },
+      ]),
+    );
 
     expect(merge?.change).toBe('merge');
     expect(merge?.memories.map((each) => each.value)).toEqual([

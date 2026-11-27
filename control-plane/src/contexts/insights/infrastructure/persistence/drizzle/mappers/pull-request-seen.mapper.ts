@@ -1,5 +1,6 @@
 import { SeenPullRequest } from '@insights/domain/value-objects/seen-pull-request.vo';
 import type { pullRequestRecord } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 export type PullRequestRow = typeof pullRequestRecord.$inferSelect;
 
@@ -28,7 +29,7 @@ export const seenOfRow = (row: PullRequestRow): SeenPullRequest | null =>
         readyForReviewAt: row.readyForReviewAt,
         draftPeriods: row.draftPeriods.map((each) => ({
           from: new Date(each.from),
-          to: each.to ? new Date(each.to) : null,
+          to: nonEmpty(each.to) ? new Date(each.to) : null,
         })),
         firstReviewAt: row.firstReviewAt,
         firstUnblockingReviewAt: row.firstUnblockingReviewAt,

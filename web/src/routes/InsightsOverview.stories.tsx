@@ -27,9 +27,7 @@ const meta = {
     argTypes: {
       period: choice(
         'Period',
-        Object.fromEntries(
-          PERIOD_RANGES.map(({ id, label }) => [id, label]),
-        ) as Record<InsightsPeriod, string>,
+        Object.fromEntries(PERIOD_RANGES.map(({ id, label }) => [id, label])),
       ),
     },
   }),

@@ -1,3 +1,5 @@
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -90,25 +92,26 @@ const waiting = () => {
 };
 
 const answering = (fails = 0) => {
+  let failuresLeft = fails;
   let current = waiting();
   const saved: Task[] = [];
-  const tasks = {
+  const tasks = partial<TaskRepository>({
     awaitingConnection: vi.fn(async () => [current]),
     find: vi.fn(async () => current),
     save: vi.fn(async (task: Task) => {
-      if (fails > 0) {
-        fails--;
+      if (failuresLeft > 0) {
+        failuresLeft--;
         throw new TaskVersionConflictError('task_1');
       }
       current = task;
       saved.push(task);
     }),
-  } as unknown as TaskRepository;
+  });
 
   return {
     made: new ConnectionsMade(
       tasks,
-      { findByStation: async () => null } as unknown as LineMapsPort,
+      partial<LineMapsPort>({ findByStation: async () => null }),
       { now: () => NOW, sleep: async () => {} },
       { inTransaction: (work) => work() },
     ),
@@ -129,7 +132,8 @@ describe('ConnectionsMade', () => {
       IntegrationName.of('linear'),
     );
     expect(saved).toHaveLength(1);
-    const answer = saved[0]?.notes[saved[0].notes.length - 1];
+    const notes = firstOf(saved)?.notes ?? [];
+    const answer = itemAt(notes, notes.length - 1);
     expect(answer?.kind).toBe('answered');
     expect(answer?.body.value).toBe('Connected Linear.');
     expect(answer?.voice.author).toEqual(ALICE);

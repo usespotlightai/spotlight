@@ -1,4 +1,10 @@
-import { useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 
 import type { Written } from '@/lib/chat-input';
 
@@ -8,11 +14,22 @@ const FIT_MARGIN = 8;
 
 const widthOf = (parent: Element | null | undefined): number =>
   [...(parent?.children ?? [])].reduce(
-    (sum, each) => sum + (each as HTMLElement).offsetWidth,
+    (sum, each) => sum + (each instanceof HTMLElement ? each.offsetWidth : 0),
     0,
   );
 
-export function useOneLineFit(written: Written, opened: boolean) {
+type OneLineFitResult = {
+  inner: RefObject<HTMLDivElement | null>;
+  writing: RefObject<HTMLDivElement | null>;
+  height: number | null;
+  expanded: boolean;
+  snaps: boolean;
+};
+
+export function useOneLineFit(
+  written: Written,
+  opened: boolean,
+): OneLineFitResult {
   const inner = useRef<HTMLDivElement>(null);
   const writing = useRef<HTMLDivElement>(null);
   const room = useRef<number | null>(null);

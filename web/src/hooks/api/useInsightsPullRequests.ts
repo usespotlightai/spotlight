@@ -1,9 +1,14 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import {
+  queryOptions,
+  useQuery,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 import { readInsightsPullRequests } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 import type { InsightsPullRequests } from '@/lib/insights-pull-requests';
 import { keepTeamPeriod } from '@/lib/query';
+import { required } from '@/lib/required';
 
 const insightsPullRequestsKeys = {
   forTeam: (teamId: string | undefined, period: InsightsPeriod) =>
@@ -19,7 +24,7 @@ const insightsPullRequestsQuery = (
     enabled: Boolean(teamId),
     queryFn: async (): Promise<InsightsPullRequests> => {
       const { data } = await readInsightsPullRequests({
-        path: { teamId: teamId as string },
+        path: { teamId: required(teamId) },
         query: { period },
         throwOnError: true,
       });
@@ -30,7 +35,7 @@ const insightsPullRequestsQuery = (
 export function useInsightsPullRequests(
   teamId: string | undefined,
   period: InsightsPeriod,
-) {
+): UseQueryResult<InsightsPullRequests> {
   return useQuery({
     ...insightsPullRequestsQuery(teamId, period),
     placeholderData: keepTeamPeriod(teamId),

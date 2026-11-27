@@ -8,6 +8,7 @@ import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggreg
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -18,14 +19,14 @@ const egressRunners = (
   platformEgressSet = true,
 ) =>
   new WorkspaceEgressRunners(
-    {
+    partial<RunnerPoolRepository>({
       inWorkspace: async (id: WorkspaceId) =>
         id.equals(POOL_WORKSPACE) ? (stored.pools ?? []) : [],
-    } as unknown as RunnerPoolRepository,
-    {
+    }),
+    partial<RunnerTrustRepository>({
       inWorkspace: async (id: WorkspaceId) =>
         id.equals(POOL_WORKSPACE) ? (stored.trusts ?? []) : [],
-    } as unknown as RunnerTrustRepository,
+    }),
     { platformPoolSet: true, platformEgressSet },
   );
 

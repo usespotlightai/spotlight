@@ -17,6 +17,8 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -50,7 +52,7 @@ const toPullRequest = (row: PullRequestRow): PullRequest =>
     draftPeriods: row.draftPeriods.map((each) =>
       DraftPeriod.of({
         from: new Date(each.from),
-        to: each.to ? new Date(each.to) : null,
+        to: nonEmpty(each.to) ? new Date(each.to) : null,
       }),
     ),
     state: row.state,
@@ -60,7 +62,7 @@ const toPullRequest = (row: PullRequestRow): PullRequest =>
     reviews: row.reviews.map((each) =>
       PullRequestReview.of({
         ...each,
-        at: each.at ? new Date(each.at) : null,
+        at: nonEmpty(each.at) ? new Date(each.at) : null,
       }),
     ),
     dismissedReviews: row.dismissedReviews,
@@ -68,7 +70,9 @@ const toPullRequest = (row: PullRequestRow): PullRequest =>
     deletedComments: row.deletedComments,
     botComments: row.botComments.map((each) => BotComment.of(each)),
     threads: row.threads.map((each) => PullRequestThread.of(each)),
-    revertedBy: row.revertedBy ? PullRequestUrl.of(row.revertedBy) : null,
+    revertedBy: nonEmpty(row.revertedBy)
+      ? PullRequestUrl.of(row.revertedBy)
+      : null,
     mergeable: row.mergeable,
     version: row.version,
   });
@@ -94,36 +98,30 @@ const columnsOf = (pullRequest: PullRequest) => ({
   closedAt: pullRequest.closedAt,
   updatedAt: pullRequest.updatedAt,
   reverts: pullRequest.reverts,
-  reviews: pullRequest.reviews.map(
-    (each): StoredReview => ({
-      id: each.id,
-      state: each.state,
-      login: each.login,
-      byBot: each.byBot,
-      at: each.at?.toISOString() ?? null,
-    }),
-  ),
+  reviews: pullRequest.reviews.map((each): StoredReview => ({
+    id: each.id,
+    state: each.state,
+    login: each.login,
+    byBot: each.byBot,
+    at: each.at?.toISOString() ?? null,
+  })),
   dismissedReviews: [...pullRequest.dismissedReviews],
   comments: [...pullRequest.comments],
   deletedComments: [...pullRequest.deletedComments],
-  botComments: pullRequest.botComments.map(
-    (each): StoredBotComment => ({
-      id: each.id,
-      on: each.on,
-      login: each.login,
-      opensThread: each.opensThread,
-      deleted: each.deleted,
-    }),
-  ),
-  threads: pullRequest.threads.map(
-    (each): StoredThread => ({
-      id: each.id,
-      firstCommentId: each.firstCommentId,
-      login: each.login,
-      byBot: each.byBot,
-      resolved: each.resolved,
-    }),
-  ),
+  botComments: pullRequest.botComments.map((each): StoredBotComment => ({
+    id: each.id,
+    on: each.on,
+    login: each.login,
+    opensThread: each.opensThread,
+    deleted: each.deleted,
+  })),
+  threads: pullRequest.threads.map((each): StoredThread => ({
+    id: each.id,
+    firstCommentId: each.firstCommentId,
+    login: each.login,
+    byBot: each.byBot,
+    resolved: each.resolved,
+  })),
   revertedBy: pullRequest.revertedBy?.value ?? null,
   mergeable: pullRequest.mergeable,
 });
@@ -161,17 +159,19 @@ export class DrizzlePullRequests implements PullRequestRepository {
     repository: Repository,
     number: number,
   ): Promise<PullRequest | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(githubPullRequest)
-      .where(
-        and(
-          eq(githubPullRequest.workspaceId, workspaceId.value),
-          eq(githubPullRequest.repository, repository.value),
-          eq(githubPullRequest.number, number),
-        ),
-      )
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(githubPullRequest)
+        .where(
+          and(
+            eq(githubPullRequest.workspaceId, workspaceId.value),
+            eq(githubPullRequest.repository, repository.value),
+            eq(githubPullRequest.number, number),
+          ),
+        )
+        .limit(1),
+    );
 
     return row ? toPullRequest(row) : null;
   }
@@ -270,12 +270,14 @@ export class DrizzlePullRequests implements PullRequestRepository {
     workspaceId: WorkspaceId,
     url: PullRequestUrl,
   ): Promise<PullRequest | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(githubPullRequest)
-      .where(at(workspaceId, url))
-      .limit(1)
-      .for('update');
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(githubPullRequest)
+        .where(at(workspaceId, url))
+        .limit(1)
+        .for('update'),
+    );
 
     return row ? toPullRequest(row) : null;
   }
@@ -284,12 +286,14 @@ export class DrizzlePullRequests implements PullRequestRepository {
     workspaceId: WorkspaceId,
     url: PullRequestUrl,
   ): Promise<PullRequest | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(githubPullRequest)
-      .where(at(workspaceId, url))
-      .limit(1)
-      .for('update', { skipLocked: true });
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(githubPullRequest)
+        .where(at(workspaceId, url))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
     return row ? toPullRequest(row) : null;
   }

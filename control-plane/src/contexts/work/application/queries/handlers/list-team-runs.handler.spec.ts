@@ -1,5 +1,8 @@
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
+import type { ChatReaderPort } from '@work/application/ports/chat-reader.port';
 import type {
   RunReaderPort,
   TeamRunSummary,
@@ -21,6 +24,7 @@ import {
   SEES_ONLY,
 } from '@work/application/services/run-access.fake-spec';
 import { RunAccess } from '@work/application/services/run-access.service';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import type { OpenAsk } from '@work/domain/services/conversation-audience';
 import type { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -52,7 +56,10 @@ const waiting = (
     waits: true,
     task: {
       running: true,
-      pending: { assignee: assignee ? UserId.of(assignee) : null, ask },
+      pending: {
+        assignee: nonEmpty(assignee) ? UserId.of(assignee) : null,
+        ask,
+      },
     },
     to: { currentRun: true, atTaskStation: true },
   }),
@@ -73,11 +80,11 @@ const reading = (found: TeamRunSummary): RunReaderPort => ({
 
 const access = (standing: TeamStanding) =>
   new RunAccess(
-    { ownershipOf: async () => null } as never,
-    {
+    partial<ChatReaderPort>({ ownershipOf: async () => null }),
+    partial<WorkAccess>({
       seesWorkspaceOfTeam: async () => standing.seesTasks,
       standingOn: async () => standing,
-    } as never,
+    }),
   );
 
 const flagsOf = (

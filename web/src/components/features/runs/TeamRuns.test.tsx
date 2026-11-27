@@ -7,7 +7,7 @@ import { TeamRuns } from '@/components/features/runs/TeamRuns';
 import type { TeamRun } from '@/lib/run';
 
 const runs = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 const older = vi.fn<(...args: unknown[]) => unknown>();
 const load = vi.fn();

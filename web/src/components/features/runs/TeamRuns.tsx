@@ -20,6 +20,7 @@ import { useCollapsed } from '@/hooks/useCollapsed';
 import { useListKeys } from '@/hooks/useListKeys';
 import { useStoredState } from '@/hooks/useStoredState';
 import { inboxItemPath } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import {
   ALL_RUNS,
@@ -136,7 +137,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
                       gutter
                       to={runPath(slug, teamId, run.id)}
                       onIntent={() =>
-                        run.taskId && prefetch(run.taskId, [run.id])
+                        nonEmpty(run.taskId) && prefetch(run.taskId, [run.id])
                       }
                       taskTitle={run.taskTitle}
                       reviewTo={

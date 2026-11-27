@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -47,7 +48,9 @@ const NO_DISPATCHES: DispatchRepository = {
 };
 
 const readingOnly = (found: EndedRunRow): StationRunReaderPort =>
-  ({ endedRun: async () => found }) as unknown as StationRunReaderPort;
+  partial<StationRunReaderPort>({
+    endedRun: async () => found,
+  });
 
 describe('StationRuns.ended', () => {
   it('names the harness, model, effort, profile, repositories and skills the run was configured with', async () => {
@@ -177,7 +180,7 @@ const unfinishedRow = (
 describe('StationRuns.unfinished', () => {
   it('gives each unfinished run its progress, and leaves out runs that wait for a person', async () => {
     const stations = new StationRuns(
-      {
+      partial<StationRunReaderPort>({
         unfinishedOfTeam: async () => [
           unfinishedRow('run_queued'),
           unfinishedRow('run_claimed', {
@@ -200,7 +203,7 @@ describe('StationRuns.unfinished', () => {
           unfinishedRow('run_stopping', { progress: 'stopping' }),
           unfinishedRow('run_suspended', { progress: null }),
         ],
-      } as unknown as StationRunReaderPort,
+      }),
       NO_DISPATCHES,
     );
 
@@ -222,7 +225,7 @@ describe('StationRuns.unfinished', () => {
 describe('StationRuns.traced', () => {
   it('shortens what a task asks and what a run wrote, and leaves out empty notes', async () => {
     const stations = new StationRuns(
-      {
+      partial<StationRunReaderPort>({
         traced: async () => ({
           tasks: [
             {
@@ -252,7 +255,7 @@ describe('StationRuns.traced', () => {
             ['run_2', '  '],
           ]),
         }),
-      } as unknown as StationRunReaderPort,
+      }),
       NO_DISPATCHES,
     );
 

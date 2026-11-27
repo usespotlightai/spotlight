@@ -4,6 +4,7 @@ import { ConnectGitHub } from '@/components/features/integrations/ConnectGitHub'
 import { buttonVariants } from '@/components/ui/button-variants';
 import { useGitHub } from '@/hooks/api/useGitHub';
 import { installUrlFor } from '@/lib/github';
+import { nonEmpty } from '@/lib/non-empty';
 import { cn } from '@/lib/utils';
 
 type InstallGitHubLinkProps = {
@@ -20,7 +21,7 @@ export function InstallGitHubLink({
   const here = useLocation();
   const { data: github } = useGitHub(slug);
 
-  if (!github?.installUrl) {
+  if (!nonEmpty(github?.installUrl)) {
     return null;
   }
 

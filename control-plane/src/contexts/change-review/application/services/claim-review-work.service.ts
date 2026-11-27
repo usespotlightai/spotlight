@@ -87,11 +87,11 @@ export class ClaimReviewWork implements ReviewWorkPort {
     return this.transaction.inTransaction(async () =>
       this.firstClaimed(
         reviewWorkOrder(
-          (await this.diffs.reservedFor(runner)).filter((each) =>
-            each.reservation?.isActiveAt(now),
+          (await this.diffs.reservedFor(runner)).filter(
+            (each) => each.reservation?.isActiveAt(now) === true,
           ),
-          (await this.checks.reservedFor(runner)).filter((each) =>
-            each.reservation?.isActiveAt(now),
+          (await this.checks.reservedFor(runner)).filter(
+            (each) => each.reservation?.isActiveAt(now) === true,
           ),
         ),
         runner,

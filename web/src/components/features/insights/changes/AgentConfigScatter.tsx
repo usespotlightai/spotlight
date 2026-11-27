@@ -76,8 +76,8 @@ const TipContent = ({
   );
 };
 
-const replayedMark = (props: unknown) => (
-  <ReplayedPointMark {...(props as ReplayedPointMarkProps)} hollow />
+const replayedMark = (props: ReplayedPointMarkProps) => (
+  <ReplayedPointMark {...props} hollow />
 );
 
 type AgentConfigScatterProps = {

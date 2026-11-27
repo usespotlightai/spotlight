@@ -16,6 +16,7 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -76,10 +77,21 @@ const platformPools = (
   const directory = {
     list: vi.fn(async (request: { after: string | null }) => {
       const at = request.after === null ? 0 : Number(request.after);
-      const workspace = open[at];
+      const workspace = at < open.length ? open[at] : undefined;
 
       return {
-        items: workspace ? [{ id: workspace }] : [],
+        items:
+          workspace === undefined
+            ? []
+            : [
+                {
+                  id: workspace,
+                  slug: workspace.value,
+                  name: workspace.value,
+                  createdAt: new Date(0),
+                  memberCount: 1,
+                },
+              ],
         next: at + 1 < open.length ? String(at + 1) : null,
       };
     }),
@@ -91,15 +103,15 @@ const platformPools = (
     saved,
     logger,
     platform: new PlatformPools(
-      pools as unknown as RunnerPoolRepository,
-      workspaces as unknown as WorkspaceReaderPort,
-      directory as unknown as WorkspaceDirectoryPort,
+      partial<RunnerPoolRepository>(pools),
+      partial<WorkspaceReaderPort>(workspaces),
+      partial<WorkspaceDirectoryPort>(directory),
       input.settings === undefined ? SETTINGS : input.settings,
       { generate: () => `pool_${++generated}` },
-      {
-        inTransaction: (work: () => Promise<unknown>) => work(),
-      } as TransactionPort,
-      logger as unknown as LoggerPort,
+      partial<TransactionPort>({
+        inTransaction: <T>(work: () => Promise<T>) => work(),
+      }),
+      partial<LoggerPort>(logger),
     ),
   };
 };

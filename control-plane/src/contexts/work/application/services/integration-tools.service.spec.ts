@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -10,8 +11,10 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
 import type { RunWorks } from '@work/application/services/run-works.service';
+import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { LeaseLostError } from '@work/domain/exceptions/lease-lost.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -58,13 +61,17 @@ const resolving = (options: { movedOn?: boolean } = {}) => {
   };
 
   const tools = new IntegrationTools(
-    { find: async () => ({}) } as unknown as TaskRepository,
-    { findByStation: async () => ({}) } as unknown as LineMapsPort,
-    {
-      of: async () => ({}) as IntegrationTaskViewDto,
-    } as unknown as IntegrationTaskViews,
+    partial<TaskRepository>({
+      find: async () => partial<Task>({}),
+    }),
+    partial<LineMapsPort>({
+      findByStation: async () => partial<LineMap>({}),
+    }),
+    partial<IntegrationTaskViews>({
+      of: async () => partial<IntegrationTaskViewDto>({}),
+    }),
     calls,
-    { stillOn } as unknown as RunWorks,
+    partial<RunWorks>({ stillOn }),
   );
 
   return { tools, steps, stillOn };

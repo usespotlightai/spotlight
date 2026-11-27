@@ -2,6 +2,7 @@ import {
   type JudgeRepairHandlers,
   judgeRepairSubscribers,
 } from '@insights/presentation/events/judge-repair.subscribers';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const OUTSIDE_THE_DELIVERY = [
@@ -17,7 +18,9 @@ const OUTSIDE_THE_DELIVERY = [
 
 describe('judgeRepairSubscribers', () => {
   it('runs each subscriber that saves several aggregates, or asks another context to, outside the delivery transaction', () => {
-    const subscribers = judgeRepairSubscribers({} as JudgeRepairHandlers);
+    const subscribers = judgeRepairSubscribers(
+      partial<JudgeRepairHandlers>({}),
+    );
 
     expect(
       subscribers

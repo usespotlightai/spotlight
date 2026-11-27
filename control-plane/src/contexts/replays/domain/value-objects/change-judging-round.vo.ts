@@ -31,7 +31,7 @@ export class ChangeJudgingRound {
 
   equals(other: ChangeJudgingRound): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof ChangeJudgingRound &&
       this.runId.equals(other.runId) &&
       this.judging === other.judging &&
       this.attempt === other.attempt

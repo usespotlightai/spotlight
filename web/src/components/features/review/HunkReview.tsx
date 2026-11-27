@@ -78,7 +78,7 @@ export function HunkReview({ file, hunk }: { file: DiffFile; hunk: DiffHunk }) {
       patch={patch}
       annotations={annotations}
       renderAnnotation={({ metadata }) =>
-        metadata?.kind === 'thread' ? (
+        metadata.kind === 'thread' ? (
           <ReviewThreadCard
             thread={metadata.thread}
             onPointedAt={(pointing) =>
@@ -86,12 +86,12 @@ export function HunkReview({ file, hunk }: { file: DiffFile; hunk: DiffHunk }) {
             }
             appear={!firstSeen?.has(metadata.thread.root.id)}
           />
-        ) : metadata?.kind === 'composer' ? (
+        ) : (
           <NewReviewComment
             spot={metadata.spot}
             open={composingHere !== null}
           />
-        ) : null
+        )
       }
       gutter={(hovered) => <ReviewGutterPlus hovered={hovered} />}
       selected={

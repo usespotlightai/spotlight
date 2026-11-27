@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 
-export function useLeaving(ms: number, onLeft: (key: string) => void) {
+type LeavingResult = {
+  leaving: ReadonlySet<string>;
+  leave: (key: string) => void;
+};
+
+export function useLeaving(
+  ms: number,
+  onLeft: (key: string) => void,
+): LeavingResult {
   const [leaving, setLeaving] = useState<ReadonlySet<string>>(new Set());
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 

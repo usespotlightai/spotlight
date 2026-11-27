@@ -1,5 +1,5 @@
 export const deepFrozen = <T>(value: T): T => {
-  if (value && typeof value === 'object') {
+  if (typeof value === 'object' && value !== null) {
     for (const each of Object.values(value)) {
       deepFrozen(each);
     }

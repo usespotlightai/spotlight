@@ -1,13 +1,13 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import type { JsonObject, JsonValue } from '@shared-kernel/domain/json-value';
+import type { CheckoutHeadParts } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
+import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import { HOLD_ENDS, type HoldEnd } from '@work/domain/value-objects/hold-end';
 import { HOLD_VERDICTS } from '@work/domain/value-objects/hold-verdict';
-import type { CheckoutHeadParts } from '@shared-kernel/domain/value-objects/checkout-head.vo';
-import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import { VOICE_KINDS } from '@work/domain/value-objects/voice.vo';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import { sql } from 'drizzle-orm';

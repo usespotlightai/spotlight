@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InboxIndex } from '@/routes/InboxIndex';
 
 const waiting = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn<(...args: unknown[]) => unknown>();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useInbox', () => ({

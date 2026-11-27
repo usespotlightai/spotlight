@@ -14,6 +14,7 @@ import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo'
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -42,22 +43,22 @@ const noticing = (
   const send = vi.fn<MemberMailPort['send']>(over.send ?? (async () => {}));
   const warn = vi.fn();
   const notices = new MemberNotices(
-    {
+    partial<WorkspaceRepository>({
       find: async () =>
         over.workspace === undefined ? acme() : over.workspace,
-    } as unknown as WorkspaceRepository,
-    {
+    }),
+    partial<MemberLookupPort>({
       emailsOf: async () => over.emails ?? ['ada@example.com'],
-    } as unknown as MemberLookupPort,
-    {
+    }),
+    partial<PersonReaderPort>({
       find: async (id: UserId) => ({
         id,
         name: 'Leon Liang',
         image: null,
       }),
-    } as unknown as PersonReaderPort,
+    }),
     { send },
-    { warn } as unknown as LoggerPort,
+    partial<LoggerPort>({ warn }),
   );
 
   return { notices, send, warn };

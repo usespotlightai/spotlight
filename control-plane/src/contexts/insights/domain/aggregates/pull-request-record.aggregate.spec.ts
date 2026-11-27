@@ -100,8 +100,8 @@ describe('PullRequestRecord', () => {
     );
 
     expect(record.githubPurgedAt).toEqual(SEEN_AT);
-    expect(back?.seen?.title).toBe('Back');
-    expect(back?.githubPurgedAt).toBeNull();
+    expect(back.seen?.title).toBe('Back');
+    expect(back.githubPurgedAt).toBeNull();
   });
 
   it('turns away what GitHub said no later than when it purged the pull request', () => {

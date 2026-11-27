@@ -1,6 +1,7 @@
 import {
   type InfiniteData,
   type QueryKey,
+  type UseInfiniteQueryResult,
   useInfiniteQuery,
   useQuery,
   useQueryClient,
@@ -19,6 +20,20 @@ type PagedListOptions<T> = {
   readonly keyOf: (item: NoInfer<T>) => string;
   readonly pollMs?: number;
   readonly staleTime?: () => number;
+};
+
+export type PagedList<T> = {
+  readonly data: T[] | undefined;
+  readonly isPending: boolean;
+  readonly isFetching: boolean;
+  readonly errorUpdateCount: number;
+  readonly refetch: UseInfiniteQueryResult<InfiniteData<Page<T>>>['refetch'];
+  readonly more: {
+    readonly available: boolean;
+    readonly loading: boolean;
+    readonly failed: boolean;
+    readonly load: () => void;
+  };
 };
 
 const distinct = <T>(items: readonly T[], keyOf: (item: T) => string): T[] => {
@@ -43,7 +58,7 @@ export function usePagedList<T>({
   keyOf,
   pollMs,
   staleTime,
-}: PagedListOptions<T>) {
+}: PagedListOptions<T>): PagedList<T> {
   const queryClient = useQueryClient();
   const list = useInfiniteQuery({
     queryKey,
@@ -51,7 +66,7 @@ export function usePagedList<T>({
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) => fetchPage(pageParam),
     getNextPageParam: (last) => last.next ?? undefined,
-    ...(staleTime ? { staleTime } : {}),
+    ...(staleTime === undefined ? {} : { staleTime }),
   });
   const head = useQuery({
     queryKey: [...queryKey, 'head'],
@@ -90,9 +105,10 @@ export function usePagedList<T>({
   };
 }
 
-export type PagedList<T> = ReturnType<typeof usePagedList<T>>;
-
-export function useReadEveryPage(list: PagedList<unknown>, when: boolean) {
+export function useReadEveryPage(
+  list: PagedList<unknown>,
+  when: boolean,
+): boolean {
   const { available, loading, failed, load } = list.more;
   const reading = when && available && !failed;
 

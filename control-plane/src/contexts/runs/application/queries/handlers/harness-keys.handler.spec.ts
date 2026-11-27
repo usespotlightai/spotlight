@@ -2,11 +2,15 @@ import type {
   HostCredentials,
   RunnerAuthenticatorPort,
 } from '@runners/application/ports/runner-authenticator.port';
-import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import type {
+  HarnessCatalogueEntry,
+  HarnessLaunchPort,
+} from '@runs/application/ports/harness-launch.port';
 import { HarnessKeysHandler } from '@runs/application/queries/handlers/harness-keys.handler';
 import { HarnessKeysQuery } from '@runs/application/queries/host.queries';
 import { HeldHarnessKeys } from '@runs/application/services/held-harness-keys.service';
 import type { HostSecretFetch } from '@secrets/application/ports/host-secret-fetches.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -21,12 +25,18 @@ const authenticator: RunnerAuthenticatorPort = {
       : null,
 };
 
-const launch = {
+const launch = partial<HarnessLaunchPort>({
   catalogue: () => [
-    { id: 'claude-code', harnessKeys: ['ANTHROPIC_API_KEY'] },
-    { id: 'codex', harnessKeys: ['CODEX_API_KEY', 'OPENAI_API_KEY'] },
+    partial<HarnessCatalogueEntry>({
+      id: 'claude-code',
+      harnessKeys: ['ANTHROPIC_API_KEY'],
+    }),
+    partial<HarnessCatalogueEntry>({
+      id: 'codex',
+      harnessKeys: ['CODEX_API_KEY', 'OPENAI_API_KEY'],
+    }),
   ],
-} as unknown as HarnessLaunchPort;
+});
 
 const POOL = { bearer: 'pool-token', trust: undefined };
 

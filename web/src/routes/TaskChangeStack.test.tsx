@@ -77,7 +77,8 @@ const renderAt = () =>
     </QueryClientProvider>,
   );
 
-const serving = (value: ChangeStacks) => stacks.mockReturnValue(value);
+const serving = (value: ChangeStacks | undefined) =>
+  stacks.mockReturnValue(value);
 
 beforeEach(() => {
   stacks.mockReset();
@@ -116,7 +117,7 @@ describe('TaskChangeStack', () => {
   });
 
   it('shows the public view when the team-scoped read finds nothing, since the stack may be public', () => {
-    serving(undefined as never);
+    serving(undefined);
     stacksFailing.mockReturnValue(true);
     renderAt();
 

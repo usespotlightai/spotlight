@@ -26,12 +26,16 @@ export function useRowClick(
     }
 
     const onClick = (event: MouseEvent) => {
-      const target = event.target as Element;
+      const { target } = event;
+
+      if (!(target instanceof Element)) {
+        return;
+      }
 
       if (
         target.closest(OWN_CLICKS) ||
         latest.current.ignore?.(target) ||
-        window.getSelection()?.toString()
+        (window.getSelection()?.toString() ?? '') !== ''
       ) {
         return;
       }

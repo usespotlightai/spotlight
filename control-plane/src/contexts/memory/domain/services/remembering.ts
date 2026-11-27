@@ -15,6 +15,8 @@ import {
 } from '@memory/domain/value-objects/memory-scope-level';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { StationContext } from '@memory/domain/value-objects/run-context';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -54,7 +56,8 @@ const citedStep = (at: RememberedAt): number => {
     (each) => each.kind === REMEMBERING_STEP && !cited.has(each.index),
   );
   const step =
-    remembering[remembering.length - 1] ?? at.steps[at.steps.length - 1];
+    itemAt(remembering, remembering.length - 1) ??
+    itemAt(at.steps, at.steps.length - 1);
 
   if (!step) {
     throw new InvalidMemoryError(
@@ -76,7 +79,7 @@ const located = (raw: string, runContext: StationContext): Located => {
   const matching = runContext.repositories.filter(
     (each) => each.name === folder,
   );
-  const [repository] = matching;
+  const repository = firstOf(matching);
 
   if (!repository || matching.length > 1) {
     throw new InvalidMemoryError(
@@ -94,13 +97,12 @@ const scopeOf = (
   remembered: Remembered,
   runContext: StationContext,
 ): MemoryScope => {
-  const level = parseMemoryScopeLevel(
-    remembered.scope?.trim() || DEFAULT_SCOPE,
-  );
+  const scope = remembered.scope?.trim();
+  const level = parseMemoryScopeLevel(!nonEmpty(scope) ? DEFAULT_SCOPE : scope);
   const places = remembered.paths
     .filter((each) => each.trim())
     .map((each) => located(each, runContext));
-  const repository = places[0]?.repository ?? null;
+  const repository = firstOf(places)?.repository ?? null;
 
   if (
     repository &&

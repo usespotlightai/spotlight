@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
@@ -31,7 +32,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const seedTeam = async (titles: readonly string[]) => {
@@ -147,7 +148,9 @@ describe('the open tasks a run reads on its line', () => {
       })),
     );
 
-    const [found] = await reader.newest(line.id, TaskId.of(randomUUID()), 10);
+    const found = firstOf(
+      await reader.newest(line.id, TaskId.of(randomUUID()), 10),
+    );
 
     expect(found?.lastNote).toBe('Note 1');
   });

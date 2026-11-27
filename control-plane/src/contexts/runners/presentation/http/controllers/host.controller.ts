@@ -35,9 +35,45 @@ import type {
 } from '@runners/application/dto/host-heartbeat.dto';
 import { HostHeartbeatRequestDto } from '@runners/presentation/http/dto/host-heartbeat.request.dto';
 import { HostHeartbeatResponseDto } from '@runners/presentation/http/dto/host-heartbeat.response.dto';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const UNAUTHORIZED =
   'Pool token is missing, rotated or unknown, or no trust accepts this workload.';
+
+interface SentHarness {
+  readonly id: string;
+  readonly models?: readonly string[];
+  readonly version?: string;
+}
+
+interface SentImage {
+  readonly image?: string;
+  readonly isDefault?: boolean;
+  readonly digest?: string;
+  readonly release?: string;
+  readonly harnesses?: readonly SentHarness[];
+  readonly unavailableReason?: string;
+}
+
+interface SentHeartbeat {
+  readonly bootId?: string;
+  readonly name?: string;
+  readonly release?: string;
+  readonly containerRuntime?: string;
+  readonly capacity?: number;
+  readonly running?: readonly string[];
+  readonly images?: readonly SentImage[];
+  readonly sandboxes?: readonly (
+    | { readonly id?: unknown }
+    | null
+    | undefined
+  )[];
+  readonly stopping?: boolean;
+}
+
+const sentIn = (
+  body: HostHeartbeatRequestDto | undefined,
+): SentHeartbeat | undefined => body;
 
 @ApiTags('runners')
 @ApiBearerAuth()
@@ -71,6 +107,7 @@ export class HostController {
     @Headers(TRUST_HEADER) trust: string | undefined,
     @Body() body: HostHeartbeatRequestDto,
   ): Promise<HostHeartbeatResponseDto> {
+    const sent = sentIn(body);
     const heartbeat = await this.commandBus.execute<
       HostHeartbeatCommand,
       HostHeartbeatDto
@@ -78,33 +115,34 @@ export class HostController {
       new HostHeartbeatCommand(
         { bearer: bearerIn(authorization), trust },
         hostId,
-        body?.bootId ?? '',
+        sent?.bootId ?? '',
         {
-          name: body?.name ?? '',
-          release: body?.release ?? '',
-          containerRuntime: body?.containerRuntime ?? '',
-          capacity: body?.capacity ?? 0,
-          running: body?.running ?? [],
-          images: (body?.images ?? []).map((each) => ({
+          name: sent?.name ?? '',
+          release: sent?.release ?? '',
+          containerRuntime: sent?.containerRuntime ?? '',
+          capacity: sent?.capacity ?? 0,
+          running: sent?.running ?? [],
+          images: (sent?.images ?? []).map((each) => ({
             image: each.image ?? '',
-            // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare -- the request body is not validated at runtime
             isDefault: each.isDefault === true,
             harnesses: (each.harnesses ?? []).map((harness) => ({
               id: harness.id,
               models: harness.models ?? [],
-              ...(harness.version ? { version: harness.version } : {}),
+              ...(nonEmpty(harness.version)
+                ? { version: harness.version }
+                : {}),
             })),
-            ...(each.digest ? { digest: each.digest } : {}),
-            ...(each.release ? { release: each.release } : {}),
-            ...(each.unavailableReason
+            ...(nonEmpty(each.digest) ? { digest: each.digest } : {}),
+            ...(nonEmpty(each.release) ? { release: each.release } : {}),
+            ...(nonEmpty(each.unavailableReason)
               ? { unavailableReason: each.unavailableReason }
               : {}),
           })),
         },
-        (body?.sandboxes ?? []).flatMap((each) =>
+        (sent?.sandboxes ?? []).flatMap((each) =>
           typeof each?.id === 'string' && each.id.length > 0 ? [each.id] : [],
         ),
-        body?.stopping === true,
+        sent?.stopping === true,
       ),
     );
 

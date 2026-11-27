@@ -1,3 +1,4 @@
+import { nonEmpty } from '@/lib/non-empty';
 import {
   CHANGED_WITHIN,
   type ConfigChange,
@@ -125,7 +126,11 @@ export const planTextLines = (
   const planned = diffTextLines(was, now);
 
   if (plannedTexts.size >= PLANNED_TEXTS) {
-    plannedTexts.delete(plannedTexts.keys().next().value as string);
+    const oldest = plannedTexts.keys().next();
+
+    if (!oldest.done) {
+      plannedTexts.delete(oldest.value);
+    }
   }
   plannedTexts.set(key, planned);
 
@@ -165,7 +170,7 @@ const leafOf = (change: ConfigChange): PlanLeaf => {
   const now = quoted(shownValue(change.part, change.now));
   const base = { id: idOf(change), mark: change.kind };
 
-  if (change.part === 'repository' && change.name) {
+  if (change.part === 'repository' && nonEmpty(change.name)) {
     return {
       ...base,
       name: `repository ${JSON.stringify(change.name)}`,
@@ -175,7 +180,7 @@ const leafOf = (change: ConfigChange): PlanLeaf => {
     };
   }
 
-  if (change.part === 'profile' && change.name) {
+  if (change.part === 'profile' && nonEmpty(change.name)) {
     return {
       ...base,
       name: 'profile',
@@ -190,7 +195,10 @@ const leafOf = (change: ConfigChange): PlanLeaf => {
     name: change.name ?? change.part,
     was: change.kind === 'added' ? null : was,
     now: change.kind === 'removed' ? null : now,
-    note: change.kind === 'changed' && !(was && now) ? 'changed' : null,
+    note:
+      change.kind === 'changed' && !(nonEmpty(was) && nonEmpty(now))
+        ? 'changed'
+        : null,
   };
 };
 
@@ -217,24 +225,26 @@ export const configPlan = (changes: readonly ConfigChange[]): PlanEntry[] => {
 
   for (const change of changes) {
     const list = LISTS[change.part];
+    const isListed = nonEmpty(list);
     const within =
-      list ?? (change.part === 'judge' && change.name ? 'judge' : null);
+      list ??
+      (change.part === 'judge' && nonEmpty(change.name) ? 'judge' : null);
 
-    if (within) {
+    if (nonEmpty(within)) {
       if (!grouped.has(within)) {
         grouped.add(within);
         out.push({
           kind: 'group',
           id: within,
           name: within,
-          list: Boolean(list),
+          list: isListed,
           leaves: changes
             .filter((each) =>
-              list
+              isListed
                 ? each.part === change.part
-                : each.part === 'judge' && each.name,
+                : each.part === 'judge' && nonEmpty(each.name),
             )
-            .map(list ? itemOf : leafOf),
+            .map(isListed ? itemOf : leafOf),
         });
       }
     } else if (!inline(change.was) || !inline(change.now)) {

@@ -164,22 +164,20 @@ describe('what an expression evaluates to as text', () => {
 
 describe('sanitizing a payload for CEL', () => {
   it('keeps what an expression is meant to read', () => {
-    const value = sanitizedForCel({ a: 1, b: { c: 'x' }, d: [1, 2] }) as Record<
-      string,
-      unknown
-    >;
+    const value = sanitizedForCel({ a: 1, b: { c: 'x' }, d: [1, 2] });
 
-    expect(value.a).toBe(1);
-    expect(value.d).toEqual([1, 2]);
-    expect((value.b as Record<string, unknown>).c).toBe('x');
+    expect(value).toMatchObject({ a: 1, d: [1, 2], b: { c: 'x' } });
   });
 
   it('drops the names that go past a plain object', () => {
     const value = sanitizedForCel(
       JSON.parse('{"__proto__":{"polluted":true},"ok":1}'),
-    ) as Record<string, unknown>;
+    );
+    if (typeof value !== 'object' || value === null) {
+      throw new Error('expected an object');
+    }
 
-    expect(value.ok).toBe(1);
+    expect(value).toHaveProperty('ok', 1);
     expect(Object.keys(value)).toEqual(['ok']);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });

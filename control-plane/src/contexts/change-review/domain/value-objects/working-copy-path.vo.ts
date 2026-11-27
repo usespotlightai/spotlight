@@ -22,7 +22,7 @@ export class WorkingCopyPath {
     const parts = relative
       .trim()
       .split('/')
-      .filter((part) => part && part !== '.');
+      .filter((part) => part !== '' && part !== '.');
 
     if (parts.length === 0 || parts.includes('..')) {
       throw new InvalidFilePathError(
@@ -36,11 +36,7 @@ export class WorkingCopyPath {
   isWithin(repository: Repository): boolean {
     const [checkout, ...within] = this.value.split('/');
 
-    return (
-      within.length > 0 &&
-      checkout !== undefined &&
-      sameRepositoryName(checkout, repository.name)
-    );
+    return within.length > 0 && sameRepositoryName(checkout, repository.name);
   }
 
   withinRepository(repository: Repository): string {

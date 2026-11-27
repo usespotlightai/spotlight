@@ -30,7 +30,7 @@ describe('SHORTCUTS', () => {
     }
   });
 
-  it.each(SHORTCUT_IDS.filter((id) => shortcutOf(id).typing))(
+  it.each(SHORTCUT_IDS.filter((id) => shortcutOf(id).typing === true))(
     'keeps single keys without a modifier out of text fields: %s',
     (id) => {
       expect(

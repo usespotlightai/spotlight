@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OidcTrustsSection } from '@/components/features/oidc-trusts/OidcTrustsSection';
 
 const listed = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 const requested = vi.fn();
 

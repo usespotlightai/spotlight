@@ -1,4 +1,8 @@
-import type { JsonObject, JsonValue } from '@shared-kernel/domain/json-value';
+import {
+  isJsonValue,
+  type JsonObject,
+  type JsonValue,
+} from '@shared-kernel/domain/json-value';
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import {
@@ -32,8 +36,14 @@ const absent = (read: unknown): boolean =>
   read === null ||
   (typeof read === 'string' && read.trim() === '');
 
+const stringified = (value: unknown): string | undefined =>
+  JSON.stringify(value);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
 const shown = (value: unknown): string => {
-  const written = JSON.stringify(value) ?? String(value);
+  const written = stringified(value) ?? String(value);
 
   return written.length > MAX_SHOWN
     ? `${written.slice(0, MAX_SHOWN - 1)}…`
@@ -117,7 +127,7 @@ export class DeclaredTool {
       description,
       inputs,
       input.approval ?? null,
-      input.providedBy?.trim() || null,
+      (input.providedBy?.trim() ?? '') || null,
       input.inferredOutput ?? null,
       input.readOnly,
     );
@@ -177,11 +187,7 @@ export class DeclaredTool {
     value: unknown,
     defaultFor: (input: ToolInput) => unknown = () => undefined,
   ): ToolInputs {
-    const handed = (
-      value !== null && typeof value === 'object' && !Array.isArray(value)
-        ? value
-        : {}
-    ) as Record<string, unknown>;
+    const handed: Record<string, unknown> = isRecord(value) ? value : {};
     const takes = this.inputs.map((each) => each.name);
     const unknown = Object.keys(handed).filter((name) => !takes.includes(name));
 
@@ -228,7 +234,9 @@ export class DeclaredTool {
         );
       }
 
-      values[each.name] = coerced as JsonValue;
+      if (isJsonValue(coerced)) {
+        values[each.name] = coerced;
+      }
     }
 
     return ToolInputs.of(values);

@@ -9,6 +9,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -66,7 +67,7 @@ const setOf = (...proposals: MemoryProposal[]) =>
 const reacting = (set: MemoryProposalSet | null) => {
   const stored = new Map<string, DuplicateCheck>();
   let transactions = 0;
-  const checks = {
+  const checks = partial<DuplicateCheckRepository>({
     of: async (runId: RunId) => stored.get(runId.value) ?? null,
     ofTask: async () => [...stored.values()],
     add: async (check: DuplicateCheck) => {
@@ -77,13 +78,13 @@ const reacting = (set: MemoryProposalSet | null) => {
         stored.delete(check.runId.value);
       }
     },
-  } as unknown as DuplicateCheckRepository;
+  });
 
   return {
     stored,
     transactions: () => transactions,
     reactions: new DuplicateCheckReactions(
-      { forTask: async () => set } as unknown as MemoryProposalSetRepository,
+      partial<MemoryProposalSetRepository>({ forTask: async () => set }),
       checks,
       {
         inTransaction: <T>(work: () => Promise<T>) => {

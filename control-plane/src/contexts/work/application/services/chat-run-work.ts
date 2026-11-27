@@ -1,5 +1,6 @@
 import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { GitService } from '@work/application/dto/git-call.dto';
@@ -76,7 +77,7 @@ export class ChatRunWork implements RunWork {
       .defaultBranchNameOf(this.chat.workspaceId, repository)
       .catch(() => null);
 
-    if (!named) {
+    if (!nonEmpty(named)) {
       return `Spotlight could not read the default branch of ${repository.value} from GitHub, so it cannot check this push. Push again in a minute.`;
     }
 

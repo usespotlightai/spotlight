@@ -1,7 +1,8 @@
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 
 export interface ReviewTarget {
-  readonly reviewedPullRequest: unknown;
+  readonly reviewedPullRequest: PullRequestUrl | null;
 }
 
 export function assertAgentMayReview<T extends ReviewTarget>(

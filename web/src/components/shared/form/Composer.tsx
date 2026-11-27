@@ -61,7 +61,7 @@ export function Composer({
       className="flex flex-col gap-1 rounded-lg border-[0.5px] border-border bg-card px-2 pt-1.5 pb-1 shadow-xs"
     >
       <div className="flex gap-2">
-        {avatar && (
+        {Boolean(avatar) && (
           <div className="flex size-5 shrink-0 items-center justify-center *:size-5!">
             {avatar}
           </div>

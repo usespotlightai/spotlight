@@ -39,6 +39,6 @@ export class OAuth2Endpoint {
   }
 
   equals(other: OAuth2Endpoint): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof OAuth2Endpoint && this.value === other.value;
   }
 }

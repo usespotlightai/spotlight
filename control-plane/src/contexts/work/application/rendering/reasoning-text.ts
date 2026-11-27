@@ -11,7 +11,7 @@ const invocationFrom = (shell: string, start: number): string => {
 
     if (char === '\\' && quote !== "'") {
       at += 1;
-    } else if (quote) {
+    } else if (quote !== null) {
       quote = char === quote ? null : quote;
     } else if (char === '"' || char === "'") {
       quote = char;

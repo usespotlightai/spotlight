@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { InboxItemFooter } from '@/components/features/inbox/conversation/InboxItemFooter';
 import type { InboxItem } from '@/lib/inbox';
+import { partial } from '@/test/partial';
 
 const taskStation = {
   station: { id: 'station_build', name: 'Build' },
@@ -43,7 +44,7 @@ vi.mock('@/components/features/inbox/conversation/InboxComposer', () => ({
   InboxComposer: ({ station }: { station: string }) => <p>Answer {station}</p>,
 }));
 
-const ITEM = {
+const ITEM = partial<InboxItem>({
   id: 'task_1:0',
   taskId: 'task_1',
   teamId: 'team_1',
@@ -52,7 +53,7 @@ const ITEM = {
   standing: 'assignee',
   answerable: true,
   runId: null,
-} as InboxItem;
+});
 
 const showing = (
   item: InboxItem = ITEM,

@@ -1,5 +1,11 @@
 import type { WarmCheckout } from '@runs/domain/value-objects/warm-line.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+
+const setupOf = (checkout: WarmCheckout): string | null => {
+  const trimmed = checkout.setup?.trim();
+  return !nonEmpty(trimmed) ? null : trimmed;
+};
 
 const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -23,7 +29,7 @@ export class WarmFingerprint {
         checkouts: setup.checkouts
           .map((each) => ({
             path: each.path,
-            setup: each.setup?.trim() || null,
+            setup: setupOf(each),
           }))
           .sort((a, b) => byText(a.path, b.path)),
         labelGroups: placement.labelGroups
@@ -35,6 +41,6 @@ export class WarmFingerprint {
   }
 
   equals(other: WarmFingerprint): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof WarmFingerprint && this.value === other.value;
   }
 }

@@ -26,7 +26,9 @@ const summary = (
 });
 
 const imageOf = async (stored: PullRequestSummaryDto) => {
-  const summaries: PullRequestSummariesPort = { of: async () => [stored] };
+  const summaries: PullRequestSummariesPort = {
+    of: async () => [stored],
+  };
   const found = await new GitHubTaskPullRequestSummaries(summaries).of(
     WORKSPACE,
     [PullRequestUrl.of(URL)],

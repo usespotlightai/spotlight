@@ -13,7 +13,6 @@ import {
   type PullRequestType,
 } from '@/lib/insights-pull-requests';
 import {
-  PERCENTILES,
   type Percentile,
   ROUNDS,
   type StationStage,
@@ -40,6 +39,15 @@ import {
   toMergeOf,
 } from '@/mocks/world/insights-pull-requests';
 import { profilesOfTeam } from '@/mocks/world/insights-tally';
+
+const perPercentile = <T>(
+  each: (percentile: Percentile) => T,
+): Record<Percentile, T> => ({
+  p50: each('p50'),
+  p75: each('p75'),
+  p90: each('p90'),
+  p95: each('p95'),
+});
 
 const PERCENTILE_MS = {
   p50: 'p50Ms',
@@ -77,16 +85,13 @@ const changesOf = (
   before: ByAuthorResponseDto,
 ): ByAuthorChangesResponseDto => {
   const of = (author: 'spotlight' | 'people') =>
-    Object.fromEntries(
-      PERCENTILES.map((percentile) => [
-        percentile,
-        changeOf(
-          now[author][PERCENTILE_MS[percentile]],
-          before[author][PERCENTILE_MS[percentile]],
-          'down',
-        ),
-      ]),
-    ) as ByAuthorChangesResponseDto['spotlight'];
+    perPercentile((percentile) =>
+      changeOf(
+        now[author][PERCENTILE_MS[percentile]],
+        before[author][PERCENTILE_MS[percentile]],
+        'down',
+      ),
+    );
 
   return { spotlight: of('spotlight'), people: of('people') };
 };
@@ -194,12 +199,9 @@ const withBottleneckRatios = (
     type: PullRequestType | null,
   ): StageTimesResponseDto => {
     const of = <T>(each: (stageMs: number[]) => T) =>
-      Object.fromEntries(
-        PERCENTILES.map((percentile) => [
-          percentile,
-          each(stages.map((stage) => totalOf(stage, percentile, type))),
-        ]),
-      ) as Record<Percentile, T>;
+      perPercentile((percentile) =>
+        each(stages.map((stage) => totalOf(stage, percentile, type))),
+      );
 
     return {
       ...times,
@@ -230,7 +232,10 @@ const reviewStages = (merged: readonly PullRequestFact[]) => {
       return value === null ? [] : [{ type: fact.type, ms: value }];
     });
   const inReview = (fact: PullRequestFact) =>
-    fact.firstReviewAt && fact.closedAt
+    fact.firstReviewAt !== null &&
+    fact.firstReviewAt !== 0 &&
+    fact.closedAt !== null &&
+    fact.closedAt !== 0
       ? fact.closedAt - fact.firstReviewAt
       : null;
   const awaitingMerge = (fact: PullRequestFact) => {
@@ -251,7 +256,9 @@ const reviewStages = (merged: readonly PullRequestFact[]) => {
 
   return [
     stage('awaitingReview', (fact) =>
-      fact.firstReviewAt ? fact.firstReviewAt - fact.openedAt : null,
+      fact.firstReviewAt !== null && fact.firstReviewAt !== 0
+        ? fact.firstReviewAt - fact.openedAt
+        : null,
     ),
     stage('inReview', (fact) => {
       const reviewing = inReview(fact);
@@ -418,7 +425,9 @@ export const shippingOf = (
             const window = dayWindow(day);
             const firstReviewed = (inWindow: Window) =>
               facts.flatMap((fact) =>
-                fact.firstReviewAt && within(fact.firstReviewAt, inWindow)
+                fact.firstReviewAt !== null &&
+                fact.firstReviewAt !== 0 &&
+                within(fact.firstReviewAt, inWindow)
                   ? [fact.firstReviewAt - fact.openedAt]
                   : [],
               );
@@ -439,7 +448,9 @@ export const shippingOf = (
                 facts
                   .filter(
                     (fact) =>
-                      fact.firstReviewAt && within(fact.firstReviewAt, window),
+                      fact.firstReviewAt !== null &&
+                      fact.firstReviewAt !== 0 &&
+                      within(fact.firstReviewAt, window),
                   )
                   .map((fact) => Math.max(1, fact.reviewRounds)),
               ),

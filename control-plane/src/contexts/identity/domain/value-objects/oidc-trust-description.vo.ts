@@ -19,6 +19,6 @@ export class OidcTrustDescription {
   }
 
   equals(other: OidcTrustDescription): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof OidcTrustDescription && this.value === other.value;
   }
 }

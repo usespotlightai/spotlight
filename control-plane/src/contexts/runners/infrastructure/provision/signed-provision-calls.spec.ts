@@ -7,7 +7,7 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { SignedProvisionCalls } from '@runners/infrastructure/provision/signed-provision-calls';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, type Mock, vi } from 'vitest';
 
 const SECRET = SigningSecret.of(
   `whsec_${Buffer.from('k'.repeat(32)).toString('base64')}`,
@@ -36,14 +36,50 @@ const calling = (
   egress: null,
 });
 
-const sentData = (sent: { body: string }) =>
-  (JSON.parse(sent.body) as { data: Record<string, unknown> }).data;
+type Fetch = typeof globalThis.fetch;
+
+interface SentRequest {
+  readonly url: string;
+  readonly headers: Record<string, string>;
+  readonly body: string;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const firstSent = (fetch: Mock<Fetch>): SentRequest => {
+  if (fetch.mock.calls.length === 0) {
+    throw new Error('expected a provision call');
+  }
+  const [url, init] = fetch.mock.calls[0];
+  const headers = init?.headers;
+  if (
+    typeof url !== 'string' ||
+    typeof init?.body !== 'string' ||
+    headers === undefined ||
+    headers instanceof Headers ||
+    Array.isArray(headers)
+  ) {
+    throw new Error('expected a signed provision call');
+  }
+
+  return { url, headers, body: init.body };
+};
+
+const sentData = (sent: SentRequest): Record<string, unknown> => {
+  const parsed: unknown = JSON.parse(sent.body);
+  if (!isRecord(parsed) || !isRecord(parsed.data)) {
+    throw new Error('expected a provision call with data');
+  }
+
+  return parsed.data;
+};
 
 const calls = (
   answer: () => Promise<Response>,
   settings: { hosts?: string[]; workspaceHosts?: string[] } = {},
 ) => {
-  const fetch = vi.fn(answer);
+  const fetch = vi.fn<Fetch>(answer);
 
   return {
     fetch,
@@ -114,10 +150,8 @@ describe('SignedProvisionCalls', () => {
       outcome: 'accepted',
     });
 
-    const [url, sent] = fetch.mock.calls[0] as unknown as [
-      string,
-      RequestInit & { headers: Record<string, string>; body: string },
-    ];
+    const sent = firstSent(fetch);
+    const { url } = sent;
     const signed = `${sent.headers['webhook-id']}.${sent.headers['webhook-timestamp']}.${sent.body}`;
 
     expect(url).toBe('https://provision.example.com/runs');
@@ -155,10 +189,7 @@ describe('SignedProvisionCalls', () => {
       tags: {},
     });
 
-    const [, sent] = fetch.mock.calls[0] as unknown as [
-      string,
-      RequestInit & { body: string },
-    ];
+    const sent = firstSent(fetch);
 
     expect(sentData(sent)).toMatchObject({
       kind: 'check',
@@ -180,10 +211,7 @@ describe('SignedProvisionCalls', () => {
       tags: {},
     });
 
-    const [, sent] = fetch.mock.calls[0] as unknown as [
-      string,
-      RequestInit & { body: string },
-    ];
+    const sent = firstSent(fetch);
 
     expect(sentData(sent)).toMatchObject({
       kind: 'diff',
@@ -200,10 +228,7 @@ describe('SignedProvisionCalls', () => {
 
     await provision.call({ ...calling(), image: null });
 
-    const [, sent] = fetch.mock.calls[0] as unknown as [
-      string,
-      RequestInit & { body: string },
-    ];
+    const sent = firstSent(fetch);
 
     expect(sentData(sent).image).toBeNull();
   });
@@ -222,10 +247,7 @@ describe('SignedProvisionCalls', () => {
       },
     });
 
-    const [, sent] = fetch.mock.calls[0] as unknown as [
-      string,
-      RequestInit & { body: string },
-    ];
+    const sent = firstSent(fetch);
 
     expect(sentData(sent).runner).toEqual({
       id: 'runner_1',

@@ -11,6 +11,7 @@ import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposa
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -21,6 +22,7 @@ import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import {
   connected,
@@ -83,13 +85,13 @@ const writing = async (
   as: string,
   body: Record<string, unknown>,
 ): Promise<Recalled> =>
-  (
+  bodyOf<Recalled>(
     await http()
       .post(`/api/teams/${teamId}/memories`)
       .set(TEST_USER_HEADER, as)
       .send({ kind: 'rationale', ...body })
-      .expect(201)
-  ).body as Recalled;
+      .expect(201),
+  );
 
 const journalled = async (seq: number, event: HarnessEvent) => {
   await http()
@@ -145,14 +147,12 @@ const claimed = async (host = HOST): Promise<string> => {
     })
     .expect(200);
 
-  return (
-    (
-      await http()
-        .post('/api/hosts/claim')
-        .set('Authorization', `Bearer ${POOL_TOKEN}`)
-        .send({ host, image: IMAGE })
-        .expect(200)
-    ).body as { token: string }
+  return bodyOf<{ token: string }>(
+    await http()
+      .post('/api/hosts/claim')
+      .set('Authorization', `Bearer ${POOL_TOKEN}`)
+      .send({ host, image: IMAGE })
+      .expect(200),
   ).token;
 };
 
@@ -253,7 +253,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 describe('recalling what the team remembers from inside a run', () => {
@@ -276,13 +276,13 @@ describe('recalling what the team remembers from inside a run', () => {
       kind: 'preference',
       body: 'Name branches after people.',
     });
-    corrected = (
+    corrected = bodyOf<Recalled>(
       await http()
         .post(`/api/teams/${team.teamId.value}/memories/${wrong.id}/edit`)
         .set(TEST_USER_HEADER, team.owner.value)
         .send({ kind: 'preference', body: 'Name branches after the ticket.' })
-        .expect(201)
-    ).body as Recalled;
+        .expect(201),
+    );
     await writing(other.teamId.value, other.owner.value, {
       body: 'Uploads go through the other team’s gateway.',
     });
@@ -330,10 +330,10 @@ describe('recalling what the team remembers from inside a run', () => {
     const found = await recall('upload');
 
     expect(found.status).toBe(200);
-    expect((found.body as Recalled[]).map((each) => each.body)).toEqual([
+    expect(bodyOf<Recalled[]>(found).map((each) => each.body)).toEqual([
       'Uploads retry in the request, never from a queue.',
     ]);
-    expect((found.body as Recalled[])[0]?.handle).toBe(active.handle);
+    expect(bodyOf<Recalled[]>(found)[0]?.handle).toBe(active.handle);
   });
 
   it('prints one memory in full by its handle, with the memory it replaced', async () => {
@@ -346,7 +346,7 @@ describe('recalling what the team remembers from inside a run', () => {
       status: 'active',
       superseded: { body: 'Name branches after people.' },
     });
-    expect((read.body as Recalled).superseded?.handle).toMatch(/^M-\d+$/);
+    expect(bodyOf<Recalled>(read).superseded?.handle).toMatch(/^M-\d+$/);
   });
 
   it('knows no memory of another team by its handle, and rejects what is not a handle', async () => {
@@ -363,33 +363,35 @@ describe('recalling what the team remembers from inside a run', () => {
     const old = await writing(team.teamId.value, team.owner.value, {
       body: 'Deploys wait for the canary.',
     });
-    const [correction] = await db
-      .insert(schema.memory)
-      .values({
-        id: randomUUID(),
-        handle: sql`nextval('memory_handle_seq')`,
-        workspaceId: team.workspaceId.value,
-        kind: 'rationale',
-        body: 'Deploys wait for the canary to become stable.',
-        teamId: team.teamId.value,
-        paths: [],
-        source: 'person',
-        supersedes: old.id,
-        approvedById: team.owner.value,
-        approvedAt: new Date(),
-      })
-      .returning({ handle: schema.memory.handle });
+    const correction = firstOf(
+      await db
+        .insert(schema.memory)
+        .values({
+          id: randomUUID(),
+          handle: sql`nextval('memory_handle_seq')`,
+          workspaceId: team.workspaceId.value,
+          kind: 'rationale',
+          body: 'Deploys wait for the canary to become stable.',
+          teamId: team.teamId.value,
+          paths: [],
+          source: 'person',
+          supersedes: old.id,
+          approvedById: team.owner.value,
+          approvedAt: new Date(),
+        })
+        .returning({ handle: schema.memory.handle }),
+    );
 
     expect(
-      ((await recall('canary')).body as Recalled[]).map((each) => each.body),
+      bodyOf<Recalled[]>(await recall('canary')).map((each) => each.body),
     ).toEqual(['Deploys wait for the canary to become stable.']);
 
-    const files = (
+    const files = bodyOf<{ path: string }[]>(
       await http()
         .get(`/api/runs/${runId}/memory-files`)
         .set('Authorization', `Bearer ${token}`)
-        .expect(200)
-    ).body as { path: string }[];
+        .expect(200),
+    );
 
     expect(
       files.some((each) => each.path.endsWith(`/M-${correction?.handle}.md`)),
@@ -457,14 +459,12 @@ describe('recalling from inside a trial of a run', () => {
     );
     const trialToken = await claimed(`${HOST}-trial`);
     const bodiesFound = async (as: string, of: string) =>
-      (
-        (
-          await http()
-            .post(`/api/runs/${of}/memories/recall`)
-            .set('Authorization', `Bearer ${as}`)
-            .send({ words: 'keyring' })
-            .expect(200)
-        ).body as Recalled[]
+      bodyOf<Recalled[]>(
+        await http()
+          .post(`/api/runs/${of}/memories/recall`)
+          .set('Authorization', `Bearer ${as}`)
+          .send({ words: 'keyring' })
+          .expect(200),
       ).map((each) => each.body);
 
     expect(await bodiesFound(trialToken, trialId)).toEqual([
@@ -492,7 +492,7 @@ describe('remembering from inside a run', () => {
       repository: 'acme/api',
       paths: ['src/uploads'],
     });
-    expect((proposed.body as Proposed).steps.map((each) => each.kind)).toEqual([
+    expect(bodyOf<Proposed>(proposed).steps.map((each) => each.kind)).toEqual([
       'remember',
     ]);
 
@@ -503,22 +503,20 @@ describe('remembering from inside a run', () => {
       .set(TEST_USER_HEADER, team.owner.value)
       .expect(200);
     expect(
-      (review.body as { memories: Proposed[] }).memories.map(
+      bodyOf<{ memories: Proposed[] }>(review).memories.map(
         (each) => each.body,
       ),
     ).toContain('Uploads retry in the request.');
 
     await eventually(async () => {
-      const items = (
-        (
-          await http()
-            .get(`/api/workspaces/${team.slug}/inbox`)
-            .set(TEST_USER_HEADER, team.owner.value)
-        ).body as {
-          readonly items: {
-            inboxRequest: { form: string; about: string } | null;
-          }[];
-        }
+      const items = bodyOf<{
+        readonly items: {
+          inboxRequest: { form: string; about: string } | null;
+        }[];
+      }>(
+        await http()
+          .get(`/api/workspaces/${team.slug}/inbox`)
+          .set(TEST_USER_HEADER, team.owner.value),
       ).items;
 
       return items.some(
@@ -533,13 +531,13 @@ describe('remembering from inside a run', () => {
     const first = await remember({ body: 'Staging needs a restart.' });
     const again = await remember({ body: 'Staging needs a restart.' });
 
-    expect((again.body as Proposed).id).toBe((first.body as Proposed).id);
+    expect(bodyOf<Proposed>(again).id).toBe(bodyOf<Proposed>(first).id);
   });
 
   it('recalls an approved memory with the steps it cites, which the team’s own read leaves out', async () => {
-    const proposed = (
-      await remember({ body: 'Webhooks retry with backoff.' }).expect(201)
-    ).body as Proposed;
+    const proposed = bodyOf<Proposed>(
+      await remember({ body: 'Webhooks retry with backoff.' }).expect(201),
+    );
     const review = `/api/teams/${team.teamId.value}/tasks/${team.list.id.value}/runs/${runId}/memories`;
     await http()
       .post(`${review}/approve`)
@@ -547,12 +545,10 @@ describe('remembering from inside a run', () => {
       .send({ memories: [{ id: proposed.id }] })
       .expect(200);
     const approved = await eventually(async () =>
-      (
-        (
-          await http()
-            .get(`/api/teams/${team.teamId.value}/memories`)
-            .set(TEST_USER_HEADER, team.owner.value)
-        ).body as Recalled[]
+      bodyOf<Recalled[]>(
+        await http()
+          .get(`/api/teams/${team.teamId.value}/memories`)
+          .set(TEST_USER_HEADER, team.owner.value),
       ).find((each) => each.body === 'Webhooks retry with backoff.'),
     );
 
@@ -564,7 +560,7 @@ describe('remembering from inside a run', () => {
 
     expect(recalled.status).toBe(200);
     expect(
-      (recalled.body as { steps: Proposed['steps'] }).steps.map(
+      bodyOf<{ steps: Proposed['steps'] }>(recalled).steps.map(
         (each) => each.kind,
       ),
     ).toEqual(['remember']);
@@ -582,11 +578,11 @@ describe('remembering from inside a run', () => {
     });
 
     expect(gossip.status).toBe(422);
-    expect((gossip.body as { message: string }).message).toContain(
+    expect(bodyOf<{ message: string }>(gossip).message).toContain(
       'rationale, rejected-approach, failure, environment, preference, correction',
     );
     expect(elsewhere.status).toBe(422);
-    expect((elsewhere.body as { message: string }).message).toContain('(api)');
+    expect(bodyOf<{ message: string }>(elsewhere).message).toContain('(api)');
   });
 });
 
@@ -602,7 +598,7 @@ describe('forgetting from inside a run', () => {
       body: 'Deploys need the worker restarted by hand.',
     });
     expect(
-      ((await recall('worker restarted')).body as Recalled[]).map(
+      bodyOf<Recalled[]>(await recall('worker restarted')).map(
         (each) => each.id,
       ),
     ).toContain(memory.id);
@@ -628,12 +624,12 @@ describe('forgetting from inside a run', () => {
         `/api/teams/${team.teamId.value}/tasks/${team.list.id.value}/runs/${runId}/memories/approve`,
       )
       .set(TEST_USER_HEADER, team.owner.value)
-      .send({ memories: [{ id: (proposed.body as Proposed).id }] })
+      .send({ memories: [{ id: bodyOf<Proposed>(proposed).id }] })
       .expect(200);
 
     await eventually(
       async () =>
-        ((await recall('worker restarted')).body as Recalled[]).length === 0,
+        bodyOf<Recalled[]>(await recall('worker restarted')).length === 0,
     );
   });
 
@@ -681,11 +677,11 @@ describe('what the run remembered, as a person sees it', () => {
     const read = await remembered();
 
     expect(read.status).toBe(200);
-    const body = read.body as {
+    const body = bodyOf<{
       briefed: Recalled[];
       recalled: Recalled[];
       proposed: Proposed[];
-    };
+    }>(read);
     expect(body.briefed).toEqual([]);
     expect(body.recalled.map((each) => each.body)).toEqual(
       expect.arrayContaining([
@@ -702,7 +698,7 @@ describe('what the run remembered, as a person sees it', () => {
   });
 
   it('retires a memory found wrong, so the run no longer finds it', async () => {
-    const [recalled] = (await recall('upload')).body as Recalled[];
+    const recalled = firstOf(bodyOf<Recalled[]>(await recall('upload')));
 
     await http()
       .post(`/api/teams/${team.teamId.value}/memories/${recalled?.id}/retire`)
@@ -710,8 +706,8 @@ describe('what the run remembered, as a person sees it', () => {
       .send({ reason: 'This was wrong: uploads retry from the worker now.' })
       .expect(200);
 
-    expect(((await recall('upload')).body as Recalled[]).length).toBe(0);
-    const after = (await remembered()).body as { recalled: Recalled[] };
+    expect(bodyOf<Recalled[]>(await recall('upload')).length).toBe(0);
+    const after = bodyOf<{ recalled: Recalled[] }>(await remembered());
     expect(
       after.recalled.find((each) => each.id === recalled?.id)?.status,
     ).toBe('retired');
@@ -733,12 +729,12 @@ describe('the team’s memory laid out in the run’s workspace', () => {
   }
 
   const filesOf = async (): Promise<MemoryFile[]> =>
-    (
+    bodyOf<MemoryFile[]>(
       await http()
         .get(`/api/runs/${runId}/memory-files`)
         .set('Authorization', `Bearer ${token}`)
-        .expect(200)
-    ).body as MemoryFile[];
+        .expect(200),
+    );
 
   it('includes every active memory that applies to the run, and none of another line or team', async () => {
     const elsewhere = await writing(team.teamId.value, team.owner.value, {
@@ -777,8 +773,10 @@ describe('the team’s memory laid out in the run’s workspace', () => {
   });
 
   it('counts a memory file the run read as recalled once the run ends', async () => {
-    const [file] = (await filesOf()).filter((each) =>
-      each.path.startsWith('.spotlight/memory/team/'),
+    const file = firstOf(
+      (await filesOf()).filter((each) =>
+        each.path.startsWith('.spotlight/memory/team/'),
+      ),
     );
     const handle = file?.path.split('/').pop()?.replace('.md', '');
 
@@ -798,11 +796,11 @@ describe('the team’s memory laid out in the run’s workspace', () => {
       .expect(204);
 
     const recalled = await eventually(async () => {
-      const read = (
+      const read = bodyOf<{ recalled: Recalled[] }>(
         await http()
           .get(`/api/teams/${team.teamId.value}/runs/${runId}/memories`)
-          .set(TEST_USER_HEADER, team.owner.value)
-      ).body as { recalled: Recalled[] };
+          .set(TEST_USER_HEADER, team.owner.value),
+      );
       return (
         read.recalled.some((each) => each.handle === handle) && read.recalled
       );

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 
 import { WithTooltip } from '@/components/shared/WithTooltip';
+import { nonEmpty } from '@/lib/non-empty';
 import { formatState, type ReplayState, stateNote } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
@@ -28,7 +29,9 @@ export function ReplayStateIcon({ state }: { state: ShownState }) {
 
   return (
     <WithTooltip
-      tooltip={note ? `${formatState(state)}. ${note}` : formatState(state)}
+      tooltip={
+        nonEmpty(note) ? `${formatState(state)}. ${note}` : formatState(state)
+      }
     >
       <span className="inline-flex shrink-0">
         <Icon

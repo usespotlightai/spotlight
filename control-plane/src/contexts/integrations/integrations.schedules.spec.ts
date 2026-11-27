@@ -32,6 +32,9 @@ import {
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -39,15 +42,15 @@ import { describe, expect, it, vi } from 'vitest';
 const expressions = new CelExpressionEngine();
 
 const runtimeWith = (
-  outbound: unknown,
-  exchange: unknown = {},
+  outbound: Partial<HttpOutbound>,
+  exchange: Partial<OAuth2Exchange> = {},
   clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsContaining()),
-    outbound as HttpOutbound,
+    partial<HttpOutbound>(outbound),
     clients,
-    exchange as OAuth2Exchange,
+    partial<OAuth2Exchange>(exchange),
     discoveringNothing(),
     callingNoServer(),
     unlimited,
@@ -96,14 +99,14 @@ const scheduling = (
   injection: SecretInjectionPort = injecting().injection,
 ) =>
   new RunSchedules(
-    {
+    partial<DefinedIntegrationsPort>({
       everywhere: async () => [config(file)],
-    } as unknown as DefinedIntegrationsPort,
+    }),
     runtimeWith({ run }),
     callAuthFor(injection),
     cursors,
     cronCalendar,
-    { now: () => now } as ClockPort,
+    partial<ClockPort>({ now: () => now }),
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
 
@@ -192,7 +195,7 @@ describe('RunSchedules', () => {
       injection,
     ).runDue();
 
-    const credentials = run.mock.calls[0]?.[2] as Credentials;
+    const credentials = present(firstOf(run.mock.calls)?.[2]);
     await credentials.injectedFor('https://api.linear.app/digest', [
       SecretName.of('LINEAR_TOKEN'),
     ]);

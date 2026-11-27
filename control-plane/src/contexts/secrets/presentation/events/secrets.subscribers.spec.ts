@@ -18,17 +18,20 @@ import {
   transaction,
   WORKSPACE,
 } from '@secrets/testing/secrets.fakes.fake-spec';
-import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
+import {
+  WORKSPACE_DELETED,
+  type WorkspaceDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const deletedWorkspace = {
+const deletedWorkspace: WorkspaceDeletedIntegrationEvent = {
   kind: WORKSPACE_DELETED,
   workspaceId: WORKSPACE.value,
   slug: 'acme',
-} as never;
+};
 
 const setUp = async () => {
   const store = new InMemoryStore();

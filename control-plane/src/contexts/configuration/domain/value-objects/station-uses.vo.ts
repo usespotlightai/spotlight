@@ -1,3 +1,4 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 
@@ -43,10 +44,10 @@ export class StationUses<K extends UsedKey<K>> {
 
   equals(other: StationUses<K>): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof StationUses &&
       this.uses.length === other.uses.length &&
       this.uses.every((each, index) => {
-        const theirs = other.uses[index];
+        const theirs = itemAt(other.uses, index);
 
         return (
           theirs !== undefined &&

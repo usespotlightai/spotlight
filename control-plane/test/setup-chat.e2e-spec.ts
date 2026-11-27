@@ -8,6 +8,8 @@ import { DrizzleWorkspaceTokenRepository } from '@identity/infrastructure/persis
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -128,7 +130,7 @@ describe('setting a team up as code (e2e)', () => {
     expect(found?.setup?.folder).toBe('spotlight');
 
     await chats().save(
-      (found as Chat).openSetup(
+      present(found).openSetup(
         RunId.of(runId),
         PullRequestUrl.of(PULL_REQUEST),
         NOW,
@@ -163,16 +165,18 @@ describe('setting a team up as code (e2e)', () => {
 
     expect((await exported(issued.token)).status).toBe(200);
 
-    const [row] = await db
-      .select()
-      .from(schema.workspaceToken)
-      .where(eq(schema.workspaceToken.id, issued.id));
+    const row = firstOf(
+      await db
+        .select()
+        .from(schema.workspaceToken)
+        .where(eq(schema.workspaceToken.id, issued.id)),
+    );
     expect(row?.tokenHash).not.toBe(issued.token);
     expect(row?.runAttempt).toBe(1);
 
     await runTokens().revokeFor(
       WorkspaceId.of(workspaceId),
-      RunId.of(row?.runId as string),
+      RunId.of(present(row?.runId)),
       null,
     );
 

@@ -51,13 +51,13 @@ import {
   concludedAll,
   endOf,
   FINGERPRINT,
-  LIVE_FINGERPRINT,
+  JUDGE,
   later,
+  LIVE_FINGERPRINT,
   measuresOf,
   NOW,
-  JUDGE,
-  STATION,
   slots,
+  STATION,
 } from '@replays/domain/replays.fake-spec';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { REPLAY_RUNS_AT_ONCE } from '@replays/domain/services/replay-dispatch';
@@ -70,6 +70,9 @@ import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -79,12 +82,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 let memory: InMemoryReplays;
 let suppliers: FakeSuppliers;
 
-const LOGGER = {
+const LOGGER: LoggerPort = {
   debug: () => {},
   info: () => {},
   warn: () => {},
   error: () => {},
-} as never;
+};
 
 const dispatching = () =>
   new DispatchReplayRuns(
@@ -242,10 +245,10 @@ describe('DispatchReplayRuns when Work fails', () => {
     await dispatching().processDue();
 
     const [first, second] = memory.replays.get('replay_1')?.entries ?? [];
-    expect(first?.queueAttempts).toBe(1);
-    expect(first?.queued).toBe(false);
-    expect(second?.queued).toBe(true);
-    expect(second?.fingerprint).not.toBeNull();
+    expect(first.queueAttempts).toBe(1);
+    expect(first.queued).toBe(false);
+    expect(second.queued).toBe(true);
+    expect(second.fingerprint).not.toBeNull();
   });
 
   const conflictingFrom = (first: number, count: number) => {
@@ -334,7 +337,7 @@ describe('DispatchReplayRuns when Work fails', () => {
     await dispatching().processDue();
     const replay = memory.replays.get('replay_1');
     await memory.replayRepository.save(
-      (replay as NonNullable<typeof replay>).stop(later(1), BY, 'search-ended'),
+      present(replay).stop(later(1), BY, 'search-ended'),
     );
     const queuedRun =
       memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
@@ -373,8 +376,8 @@ describe('DispatchReplayRuns when Work fails', () => {
       suppliers.dispatch.cancelled.map((each) => each.leaveRunAsIs),
     ).toEqual([true, true]);
     const [first, second] = memory.replays.get('replay_1')?.entries ?? [];
-    expect(first?.unreplayableReason).toBe('dispatch-failed');
-    expect(second?.queued).toBe(true);
+    expect(first.unreplayableReason).toBe('dispatch-failed');
+    expect(second.queued).toBe(true);
     expect(memory.replays.get('replay_1')?.occupying).toHaveLength(1);
   });
 });
@@ -648,9 +651,7 @@ describe('HoldSetStartingPoints', () => {
     expect(suppliers.holds.held.has('replay-set:set_1')).toBe(false);
 
     await startingPointHolds.changed(set.id);
-    await memory.setRepository.save(
-      (memory.sets.get('set_1') as typeof set).delete(),
-    );
+    await memory.setRepository.save(present(memory.sets.get('set_1')).delete());
     await startingPointHolds.changed(set.id);
     expect(suppliers.holds.held.has('replay-set:set_1')).toBe(false);
   });
@@ -773,7 +774,7 @@ describe('DeleteReplayRunDecisions', () => {
     await decisions.add(decidedIn('run_2', 'replay_1'));
     const loaded = await decisions.ofReplay(ReplayId.of('replay_1'));
     decisions.ofReplay = async () => loaded;
-    const [gone, changed] = loaded as [ReplayRunDecision, ReplayRunDecision];
+    const [gone, changed] = loaded;
     await decisions.save(gone.delete());
     await decisions.save(changed.cancelled());
 
@@ -896,11 +897,11 @@ describe('scoring a replayed task', () => {
 
     const [judging] = [...changeJudgings.stored.values()];
     expect(changeJudgings.stored.size).toBe(1);
-    expect(judging?.runId).toEqual(RunId.of(run));
-    expect(judging?.workspaceId).toEqual(STATION.workspaceId);
-    expect(judging?.teamId).toEqual(STATION.teamId);
-    expect(judging?.criteria.equals(JUDGE)).toBe(true);
-    expect(judging?.reference).toEqual(RunId.of('original_0'));
+    expect(judging.runId).toEqual(RunId.of(run));
+    expect(judging.workspaceId).toEqual(STATION.workspaceId);
+    expect(judging.teamId).toEqual(STATION.teamId);
+    expect(judging.criteria.equals(JUDGE)).toBe(true);
+    expect(judging.reference).toEqual(RunId.of('original_0'));
   });
 
   it('requests judging on the claims alone when people did not accept the original’s change', async () => {
@@ -908,9 +909,12 @@ describe('scoring a replayed task', () => {
 
     await completed(run);
     await requestingJudging().requested(
-      memory.events.find(
-        (each) => each.kind === 'replay.judging-requested',
-      ) as ReplayJudgingRequested,
+      present(
+        memory.events.find(
+          (each): each is ReplayJudgingRequested =>
+            each.kind === 'replay.judging-requested',
+        ),
+      ),
     );
 
     expect([...changeJudgings.stored.values()][0]?.reference).toBeNull();
@@ -1095,7 +1099,7 @@ describe('probing a set', () => {
       ),
     }).reserving(slots(2), () => RunId.of(`calibration_run_${next++}`));
     const finished = reserved.entries.reduce((built, entry) => {
-      const run = entry.run as RunId;
+      const run = present(entry.run);
 
       return built
         .confirm(run, FINGERPRINT, NOW)
@@ -1120,8 +1124,8 @@ describe('probing a set', () => {
     await memory.replayRepository.add(finished);
   };
 
-  const wanted = <T>(kind: string): T[] =>
-    memory.events.filter((each) => each.kind === kind) as T[];
+  const wanted = <T extends DomainEvent>(kind: string): T[] =>
+    memory.events.filter((each): each is T => each.kind === kind);
 
   const entries = () => memory.replays.get('replay_calibration')?.entries ?? [];
 

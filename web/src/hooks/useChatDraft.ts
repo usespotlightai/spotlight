@@ -70,7 +70,10 @@ export function useChatDraft(
 ): DraftHandle {
   const storageKey = `${CHAT_DRAFTS_KEY}.${slug}`;
   const [start] = useState(() => {
-    const saved = parseDrafts(readStored(storageKey))[draftKey];
+    const drafts: Partial<Record<string, ChatDraft>> = parseDrafts(
+      readStored(storageKey),
+    );
+    const saved = drafts[draftKey];
     const resumed = saved !== undefined && saved.prefill === prefill;
     const { kept, expired } = expiredUploads(
       resumed ? saved.attachments : [],

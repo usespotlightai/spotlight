@@ -3,6 +3,7 @@ import {
   decoded,
   type Journalled,
 } from '@runs/infrastructure/journal/journalled';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 const HARNESS_EVENTS_VERSION = 1;
 
@@ -185,32 +186,6 @@ export const HARNESS_EVENT_TYPES: ReadonlySet<string> =
 
 export const HARNESS_FRAME = 'harness.frame';
 
-const parsed = (data: string | null): Record<string, unknown> | null => {
-  if (!data) {
-    return null;
-  }
-  try {
-    const value: unknown = JSON.parse(decoded(data));
-    return typeof value === 'object' && value !== null && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-};
-
-export const harnessConnectedOf = (
-  event: Pick<Journalled, 'data'>,
-): HarnessConnected | null => {
-  const data = parsed(event.data);
-
-  return data &&
-    typeof data.protocol === 'string' &&
-    data.events === HARNESS_EVENTS_VERSION
-    ? (data as unknown as HarnessConnected)
-    : null;
-};
-
 type Data = Record<string, unknown>;
 
 const isString = (value: unknown): value is string => typeof value === 'string';
@@ -220,6 +195,32 @@ const isNumber = (value: unknown): value is number =>
 
 const isObject = (value: unknown): value is Data =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const parsed = (data: string | null): Data | null => {
+  if (!nonEmpty(data)) {
+    return null;
+  }
+  try {
+    const value: unknown = JSON.parse(decoded(data));
+    return isObject(value) ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+const isHarnessConnected = (data: object): data is HarnessConnected =>
+  'protocol' in data &&
+  typeof data.protocol === 'string' &&
+  'events' in data &&
+  data.events === HARNESS_EVENTS_VERSION;
+
+export const harnessConnectedOf = (
+  event: Pick<Journalled, 'data'>,
+): HarnessConnected | null => {
+  const data = parsed(event.data);
+
+  return data !== null && isHarnessConnected(data) ? data : null;
+};
 
 const listOf =
   (each: (item: Data) => boolean) =>
@@ -277,6 +278,12 @@ const READABLE: Readonly<Record<HarnessEventType, (data: Data) => boolean>> = {
 const isHarnessEventType = (type: string): type is HarnessEventType =>
   HARNESS_EVENT_TYPES.has(type);
 
+const isReadable = (candidate: {
+  readonly type: HarnessEventType;
+  readonly data: object;
+}): candidate is HarnessEvent =>
+  isObject(candidate.data) && READABLE[candidate.type](candidate.data);
+
 export const harnessEventOf = (
   event: Pick<Journalled, 'type' | 'data'>,
 ): HarnessEvent | null => {
@@ -286,7 +293,11 @@ export const harnessEventOf = (
 
   const data = parsed(event.data);
 
-  return data && READABLE[event.type](data)
-    ? ({ type: event.type, data } as unknown as HarnessEvent)
-    : null;
+  if (data === null) {
+    return null;
+  }
+
+  const candidate = { type: event.type, data };
+
+  return isReadable(candidate) ? candidate : null;
 };

@@ -10,6 +10,7 @@ import { useTaskReview } from '@/hooks/api/useTaskReview';
 import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { useChangeStackTrail } from '@/hooks/useChangeStackTrail';
 import { notFound } from '@/lib/error';
+import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { runPath } from '@/lib/run';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -24,7 +25,7 @@ export function RunChangeStack() {
   const run = found.data;
   const { trail, forward } = useTrail(useChangeStackTrail(slug, teamId, run));
 
-  if (!slug || !teamId || !runId) {
+  if (!nonEmpty(slug) || !nonEmpty(teamId) || !nonEmpty(runId)) {
     return null;
   }
 

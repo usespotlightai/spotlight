@@ -12,7 +12,9 @@ import {
   redactInjected,
 } from '@integrations/infrastructure/outbound/secret-injection';
 import { SpecUnreadable } from '@integrations/infrastructure/specs/operation-record';
+import { causeOf, fieldOf } from '@platform/json/field-of';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 type Fetch = typeof globalThis.fetch;
@@ -47,8 +49,8 @@ export class SpecUnauthorized extends SpecUnreadable {
 const hostOf = (url: string): string => new URL(url).host.toLowerCase();
 
 const codeOf = (error: unknown): string => {
-  const cause = (error as { cause?: unknown } | null)?.cause ?? error;
-  const code = (cause as { code?: unknown } | null)?.code;
+  const cause = causeOf(error) ?? error;
+  const code = fieldOf(cause, 'code');
 
   return typeof code === 'string'
     ? code
@@ -139,7 +141,7 @@ export class SpecFetch {
       return { url: url.href, headers, injected: InjectedSecrets.none() };
     }
 
-    if (injection.connection) {
+    if (nonEmpty(injection.connection)) {
       headers.authorization = `Bearer ${injection.connection}`;
     }
 

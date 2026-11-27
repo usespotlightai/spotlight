@@ -35,7 +35,7 @@ type TraceListProps = {
 
 function NarrowFilters({ children }: { children?: ReactNode }) {
   return (
-    children && (
+    Boolean(children) && (
       <div className="px-3 pt-2 pb-1 @2xl/pane:hidden">{children}</div>
     )
   );

@@ -5,6 +5,7 @@ import type { TeamSkillReading } from '@configuration/application/services/team-
 import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { Skill } from '@configuration/domain/value-objects/skill.vo';
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
@@ -66,7 +67,9 @@ const withSkills = (
   } satisfies SecretNamesPort;
   return new TeamSkills(
     new ReadySkills(
-      { of: vi.fn(async () => folders) } as unknown as TeamSkillReading,
+      partial<TeamSkillReading>({
+        of: vi.fn(async () => folders),
+      }),
       secrets,
     ),
   );

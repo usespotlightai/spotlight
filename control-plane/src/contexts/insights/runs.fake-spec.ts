@@ -1,3 +1,4 @@
+import type { PeoplePort } from '@insights/application/ports/people.port';
 import type {
   LiveJudgedRun,
   LiveJudgedSince,
@@ -185,7 +186,8 @@ export const factsWith = (
       PullRequestRecord.taskPullRequestsOf(
         pullRequests.filter(
           (each) =>
-            record.taskId !== null && each.owner?.taskId.equals(record.taskId),
+            record.taskId !== null &&
+            each.owner?.taskId.equals(record.taskId) === true,
         ),
       ),
       followedAtOf(record, records),
@@ -261,7 +263,7 @@ export class RunRecordsInMemory implements RunRecordRepository {
 
   async ofTasks(taskIds: readonly TaskId[]): Promise<readonly RunRecord[]> {
     return [...this.stored.values()].filter((each) =>
-      taskIds.some((taskId) => each.taskId?.equals(taskId)),
+      taskIds.some((taskId) => each.taskId?.equals(taskId) === true),
     );
   }
 
@@ -271,7 +273,7 @@ export class RunRecordsInMemory implements RunRecordRepository {
   ): Promise<readonly RunRecord[]> {
     return this.ended().filter(
       (each) =>
-        each.end?.location.taskId.equals(taskId) &&
+        each.end?.location.taskId.equals(taskId) === true &&
         each.end.location.stationId.equals(stationId),
     );
   }
@@ -402,7 +404,8 @@ export class StationFactsInMemory implements StationFactsPort {
         opening ? { by: opening.by, at: opening.at } : null,
         PullRequestRecord.taskPullRequestsOf(
           owned.filter(
-            (each) => taskId !== null && each.owner?.taskId.equals(taskId),
+            (each) =>
+              taskId !== null && each.owner?.taskId.equals(taskId) === true,
           ),
         ),
         followedAtOf(record, ended),
@@ -575,7 +578,7 @@ export const SET_UP = {
   runningMs: 0,
 };
 
-export const NOBODY_ELSE = {
+export const NOBODY_ELSE: PeoplePort = {
   viewerOf: async () => null,
   namesOf: async () => new Map<string, string>(),
 };

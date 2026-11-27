@@ -1,6 +1,11 @@
 import { TaskDeletionReactions } from '@change-review/application/events/handlers/task-deletion-reactions.handler';
 import type { ReviewDeliveriesPort } from '@change-review/application/ports/review-deliveries.port';
+import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
+import type { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import { PushDiff } from '@change-review/domain/aggregates/push-diff.aggregate';
+import type { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
+import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import type { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { LeasedStackCheckDeleted } from '@change-review/domain/events/leased-stack-check-deleted.event';
 import { PushDiffLeaseReleased } from '@change-review/domain/events/push-diff-lease-released.event';
@@ -14,11 +19,17 @@ import type { ReviewRepository } from '@change-review/domain/repositories/review
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
+import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
+import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
+import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
+import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -39,8 +50,8 @@ const pushDiff = () =>
     taskId: TASK,
     pullRequest: PullRequestUrl.of('https://github.com/acme/widgets/pull/7'),
     push: {
-      head: CommitSha.parsed('b'.repeat(40)) as CommitSha,
-      baseTip: CommitSha.parsed('a'.repeat(40)) as CommitSha,
+      head: commitSha('b'),
+      baseTip: commitSha('a'),
       pushedBy: Pusher.of('octocat'),
       pushedAt: NOW,
     },
@@ -68,7 +79,7 @@ const owning = <T>(found: readonly T[]) => {
   return {
     removed,
     repository: {
-      ofTask: vi.fn(async () => found),
+      ofTask: vi.fn(async () => [...found]),
       forTask: vi.fn(async () => found[0] ?? null),
       remove: vi.fn(async (each: T) => {
         removed.push(each);
@@ -86,12 +97,30 @@ const deleting = (found: {
   sets?: readonly string[];
   diffs?: readonly PushDiff[];
 }) => {
-  const reviews = owning(found.reviews ?? []);
-  const comments = owning(found.comments ?? []);
+  const reviews = owning(
+    (found.reviews ?? []).map((id) => partial<Review>({ id: ReviewId.of(id) })),
+  );
+  const comments = owning(
+    (found.comments ?? []).map((id) =>
+      partial<ReviewComment>({ id: ReviewCommentId.of(id) }),
+    ),
+  );
   const checks = owning(found.checks ?? []);
-  const answers = owning(found.answers ?? []);
-  const stacks = owning(found.stacks ?? []);
-  const sets = owning(found.sets ?? []);
+  const answers = owning(
+    (found.answers ?? []).map((id) =>
+      partial<QuestionAnswer>({ id: QuestionAnswerId.of(id) }),
+    ),
+  );
+  const stacks = owning(
+    (found.stacks ?? []).map((id) =>
+      partial<ChangeStack>({ id: ChangeStackId.of(id) }),
+    ),
+  );
+  const sets = owning(
+    (found.sets ?? []).map((id) =>
+      partial<DecisionSet>({ id: DecisionSetId.of(id) }),
+    ),
+  );
   const dropTask = vi.fn(async () => {});
   const removedDiffs: string[] = [];
   const diffs = {
@@ -112,14 +141,14 @@ const deleting = (found: {
     diffs,
     removedDiffs,
     reactions: new TaskDeletionReactions(
-      { dropTask } as unknown as ReviewDeliveriesPort,
-      reviews.repository as unknown as ReviewRepository,
-      comments.repository as unknown as ReviewCommentRepository,
-      checks.repository as unknown as StackCheckRepository,
-      answers.repository as unknown as QuestionAnswerRepository,
-      stacks.repository as unknown as ChangeStackRepository,
-      sets.repository as unknown as DecisionSetRepository,
-      diffs as unknown as PushDiffRepository,
+      partial<ReviewDeliveriesPort>({ dropTask }),
+      partial<ReviewRepository>(reviews.repository),
+      partial<ReviewCommentRepository>(comments.repository),
+      partial<StackCheckRepository>(checks.repository),
+      partial<QuestionAnswerRepository>(answers.repository),
+      partial<ChangeStackRepository>(stacks.repository),
+      partial<DecisionSetRepository>(sets.repository),
+      partial<PushDiffRepository>(diffs),
       { now: () => NOW, sleep: async () => {} },
     ),
   };
@@ -144,11 +173,22 @@ describe('TaskDeletionReactions', () => {
     await deleted.reactions.removePushDiffs(TASK);
     await deleted.reactions.dropDeliveries(TASK);
 
-    expect(deleted.reviews.removed).toEqual(['review_1']);
-    expect(deleted.comments.removed).toEqual(['comment_1', 'comment_2']);
-    expect(deleted.answers.removed).toEqual(['answer_1']);
-    expect(deleted.stacks.removed).toEqual(['stack_1']);
-    expect(deleted.sets.removed).toEqual(['set_1']);
+    expect(deleted.reviews.removed.map((each) => each.id.value)).toEqual([
+      'review_1',
+    ]);
+    expect(deleted.comments.removed.map((each) => each.id.value)).toEqual([
+      'comment_1',
+      'comment_2',
+    ]);
+    expect(deleted.answers.removed.map((each) => each.id.value)).toEqual([
+      'answer_1',
+    ]);
+    expect(deleted.stacks.removed.map((each) => each.id.value)).toEqual([
+      'stack_1',
+    ]);
+    expect(deleted.sets.removed.map((each) => each.id.value)).toEqual([
+      'set_1',
+    ]);
     expect(deleted.dropTask).toHaveBeenCalledWith(TASK);
     expect(deleted.diffs.ofTask).toHaveBeenCalledWith(TASK);
     expect(deleted.removedDiffs).toEqual(['diff_1']);
@@ -163,7 +203,7 @@ describe('TaskDeletionReactions', () => {
 
     await deleted.reactions.removePushDiffs(TASK);
 
-    const [removed] = deleted.diffs.remove.mock.calls[0] ?? [];
+    const removed = optionalItems(deleted.diffs.remove.mock.calls)[0]?.[0];
     expect(removed?.pullEvents()).toContainEqual(
       new PushDiffLeaseReleased(PushDiffId.of('diff_1')),
     );

@@ -3,6 +3,7 @@ import { within } from 'storybook/test';
 
 import { stateFor } from '@/lib/github';
 import { inboxItemPath, inboxPath } from '@/lib/inbox';
+import { nonEmpty } from '@/lib/non-empty';
 import { PLATFORM_ID, SLUG } from '@/mocks/world';
 import {
   ACCEPTED_DISAGREEMENT_REQUEST_ID,
@@ -46,7 +47,7 @@ const disagreementOpened = (opened: string) => {
       ? entry.inboxRequest.about
       : null;
 
-  return about ? inboxStore().disagreements[about] : undefined;
+  return nonEmpty(about) ? inboxStore().disagreements[about] : undefined;
 };
 
 const GITHUB_INSTALLED_PATH = `/github/installed?installation_id=58213907&state=${encodeURIComponent(
@@ -291,7 +292,8 @@ const meta = {
           });
           await user.click(
             approvable.find(
-              (button) => !(button as HTMLButtonElement).disabled,
+              (button) =>
+                !(button instanceof HTMLButtonElement && button.disabled),
             ) ?? approvable[0],
           );
         };

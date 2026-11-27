@@ -14,6 +14,8 @@ import type {
   OAuth2Authorized,
   OAuth2LinkingPort,
   OAuth2Refused,
+  OAuth2Registration,
+  OAuth2Start,
 } from '@integrations/application/ports/oauth2-linking.port';
 import type { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
@@ -29,6 +31,8 @@ import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.v
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -79,14 +83,16 @@ describe('BeginOAuth2ConnectionHandler', () => {
       defined?: boolean;
     } = {},
   ) => {
-    const begin = vi.fn(async () => STARTED);
+    const begin = vi.fn(async (): Promise<OAuth2Start | null> => STARTED);
     const scoped: string[] = [];
     const clientFor = vi.fn(async () => CLIENT);
-    const registrationFor = vi.fn(async () => ({
-      endpoint: 'https://slack.com/register' as string | null,
-      server: null,
-      own: null,
-    }));
+    const registrationFor = vi.fn(
+      async (): Promise<OAuth2Registration | null> => ({
+        endpoint: 'https://slack.com/register',
+        server: null,
+        own: null,
+      }),
+    );
     const integration = Integration.of({
       key: IntegrationKey.of('slack'),
       apiSpecs: ['mcp'],
@@ -101,12 +107,14 @@ describe('BeginOAuth2ConnectionHandler', () => {
       scoped,
       handler: new BeginOAuth2ConnectionHandler(
         authorizing(over.allowed ?? true, over.member ?? true),
-        { ofTeam: async () => [] } as unknown as DefinedIntegrationsPort,
-        {
+        partial<DefinedIntegrationsPort>({
+          ofTeam: async () => [],
+        }),
+        partial<IntegrationRuntimePort>({
           integrations: () => (over.defined === false ? [] : [integration]),
-        } as unknown as IntegrationRuntimePort,
-        { begin, registrationFor } as unknown as OAuth2LinkingPort,
-        { clientFor } as unknown as OAuth2ClientResolution,
+        }),
+        partial<OAuth2LinkingPort>({ begin, registrationFor }),
+        partial<OAuth2ClientResolution>({ clientFor }),
         {
           within: async (workspace, work) => {
             scoped.push(workspace.value);
@@ -182,7 +190,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
 
   it('refuses where the integration has no OAuth2 endpoints', async () => {
     const { handler, clientFor, registrationFor } = beginning();
-    registrationFor.mockResolvedValueOnce(null as never);
+    registrationFor.mockResolvedValueOnce(null);
 
     await expect(handler.execute(command())).rejects.toMatchObject({
       kind: 'upstream-error',
@@ -193,7 +201,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
 
   it('refuses where the linking does not begin', async () => {
     const { handler, begin } = beginning();
-    begin.mockResolvedValueOnce(null as never);
+    begin.mockResolvedValueOnce(null);
 
     await expect(handler.execute(command())).rejects.toMatchObject({
       kind: 'upstream-error',
@@ -309,24 +317,26 @@ describe('FinishOAuth2ConnectionHandler', () => {
     } satisfies LoggerPort;
 
     const handler = new FinishOAuth2ConnectionHandler(
-      {
+      partial<OAuth2LinkingPort>({
         authorized: returned,
         landingFor,
-      } as unknown as OAuth2LinkingPort,
-      {
+      }),
+      partial<IntegrationConnectionRepository>({
         save,
         of: vi.fn(async () => over.existing ?? null),
         expiringBefore: vi.fn(),
-      } as unknown as IntegrationConnectionRepository,
+      }),
       authorizing(over.allowed ?? true, over.member ?? true),
-      { ofTeam: async () => [] } as unknown as DefinedIntegrationsPort,
-      {
+      partial<DefinedIntegrationsPort>({
+        ofTeam: async () => [],
+      }),
+      partial<IntegrationRuntimePort>({
         integrations: () => [integration],
-      } as unknown as IntegrationRuntimePort,
-      {
-        inTransaction: (work: () => Promise<unknown>) => work(),
-      } as TransactionPort,
-      { now: () => CONNECTED_AT } as ClockPort,
+      }),
+      partial<TransactionPort>({
+        inTransaction: <T>(work: () => Promise<T>) => work(),
+      }),
+      partial<ClockPort>({ now: () => CONNECTED_AT }),
       logger,
     );
 
@@ -348,7 +358,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
       nonce: 'n-1',
       viewerId: UserId.of('user_1'),
     });
-    const connection = save.mock.calls[0]?.[0];
+    const connection = firstOf(save.mock.calls)?.[0];
     expect(connection?.teamId.value).toBe('team_1');
     expect(connection?.workspaceId.value).toBe('ws_1');
     expect(connection?.accessToken.value).toBe('xoxb-1');
@@ -385,7 +395,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
 
     await handler.execute(command());
 
-    const connection = save.mock.calls[0]?.[0];
+    const connection = firstOf(save.mock.calls)?.[0];
     expect(connection?.version).toBe(4);
     expect(connection?.client).toEqual(OAuth2ClientId.of('client_2'));
     expect(connection?.accessToken.value).toBe('xoxb-1');

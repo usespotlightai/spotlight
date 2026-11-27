@@ -14,6 +14,7 @@ import {
   type RepositoryContentsPort,
 } from '@github/application/ports/repository-contents.port';
 import { JUDGE, type JudgePort } from '@insights/application/ports/judge.port';
+import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
 import type { INestApplication } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -35,6 +36,9 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
@@ -44,6 +48,7 @@ import {
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import type { Agent, Test } from 'supertest';
 import { afterAll, beforeAll, expect } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './app';
@@ -53,6 +58,7 @@ import {
   searchRunsSettled,
   searchStarted,
 } from './auto-searches';
+import { bodyOf } from './body';
 import { eventually } from './eventually';
 import { posted, said, spent } from './harness-events';
 import { keptSet } from './kept-sets';
@@ -81,12 +87,12 @@ const SCORED = /score\((\d)\)/;
 export const WITHIN = 60_000;
 export const STUB_GUIDANCE = 'Keep the oldest job first after a restart.';
 
-const attachmentStore = {
+const attachmentStore = partial<AttachmentStorePort>({
   received: async () => [],
   stored: async () => true,
   taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
-} as unknown as AttachmentStorePort;
+});
 
 const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
@@ -257,9 +263,19 @@ export let db: DrizzleDatabase;
 // oxlint-disable-next-line import/no-mutable-exports -- openSearchFlow sets it in beforeAll; specs read the live binding
 export let team: Awaited<ReturnType<typeof createTeam>>;
 
-export const http = () => served(app);
+export const http = (): Agent => served(app);
 
-export const owner = () => ({
+export interface Caller {
+  readonly get: (path: string) => Test;
+  readonly post: (path: string, body?: object) => Test;
+}
+
+export interface Owner extends Caller {
+  readonly put: (path: string, body: object, version: number) => Test;
+  readonly delete: (path: string) => Test;
+}
+
+export const owner = (): Owner => ({
   get: (path: string) =>
     http().get(path).set(TEST_USER_HEADER, team.owner.value),
   post: (path: string, body?: object) =>
@@ -277,7 +293,7 @@ export const owner = () => ({
     http().delete(path).set(TEST_USER_HEADER, team.owner.value),
 });
 
-export const bearing = (token: string) => ({
+export const bearing = (token: string): Caller => ({
   get: (path: string) =>
     http().get(path).set('Authorization', `Bearer ${token}`),
   post: (path: string, body?: object) =>
@@ -287,8 +303,8 @@ export const bearing = (token: string) => ({
       .send(body ?? {}),
 });
 
-export const teamPath = () => `/api/teams/${team.teamId.value}`;
-export const stationPath = (stationId = BUILD) =>
+export const teamPath = (): string => `/api/teams/${team.teamId.value}`;
+export const stationPath = (stationId = BUILD): string =>
   `${teamPath()}/lines/${DELIVERY}/stations/${stationId}`;
 
 interface Original {
@@ -431,9 +447,8 @@ export type InboxEntry =
 export const teamNotices = async (): Promise<
   Extract<InboxEntry, { kind: 'notice' }>[]
 > =>
-  (
-    (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200))
-      .body as { readonly items: InboxEntry[] }
+  bodyOf<{ readonly items: InboxEntry[] }>(
+    await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200),
   ).items.filter(
     (each): each is Extract<InboxEntry, { kind: 'notice' }> =>
       each.kind === 'notice',
@@ -442,7 +457,9 @@ export const teamNotices = async (): Promise<
 export const ADVISE_ON_STALL =
   'replays.advise-on-search-stalled-outside-config';
 
-export const noticesSince = async (at: Date) =>
+export const noticesSince = async (
+  at: Date,
+): Promise<Extract<InboxEntry, { kind: 'notice' }>[]> =>
   (await teamNotices()).filter(
     (each) => Date.parse(each.askedAt) >= at.getTime(),
   );
@@ -493,27 +510,29 @@ export const turnedOff = async (id: string): Promise<void> => {
   await eventually(() => searchRunsSettled(db, id));
 };
 
-export const searchRow = async (id: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.replaySearch)
-    .where(eq(schema.replaySearch.id, id));
+export const searchRow = async (
+  id: string,
+): Promise<typeof schema.replaySearch.$inferSelect | undefined> =>
+  firstOf(
+    await db
+      .select()
+      .from(schema.replaySearch)
+      .where(eq(schema.replaySearch.id, id)),
+  );
 
-  return row;
-};
+export const searchState = async (
+  id: string,
+): Promise<(typeof schema.replaySearch.$inferSelect)['state'] | undefined> =>
+  (await searchRow(id))?.state;
 
-export const searchState = async (id: string) => (await searchRow(id))?.state;
+export const replayRow = async (
+  id: string,
+): Promise<typeof schema.replay.$inferSelect | undefined> =>
+  firstOf(
+    await db.select().from(schema.replay).where(eq(schema.replay.id, id)),
+  );
 
-export const replayRow = async (id: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.replay)
-    .where(eq(schema.replay.id, id));
-
-  return row;
-};
-
-export const originalsOf = async (replayId: string) =>
+export const originalsOf = async (replayId: string): Promise<string[]> =>
   (
     await db
       .select({ original: schema.replayEntry.originalRunId })
@@ -523,7 +542,9 @@ export const originalsOf = async (replayId: string) =>
     .map((each) => each.original)
     .sort();
 
-export const searchRunsOf = async (searchId: string) =>
+export const searchRunsOf = async (
+  searchId: string,
+): Promise<(typeof schema.run.$inferSelect)[]> =>
   db
     .select()
     .from(schema.run)
@@ -565,15 +586,15 @@ export const claimed = async (): Promise<Claimed | null> => {
 
   expect(answer.status).toBe(200);
 
-  const assignment = answer.body as {
+  const assignment = bodyOf<{
     token: string;
     work: { run: { id: string } };
-  };
+  }>(answer);
 
   return { token: assignment.token, runId: assignment.work.run.id };
 };
 
-export const judged = async () => {
+export const judged = async (): Promise<void> => {
   await app.get(WorkChangeJudgings).processDue();
   await app.get(WorkChangeJudgings).idle();
 };
@@ -582,7 +603,7 @@ export const finished = async (
   { token, runId }: Claimed,
   score: number,
   cost: number,
-) => {
+): Promise<void> => {
   await bearing(token)
     .post(`/api/runs/${runId}/events`, {
       events: posted(said(`Drained it: score(${score}).`), spent(cost)),
@@ -598,14 +619,15 @@ export const finished = async (
     .expect(204);
 };
 
-export const entryOf = async (runId: string) => {
-  const [entry] = await db
-    .select()
-    .from(schema.replayEntry)
-    .where(eq(schema.replayEntry.runId, runId));
-
-  return entry;
-};
+export const entryOf = async (
+  runId: string,
+): Promise<typeof schema.replayEntry.$inferSelect | undefined> =>
+  firstOf(
+    await db
+      .select()
+      .from(schema.replayEntry)
+      .where(eq(schema.replayEntry.runId, runId)),
+  );
 
 type Plan = (
   replayId: string,
@@ -704,7 +726,11 @@ export const drained = async (plan: Plan): Promise<void> => {
   throw new Error('the replay runs never drained');
 };
 
-export const replayEnded = (replayId: string) =>
+export const replayEnded = (
+  replayId: string,
+): Promise<
+  Exclude<(typeof schema.replay.$inferSelect)['state'], 'queued' | 'running'>
+> =>
   eventually(async () => {
     await judged();
     const state = (await replayRow(replayId))?.state;
@@ -727,21 +753,23 @@ export const leasedSearchRun = async (
   }, WITHIN);
 
   const assignment = await claimed();
-  const [row] = await db
-    .select()
-    .from(schema.run)
-    .where(eq(schema.run.id, assignment?.runId ?? ''));
+  const row = firstOf(
+    await db
+      .select()
+      .from(schema.run)
+      .where(eq(schema.run.id, assignment?.runId ?? '')),
+  );
 
   expect(row?.requesterId).toBe(searchId);
 
-  return assignment as Claimed;
+  return present(assignment);
 };
 
 export const endedSearchRun = async (
   { token, runId }: Claimed,
   failed = false,
   cost = 0.05,
-) => {
+): Promise<void> => {
   await bearing(token)
     .post(`/api/runs/${runId}/events`, {
       events: posted(spent(cost)),
@@ -757,15 +785,18 @@ export const endedSearchRun = async (
     .expect(204);
 };
 
-export const liveBlock = () => writtenStation(app, DELIVERY, 'build');
+export const liveBlock = (): Promise<LineDefinitionStation> =>
+  writtenStation(app, DELIVERY, 'build');
 
-export const proposing = (assignment: Claimed, body: object) =>
+export const proposing = (assignment: Claimed, body: object): Test =>
   bearing(assignment.token).post(
     `/api/runs/${assignment.runId}/search-candidates`,
     body,
   );
 
-export const auditOf = async (searchId: string) =>
+export const auditOf = async (
+  searchId: string,
+): Promise<(typeof schema.configurationChange.$inferSelect)[]> =>
   db
     .select()
     .from(schema.configurationChange)
@@ -779,7 +810,13 @@ const handledAgain = async <T>(
   try {
     return await handle();
   } catch (error) {
-    if (attempts > 1 && (error as { kind?: string }).kind === 'conflict') {
+    if (
+      attempts > 1 &&
+      typeof error === 'object' &&
+      error !== null &&
+      'kind' in error &&
+      error.kind === 'conflict'
+    ) {
       return handledAgain(handle, attempts - 1);
     }
 
@@ -948,6 +985,6 @@ export const openSearchFlow = (): void => {
   }, 120_000);
 
   afterAll(async () => {
-    await app?.close();
+    await app.close();
   });
 };

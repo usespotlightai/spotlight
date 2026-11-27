@@ -7,6 +7,7 @@ import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-def
 import { skillDefinition } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
 
@@ -45,11 +46,13 @@ export class DrizzleSkillResources implements SkillResourcesPort {
   }
 
   private async stored(where: SQL | undefined): Promise<SkillRecord | null> {
-    const [found] = await this.context.db
-      .select(SKILL_COLUMNS)
-      .from(skillDefinition)
-      .where(where)
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select(SKILL_COLUMNS)
+        .from(skillDefinition)
+        .where(where)
+        .limit(1),
+    );
 
     return found ? { ...found, teamId: TeamId.of(found.teamId) } : null;
   }

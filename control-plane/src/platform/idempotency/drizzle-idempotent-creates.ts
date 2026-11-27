@@ -12,12 +12,14 @@ import type {
   IdempotentLookup,
   IdempotentLookupsPort,
 } from '@shared-kernel/application/ports/idempotent-lookups.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { and, eq, type SQL, sql } from 'drizzle-orm';
 
 const RETENTION = '24 hours';
 
 const sortedKeys = (_key: string, value: unknown): unknown =>
-  value && typeof value === 'object' && !Array.isArray(value)
+  typeof value === 'object' && value !== null && !Array.isArray(value)
     ? Object.fromEntries(
         Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
       )
@@ -56,22 +58,24 @@ export class DrizzleIdempotentCreates
       return { kind: 'key-reused' };
     }
 
-    return existing.createdId
+    return nonEmpty(existing.createdId)
       ? { kind: 'already-created', createdId: existing.createdId }
       : { kind: 'new' };
   }
 
   async reserve(create: IdempotentCreate): Promise<IdempotentReservation> {
     const fingerprint = fingerprintOf(create);
-    const [reserved] = await this.context.db
-      .insert(idempotentCreate)
-      .values({ scope: create.by, key: create.key.value, fingerprint })
-      .onConflictDoUpdate({
-        target: [idempotentCreate.scope, idempotentCreate.key],
-        set: { fingerprint, createdId: null, createdAt: sql`now()` },
-        setWhere: sql`${idempotentCreate.createdAt} < now() - ${RETENTION}::interval`,
-      })
-      .returning({ key: idempotentCreate.key });
+    const reserved = firstOf(
+      await this.context.db
+        .insert(idempotentCreate)
+        .values({ scope: create.by, key: create.key.value, fingerprint })
+        .onConflictDoUpdate({
+          target: [idempotentCreate.scope, idempotentCreate.key],
+          set: { fingerprint, createdId: null, createdAt: sql`now()` },
+          setWhere: sql`${idempotentCreate.createdAt} < now() - ${RETENTION}::interval`,
+        })
+        .returning({ key: idempotentCreate.key }),
+    );
 
     if (reserved) {
       return { kind: 'new' };
@@ -79,7 +83,7 @@ export class DrizzleIdempotentCreates
 
     const existing = await this.find(matching(create));
 
-    return existing?.fingerprint === fingerprint && existing.createdId
+    return existing?.fingerprint === fingerprint && nonEmpty(existing.createdId)
       ? { kind: 'already-created', createdId: existing.createdId }
       : { kind: 'key-reused' };
   }
@@ -92,13 +96,15 @@ export class DrizzleIdempotentCreates
   }
 
   private async find(where: SQL | undefined) {
-    const [row] = await this.context.db
-      .select({
-        fingerprint: idempotentCreate.fingerprint,
-        createdId: idempotentCreate.createdId,
-      })
-      .from(idempotentCreate)
-      .where(where);
+    const row = firstOf(
+      await this.context.db
+        .select({
+          fingerprint: idempotentCreate.fingerprint,
+          createdId: idempotentCreate.createdId,
+        })
+        .from(idempotentCreate)
+        .where(where),
+    );
 
     return row;
   }

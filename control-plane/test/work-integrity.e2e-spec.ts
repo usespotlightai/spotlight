@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -56,7 +58,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const added = (
@@ -92,7 +94,8 @@ describe('a line that drops a station', () => {
   const withReview = async () => {
     const team = await createTeam(db, tasks, `review-${randomUUID()}`);
     const reviewId = StationId.of(randomUUID());
-    const [backlog, completed] = team.line.stations as [Station, Station];
+    const backlog = present(itemAt(team.line.stations, 0));
+    const completed = present(itemAt(team.line.stations, 1));
 
     await db
       .update(schema.station)
@@ -212,10 +215,8 @@ describe('the stations Work knows of a line', () => {
   it('follows the newest change of the line and drops the stations it no longer has', async () => {
     const stations = new DrizzleWorkStations(context);
     const lineId = LineId.of(randomUUID());
-    const [kept, dropped] = [randomUUID(), randomUUID()].map(StationId.of) as [
-      StationId,
-      StationId,
-    ];
+    const kept = StationId.of(randomUUID());
+    const dropped = StationId.of(randomUUID());
 
     await stations.project(projected(lineId, 0, [kept, dropped]));
     await stations.project(projected(lineId, 1, [kept]));
@@ -238,10 +239,8 @@ describe('the stations Work knows of a line', () => {
     const stations = new DrizzleWorkStations(context);
     const guard = new DrizzleStationDeletionGuard(context);
     const lineId = LineId.of(randomUUID());
-    const [kept, dropped] = [randomUUID(), randomUUID()].map(StationId.of) as [
-      StationId,
-      StationId,
-    ];
+    const kept = StationId.of(randomUUID());
+    const dropped = StationId.of(randomUUID());
 
     await context.inTransaction(async () => {
       await guard.lockedTaskCountsAt({ lineId, version: 1 }, [kept, dropped]);
@@ -277,9 +276,11 @@ describe('a mark that one task has and another task claims', () => {
     });
     await tasks.add(newest);
 
-    const correlationKeys = CorrelationKeys.of({
-      marks: [thread],
-    }) as CorrelationKeys;
+    const correlationKeys = present(
+      CorrelationKeys.of({
+        marks: [thread],
+      }),
+    );
     await expect(
       context.inTransaction(() =>
         correlatedTask(tasks, workspaceId, correlationKeys),
@@ -327,7 +328,7 @@ describe('a file handed over twice', () => {
     const first = added(line, stationId, { attachments: [file()] });
     await tasks.add(first);
 
-    const again = (await tasks.find(first.id)) as Task;
+    const again = present(await tasks.find(first.id));
 
     await expect(
       tasks.save(again.assign(owner, TeamMembers.of([owner]))),
@@ -384,12 +385,12 @@ describe('a chat dispatched to a run', () => {
 
     const run = RunId.of(randomUUID());
     await chats.save(started.assignRun(run, NOW));
-    const dispatched = (await chats.find(started.id)) as Chat;
+    const dispatched = present(await chats.find(started.id));
 
     expect(dispatched.messages[0]?.wasAcknowledgedBy(run)).toBe(true);
 
     await chats.save(dispatched.runEndedWithoutSession(run));
-    const back = (await chats.find(started.id)) as Chat;
+    const back = present(await chats.find(started.id));
 
     expect(back.running).toBe(false);
     expect(back.unacknowledged).toHaveLength(1);

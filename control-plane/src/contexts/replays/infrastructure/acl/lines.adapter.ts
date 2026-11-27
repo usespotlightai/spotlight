@@ -20,6 +20,7 @@ import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -88,7 +89,7 @@ const searchOf = (station: PublishedStationView): SearchPolicy | null =>
   });
 
 const agentOf = (station: PublishedStationView): SearchAgent | null =>
-  station.harness
+  nonEmpty(station.harness)
     ? SearchAgent.of({
         harness: station.harness,
         model: station.model,
@@ -211,7 +212,7 @@ export class Lines implements LinesPort {
       placement: RunnerPlacement.forStation(
         RunnerPlacement.of(station.runners),
         RunnerPlacement.of(line.runners),
-        line.image ? RunnerImage.of(line.image) : null,
+        nonEmpty(line.image) ? RunnerImage.of(line.image) : null,
       ),
     };
   }

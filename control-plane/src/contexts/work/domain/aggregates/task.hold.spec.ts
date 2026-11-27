@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -213,7 +214,7 @@ const resumption = (
     at: LATER,
   });
 
-const lastOf = (task: Task) => task.notes[task.notes.length - 1];
+const lastOf = (task: Task) => itemAt(task.notes, task.notes.length - 1);
 
 const answers = (task: Task, viewer: ConversationViewer): boolean =>
   ConversationAudience.mayAnswer(viewer.team, task.conversantOf(viewer));
@@ -842,8 +843,9 @@ describe('a task whose line resumes', () => {
     const back = resumption(turnDone(withCheck), 'continue');
 
     expect(
-      back.notes.find((note) => check && note.position.equals(check))
-        ?.unacknowledged,
+      back.notes.find(
+        (note) => check !== undefined && note.position.equals(check),
+      )?.unacknowledged,
     ).toBe(true);
   });
 
@@ -895,8 +897,9 @@ describe('a task whose line resumes', () => {
     const withCheck = happenedOn(driving(), 'The checks failed.');
     const check = lastOf(withCheck)?.position;
     const unacknowledged = (task: Task) =>
-      task.notes.find((note) => check && note.position.equals(check))
-        ?.unacknowledged;
+      task.notes.find(
+        (note) => check !== undefined && note.position.equals(check),
+      )?.unacknowledged;
 
     expect(
       unacknowledged(resumption(turnDone(withCheck), 'move-on', REVIEW)),

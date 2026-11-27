@@ -2,11 +2,13 @@ import { type RefObject, useId, useLayoutEffect } from 'react';
 
 import { useImageGallery } from '@/components/shared/attachment/imageGalleryContext';
 
+type GalleryTileResult = { shown: boolean; open: () => void };
+
 export function useGalleryTile(
   button: RefObject<HTMLButtonElement | null>,
   src: string,
   name: string,
-) {
+): GalleryTileResult {
   const id = useId();
   const gallery = useImageGallery();
   const register = gallery?.register;

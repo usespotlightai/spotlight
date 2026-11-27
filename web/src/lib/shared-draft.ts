@@ -3,7 +3,7 @@ import type {
   HocuspocusProviderWebsocket,
 } from '@hocuspocus/provider';
 import type { Provider } from '@lexical/yjs';
-import type { Doc } from 'yjs';
+import type { Array as YArray, Doc, Map as YMap } from 'yjs';
 
 import type { Person } from '@/lib/person';
 
@@ -21,8 +21,14 @@ export type SharedAttachment = {
 
 export type DraftPerson = Person & { readonly color: string };
 
+export type DraftParts = {
+  readonly meta: YMap<number | string>;
+  readonly writers: YMap<boolean>;
+  readonly attachments: YArray<SharedAttachment>;
+};
+
 // The control plane reads and writes these same names.
-export const draftParts = (doc: Doc) => ({
+export const draftParts = (doc: Doc): DraftParts => ({
   meta: doc.getMap<number | string>('meta'),
   writers: doc.getMap<boolean>('writers'),
   attachments: doc.getArray<SharedAttachment>('attachments'),
@@ -52,6 +58,12 @@ export const colorOf = (id: string): string => {
 export const collabUrl = (location: Location): string =>
   `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${COLLAB_PATH}`;
 
+type ProviderListener =
+  | readonly ['sync', (isSynced: boolean) => void]
+  | readonly ['status', (arg0: { status: string }) => void]
+  | readonly ['update', (arg0: unknown) => void]
+  | readonly ['reload', (doc: Doc) => void];
+
 // Lexical connects once its binding listens, so a draft that syncs fast never arrives before the editor can take it in.
 export const lexicalProvider = (
   provider: HocuspocusProvider,
@@ -63,33 +75,33 @@ export const lexicalProvider = (
   >();
 
   return {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     awareness: provider.awareness as unknown as Provider['awareness'],
     connect: () => {
       provider.attach();
       void socket.connect();
     },
     disconnect: () => provider.detach(),
-    on: (type: string, cb: (value: never) => void) => {
+    on: (...[type, cb]: ProviderListener) => {
       if (type === 'sync') {
-        const forward = ({ state }: { state: boolean }) =>
-          (cb as (isSynced: boolean) => void)(state);
-        synced.set(cb as (isSynced: boolean) => void, forward);
+        const forward = ({ state }: { state: boolean }) => cb(state);
+        synced.set(cb, forward);
         provider.on('synced', forward);
 
         if (provider.isSynced) {
-          queueMicrotask(() => (cb as (isSynced: boolean) => void)(true));
+          queueMicrotask(() => cb(true));
         }
       } else if (type === 'status') {
         provider.on('status', cb);
       }
     },
-    off: (type: string, cb: (value: never) => void) => {
+    off: (...[type, cb]: ProviderListener) => {
       if (type === 'sync') {
-        const forward = synced.get(cb as (isSynced: boolean) => void);
+        const forward = synced.get(cb);
 
         if (forward) {
           provider.off('synced', forward);
-          synced.delete(cb as (isSynced: boolean) => void);
+          synced.delete(cb);
         }
       } else if (type === 'status') {
         provider.off('status', cb);

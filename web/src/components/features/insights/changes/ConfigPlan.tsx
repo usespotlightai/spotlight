@@ -14,6 +14,7 @@ type ConfigPlanProps = {
 
 export function ConfigPlan({ entries, firstLine = false }: ConfigPlanProps) {
   const width = planNameWidth(entries);
+  const first = entries.at(0);
 
   if (firstLine) {
     return (
@@ -22,7 +23,7 @@ export function ConfigPlan({ entries, firstLine = false }: ConfigPlanProps) {
         data-slot="config-plan"
         className="min-w-0 font-mono text-xs text-foreground leading-4"
       >
-        {entries[0] && <FirstRow entry={entries[0]} width={width} />}
+        {first !== undefined && <FirstRow entry={first} width={width} />}
         <li aria-hidden className="h-4" />
       </ul>
     );

@@ -7,6 +7,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { nonEmpty } from '@/lib/non-empty';
 
 export type PickerOption = {
   readonly id: string;
@@ -40,12 +41,12 @@ export function MenuPicker({
         title={selected.label}
         className="flex h-7 min-w-0 max-w-full items-center gap-2 whitespace-nowrap rounded-md border border-border px-2 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-accent"
       >
-        {selected.short && (
+        {nonEmpty(selected.short) && (
           <span className={`shrink-0 ${BADGE}`}>{selected.short}</span>
         )}
         <span
           className={
-            selected.short
+            nonEmpty(selected.short)
               ? 'hidden min-w-0 truncate text-foreground @xl/pane:inline'
               : 'min-w-0 truncate text-foreground'
           }
@@ -65,12 +66,12 @@ export function MenuPicker({
         >
           {options.map((option) => (
             <DropdownMenuRadioItem key={option.id} value={option.id}>
-              {option.short && (
+              {nonEmpty(option.short) && (
                 <span className={`w-9 shrink-0 text-center ${BADGE}`}>
                   {option.short}
                 </span>
               )}
-              {option.hint ? (
+              {nonEmpty(option.hint) ? (
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate">{option.label}</span>
                   <span className="text-muted-foreground text-xs">

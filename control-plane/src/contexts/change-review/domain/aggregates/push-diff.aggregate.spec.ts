@@ -5,7 +5,7 @@ import { PushDiffReservationDropped } from '@change-review/domain/events/push-di
 import { InvalidPushDiffError } from '@change-review/domain/exceptions/invalid-push-diff.error';
 import { PushDiffNotLeasedError } from '@change-review/domain/exceptions/push-diff-not-leased.error';
 import { PushDiffStateConflictError } from '@change-review/domain/exceptions/push-diff-state-conflict.error';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha as sha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
@@ -32,8 +32,6 @@ const RUNNER = RunnerId.of('pooled_1');
 const OTHER = RunnerId.of('pooled_2');
 const POOL = PoolId.of('pool_burst');
 const HTTP_ERROR = ProvisionFailure.of('http-error', 'answered 503');
-
-const sha = (digit: string) => CommitSha.parsed(digit.repeat(40)) as CommitSha;
 
 const fresh = (placement = RunnerPlacement.anywhere()) =>
   PushDiff.record({

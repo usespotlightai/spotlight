@@ -7,6 +7,7 @@ import { useChatRefresh } from '@/hooks/api/useChatRefresh';
 import { chatKeys } from '@/hooks/api/useChats';
 import { journalKeys } from '@/hooks/api/useRunJournals';
 import type { Chat } from '@/lib/chat';
+import { partial } from '@/test/partial';
 
 const opened: string[] = [];
 const streams: Stream[] = [];
@@ -41,11 +42,11 @@ describe('a bump while the chat’s run is live', () => {
 
   it('refreshes the journal of the live run and the chat only', () => {
     const invalidated = vi.spyOn(client, 'invalidateQueries');
-    const chat = {
+    const chat = partial<Chat>({
       runId: 'run_1',
       progress: 'in-progress',
       messages: [],
-    } as unknown as Chat;
+    });
 
     renderHook(() => useChatRefresh('chat_1', chat), { wrapper });
     invalidated.mockClear();
@@ -68,11 +69,11 @@ describe('the stream of a run that is stopping', () => {
   });
 
   it('stays open in a chat while its run has not ended', () => {
-    const chat = {
+    const chat = partial<Chat>({
       runId: 'run_1',
       progress: null,
       messages: [],
-    } as unknown as Chat;
+    });
 
     renderHook(() => useChatRefresh('chat_1', chat), { wrapper });
 

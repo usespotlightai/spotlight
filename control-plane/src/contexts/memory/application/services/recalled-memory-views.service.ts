@@ -24,8 +24,8 @@ export class RecalledMemoryViews {
 
     return {
       ...detail,
-      steps: (steps ?? []).filter((each) =>
-        provenance?.steps.includes(each.index),
+      steps: (steps ?? []).filter(
+        (each) => provenance?.steps.includes(each.index) === true,
       ),
       notes: await provenanceNotes(
         notes ?? [],

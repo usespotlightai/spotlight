@@ -8,16 +8,16 @@ import type {
   Narrowing,
   RunFilter,
 } from '@insights/domain/services/run-filter';
-import type { RunHumanAction } from '@insights/domain/value-objects/person-action.vo';
 import type { Window } from '@insights/domain/value-objects/insights-period.vo';
-import {
-  withResolution,
-} from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
+import type { RunHumanAction } from '@insights/domain/value-objects/person-action.vo';
+import { withResolution } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
   runFact,
   taskAction,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   and,
   count,
@@ -194,7 +194,10 @@ const listedOf = (row: FactRow): ListedRun => ({
   runningMs: row.runningMs,
   ms: row.usageRecorded ? row.ms : null,
   cost:
-    row.usageRecorded && row.cost !== null && row.currency
+    row.usageRecorded &&
+    row.cost !== null &&
+    row.currency !== null &&
+    row.currency !== ''
       ? { amount: row.cost, currency: row.currency }
       : null,
   tokens: row.usageRecorded
@@ -210,7 +213,7 @@ const listedOf = (row: FactRow): ListedRun => ({
   failure: row.failure,
   checks: row.checks,
   passed:
-    row.passedTo && row.passedAt
+    nonEmpty(row.passedTo) && row.passedAt
       ? { to: row.passedTo, at: row.passedAt }
       : null,
   pullRequestState: row.pullRequestState,
@@ -221,10 +224,9 @@ export const runPageIn = async (
   listing: RunListing,
 ): Promise<RunsListed> => {
   const where = filtered(listing.window, listing.filter);
-  const [counted] = await db
-    .select({ total: count() })
-    .from(runFact)
-    .where(where);
+  const counted = firstOf(
+    await db.select({ total: count() }).from(runFact).where(where),
+  );
   const rows = await db
     .select(getTableColumns(runFact))
     .from(runFact)

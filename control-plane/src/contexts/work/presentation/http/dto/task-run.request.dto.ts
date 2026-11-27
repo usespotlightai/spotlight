@@ -6,7 +6,7 @@ export class SendMessageRequestDto {
     description:
       'Goes to the agent when its current turn ends. May be empty where files are attached.',
   })
-  readonly body!: string;
+  readonly body?: string;
 
   @ApiPropertyOptional({
     type: String,

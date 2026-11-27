@@ -12,7 +12,7 @@ const referencesIn = (node: LexicalNode): Reference[] => {
   return $isElementNode(node) ? node.getChildren().flatMap(referencesIn) : [];
 };
 
-export function useWatchMessage(onChange: (written: Written) => void) {
+export function useWatchMessage(onChange: (written: Written) => void): void {
   const [editor] = useLexicalComposerContext();
 
   useEffect(

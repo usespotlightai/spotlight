@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type MoveEnd, transitionMove } from '@/lib/transition';
+import { partial } from '@/test/partial';
 
 type FakeAnimation = {
   onfinish: (() => void) | null;
@@ -39,7 +40,7 @@ describe('transitionMove', () => {
         cancel: vi.fn(() => animation.oncancel?.()),
       };
 
-      return animation as unknown as Animation;
+      return partial<Animation>(animation);
     });
   });
 

@@ -3,7 +3,11 @@ import type {
   RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunFacts } from '@runs/application/ports/run-facts.port';
-import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
+import type {
+  LeasedRunFacts,
+  RunLeasesPort,
+} from '@runs/application/ports/run-leases.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -18,6 +22,7 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { WorkRunLookup } from '@work/application/services/work-run-lookup.service';
+import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -46,7 +51,7 @@ const stationKeyed = (key: string): StationId =>
   StationId.of('station_gone');
 
 const factsOf = (over: Partial<RunFacts> = {}): RunFacts =>
-  ({
+  partial<RunFacts>({
     runId: RUN,
     workspaceId: WORKSPACE,
     state: 'completed',
@@ -85,7 +90,7 @@ const factsOf = (over: Partial<RunFacts> = {}): RunFacts =>
     failed: false,
     startedFrom: null,
     ...over,
-  }) as RunFacts;
+  });
 
 const taskAt = (key: string): DispatchedFor => ({
   kind: 'task',
@@ -123,10 +128,17 @@ const lookingUp = (seen: Seen) => {
 
   return new WorkRunLookup(
     { of: async () => (facts ? [facts] : []) },
-    {
+    partial<RunLeasesPort>({
       leasedBy: async () =>
-        seen.leased && facts ? { ...facts, manifest: [], pins: [] } : null,
-    } as unknown as RunLeasesPort,
+        seen.leased && facts
+          ? partial<LeasedRunFacts>({
+              ...facts,
+              claimedBy: RUNNER,
+              manifest: [],
+              pins: [],
+            })
+          : null,
+    }),
     {
       of: async () =>
         seen.for === null
@@ -138,16 +150,16 @@ const lookingUp = (seen: Seen) => {
               orderedAt: ORDERED_AT,
             },
     },
-    { find: async () => null } as unknown as TaskRepository,
-    {
-      find: async () => ({ teamId: TEAM, repositories: [WEB] }),
-    } as unknown as ChatRepository,
-    {
+    partial<TaskRepository>({ find: async () => null }),
+    partial<ChatRepository>({
+      find: async () => partial<Chat>({ teamId: TEAM, repositories: [WEB] }),
+    }),
+    partial<LineMapsPort>({
       findByStation: async () => (seen.lineGone ? null : line),
-    } as unknown as LineMapsPort,
-    {
+    }),
+    partial<RunJournalReaderPort>({
       attemptsOfRun: async () => [...(seen.attempts ?? [])],
-    } as unknown as RunJournalReaderPort,
+    }),
     readings,
   );
 };
@@ -320,7 +332,7 @@ describe('WorkRunLookup, reading how a run reasoned', () => {
   });
 
   const journalOf = (steps: readonly JournalStep[], attempt = 1) =>
-    ({ runId: 'run_1', attempt, steps }) as unknown as RunJournal;
+    partial<RunJournal>({ runId: 'run_1', attempt, steps });
 
   it('offers the messages, thoughts and plans of the agent, where it is in the journal', async () => {
     const reasoned = await lookingUp({

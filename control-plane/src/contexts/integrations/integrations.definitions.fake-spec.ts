@@ -5,11 +5,24 @@ import { parse as parseYaml } from 'yaml';
 
 const expressions = new CelExpressionEngine();
 
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+export const mappingOf = (text: string): Readonly<Record<string, unknown>> => {
+  const definition: unknown = parseYaml(text);
+
+  if (!isRecord(definition)) {
+    throw new Error('expected a YAML mapping');
+  }
+
+  return definition;
+};
+
 export const defined = (
   text: string,
   generated: { hash: string; tools: readonly string[] } | null = null,
 ): DefinedIntegration => {
-  const definition = parseYaml(text) as Record<string, unknown>;
+  const definition = mappingOf(text);
   const compiled = compileIntegration(definition, expressions, null);
   const handWritten = compiled.ok
     ? compiled.readable.integration.writtenTools.map((each) => each.tool.value)

@@ -7,6 +7,7 @@ import { inScope } from '@insights/infrastructure/persistence/drizzle/deletion-s
 import { taskFailures } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -86,11 +87,13 @@ export class DrizzleTaskFailuresRepository implements TaskFailuresRepository {
   }
 
   async of(taskId: TaskId): Promise<TaskFailures | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(taskFailures)
-      .where(eq(taskFailures.taskId, taskId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(taskFailures)
+        .where(eq(taskFailures.taskId, taskId.value))
+        .limit(1),
+    );
 
     return row ? toFailures(row) : null;
   }

@@ -11,6 +11,7 @@ import { StateVersionId } from '@configuration/domain/value-objects/state-versio
 import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import { TerraformStateId } from '@configuration/domain/value-objects/terraform-state-id.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -50,16 +51,16 @@ const stored = (latest: number) =>
   });
 
 const writing = (input: { latest: number; save?: () => Promise<void> }) => {
-  const states = {
+  const states = partial<TerraformStateRepository>({
     save: vi.fn(input.save ?? (async () => undefined)),
-  } as unknown as TerraformStateRepository;
-  const bodies = {
+  });
+  const bodies = partial<TerraformStateBodiesPort>({
     put: vi.fn(async () => undefined),
     remove: vi.fn(async () => undefined),
-  } as unknown as TerraformStateBodiesPort;
+  });
   let next = 0;
   const handler = new WriteTerraformStateHandler(
-    {
+    partial<WorkspaceAccessPort>({
       permissionsInSlug: async () => ({
         workspaceId: WORKSPACE,
         slug: 'acme',
@@ -68,8 +69,10 @@ const writing = (input: { latest: number; save?: () => Promise<void> }) => {
         scopes: new Set(),
         isAdmin: false,
       }),
-    } as unknown as WorkspaceAccessPort,
-    { named: async () => stored(input.latest) } as unknown as TerraformStates,
+    }),
+    partial<TerraformStates>({
+      named: async () => stored(input.latest),
+    }),
     states,
     bodies,
     { generate: () => `id_${++next}` },

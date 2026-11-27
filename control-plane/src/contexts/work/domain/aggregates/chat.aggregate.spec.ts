@@ -1,3 +1,5 @@
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -439,11 +441,11 @@ describe('Chat', () => {
 
     expect(event).toBeInstanceOf(ChatRunAssigned);
     expect(
-      (event as ChatRunAssigned).acknowledged.map((each) => each.value),
+      instanceOf(ChatRunAssigned, event).acknowledged.map((each) => each.value),
     ).toEqual([1]);
     expect(
       assigned
-        .messagesAt((event as ChatRunAssigned).acknowledged)
+        .messagesAt(instanceOf(ChatRunAssigned, event).acknowledged)
         .map((each) => each.body.value),
     ).toEqual(['And then?']);
   });
@@ -758,10 +760,12 @@ describe('Chat', () => {
 
     expect(accepted.proposalAt(SECOND).state).toBe('accepted');
     expect(event).toBeInstanceOf(ProposalAccepted);
-    expect((event as ProposalAccepted).title.value).toBe(
+    expect(instanceOf(ProposalAccepted, event).title.value).toBe(
       'Back off exponentially',
     );
-    expect((event as ProposalAccepted).acceptedBy.equals(LEON)).toBe(true);
+    expect(instanceOf(ProposalAccepted, event).acceptedBy.equals(LEON)).toBe(
+      true,
+    );
   });
 
   it('sends the files on a proposal along when it is accepted', () => {
@@ -787,7 +791,7 @@ describe('Chat', () => {
 
     const [event] = chat.accept(SECOND, LEON, LATER).pullEvents();
 
-    expect((event as ProposalAccepted).attachments).toEqual([mockup]);
+    expect(instanceOf(ProposalAccepted, event).attachments).toEqual([mockup]);
     expect(chat.allAttachments).toEqual([mockup]);
     expect(chat.sharedAttachments).toEqual([]);
     expect(() => chat.attachmentsOf([AttachmentId.of('att_copy')])).toThrow(
@@ -811,7 +815,7 @@ describe('Chat', () => {
 
     const [event] = chat.accept(SECOND, LEON, LATER).pullEvents();
 
-    expect((event as ProposalAccepted).base?.value).toBe('release/1.x');
+    expect(instanceOf(ProposalAccepted, event).base?.value).toBe('release/1.x');
     expect(chat.proposalAt(SECOND).base?.value).toBe('release/1.x');
   });
 
@@ -1534,7 +1538,7 @@ describe('Chat', () => {
 
     it('keeps the pull request and its task, and says so once', () => {
       const chat = opened();
-      const message = chat.messages.slice(-1)[0];
+      const message = firstOf(chat.messages.slice(-1));
 
       expect(message?.kind).toBe('opened');
       expect(message?.unacknowledged).toBe(false);

@@ -5,6 +5,7 @@ import type {
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import { answered, call } from '@github/infrastructure/github/github.rest';
 import type { LinkedAccountsPort } from '@identity/application/ports/linked-accounts.port';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 const PER_PAGE = 100;
@@ -24,7 +25,7 @@ export class GitHubReachableInstallations implements ReachableInstallationsPort 
   async of(userId: UserId): Promise<ReachableInstallation[]> {
     const token = await this.accounts.tokenFor(userId, 'github');
 
-    if (!token) {
+    if (!nonEmpty(token)) {
       return [];
     }
 

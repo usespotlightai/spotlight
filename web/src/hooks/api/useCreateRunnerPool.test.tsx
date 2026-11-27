@@ -53,9 +53,10 @@ describe('useCreateRunnerPool', () => {
         token: 'spt_pool_secret',
       }),
     );
+    const anyKey: unknown = expect.any(String);
     expect(createRunnerPool).toHaveBeenCalledWith({
       path: { workspaceId: 'workspace_acme' },
-      headers: { 'Idempotency-Key': expect.any(String) as string },
+      headers: { 'Idempotency-Key': anyKey },
       body: { key: 'my-computer' },
     });
   });

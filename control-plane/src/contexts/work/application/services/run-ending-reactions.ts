@@ -1,5 +1,6 @@
 import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   isRunFailureCode,
   type RunFailureCode,
@@ -72,7 +73,7 @@ export const RunsTranslation = {
   },
 
   session(session: string | null): HarnessSession | null {
-    return session ? HarnessSession.of(session) : null;
+    return nonEmpty(session) ? HarnessSession.of(session) : null;
   },
 };
 
@@ -98,7 +99,7 @@ export const RunEndedFacts = {
   },
 
   claimedBy(event: RunEndedIntegrationEvent): RunnerId | null {
-    return event.claimedBy ? RunnerId.of(event.claimedBy) : null;
+    return nonEmpty(event.claimedBy) ? RunnerId.of(event.claimedBy) : null;
   },
 
   ending(event: RunEndedIntegrationEvent): DispatchEnding {

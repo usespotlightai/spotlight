@@ -6,7 +6,7 @@ import { scenario, setOpenPage } from '@/mocks/scenario';
 import { ownedByPage } from '@/mocks/shell';
 import { movedTo } from '@/stories/visit';
 
-export function OpenPage() {
+export function OpenPage(): null {
   const { pathname, search, hash } = useLocation();
   const client = useQueryClient();
   const here = `${pathname}${search}${hash}`;

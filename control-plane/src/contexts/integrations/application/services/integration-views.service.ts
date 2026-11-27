@@ -12,6 +12,7 @@ import { IntegrationAddress } from '@integrations/domain/value-objects/integrati
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -29,7 +30,7 @@ const readingWarnings = (
   }
 
   return [
-    ...(reading.problem
+    ...(nonEmpty(reading.problem)
       ? [
           warned(
             FieldPath.of([spec.kind, spec.readsUrl ? 'url' : 'document']),
@@ -68,7 +69,7 @@ export class IntegrationViews {
               ? OfferedTools.listed(
                   compiled.integration,
                   tools,
-                  record.generatedFrom
+                  nonEmpty(record.generatedFrom)
                     ? ContentHash.of(record.generatedFrom)
                     : null,
                 ).generatedCount

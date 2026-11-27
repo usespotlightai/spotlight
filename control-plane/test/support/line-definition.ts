@@ -1,6 +1,6 @@
 import type { LineOpening } from '@lines/domain/services/built-in-lines';
 
-export const definitionOf = (line: LineOpening) => ({
+const definitionFrom = (line: LineOpening) => ({
   key: line.key.value,
   name: line.name.value,
   ...(line.role ? { role: line.role.value } : {}),
@@ -29,4 +29,7 @@ export const definitionOf = (line: LineOpening) => ({
   })),
 });
 
-export type LineDefinition = ReturnType<typeof definitionOf>;
+export type LineDefinition = ReturnType<typeof definitionFrom>;
+
+export const definitionOf = (line: LineOpening): LineDefinition =>
+  definitionFrom(line);

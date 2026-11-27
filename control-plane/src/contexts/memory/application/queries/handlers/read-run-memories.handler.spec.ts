@@ -20,6 +20,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -82,7 +83,7 @@ const reading = (input: {
   recalled: readonly Memory[];
   proposed?: boolean;
 }) => {
-  const work = {
+  const work = partial<WorkPort>({
     run: async () => ({
       id: RunId.of('run_1'),
       workspaceId: WORKSPACE,
@@ -100,36 +101,41 @@ const reading = (input: {
         stationId: null,
         repositories: [],
       },
-  } as unknown as WorkPort;
-  const people = {
+  });
+  const people = partial<PeoplePort>({
     viewerOf: async () => ({
       workspaceId: WORKSPACE,
       by: UserId.of('user_1'),
     }),
     find: async () => ({ name: 'Ada', image: null }),
-  } as unknown as PeoplePort;
-  const memories = {
+  });
+  const memories = partial<MemoryRepository>({
     findAll: async (ids: readonly MemoryId[]) =>
       ids.flatMap((id) => input.stored.filter((each) => each.id.equals(id))),
-  } as unknown as MemoryRepository;
-  const uses = {
+  });
+  const uses = partial<MemoryUsesPort>({
     usedBy: async () => input.recalled.map((each) => each.id),
     runsUsing: async () => new Map(),
-  } as unknown as MemoryUsesPort;
+  });
 
   return new ReadRunMemoriesHandler(
     new MemoryAccess(people, work),
     work,
     memories,
-    {
+    partial<MemoryProposalSetRepository>({
       forTask: async () => (input.proposed ? draftProposing() : null),
-    } as unknown as MemoryProposalSetRepository,
+    }),
     uses,
-    new MemoryReviews(work, people, memories, {
-      of: async () => null,
-    } as unknown as DuplicateCheckRepository),
+    new MemoryReviews(
+      work,
+      people,
+      memories,
+      partial<DuplicateCheckRepository>({
+        of: async () => null,
+      }),
+    ),
     new TeamMemoryViews(memories, people, uses),
-    { reviewItemOf: async () => 'request_1' } as unknown as ReviewsPort,
+    partial<ReviewsPort>({ reviewItemOf: async () => 'request_1' }),
   ).execute(new ReadRunMemoriesQuery('team_1', 'run_1', 'user_1'));
 };
 

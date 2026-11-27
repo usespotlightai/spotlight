@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -29,12 +30,12 @@ const CONTEXT: TaskToolContext = {
 
 const using = () => {
   const opened: { target: PullRequestFor; input: PullRequestInput }[] = [];
-  const opening = {
+  const opening = partial<OpenPullRequest>({
     open: async (target: PullRequestFor, wanted: PullRequestInput) => {
       opened.push({ target, input: wanted });
       return { url: 'https://github.com/acme/widgets/pull/7' };
     },
-  } as unknown as OpenPullRequest;
+  });
 
   return { opened, tool: new PullRequestToolUse(opening) };
 };

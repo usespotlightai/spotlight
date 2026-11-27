@@ -1,7 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { listTeamMemories } from '@/lib/api';
+import { listTeamMemories, type TeamMemoryResponseDto } from '@/lib/api';
 import type { MemoryFilter } from '@/lib/memory';
+import { nonEmpty } from '@/lib/non-empty';
+import { required } from '@/lib/required';
 
 export const teamMemoryKeys = {
   forTeam: (teamId?: string) => ['team-memories', teamId ?? null] as const,
@@ -14,7 +16,7 @@ export const teamMemoryKeys = {
 export function useTeamMemories(
   teamId: string | undefined,
   filter: MemoryFilter,
-) {
+): UseQueryResult<TeamMemoryResponseDto[]> {
   return useQuery({
     queryKey: teamMemoryKeys.listed(teamId, filter),
     enabled: Boolean(teamId),
@@ -22,14 +24,18 @@ export function useTeamMemories(
       previousQuery?.queryKey[1] === teamId ? previous : undefined,
     queryFn: async () => {
       const { data } = await listTeamMemories({
-        path: { teamId: teamId as string },
+        path: { teamId: required(teamId) },
         query: {
           status: filter.status,
-          ...(filter.kind ? { kind: filter.kind } : {}),
-          ...(filter.lineId ? { lineId: filter.lineId } : {}),
-          ...(filter.stationId ? { stationId: filter.stationId } : {}),
-          ...(filter.repository ? { repository: filter.repository } : {}),
-          ...(filter.path ? { path: filter.path } : {}),
+          ...(nonEmpty(filter.kind) ? { kind: filter.kind } : {}),
+          ...(nonEmpty(filter.lineId) ? { lineId: filter.lineId } : {}),
+          ...(nonEmpty(filter.stationId)
+            ? { stationId: filter.stationId }
+            : {}),
+          ...(nonEmpty(filter.repository)
+            ? { repository: filter.repository }
+            : {}),
+          ...(nonEmpty(filter.path) ? { path: filter.path } : {}),
         },
         throwOnError: true,
       });

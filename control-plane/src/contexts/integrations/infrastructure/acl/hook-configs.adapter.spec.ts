@@ -4,6 +4,7 @@ import { HookConfigs } from '@integrations/infrastructure/acl/hook-configs.adapt
 import { compileHook } from '@integrations/infrastructure/hooks/hook.compile';
 import { writtenHookDocumentOf } from '@integrations/infrastructure/hooks/written-hook-document';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -33,14 +34,15 @@ const configsOf = (definition: Readonly<Record<string, unknown>>) =>
       at: async () => null,
       ofTeam: async () => [],
     } satisfies HookResourcesPort,
-    {
+    partial<TeamDirectoryPort>({
       find: async () => ({
         id: TEAM,
         key: 'core',
         name: 'Core',
         workspaceId: WorkspaceId.of('workspace_1'),
+        members: [],
       }),
-    } as unknown as TeamDirectoryPort,
+    }),
   );
 
 const HOOK = {
@@ -154,7 +156,7 @@ describe('HookConfigs.mayFireAt', () => {
         recordOf('other-line', { lines: ['incident'] }),
       ],
     } satisfies HookResourcesPort,
-    { find: async () => null } as unknown as TeamDirectoryPort,
+    partial<TeamDirectoryPort>({ find: async () => null }),
   );
 
   it('names the live and planned hooks that may fire at a station, with the integrations they call', async () => {

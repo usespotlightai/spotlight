@@ -1,5 +1,6 @@
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { nonEmpty } from '@/lib/non-empty';
 import type { TeamRun } from '@/lib/run';
 import { taskPath } from '@/lib/task';
 import { teamCrumb } from '@/lib/team-crumb';
@@ -24,7 +25,7 @@ export function useRunTrail({
     ...(team ? [teamCrumb(slug, team)] : []),
     {
       label: title ?? run.taskTitle ?? 'Run',
-      to: run.taskId ? taskPath(slug, teamId, run.taskId) : undefined,
+      to: nonEmpty(run.taskId) ? taskPath(slug, teamId, run.taskId) : undefined,
     },
     { label: run.station?.name ?? 'Run' },
   ];

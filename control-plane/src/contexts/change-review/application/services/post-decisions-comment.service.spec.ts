@@ -13,6 +13,7 @@ import type {
   StickyComment,
   StickyCommentPlace,
 } from '@github/application/ports/pull-request-comments.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -48,8 +49,8 @@ const posting = (
   const deleted: StickyCommentPlace[] = [];
 
   const service = new PostDecisionsComment(
-    { ofTask: async () => stored } as unknown as DecisionReaderPort,
-    {
+    partial<DecisionReaderPort>({ ofTask: async () => stored }),
+    partial<WorkPort>({
       task: async (): Promise<ReviewedTask> => ({
         id: TASK,
         workspaceId: WORKSPACE,
@@ -61,7 +62,7 @@ const posting = (
         currentRunId: null,
         ...task,
       }),
-    } as unknown as WorkPort,
+    }),
     {
       slugOf: async () => 'acme',
       idOf: async () => null,

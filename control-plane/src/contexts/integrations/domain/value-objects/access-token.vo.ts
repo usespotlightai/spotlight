@@ -25,7 +25,9 @@ export class AccessToken implements Secret {
   }
 
   static maybe(raw: string | null | undefined): AccessToken | null {
-    return raw?.trim() ? AccessToken.of(raw) : null;
+    return raw !== null && raw !== undefined && raw.trim() !== ''
+      ? AccessToken.of(raw)
+      : null;
   }
 
   equals(other: AccessToken): boolean {

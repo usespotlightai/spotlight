@@ -1,3 +1,5 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import ts from 'typescript';
 
 import { SNAPSHOT_FOREIGN_KEYS } from './drizzle-snapshot';
@@ -46,9 +48,9 @@ const sqlTextsOf = (file: SourceFile): { node: ts.Node; text: string }[] => [
   ...descendants(file.tree, ts.isCallExpression)
     .filter((call) => call.expression.getText() === 'sql.raw')
     .flatMap((call) => {
-      const argument = call.arguments[0];
+      const argument = itemAt(call.arguments, 0);
 
-      return argument && ts.isStringLiteralLike(argument)
+      return argument !== undefined && ts.isStringLiteralLike(argument)
         ? [{ node: call, text: argument.text }]
         : [];
     }),
@@ -83,7 +85,7 @@ const foreignRawTables = (file: SourceFile, owner: string): Violation[] =>
       const tableOwner =
         name && TABLE_NAMES.has(name) ? ownerOfTable(name) : null;
 
-      return tableOwner && tableOwner !== owner
+      return nonEmpty(tableOwner) && tableOwner !== owner
         ? [
             {
               key: `${file.path}: names ${name} of ${tableOwner} in SQL`,
@@ -108,7 +110,7 @@ const crossOwnerForeignKeys = (): Violation[] =>
     const from = ownerOfTable(key.tableFrom);
     const to = ownerOfTable(key.tableTo);
 
-    return from && to && from !== to
+    return nonEmpty(from) && nonEmpty(to) && from !== to
       ? [
           {
             key: `${key.tableFrom} of ${from} references ${key.tableTo} of ${to}`,

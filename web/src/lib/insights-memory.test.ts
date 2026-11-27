@@ -5,9 +5,10 @@ import {
   memoryTiles,
   usedNoMemory,
 } from '@/lib/insights-memory';
+import { partial } from '@/test/partial';
 
 const memory = (over: Partial<InsightsMemory>): InsightsMemory =>
-  ({
+  partial<InsightsMemory>({
     activeCount: 3,
     memoriesBriefed: 2,
     memoriesRead: 1,
@@ -19,7 +20,7 @@ const memory = (over: Partial<InsightsMemory>): InsightsMemory =>
     runsDelivered: 2,
     flagged: [],
     ...over,
-  }) as InsightsMemory;
+  });
 
 describe('memoryTiles', () => {
   it('counts active, briefed, read, recalled and delivered memories, with the runs behind them', () => {

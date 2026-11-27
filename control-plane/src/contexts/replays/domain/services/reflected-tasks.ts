@@ -8,6 +8,7 @@ import { scoresOf } from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 const MOSTLY_FAILS_BELOW = 0.5;
 
@@ -22,9 +23,11 @@ export const failingSearchedTasksOf = (
   minGain: number,
 ): FailingTasks => {
   const scores = scoresOf(search, replays, minGain);
-  const [best] = rankedOf(
-    [scores.seed, ...scores.candidates].filter((each) => each.finished),
-    search.objective,
+  const best = firstOf(
+    rankedOf(
+      [scores.seed, ...scores.candidates].filter((each) => each.finished),
+      search.objective,
+    ),
   );
   const candidateId = best?.candidateId ?? search.seed.candidateId;
   const replayId = best?.replayId ?? search.seed.replay.replayId;

@@ -14,7 +14,7 @@ export class SkillDefinitionId {
   }
 
   equals(other: SkillDefinitionId): boolean {
-    return this.kind === other.kind && this.value === other.value;
+    return other instanceof SkillDefinitionId && this.value === other.value;
   }
 
   toString(): string {

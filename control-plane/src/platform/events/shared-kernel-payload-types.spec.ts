@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { SHARED_KERNEL_PAYLOAD_TYPES } from '@platform/events/shared-kernel-payload-types';
 import { SECRET } from '@shared-kernel/domain/value-objects/secret';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 const FOLDERS = ['value-objects', 'events'];
 
@@ -29,10 +30,9 @@ describe('SHARED_KERNEL_PAYLOAD_TYPES', () => {
       for (const file of readdirSync(within).filter(
         (each) => each.endsWith('.ts') && !each.endsWith('.spec.ts'),
       )) {
-        const loaded = (await import(join(within, file))) as Record<
-          string,
-          unknown
-        >;
+        const loaded = z
+          .record(z.string(), z.unknown())
+          .parse(await import(join(within, file)));
 
         for (const [name, value] of Object.entries(loaded)) {
           if (

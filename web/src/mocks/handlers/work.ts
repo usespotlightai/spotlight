@@ -13,6 +13,7 @@ import type {
   SendMessageRequestDto,
   TaskResponseDto,
 } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { placed } from '@/lib/task';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
@@ -71,7 +72,9 @@ const publicStacksResponse = (stacks: readonly ChangeStackResponseDto[]) =>
 
 const UPLOAD_PATH = '/attachment-uploads/:attachmentId';
 
-const uploads = perWorld((): Record<string, AttachmentResponseDto> => ({}));
+const uploads = perWorld(
+  (): Partial<Record<string, AttachmentResponseDto>> => ({}),
+);
 
 let idCount = 0;
 
@@ -160,7 +163,7 @@ const reopenOnMessage = ({
   task: TaskResponseDto;
 }) => {
   replaceTask(teamId, { ...task, finished: false });
-  if (placeStation(teamId, task.stationId)?.station.harness) {
+  if ((placeStation(teamId, task.stationId)?.station.harness ?? '') !== '') {
     queueRunAt(teamId, task.id, task.stationId);
   }
 };
@@ -201,7 +204,7 @@ const onMessage = (
 ) => {
   const asked = located.task.awaitingReview?.conversationId;
 
-  if (yourMessage === 'answer' && asked) {
+  if (yourMessage === 'answer' && nonEmpty(asked)) {
     reviewAnswered(located.task, world().runs[located.task.id] ?? [], asked);
   }
   if (yourMessage === 'holds') {
@@ -214,7 +217,7 @@ const onMessage = (
 };
 
 export const workHandlers: RequestHandler[] = [
-  api.post(
+  api.post<AddTaskRequestDto>(
     '/teams/:teamId/lines/:lineId/stations/:stationId/tasks',
     async ({ params, request }) => {
       const teamId = String(params.teamId);
@@ -224,7 +227,7 @@ export const workHandlers: RequestHandler[] = [
         return notFound();
       }
 
-      const body = (await request.json()) as AddTaskRequestDto;
+      const body = await request.json();
       const task: TaskResponseDto = {
         id: nextId('task'),
         stationId,
@@ -256,12 +259,12 @@ export const workHandlers: RequestHandler[] = [
     },
   ),
 
-  api.post(
+  api.post<MoveTaskRequestDto>(
     '/teams/:teamId/lines/:lineId/tasks/:taskId/move',
     async ({ params, request }) => {
       const teamId = String(params.teamId);
       const task = findTask(teamId, String(params.taskId));
-      const body = (await request.json()) as MoveTaskRequestDto;
+      const body = await request.json();
 
       if (!task || !placeStation(teamId, body.stationId)) {
         return notFound();
@@ -316,13 +319,12 @@ export const workHandlers: RequestHandler[] = [
     return noContent();
   }),
 
-  api.post(
+  api.post<ResumeLineRequestDto>(
     '/teams/:teamId/tasks/:taskId/resume',
     async ({ params, request }) => {
       const teamId = String(params.teamId);
       const task = findTask(teamId, String(params.taskId));
-      const { next, stationId } =
-        (await request.json()) as ResumeLineRequestDto;
+      const { next, stationId } = await request.json();
 
       if (!task?.hold) {
         return notFound();
@@ -334,7 +336,7 @@ export const workHandlers: RequestHandler[] = [
         )
         ?.stations.find((each) => each.kind === 'completed');
       const to =
-        next === 'move-on' && stationId
+        next === 'move-on' && nonEmpty(stationId)
           ? stationId
           : next === 'finish'
             ? (completed?.id ?? task.stationId)
@@ -356,12 +358,12 @@ export const workHandlers: RequestHandler[] = [
     },
   ),
 
-  api.put(
+  api.put<AssignTaskRequestDto>(
     '/teams/:teamId/tasks/:taskId/assignee',
     async ({ params, request }) => {
       const teamId = String(params.teamId);
       const task = findTask(teamId, String(params.taskId));
-      const { assigneeId } = (await request.json()) as AssignTaskRequestDto;
+      const { assigneeId } = await request.json();
       const member = (world().members[teamId] ?? []).find(
         (each) => each.id === assigneeId,
       );
@@ -434,10 +436,10 @@ export const workHandlers: RequestHandler[] = [
     publicStacksResponse(taskChangeStacksOf(String(params.taskId))),
   ),
 
-  api.post(
+  api.post<AnswerQuestionRequestDto>(
     '/teams/:teamId/change-stacks/:stackId/questions/:questionId/answers',
     async ({ params, request }) => {
-      const body = (await request.json()) as AnswerQuestionRequestDto;
+      const body = await request.json();
 
       return json(
         answerStackQuestion(
@@ -455,7 +457,7 @@ export const workHandlers: RequestHandler[] = [
     return located ? json(runMemoriesOf(located.run.id)) : notFound();
   }),
 
-  api.post(
+  api.post<SendMessageRequestDto>(
     '/teams/:teamId/runs/:runId/messages',
     async ({ params, request }) => {
       const located = locateRun(String(params.teamId), String(params.runId));
@@ -471,7 +473,7 @@ export const workHandlers: RequestHandler[] = [
         return refused;
       }
 
-      const body = (await request.json()) as SendMessageRequestDto;
+      const body = await request.json();
       addMessage(located, body.body, attachmentsOf(body.attachments));
       onMessage(located, yourMessage);
 
@@ -479,7 +481,7 @@ export const workHandlers: RequestHandler[] = [
     },
   ),
 
-  api.post(
+  api.post<Partial<SendMessageRequestDto>>(
     '/teams/:teamId/tasks/:taskId/messages',
     async ({ params, request }) => {
       const teamId = String(params.teamId);
@@ -497,7 +499,7 @@ export const workHandlers: RequestHandler[] = [
         return refused;
       }
 
-      const body = (await request.json()) as SendMessageRequestDto;
+      const body = await request.json();
       if (newest) {
         addMessage(
           { teamId, task, run: newest },
@@ -565,26 +567,29 @@ export const workHandlers: RequestHandler[] = [
     return network ? json(network) : notFound();
   }),
 
-  api.post('/workspaces/:slug/attachments', async ({ params, request }) => {
-    if (params.slug !== world().workspace.slug) {
-      return notFound();
-    }
+  api.post<GrantAttachmentUploadRequestDto>(
+    '/workspaces/:slug/attachments',
+    async ({ params, request }) => {
+      if (params.slug !== world().workspace.slug) {
+        return notFound();
+      }
 
-    const body = (await request.json()) as GrantAttachmentUploadRequestDto;
-    const id = nextId('attachment');
-    const contentType = body.contentType ?? 'application/octet-stream';
+      const body = await request.json();
+      const id = nextId('attachment');
+      const contentType = body.contentType ?? 'application/octet-stream';
 
-    uploads()[id] = { id, name: body.name, contentType, size: body.size };
+      uploads()[id] = { id, name: body.name, contentType, size: body.size };
 
-    return json(
-      {
-        id,
-        url: `/api${UPLOAD_PATH.replace(':attachmentId', id)}`,
-        headers: { 'content-type': contentType },
-      },
-      201,
-    );
-  }),
+      return json(
+        {
+          id,
+          url: `/api${UPLOAD_PATH.replace(':attachmentId', id)}`,
+          headers: { 'content-type': contentType },
+        },
+        201,
+      );
+    },
+  ),
 
   api.put(UPLOAD_PATH, ({ params }) =>
     uploads()[String(params.attachmentId)] ? noContent() : notFound(),

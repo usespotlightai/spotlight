@@ -28,7 +28,7 @@ export class ClaimsRevisionRound {
 
   equals(other: ClaimsRevisionRound): boolean {
     return (
-      this.kind === other.kind &&
+      other instanceof ClaimsRevisionRound &&
       this.revisionId.equals(other.revisionId) &&
       this.attempt === other.attempt
     );

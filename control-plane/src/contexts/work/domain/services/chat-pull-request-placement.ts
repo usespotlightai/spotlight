@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { NowhereToOpenAPullRequestError } from '@work/domain/exceptions/nowhere-to-open-a-pull-request.error';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -22,9 +23,9 @@ export const chatPullRequestPlacement = (
   repository: Repository,
   named: string | null,
 ): ChatPullRequestPlacement => {
-  const lineNamed = named?.trim() || null;
+  const lineNamed = (named?.trim() ?? '') || null;
 
-  if (lineNamed) {
+  if (lineNamed !== null) {
     const line = lines.find((each) => each.key.value === lineNamed);
 
     if (!line) {
@@ -54,8 +55,10 @@ export const chatPullRequestPlacement = (
     .filter((each) => each.names(repository))
     .flatMap((each) => placed(each) ?? []);
 
-  if (candidates.length === 1 && candidates[0]) {
-    return candidates[0];
+  const only = firstOf(candidates);
+
+  if (candidates.length === 1 && only !== undefined) {
+    return only;
   }
 
   throw new NowhereToOpenAPullRequestError(

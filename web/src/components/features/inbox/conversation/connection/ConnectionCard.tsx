@@ -10,6 +10,7 @@ import { PillButton } from '@/components/shared/PillButton';
 import { useConnectIntegration } from '@/hooks/api/useConnectIntegration';
 import type { InboxConnectionResponseDto } from '@/lib/api';
 import { DockedContext } from '@/lib/decision-tray';
+import { nonEmpty } from '@/lib/non-empty';
 
 type ConnectionCardProps = {
   connection: InboxConnectionResponseDto;
@@ -51,7 +52,7 @@ export function ConnectionCard({
   const docked = use(DockedContext) !== null;
   const Action = docked ? DecisionButton : PillButton;
   const action =
-    !connection.met && !outdated && theirs && teamId ? (
+    !connection.met && !outdated && theirs && nonEmpty(teamId) ? (
       <Action
         variant="default"
         disabled={connect.isPending}

@@ -1,9 +1,10 @@
 import type { Expression } from '@platform/expressions/expression-engine.port';
 import { ExpressionFailures } from '@platform/expressions/expression-failures';
 import { isTrue } from '@platform/expressions/readings';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const failing = {
+const failing = partial<Expression>({
   location: 'hooks.notify.when',
   source: 'task.missing.field',
   evaluate: () => {
@@ -11,7 +12,7 @@ const failing = {
       code: 'no_such_key',
     });
   },
-} as unknown as Expression;
+});
 
 describe('ExpressionFailures', () => {
   const logger = {

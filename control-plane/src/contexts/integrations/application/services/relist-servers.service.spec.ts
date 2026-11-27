@@ -11,6 +11,7 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -53,7 +54,7 @@ const relisting = (
 ) => {
   const listedBefore = vi.fn(async () => candidates);
   const saved: IntegrationDefinition[] = [];
-  const definitions = {
+  const definitions = partial<IntegrationDefinitionRepository>({
     of: vi.fn(
       async (_teamId: TeamId, integration: IntegrationKey) =>
         stored.find((each) => each.integration.equals(integration)) ?? null,
@@ -61,15 +62,15 @@ const relisting = (
     save: vi.fn(async (definition: IntegrationDefinition) => {
       saved.push(definition);
     }),
-  } as unknown as IntegrationDefinitionRepository;
+  });
   const execute = vi.fn(async (_command: RefreshIntegrationSpecCommand) => {});
-  const log = { error: vi.fn() } as unknown as LoggerPort;
+  const log = partial<LoggerPort>({ error: vi.fn() });
   const servers = new RelistServers(
     { listedBefore },
     definitions,
     { execute },
     { inTransaction: (work) => work() },
-    { now: () => NOW } as ClockPort,
+    partial<ClockPort>({ now: () => NOW }),
     log,
     TEN_MINUTES,
   );

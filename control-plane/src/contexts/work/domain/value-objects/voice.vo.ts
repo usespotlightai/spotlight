@@ -1,3 +1,5 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -59,7 +61,7 @@ export class Voice {
     }
 
     if (input.kind === 'person') {
-      if (!input.author) {
+      if (!nonEmpty(input.author)) {
         throw new InvalidVoiceError('of a person needs their name');
       }
 
@@ -69,26 +71,26 @@ export class Voice {
       );
     }
 
-    if (input.coAuthors?.length) {
+    if ((input.coAuthors?.length ?? 0) > 0) {
       throw new InvalidVoiceError(
         `with co-authors belongs to a person, not to ${input.kind}`,
       );
     }
 
     if (input.kind === 'world') {
-      if (input.run) {
+      if (nonEmpty(input.run)) {
         throw new InvalidVoiceError('of the world names no run');
       }
 
       return Voice.world(
-        input.author ? UserId.of(input.author) : null,
+        nonEmpty(input.author) ? UserId.of(input.author) : null,
         input.source === undefined || input.source === null
           ? null
           : IntegrationName.of(input.source),
       );
     }
 
-    if (input.author) {
+    if (nonEmpty(input.author)) {
       throw new InvalidVoiceError(
         `with a name belongs to a person, not to ${input.kind}`,
       );
@@ -98,7 +100,7 @@ export class Voice {
       throw new InvalidVoiceError(`must be one of ${VOICE_KINDS.join(', ')}`);
     }
 
-    return Voice.station(input.run ? RunId.of(input.run) : null);
+    return Voice.station(nonEmpty(input.run) ? RunId.of(input.run) : null);
   }
 
   equals(other: Voice): boolean {
@@ -115,7 +117,7 @@ export class Voice {
         : other.run !== null && this.run.equals(other.run)) &&
       this.coAuthors.length === other.coAuthors.length &&
       this.coAuthors.every((each, at) => {
-        const theirs = other.coAuthors[at];
+        const theirs = itemAt(other.coAuthors, at);
         return theirs !== undefined && each.equals(theirs);
       })
     );

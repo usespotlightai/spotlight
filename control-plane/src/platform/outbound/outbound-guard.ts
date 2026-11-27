@@ -1,8 +1,11 @@
 import { type LookupAddress, lookup } from 'node:dns';
 
 import type { OnApplicationShutdown } from '@nestjs/common';
+import { fieldOf } from '@platform/json/field-of';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
 import { isAddress, unreachable } from '@platform/outbound/reachable-addresses';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { Agent, buildConnector, type Dispatcher, fetch } from 'undici';
 
@@ -78,19 +81,19 @@ export class OutboundGuard implements OnApplicationShutdown {
       },
     );
 
-    this.fetch = (async (url: Parameters<Fetch>[0], init?: RequestInit) => {
+    const guarded = async (
+      url: Parameters<typeof fetch>[0],
+      init?: Parameters<typeof fetch>[1],
+    ): ReturnType<typeof fetch> => {
       try {
-        return await fetch(
-          url as Parameters<typeof fetch>[0],
-          {
-            ...init,
-            dispatcher: scoped,
-          } as Parameters<typeof fetch>[1],
-        );
+        return await fetch(url, { ...init, dispatcher: scoped });
       } catch (error) {
         throw blockedIn(error) ?? error;
       }
-    }) as unknown as Fetch;
+    };
+
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    this.fetch = guarded as unknown as Fetch;
   }
 
   async onApplicationShutdown(): Promise<void> {
@@ -140,7 +143,7 @@ export class OutboundGuard implements OnApplicationShutdown {
         this.loopbackAllowed,
       );
 
-      return reason
+      return nonEmpty(reason)
         ? new OutboundBlockedError(host, `The address ${reason}`)
         : null;
     }
@@ -164,7 +167,7 @@ export class OutboundGuard implements OnApplicationShutdown {
       for (const each of addresses) {
         const reason = unreachable(each.address, named, this.loopbackAllowed);
 
-        if (reason) {
+        if (nonEmpty(reason)) {
           done(
             new OutboundBlockedError(
               hostname.toLowerCase(),
@@ -176,11 +179,11 @@ export class OutboundGuard implements OnApplicationShutdown {
         }
       }
 
-      const [first] = addresses;
+      const first = firstOf(addresses);
 
       if (options.all) {
         done(null, addresses);
-      } else if (first) {
+      } else if (first !== undefined) {
         done(null, first.address, first.family);
       } else {
         done(
@@ -198,7 +201,7 @@ const blockedIn = (error: unknown): OutboundBlockedError | null => {
   for (
     let at: unknown = error;
     at instanceof Error;
-    at = (at as { cause?: unknown }).cause
+    at = fieldOf(at, 'cause')
   ) {
     if (at instanceof OutboundBlockedError) {
       return at;

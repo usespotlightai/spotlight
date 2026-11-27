@@ -117,7 +117,7 @@ class PullRequestsInMemory implements JudgeClaimsPullRequestRepository {
   async nextDueJob(now: Date): Promise<JudgeClaimsPullRequest | null> {
     return (
       [...this.stored.values()].find(
-        (each) => each.job?.isDue(now) && !each.job.exhausted,
+        (each) => each.job?.isDue(now) === true && !each.job.exhausted,
       ) ?? null
     );
   }

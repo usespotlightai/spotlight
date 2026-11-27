@@ -11,6 +11,8 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -56,9 +58,9 @@ class FakeContext {
 
   constructor(private readonly attempts: number) {}
 
-  get db(): unknown {
-    return {
-      select: () => {
+  get db(): DrizzleContext['db'] {
+    return partial<DrizzleContext['db']>({
+      select: partial<DrizzleContext['db']['select']>(() => {
         this.steps.push('claim');
         const due = this.claimable
           ? [
@@ -77,8 +79,8 @@ class FakeContext {
         this.claimable = false;
 
         return thenable(due);
-      },
-      update: () => ({
+      }),
+      update: partial<DrizzleContext['db']['update']>(() => ({
         set: (values: Record<string, unknown>) => ({
           where: (condition: unknown) => {
             this.leasesGuarded.push(...datesIn(condition));
@@ -110,8 +112,8 @@ class FakeContext {
             return Object.assign(rows, { returning: () => rows });
           },
         }),
-      }),
-    };
+      })),
+    });
   }
 
   async inTransaction<T>(work: () => Promise<T>): Promise<T> {
@@ -176,19 +178,19 @@ const delivering = (
     inSpan: <T>(_name: string, _attributes: unknown, work: () => Promise<T>) =>
       work(),
     count: vi.fn(),
-  };
+  } satisfies Partial<TelemetryPort>;
   const delivery = new EventDelivery(
-    context as unknown as DrizzleContext,
-    {
-      decode: (payload: unknown) => payload,
+    partial<DrizzleContext>(context),
+    partial<EventOutbox>({
+      decode: () => partial<DomainEvent>({}),
       record: async () => undefined,
-    } as unknown as EventOutbox,
+    }),
     subscribers,
     { now: () => clock.now(), sleep: async () => undefined },
     logger,
     new CauseCarrier(),
     reports,
-    telemetry as unknown as TelemetryPort,
+    partial<TelemetryPort>(telemetry),
   );
 
   return { delivery, context, logger, reports, telemetry };

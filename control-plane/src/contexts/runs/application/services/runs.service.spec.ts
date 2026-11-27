@@ -2,7 +2,10 @@ import type { LineView } from '@lines/application/contracts/line-view.contract';
 import type { LinesPort } from '@lines/application/ports/lines.port';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import { REMOTE_VIA_GIT_PROXY } from '@runs/application/contracts/run-spec.contract';
-import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import type {
+  HarnessCatalogueEntry,
+  HarnessLaunchPort,
+} from '@runs/application/ports/harness-launch.port';
 import { HeldHarnessKeys } from '@runs/application/services/held-harness-keys.service';
 import { Runs } from '@runs/application/services/runs.service';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
@@ -19,6 +22,7 @@ import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { LinesWarmLines } from '@runs/infrastructure/acl/lines-warm-lines.adapter';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -94,7 +98,7 @@ const ISOLATED: RunOrderContract = {
 };
 
 const lineViewOf = (over: Partial<LineView>): LineView =>
-  ({
+  partial<LineView>({
     id: 'line_1',
     workspaceId: 'ws_1',
     runners: [],
@@ -102,24 +106,37 @@ const lineViewOf = (over: Partial<LineView>): LineView =>
     warmSandboxes: 1,
     repositories: [],
     ...over,
-  }) as LineView;
+  });
 
 const harnessKeys = (held: readonly string[] = []) =>
   new HeldHarnessKeys(
-    {
+    partial<HarnessLaunchPort>({
       catalogue: () => [
-        {
+        partial<HarnessCatalogueEntry>({
           id: 'claude-code',
           harnessKeys: ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN'],
-        },
+        }),
       ],
-    } as unknown as HarnessLaunchPort,
-    { namesIn: async () => held, sandboxSecrets: async () => [] },
+    }),
+    {
+      namesIn: async () => held,
+      sandboxSecrets: async () => [],
+    },
   );
+
+const storedRun = (stored: ReadonlyMap<string, Run>, id: string): Run => {
+  const run = stored.get(id);
+
+  if (run === undefined) {
+    throw new Error(`expected run ${id} to be stored`);
+  }
+
+  return run;
+};
 
 const inMemory = (held: readonly string[] = []) => {
   const stored = new Map<string, Run>();
-  const runs = {
+  const runs = partial<RunRepository>({
     findById: async (id: RunId) => stored.get(id.value) ?? null,
     add: async (run: Run) => {
       if (stored.has(run.id.value)) {
@@ -130,7 +147,7 @@ const inMemory = (held: readonly string[] = []) => {
     save: async (run: Run) => {
       stored.set(run.id.value, run);
     },
-  } as unknown as RunRepository;
+  });
 
   return {
     stored,
@@ -167,17 +184,19 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
         { remote: REMOTE_VIA_GIT_PROXY, path: 'api' },
       ],
     };
-    const [warm] = await new LinesWarmLines({
-      keepingWarmSandboxes: async () => [
-        lineViewOf({
-          runners: ['gpu'],
-          repositories: [
-            { repository: 'acme/api', setup: null },
-            { repository: 'acme/widgets', setup: 'npm ci' },
-          ],
-        }),
-      ],
-    } as unknown as LinesPort).keepingWarmSandboxes();
+    const [warm] = await new LinesWarmLines(
+      partial<LinesPort>({
+        keepingWarmSandboxes: async () => [
+          lineViewOf({
+            runners: ['gpu'],
+            repositories: [
+              { repository: 'acme/api', setup: null },
+              { repository: 'acme/widgets', setup: 'npm ci' },
+            ],
+          }),
+        ],
+      }),
+    ).keepingWarmSandboxes();
 
     await runs.enqueue({ ...ORDER, placement, spec, line: 'line_1' });
     await runs.enqueue({
@@ -226,7 +245,11 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     await expect(
       runs.enqueue({
         ...ISOLATED,
-        workingCopy: { ...ORDER.workingCopy, key: 'work/task-task_1' } as never,
+        workingCopy: {
+          key: 'work/task-task_1',
+          rejoinable: true,
+          restores: 'always',
+        },
       }),
     ).resolves.toMatchObject({ outcome: 'refused' });
     await expect(
@@ -384,7 +407,7 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     await runs.enqueue(ORDER);
     stored.set(
       'run_1',
-      (stored.get('run_1') as Run).claim(claimer(RunnerId.of('runner_1')), NOW),
+      storedRun(stored, 'run_1').claim(claimer(RunnerId.of('runner_1')), NOW),
     );
 
     expect(await runs.cancelIfQueued(RunId.of('run_1'), 'Too late.')).toEqual({
@@ -398,7 +421,7 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     await runs.enqueue(ORDER);
     stored.set(
       'run_1',
-      (stored.get('run_1') as Run).claim(claimer(RunnerId.of('runner_1')), NOW),
+      storedRun(stored, 'run_1').claim(claimer(RunnerId.of('runner_1')), NOW),
     );
 
     await runs.requestStop(RunId.of('run_1'));
@@ -409,11 +432,11 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
   it('answers from the cancel that saved when a runner claims the run first', async () => {
     const { runs, stored } = inMemory();
     await runs.enqueue(ORDER);
-    const queued = stored.get('run_1') as Run;
+    const queued = storedRun(stored, 'run_1');
     const claimed = queued.claim(claimer(RunnerId.of('runner_1')), NOW);
     let reads = 0;
     const racing = new Runs(
-      {
+      partial<RunRepository>({
         findById: async () => (reads++ === 0 ? queued : claimed),
         save: async (run: Run) => {
           if (run.state === 'cancelled') {
@@ -421,7 +444,7 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
           }
           stored.set(run.id.value, run);
         },
-      } as unknown as RunRepository,
+      }),
       { sha256: (text) => text },
       { now: () => NOW, sleep: async () => {} },
       harnessKeys(),
@@ -437,16 +460,16 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
   it('answers claimed when a runner claims a run cancelled only while queued', async () => {
     const { runs, stored } = inMemory();
     await runs.enqueue(ORDER);
-    const queued = stored.get('run_1') as Run;
+    const queued = storedRun(stored, 'run_1');
     const claimed = queued.claim(claimer(RunnerId.of('runner_1')), NOW);
     let reads = 0;
     const racing = new Runs(
-      {
+      partial<RunRepository>({
         findById: async () => (reads++ === 0 ? queued : claimed),
         save: async (run: Run) => {
           throw new RunVersionConflictError(run.id.value);
         },
-      } as unknown as RunRepository,
+      }),
       { sha256: (text) => text },
       { now: () => NOW, sleep: async () => {} },
       harnessKeys(),

@@ -1,7 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { reviewKeys } from '@/hooks/api/useTaskReview';
 import { draftReviewComment } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import type { ReviewSpot } from '@/lib/review';
 
 type DraftReviewCommentInput = {
@@ -12,7 +17,11 @@ type DraftReviewCommentInput = {
   on: ReviewSpot | { path: string } | { replyTo: string };
 };
 
-export function useDraftReviewComment() {
+export function useDraftReviewComment(): UseMutationResult<
+  void,
+  Error,
+  DraftReviewCommentInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -25,7 +34,11 @@ export function useDraftReviewComment() {
     }: DraftReviewCommentInput) => {
       await draftReviewComment({
         path: { teamId, taskId },
-        body: { body, ...on, ...(repository ? { repository } : {}) },
+        body: {
+          body,
+          ...on,
+          ...(nonEmpty(repository) ? { repository } : {}),
+        },
         throwOnError: true,
       });
     },

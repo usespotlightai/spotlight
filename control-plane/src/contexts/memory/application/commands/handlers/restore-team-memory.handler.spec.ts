@@ -12,6 +12,7 @@ import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo'
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -43,18 +44,18 @@ const retired = () => {
 
 const restoring = (known: Memory) => {
   const saved: Memory[] = [];
-  const memories = {
+  const memories = partial<MemoryRepository>({
     find: async (id: MemoryId) => (id.equals(known.id) ? known : null),
     save: vi.fn(async (memory: Memory) => {
       saved.push(memory);
     }),
-  };
-  const people = {
+  });
+  const people = partial<PeoplePort>({
     viewerOf: async () => ({ workspaceId: WORKSPACE, by: ADA }),
-  } as unknown as PeoplePort;
-  const repository = memories as unknown as MemoryRepository;
+  });
+  const repository = memories;
   const handler = new RestoreTeamMemoryHandler(
-    new MemoryAccess(people, {} as WorkPort),
+    new MemoryAccess(people, partial<WorkPort>({})),
     new TeamMemoryLoader(repository, { ofTeam: async () => [] }),
     repository,
     { inTransaction: <T>(work: () => Promise<T>) => work() },

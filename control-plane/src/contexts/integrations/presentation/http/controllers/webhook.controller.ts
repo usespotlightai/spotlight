@@ -19,6 +19,7 @@ import { ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
 import { CAUSE_HEADER } from '@platform/http/cause-header';
 import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { nonEmpty } from '@shared-kernel/domain/non-empty';
 
 type DeliveryHeaders = Record<string, string | string[] | undefined>;
 
@@ -35,7 +36,9 @@ const causeIn = (headers: DeliveryHeaders): string | null => {
   const named = headers[CAUSE_HEADER];
   const cause = Array.isArray(named) ? named[0] : named;
 
-  return cause?.trim() || null;
+  const trimmed = cause?.trim();
+
+  return !nonEmpty(trimmed) ? null : trimmed;
 };
 
 @ApiTags('webhooks')

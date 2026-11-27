@@ -2,6 +2,7 @@ import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
 import { PauseMarks } from '@runs/application/services/pause-marks.service';
 import { RunPaused } from '@runs/domain/events/run-paused.event';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -23,9 +24,11 @@ const marked = async (resumesAtOnce: boolean) => {
     type: 'run.paused',
     at: NOW,
   });
-  await new PauseMarks({
-    appendControlPlaneEntry,
-  } as unknown as RunJournalPort).onRunPaused(paused(resumesAtOnce));
+  await new PauseMarks(
+    partial<RunJournalPort>({
+      appendControlPlaneEntry,
+    }),
+  ).onRunPaused(paused(resumesAtOnce));
 
   return appendControlPlaneEntry.mock.calls[0]?.[1] as unknown;
 };

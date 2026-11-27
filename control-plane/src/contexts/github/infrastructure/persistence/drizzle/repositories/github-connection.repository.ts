@@ -14,6 +14,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq } from 'drizzle-orm';
 
@@ -26,11 +27,13 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
   ) {}
 
   async of(workspaceId: WorkspaceId): Promise<GitHubConnection> {
-    const [found] = await this.context.db
-      .select()
-      .from(githubConnection)
-      .where(eq(githubConnection.workspaceId, workspaceId.value))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(githubConnection)
+        .where(eq(githubConnection.workspaceId, workspaceId.value))
+        .limit(1),
+    );
 
     return found
       ? GitHubConnection.rehydrate({
@@ -44,11 +47,13 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
   async connectedWorkspaceOf(
     installation: GitHubInstallation,
   ): Promise<WorkspaceId | null> {
-    const [found] = await this.context.db
-      .select({ workspaceId: githubConnection.workspaceId })
-      .from(githubConnection)
-      .where(eq(githubConnection.installationId, installation.value))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select({ workspaceId: githubConnection.workspaceId })
+        .from(githubConnection)
+        .where(eq(githubConnection.installationId, installation.value))
+        .limit(1),
+    );
 
     return found ? WorkspaceId.of(found.workspaceId) : null;
   }
@@ -56,12 +61,14 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
   async lockedConnectedWorkspaceOf(
     installation: GitHubInstallation,
   ): Promise<WorkspaceId | null> {
-    const [found] = await this.context.db
-      .select({ workspaceId: githubConnection.workspaceId })
-      .from(githubConnection)
-      .where(eq(githubConnection.installationId, installation.value))
-      .limit(1)
-      .for('share');
+    const found = firstOf(
+      await this.context.db
+        .select({ workspaceId: githubConnection.workspaceId })
+        .from(githubConnection)
+        .where(eq(githubConnection.installationId, installation.value))
+        .limit(1)
+        .for('share'),
+    );
 
     return found ? WorkspaceId.of(found.workspaceId) : null;
   }

@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router';
 
+import { nonEmpty } from '@/lib/non-empty';
+
 const anchorOf = (hash: string): string | null => {
   try {
     return decodeURIComponent(hash.slice(1));
@@ -9,13 +11,13 @@ const anchorOf = (hash: string): string | null => {
   }
 };
 
-export function useScrollToHash(shown: boolean) {
+export function useScrollToHash(shown: boolean): void {
   const { hash } = useLocation();
 
   useEffect(() => {
     const anchor = hash ? anchorOf(hash) : null;
 
-    if (shown && anchor) {
+    if (shown && nonEmpty(anchor)) {
       document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
     }
   }, [shown, hash]);

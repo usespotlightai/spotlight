@@ -2,12 +2,14 @@ import { InvalidConfigPullRequestError } from '@replays/domain/exceptions/invali
 
 export type ConfigPath = string & { readonly brand: 'config-path' };
 
+const isConfigPath = (raw: string): raw is ConfigPath => raw.trim().length > 0;
+
 export const ConfigPath = {
   of(raw: string): ConfigPath {
-    if (raw.trim().length === 0) {
+    if (!isConfigPath(raw)) {
       throw new InvalidConfigPullRequestError('path must not be empty');
     }
 
-    return raw as ConfigPath;
+    return raw;
   },
 };

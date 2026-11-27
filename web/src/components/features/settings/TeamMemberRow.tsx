@@ -1,6 +1,7 @@
 import { MemberRole } from '@/components/features/settings/MemberRole';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { MemberResponseDto } from '@/lib/api';
+import { nonEmpty } from '@/lib/non-empty';
 import { initialsOf } from '@/lib/person';
 import type { Role } from '@/lib/role';
 
@@ -20,7 +21,7 @@ export function TeamMemberRow({
   return (
     <div className="flex min-h-12 items-center gap-3 px-4 py-2">
       <Avatar size="sm">
-        {member.image && <AvatarImage src={member.image} alt="" />}
+        {nonEmpty(member.image) && <AvatarImage src={member.image} alt="" />}
         <AvatarFallback>{initialsOf(member.name)}</AvatarFallback>
       </Avatar>
 
