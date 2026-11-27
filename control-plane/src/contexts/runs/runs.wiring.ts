@@ -359,6 +359,10 @@ import {
   DEFINED_SECRETS,
   type DefinedSecretsPort,
 } from '@secrets/application/ports/defined-secrets.port';
+import {
+  HARNESS_KEYS,
+  type HarnessKeysPort,
+} from '@secrets/application/ports/harness-keys.port';
 import { HOST_SECRET_FETCHES } from '@secrets/application/ports/host-secret-fetches.port';
 import {
   RUN_GRANTS,
@@ -390,6 +394,8 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+
+const RUNS_HARNESS_KEYS = Symbol('RUNS_HARNESS_KEYS');
 
 const RUNS_EVENTS = Symbol('RUNS_EVENTS');
 
@@ -599,6 +605,15 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   { provide: RUN_REQUESTER_LABELS, useExisting: RunRequesterLabels },
 
   { provide: HARNESS_LAUNCH, useExisting: BuiltInHarnesses },
+
+  {
+    provide: RUNS_HARNESS_KEYS,
+    inject: [HARNESS_KEYS, HeldHarnessKeys],
+    useFactory: (keys: HarnessKeysPort, held: HeldHarnessKeys) => {
+      keys.register(held);
+      return true;
+    },
+  },
 
   {
     provide: HARNESS_COMMANDS,

@@ -173,6 +173,7 @@ import { SandboxEditors } from '@runners/application/services/sandbox-editors.se
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import { WarmSandboxes } from '@runners/application/services/warm-sandboxes.service';
 import { WorkingCopyStores } from '@runners/application/services/working-copy-stores.service';
+import { WorkspaceEgressRunners } from '@runners/application/services/workspace-egress-runners.service';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
@@ -215,6 +216,10 @@ import { SandboxEditorGateway } from '@runners/presentation/websocket/sandbox-ed
 import { SandboxesWorker } from '@runners/presentation/workers/sandboxes.worker';
 import { StaleHostsWorker } from '@runners/presentation/workers/stale-hosts.worker';
 import {
+  EGRESS_RUNNERS,
+  type EgressRunnersPort,
+} from '@secrets/application/ports/egress-runners.port';
+import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
@@ -246,6 +251,8 @@ import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 const RUNNERS_EVENTS = Symbol('RUNNERS_EVENTS');
 
 const RUNNERS_DEPENDENTS = Symbol('RUNNERS_DEPENDENTS');
+
+const RUNNERS_EGRESS_RUNNERS = Symbol('RUNNERS_EGRESS_RUNNERS');
 
 const PLATFORM_EGRESS = Symbol('PLATFORM_EGRESS');
 
@@ -409,6 +416,31 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     ) => {
       dependents.register(
         new RunnerDependents(trusts, workspaceRunners, pools, egresses),
+      );
+      return true;
+    },
+  },
+  {
+    provide: RUNNERS_EGRESS_RUNNERS,
+    inject: [
+      EGRESS_RUNNERS,
+      DrizzleRunnerPoolRepository,
+      DrizzleRunnerTrustRepository,
+      PLATFORM_EGRESS,
+      PLATFORM_POOL,
+    ],
+    useFactory: (
+      egressRunners: EgressRunnersPort,
+      pools: DrizzleRunnerPoolRepository,
+      trusts: DrizzleRunnerTrustRepository,
+      platformEgress: PlatformEgressSettings | null,
+      platformPool: PlatformPoolSettings | null,
+    ) => {
+      egressRunners.register(
+        new WorkspaceEgressRunners(pools, trusts, {
+          platformEgressSet: platformEgress !== null,
+          platformPoolSet: platformPool !== null,
+        }),
       );
       return true;
     },

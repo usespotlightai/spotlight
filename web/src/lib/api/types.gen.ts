@@ -2072,6 +2072,17 @@ export type SecretResourceListResponseDto = {
  */
 export type SecretValueOrigin = 'awaiting' | 'spotlight' | 'terraform';
 
+export type SecretReachResponseDto = {
+  /**
+   * False when no harness profile or integration uses it, so no run receives it
+   */
+  usedByRuns: boolean;
+  /**
+   * False when it is bound to hosts and no runner pool of the workspace has egress, so egress never injects it there
+   */
+  deliverable: boolean;
+};
+
 export type WorkspaceSecretResponseDto = {
   name: string;
   /**
@@ -2094,6 +2105,10 @@ export type WorkspaceSecretResponseDto = {
    * True when you can set the value here: Spotlight stores it, Terraform does not set it, and you manage secrets
    */
   settable: boolean;
+  /**
+   * How the secret reaches runs
+   */
+  reach: SecretReachResponseDto;
 };
 
 export type SetSecretValueRequestDto = {

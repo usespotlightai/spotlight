@@ -4,6 +4,7 @@ import type {
   SecretReference,
   SecretStorePort,
 } from '@secrets/application/ports/secret-store.port';
+import { SecretReaches } from '@secrets/application/services/secret-reaches.service';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import {
   Secret,
@@ -65,6 +66,32 @@ export const accessFor = (
       slug === SLUG ? permissions() : null,
   } as unknown as WorkspaceAccessPort;
 };
+
+// Reaches for the secrets of WORKSPACE: a harness profile uses the secrets that `used` names, and a runner has egress while `egressRunners` says so.
+export const reachesFor = ({
+  used = () => true,
+  harnessKeys = [],
+  egressRunners = true,
+}: {
+  used?: (name: string) => boolean;
+  harnessKeys?: readonly string[];
+  egressRunners?: boolean;
+} = {}): SecretReaches =>
+  new SecretReaches(
+    {
+      register: () => undefined,
+      of: async ({ name }) =>
+        used(name)
+          ? [{ kind: 'harness-profile', key: 'core/default', exposes: false }]
+          : [],
+    },
+    { register: () => undefined, names: () => harnessKeys },
+    {
+      register: () => undefined,
+      anyIn: async (workspaceId) =>
+        egressRunners && workspaceId === WORKSPACE.value,
+    },
+  );
 
 export const transaction: TransactionPort = { inTransaction: (work) => work() };
 

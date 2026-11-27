@@ -3,6 +3,7 @@ import type { SecretResourceDto } from '@secrets/application/dto/secret-resource
 import { SecretResourceMapper } from '@secrets/application/mappers/secret-resource.mapper';
 import type { SecretResourcesPort } from '@secrets/application/ports/secret-resources.port';
 import type { ImportSecretQuery } from '@secrets/application/queries/import-secret.query';
+import type { SecretReaches } from '@secrets/application/services/secret-reaches.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -15,6 +16,7 @@ export class ImportSecretHandler implements QueryHandlerPort<
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: SecretResourcesPort,
+    private readonly reaches: SecretReaches,
   ) {}
 
   async execute(query: ImportSecretQuery): Promise<SecretResourceDto | null> {
@@ -30,7 +32,9 @@ export class ImportSecretHandler implements QueryHandlerPort<
           )
         : null;
 
-      return record ? SecretResourceMapper.toDto(record) : null;
+      return record
+        ? SecretResourceMapper.toDto(record, await this.reaches.of(record))
+        : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }
