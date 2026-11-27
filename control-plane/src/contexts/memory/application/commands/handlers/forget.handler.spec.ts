@@ -9,6 +9,7 @@ import { RunProposing } from '@memory/application/services/run-proposing.service
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
+import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
 import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -123,6 +124,7 @@ const forgetting = (
       partial<MemoryRepository>({
         findAll: async () => (known ? [known] : []),
       }),
+      partial<DuplicateCheckRepository>({ of: async () => null }),
     ),
   );
 

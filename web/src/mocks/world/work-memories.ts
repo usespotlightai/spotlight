@@ -48,6 +48,7 @@ const proposal = (
   retires: null,
   editable: true,
   inactiveMemories: [],
+  similarTo: null,
   decision: null,
   harness: 'claude-code',
   steps: [],

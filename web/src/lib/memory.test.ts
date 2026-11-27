@@ -35,6 +35,7 @@ const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
   retires: null,
   editable: true,
   inactiveMemories: [],
+  similarTo: null,
   decision: null,
   harness: null,
   steps: [],

@@ -6,6 +6,7 @@ import type {
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { RepositoryPathsPort } from '@memory/application/ports/repository-paths.port';
 import type { TeamHostRunsPort } from '@memory/application/ports/team-host-runs.port';
+import { placeOf } from '@memory/application/services/memory-places';
 import type { MemoryUpkeepSchedule } from '@memory/domain/aggregates/memory-upkeep-schedule.aggregate';
 import { MemoryUpkeep } from '@memory/domain/aggregates/memory-upkeep.aggregate';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
@@ -46,21 +47,6 @@ const distinctRepositories = (
   repositories.filter(
     (each, at, all) => all.findIndex((one) => one.equals(each)) === at,
   );
-
-const whereOf = (memory: Memory, lines: readonly TeamLine[]): string => {
-  const { lineId, stationId, repository } = memory.scope;
-  const line = lines.find((each) => lineId !== null && each.id.equals(lineId));
-  const station = line?.stations.find(
-    (each) => stationId !== null && each.id.equals(stationId),
-  );
-  const at = station
-    ? `the station "${station.name}" of the line "${line?.name}"`
-    : line
-      ? `the line "${line.name}"`
-      : 'the whole team';
-
-  return repository ? `${at}, about the repository ${repository.value}` : at;
-};
 
 export class MemoryUpkeepSweeps implements PendingJobsPort {
   readonly name = 'Memory upkeep';
@@ -246,7 +232,7 @@ export class MemoryUpkeepSweeps implements PendingJobsPort {
     }
 
     const groups: ConsolidatedGroup[] = grouped.map((memories) => ({
-      where: whereOf(memories[0], lines),
+      where: placeOf(memories[0].scope, lines),
       memories: memories.map((each) => ({
         handle: each.handle.value,
         kind: each.kind,

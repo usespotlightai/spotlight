@@ -51,6 +51,12 @@ describe('MemoryProposal', () => {
     expect(stored('proposed', null).inactiveIn([])).toEqual([]);
   });
 
+  it('is compared with the memories while it is proposed and retires nothing', () => {
+    expect(stored('proposed', null).comparable).toBe(true);
+    expect(stored('proposed', RETIRES).comparable).toBe(false);
+    expect(stored('approved', null).comparable).toBe(false);
+  });
+
   it('lapses an approved retirement and keeps who approved it', () => {
     const lapsed = stored('approved', RETIRES).lapse();
 

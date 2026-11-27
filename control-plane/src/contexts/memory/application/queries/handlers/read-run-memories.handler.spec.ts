@@ -10,6 +10,7 @@ import { TeamMemoryViews } from '@memory/application/services/team-memory-views.
 import { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
+import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
 import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -125,7 +126,14 @@ const reading = (input: {
       forTask: async () => (input.proposed ? draftProposing() : null),
     }),
     uses,
-    new MemoryReviews(work, people, memories),
+    new MemoryReviews(
+      work,
+      people,
+      memories,
+      partial<DuplicateCheckRepository>({
+        of: async () => null,
+      }),
+    ),
     new TeamMemoryViews(memories, people, uses),
     partial<ReviewsPort>({ reviewItemOf: async () => 'request_1' }),
   ).execute(new ReadRunMemoriesQuery('team_1', 'run_1', 'user_1'));
