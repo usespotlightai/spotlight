@@ -691,4 +691,35 @@ describe('a held task whose turn asks another person (e2e)', () => {
     expect(await resolvedFor(true)).toMatchObject({ reopenable: true });
     expect(await resolvedFor(false)).toMatchObject({ reopenable: false });
   });
+
+  it('shows a notice about the whole workspace to its owners and admins, who may resolve it, and to no member', async () => {
+    const id = randomUUID();
+
+    await database.db.insert(schema.notice).values({
+      id,
+      workspaceId,
+      teamId: null,
+      addresseeId: null,
+      form: 'advice',
+      subject: `host-outage ${id}`,
+      link: 'settings/runners',
+      linkLabel: 'Open runners',
+      headline: 'dev-host, the only host of the pool default, is offline',
+      points: ['Start a host.'],
+      createdAt: NOW,
+      resolvedAt: null,
+    });
+
+    const shown = async (isAdmin: boolean) =>
+      (await reader.open({ ...scopeOf(holder, false), isAdmin })).find(
+        (each) => each.kind === 'notice' && each.id === id,
+      );
+
+    expect(await shown(true)).toMatchObject({
+      teamId: null,
+      link: 'settings/runners',
+      resolvable: true,
+    });
+    expect(await shown(false)).toBeUndefined();
+  });
 });

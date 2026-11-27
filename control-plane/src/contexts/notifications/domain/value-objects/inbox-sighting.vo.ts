@@ -5,7 +5,8 @@ export type InboxArrivalKind = 'task' | 'notice';
 
 export interface InboxSighting {
   readonly person: UserId;
-  readonly teamId: TeamId;
+  // Null for a notice about the whole workspace.
+  readonly teamId: TeamId | null;
   readonly itemId: string;
   readonly kind: InboxArrivalKind;
   readonly title: string;
@@ -30,10 +31,22 @@ export interface InboxRecount {
 export interface ArrivalLedgerer {
   readonly person: UserId;
   readonly teams: readonly TeamId[];
+  // An owner or admin, who watches the notices about the whole workspace.
+  readonly seesWorkspace: boolean;
 }
 
-export const watcherKey = (person: string, teamId: string): string =>
-  `${person}/${teamId}`;
+// The whole workspace, watched as if it were one more team.
+const WORKSPACE_WIDE = '*';
+
+export const watcherKey = (person: string, teamId: string | null): string =>
+  `${person}/${teamId ?? WORKSPACE_WIDE}`;
+
+export const watcherKeysOf = (ledgerer: ArrivalLedgerer): string[] => [
+  ...ledgerer.teams.map((team) =>
+    watcherKey(ledgerer.person.value, team.value),
+  ),
+  ...(ledgerer.seesWorkspace ? [watcherKey(ledgerer.person.value, null)] : []),
+];
 
 export const announcementKey = (person: string, itemId: string): string =>
   `${person}/${itemId}`;

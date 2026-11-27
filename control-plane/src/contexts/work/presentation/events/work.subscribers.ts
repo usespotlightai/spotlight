@@ -47,6 +47,10 @@ import {
   type WorkspaceConnectedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-connected.integration-event';
 import {
+  WORKSPACE_DELETED,
+  type WorkspaceDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
+import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
@@ -202,6 +206,13 @@ export const workSubscribers = (reactions: {
     'work.delete-chats-of-deleted-team',
     [TEAM_DELETED],
     (event) => reactions.deletingChats.deleteForTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'work.delete-notices-of-deleted-workspace',
+    [WORKSPACE_DELETED],
+    (event) =>
+      reactions.notices.deleteForWorkspace(WorkspaceId.of(event.workspaceId)),
     { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(

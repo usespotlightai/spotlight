@@ -26,5 +26,8 @@ export interface NoticeRepository {
 
   ofTeam(teamId: TeamId): Promise<Notice[]>;
 
+  // The notices about the whole workspace, which belong to no team.
+  aboutWorkspace(workspaceId: WorkspaceId): Promise<Notice[]>;
+
   remove(notice: Notice): Promise<void>;
 }

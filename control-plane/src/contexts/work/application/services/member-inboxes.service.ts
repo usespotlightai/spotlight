@@ -30,20 +30,17 @@ const itemsOf = (entry: InboxEntrySummary): MemberInboxItem[] => {
         askedAt: part.interactedAt,
       }));
     case 'notice':
-      // A notice about the whole workspace belongs to no team, so it arrives in no team's notifications.
-      return entry.teamId === null
-        ? []
-        : [
-            {
-              kind: 'notice',
-              id: entry.id,
-              teamId: entry.teamId,
-              title: entry.headline,
-              summary: entry.points[0] ?? null,
-              unread: entry.unread,
-              askedAt: entry.askedAt,
-            },
-          ];
+      return [
+        {
+          kind: 'notice',
+          id: entry.id,
+          teamId: entry.teamId,
+          title: entry.headline,
+          summary: entry.points[0] ?? null,
+          unread: entry.unread,
+          askedAt: entry.askedAt,
+        },
+      ];
     case 'chat':
     case 'run':
       return [];
@@ -68,6 +65,7 @@ export class MemberInboxes implements MemberInboxesPort {
           batch.map(async (scope) => ({
             personId: scope.viewer.value,
             teamsSeen: [...scope.teamsSeen],
+            isAdmin: scope.isAdmin,
             items: (await this.inbox.open(scope)).flatMap(itemsOf),
           })),
         )),

@@ -265,7 +265,10 @@ export class ProvisionWork {
       this.clock.now(),
     );
 
-    const withEgress = pools.some((offered) => offered.egress);
+    // Hosts send runs through their own egress, so runs that inject secrets are read too where hosts serve, to note why they wait. Each offer still fits them only with an egress.
+    const withEgress =
+      pools.some((offered) => offered.egress) ||
+      hostOffers.some((offered) => offered.egress);
 
     await this.sweep(workspaceId, place, more, {
       sweeps: this.#runSweeps,

@@ -33,35 +33,16 @@ export class Notices implements NoticesPort {
   ) {}
 
   async create(input: NoticeOf): Promise<void> {
-    const created = this.noticeOf(input);
-
-    if (!(await this.deliverable(input))) {
-      return;
-    }
-
-    return this.transaction.inTransaction(async () => {
-      if (!(await this.storedLike(created))) {
-        await this.notices.add(created);
-      }
-    });
+    return this.added(this.noticeOf(input));
   }
 
-  async raise(input: NoticeOf): Promise<void> {
-    const created = this.noticeOf(input);
-
-    if (!(await this.deliverable(input))) {
-      return;
-    }
-
-    return this.transaction.inTransaction(async () => {
-      const stored = await this.storedLike(created);
-
-      if (!stored) {
-        await this.notices.add(created);
-      } else if (Notice.reopenable(stored.resolvedAt)) {
-        await this.notices.save(stored.reopen(this.clock.now()));
-      }
-    });
+  // A notice about the whole workspace, for its owners and admins: it has no team and no addressee, and its link leads within the workspace.
+  async createAboutWorkspace(
+    input: Omit<NoticeOf, 'teamId' | 'addressee'>,
+  ): Promise<void> {
+    return this.added(
+      this.noticeOf({ ...input, teamId: null, addressee: null }),
+    );
   }
 
   resolve(input: {
@@ -72,12 +53,25 @@ export class Notices implements NoticesPort {
     return this.resolved(null, input.teamId, input);
   }
 
+  // Resolves the notice about the whole workspace on the subject.
   resolveInWorkspace(input: {
     workspaceId: WorkspaceId;
     form: NoticeFormName;
     subject: string;
   }): Promise<void> {
     return this.resolved(input.workspaceId, null, input);
+  }
+
+  private async added(created: Notice): Promise<void> {
+    if (!(await this.deliverable(created))) {
+      return;
+    }
+
+    return this.transaction.inTransaction(async () => {
+      if (!(await this.storedLike(created))) {
+        await this.notices.add(created);
+      }
+    });
   }
 
   private resolved(
@@ -100,7 +94,9 @@ export class Notices implements NoticesPort {
     });
   }
 
-  private noticeOf(input: NoticeOf): Notice {
+  private noticeOf(
+    input: Omit<NoticeOf, 'teamId'> & { readonly teamId: TeamId | null },
+  ): Notice {
     return Notice.create({
       id: NoticeId.of(this.ids.generate()),
       workspaceId: input.workspaceId,
@@ -120,8 +116,8 @@ export class Notices implements NoticesPort {
     });
   }
 
-  private async deliverable(input: NoticeOf): Promise<boolean> {
-    const { teamId, addressee } = input;
+  private async deliverable(notice: Notice): Promise<boolean> {
+    const { teamId, addressee } = notice;
 
     return Notice.deliverable({
       aboutWorkspace: teamId === null,
@@ -147,6 +143,13 @@ export class Notices implements NoticesPort {
 
   allowsExternalLink(url: string): boolean {
     return NoticeExternalLink.allows(url);
+  }
+
+  // The notices about a workspace that is gone. Its team notices go with its teams.
+  async deleteForWorkspace(workspaceId: WorkspaceId): Promise<void> {
+    for (const notice of await this.notices.aboutWorkspace(workspaceId)) {
+      await this.notices.remove(notice);
+    }
   }
 
   async deleteForTeam(teamId: TeamId): Promise<void> {

@@ -62,7 +62,10 @@ export class DrizzleNoticeRepository implements NoticeRepository {
       try {
         await this.inserted(added);
       } catch (error) {
-        if (violates(error, UNIQUE_VIOLATION, 'notice_subject_idx')) {
+        if (
+          violates(error, UNIQUE_VIOLATION, 'notice_subject_idx') ||
+          violates(error, UNIQUE_VIOLATION, 'notice_workspace_subject_idx')
+        ) {
           throw new NoticeAlreadySentError(added.subject.value);
         }
 
@@ -156,6 +159,17 @@ export class DrizzleNoticeRepository implements NoticeRepository {
     );
 
     return row ? toNotice(row) : null;
+  }
+
+  async aboutWorkspace(workspaceId: WorkspaceId): Promise<Notice[]> {
+    const rows = await this.context.db
+      .select()
+      .from(notice)
+      .where(
+        and(eq(notice.workspaceId, workspaceId.value), isNull(notice.teamId)),
+      );
+
+    return rows.map(toNotice);
   }
 
   async ofTeam(teamId: TeamId): Promise<Notice[]> {

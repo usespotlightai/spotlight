@@ -238,9 +238,14 @@ export class RunnerHost extends EventRecorder {
     return this.state.report.supportsAHarness;
   }
 
-  // The host still reports in, and one of its images serves a harness: work queued for the workspace starts on it once it has a free slot.
+  // The host still reports in, and one of its images serves a harness: work queued for the workspace starts on it once it has a free slot. Readiness, as for setting up a workspace, forgives a host that is down for less than a day.
   servesAHarnessAt(now: Date): boolean {
     return !this.isStaleAt(now) && this.supportsAHarness;
+  }
+
+  // The host can take work now: it is online, and one of its images serves a harness. A host that is not takes no work until it comes back.
+  takesWorkAt(now: Date): boolean {
+    return this.isOnlineAt(now) && this.supportsAHarness;
   }
 
   private recordReadyOnFirstHarness(before: RunnerHost | null): RunnerHost {

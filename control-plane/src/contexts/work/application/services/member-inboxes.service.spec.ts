@@ -132,6 +132,7 @@ describe('MemberInboxes', () => {
     expect(read[0]).toEqual({
       personId: 'admin_1',
       teamsSeen: ['team_platform'],
+      isAdmin: true,
       items: [
         {
           kind: 'notice',

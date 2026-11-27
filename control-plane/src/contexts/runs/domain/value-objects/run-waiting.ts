@@ -32,11 +32,37 @@ export interface QuietHosts {
   readonly since: Date | null;
 }
 
-// Why a queued run waits. Quiet names the hosts for hosts-offline.
+// Why a queued run waits. Quiet names the hosts for hosts-offline, and only for it.
 export interface WaitCause {
   readonly reason: WaitReason;
   readonly quiet: QuietHosts | null;
 }
+
+export const WaitCauses = {
+  // The run waits for hosts that are all offline.
+  hostsOffline(quiet: QuietHosts): WaitCause {
+    return { reason: 'hosts-offline', quiet };
+  },
+
+  // The run waits for another reason, which names no hosts.
+  of(reason: Exclude<WaitReason, 'hosts-offline'>): WaitCause {
+    return { reason, quiet: null };
+  },
+
+  // A cause as Spotlight kept it. A hosts-offline wait kept without its hosts names none.
+  restored(input: {
+    readonly reason: WaitReason;
+    readonly hosts: readonly string[] | null;
+    readonly since: Date | null;
+  }): WaitCause {
+    return input.reason === 'hosts-offline'
+      ? WaitCauses.hostsOffline({
+          hosts: input.hosts ?? [],
+          since: input.since,
+        })
+      : WaitCauses.of(input.reason);
+  },
+};
 
 // Why a queued run waits, and since when.
 export interface RunWait extends WaitCause {

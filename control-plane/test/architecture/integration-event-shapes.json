@@ -118,5 +118,7 @@
   "workspace-member-joined.integration-event.ts:WorkspaceMemberJoinedIntegrationEvent": "export type WorkspaceMemberJoinedIntegrationEvent = { readonly kind: typeof WORKSPACE_MEMBER_JOINED; readonly workspaceId: string; readonly userId: string; readonly role: WorkspaceRolePublished; };",
   "workspace-member-joined.integration-event.ts:WorkspaceRolePublished": "export type WorkspaceRolePublished = 'owner' | 'admin' | 'member';",
   "workspace-member-role-changed.integration-event.ts:WORKSPACE_MEMBER_ROLE_CHANGED": "export const WORKSPACE_MEMBER_ROLE_CHANGED = 'identity.workspace-member-role-changed.v1';",
-  "workspace-member-role-changed.integration-event.ts:WorkspaceMemberRoleChangedIntegrationEvent": "export type WorkspaceMemberRoleChangedIntegrationEvent = { readonly kind: typeof WORKSPACE_MEMBER_ROLE_CHANGED; readonly workspaceId: string; readonly userId: string; readonly role: WorkspaceRolePublished; };"
+  "workspace-member-role-changed.integration-event.ts:WorkspaceMemberRoleChangedIntegrationEvent": "export type WorkspaceMemberRoleChangedIntegrationEvent = { readonly kind: typeof WORKSPACE_MEMBER_ROLE_CHANGED; readonly workspaceId: string; readonly userId: string; readonly role: WorkspaceRolePublished; };",
+  "workspace-notice-raised.integration-event.ts:WORKSPACE_NOTICE_RAISED": "export const WORKSPACE_NOTICE_RAISED = 'work.workspace-notice-raised.v1';",
+  "workspace-notice-raised.integration-event.ts:WorkspaceNoticeRaisedIntegrationEvent": "export type WorkspaceNoticeRaisedIntegrationEvent = { readonly kind: typeof WORKSPACE_NOTICE_RAISED; readonly noticeId: string; readonly workspaceId: string; readonly at: string; };"
 }

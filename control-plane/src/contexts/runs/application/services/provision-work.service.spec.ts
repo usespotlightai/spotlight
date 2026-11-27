@@ -919,6 +919,29 @@ describe('ProvisionWork', () => {
     ).toEqual(['hosts-pull']);
   });
 
+  it('notes why a run that injects secrets waits where only hosts serve and no pool names an egress', async () => {
+    const since = new Date(NOON.getTime() - 30 * 60_000);
+    const { provisioner, provision, waits } = provisioning(
+      [waiting('run_1', ['on-premises'], 'ws_1', null, ['LINEAR_API_KEY'])],
+      [aPool('burst', ['gpu'])],
+      {},
+      NOON,
+      0,
+      {},
+      [],
+      [hostsServing(['on-premises'], { hosts: ['dev-host'], since })],
+    );
+
+    await provisioner.due();
+
+    expect(provision).not.toHaveBeenCalled();
+    expect(
+      waits.note.mock.calls.flatMap(([noted]) =>
+        noted.map((each) => [each.reason, each.quiet]),
+      ),
+    ).toEqual([['hosts-offline', { hosts: ['dev-host'], since }]]);
+  });
+
   it('says a run waits for its offline hosts, naming them, and keeps it off the platform pool', async () => {
     const since = new Date(NOON.getTime() - 30 * 60_000);
     const { provisioner, provision, waits } = provisioning(

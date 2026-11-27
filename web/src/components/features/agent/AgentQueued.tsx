@@ -16,7 +16,7 @@ export function AgentQueued({ slug, waiting }: AgentQueuedProps) {
   const { data: workspace } = useWorkspace(slug);
   const quiet = quietHostsOf(waiting);
 
-  if (quiet && fleet?.readyToRun !== false) {
+  if (quiet) {
     return <QueuedForOfflineHosts slug={slug} quiet={quiet} what="chat" />;
   }
 

@@ -1,5 +1,6 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
+import { sql } from 'drizzle-orm';
 import {
   index,
   integer,
@@ -8,6 +9,7 @@ import {
   pgTable,
   text,
   unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export const noticeForm = pgEnum('notice_form', NOTICE_FORMS);
@@ -36,6 +38,10 @@ export const notice = pgTable(
     unique('notice_subject_idx')
       .on(table.teamId, table.addresseeId, table.form, table.subject)
       .nullsNotDistinct(),
+    // A notice about the whole workspace has no team: it is one for each subject in its workspace.
+    uniqueIndex('notice_workspace_subject_idx')
+      .on(table.workspaceId, table.form, table.subject)
+      .where(sql`${table.teamId} is null`),
     index('notice_addressee_idx').on(table.workspaceId, table.addresseeId),
     index('notice_team_idx').on(table.teamId),
     index('notice_workspace_created_idx').on(

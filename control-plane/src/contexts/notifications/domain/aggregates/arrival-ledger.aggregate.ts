@@ -6,6 +6,7 @@ import {
   type InboxSighting,
   type ArrivalLedgerer,
   watcherKey,
+  watcherKeysOf,
 } from '@notifications/domain/value-objects/inbox-sighting.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -208,15 +209,14 @@ export class ArrivalLedger
       }
 
       return (
-        watched.has(watcherKey(each.person.value, each.teamId.value)) ||
-        ArrivalLedger.isFresh(each.askedAt, input.readAt)
+        watched.has(
+          watcherKey(each.person.value, each.teamId?.value ?? null),
+        ) || ArrivalLedger.isFresh(each.askedAt, input.readAt)
       );
     });
 
     const next = this.with({
-      watching: input.people.flatMap((each) =>
-        each.teams.map((team) => watcherKey(each.person.value, team.value)),
-      ),
+      watching: input.people.flatMap(watcherKeysOf),
       announced: unread.map((each) => ({
         person: each.person.value,
         itemId: each.itemId,

@@ -1,8 +1,10 @@
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import type { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 
-// A person hears of an outage once work waits for its hosts, or once they have been quiet this long.
+// A person hears of an outage once its hosts have been quiet this long, or this much sooner while work waits for them. A host whose heartbeats only run late is not told of.
 const TELLS_A_PERSON_AFTER_MS = 5 * 60_000;
+
+const TELLS_A_PERSON_WHILE_WORK_WAITS_AFTER_MS = 2 * 60_000;
 
 // The hosts of a pull pool or a trust when none of them reports in now: no runner of theirs can start work until a person brings one back.
 export interface QuietHosts {
@@ -31,7 +33,7 @@ export const HostOutages = {
   quietOf(hosts: readonly RunnerHost[], now: Date): QuietHosts | null {
     const serving = hosts.filter((host) => host.supportsAHarness);
 
-    if (serving.some((host) => host.isOnlineAt(now))) {
+    if (serving.some((host) => host.takesWorkAt(now))) {
       return null;
     }
 
@@ -72,14 +74,16 @@ export const HostOutages = {
     );
   },
 
-  // A person hears of the outage at once while work waits that its hosts could take, or once its hosts have been quiet for a few minutes.
+  // A person hears of the outage soon while work waits that its hosts could take, or once its hosts have been quiet for a few minutes.
   tellsAPerson(
     outage: SourceOutage,
     input: { readonly workWaits: boolean; readonly now: Date },
   ): boolean {
     return (
-      input.workWaits ||
-      input.now.getTime() - outage.since.getTime() >= TELLS_A_PERSON_AFTER_MS
+      input.now.getTime() - outage.since.getTime() >=
+      (input.workWaits
+        ? TELLS_A_PERSON_WHILE_WORK_WAITS_AFTER_MS
+        : TELLS_A_PERSON_AFTER_MS)
     );
   },
 };

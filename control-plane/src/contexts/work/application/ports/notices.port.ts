@@ -10,8 +10,7 @@ export type NoticeFormName = (typeof NOTICE_FORMS)[number];
 
 export interface NoticeOf {
   readonly workspaceId: WorkspaceId;
-  // Null for a notice about the whole workspace: it goes to the owners and admins, has no addressee, and its link leads within the workspace.
-  readonly teamId: TeamId | null;
+  readonly teamId: TeamId;
   readonly addressee: UserId | null;
   readonly form: NoticeFormName;
   readonly subject: string;
@@ -30,16 +29,6 @@ export interface NoticesPort {
 
   resolve(notice: {
     readonly teamId: TeamId;
-    readonly form: NoticeFormName;
-    readonly subject: string;
-  }): Promise<void>;
-
-  // For a subject that comes and goes, such as an outage of hosts: creates the notice, or opens it again once it was resolved.
-  raise(notice: NoticeOf): Promise<void>;
-
-  // Resolves the notice about the whole workspace on the subject.
-  resolveInWorkspace(notice: {
-    readonly workspaceId: WorkspaceId;
     readonly form: NoticeFormName;
     readonly subject: string;
   }): Promise<void>;

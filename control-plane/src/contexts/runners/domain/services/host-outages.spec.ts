@@ -118,7 +118,13 @@ describe('HostOutages.tellsAPerson', () => {
     since: minutesAfter(0),
   };
 
-  it('tells a person at once while work waits that the hosts could take', () => {
+  it('tells a person after two minutes while work waits that the hosts could take, and not of heartbeats that only run late', () => {
+    expect(
+      HostOutages.tellsAPerson(outage, {
+        workWaits: true,
+        now: new Date(minutesAfter(0).getTime() + 1.6 * MINUTE),
+      }),
+    ).toBe(false);
     expect(
       HostOutages.tellsAPerson(outage, {
         workWaits: true,

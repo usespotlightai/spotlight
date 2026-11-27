@@ -34,6 +34,10 @@ import {
   type WorkspaceDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import {
+  WORKSPACE_NOTICE_RAISED,
+  type WorkspaceNoticeRaisedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-notice-raised.integration-event';
+import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
@@ -46,7 +50,8 @@ type InboxChange =
   | TaskAssignedIntegrationEvent
   | TaskConversationReopenedIntegrationEvent
   | InboxRequestOpenedIntegrationEvent
-  | NoticeRaisedIntegrationEvent;
+  | NoticeRaisedIntegrationEvent
+  | WorkspaceNoticeRaisedIntegrationEvent;
 
 const arrivedItemOf = (event: ItemArrived) => ({
   workspaceId: event.workspaceId.value,
@@ -72,6 +77,7 @@ export const notificationsSubscribers = (
       TASK_CONVERSATION_REOPENED,
       INBOX_REQUEST_OPENED,
       NOTICE_RAISED,
+      WORKSPACE_NOTICE_RAISED,
     ],
     (event) => recounts.requested(WorkspaceId.of(event.workspaceId)),
   ),

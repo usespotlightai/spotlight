@@ -94,7 +94,7 @@ const watching = (...known: RunnerHost[]) => {
 };
 
 describe('WatchHostOutages', () => {
-  it('raises an outage at once when the only host goes offline while work waits that it could take, and only once', async () => {
+  it('raises an outage two minutes after the only host goes quiet while work waits that it could take, and only once', async () => {
     const watch = watching(aNamedHost('dev-host'));
     watch.state.workWaits = true;
 

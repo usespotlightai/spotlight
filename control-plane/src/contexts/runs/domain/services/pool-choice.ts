@@ -4,9 +4,10 @@ import {
   poolFits,
   type WorkNeeds,
 } from '@runs/domain/services/pool-fit';
-import type {
-  QuietHosts,
-  WaitCause,
+import {
+  type QuietHosts,
+  type WaitCause,
+  WaitCauses,
 } from '@runs/domain/value-objects/run-waiting';
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -101,11 +102,6 @@ export const poolChoiceFor = <Pool extends PoolOnOffer>(
   return chosen.filter((offered) => room.hasRoomIn(offered.pool));
 };
 
-const waiting = (reason: WaitCause['reason']): WaitCause => ({
-  reason,
-  quiet: null,
-});
-
 // Why no pool takes the work now: hosts pull it, hosts would pull it but none of them reports in and no pool of the workspace's own fits it, the pools that fit it are full, a pool could take it once the operator allows it, or no pool or host could take it at all.
 export const waitReasonFor = (
   placement: RunnerPlacement,
@@ -121,15 +117,15 @@ export const waitReasonFor = (
     const ownPoolFits = pools.some((offer) => !offer.platform && fits(offer));
 
     return quiet.length === hosts.length && !ownPoolFits
-      ? { reason: 'hosts-offline', quiet: togetherOf(quiet) }
-      : waiting('hosts-pull');
+      ? WaitCauses.hostsOffline(togetherOf(quiet))
+      : WaitCauses.of('hosts-pull');
   }
 
   if (pools.some(fits)) {
-    return waiting('no-pool-has-room');
+    return WaitCauses.of('no-pool-has-room');
   }
 
-  return waiting(
+  return WaitCauses.of(
     pools.some((offer) => offerCouldServe(placement, offer, needs))
       ? 'platform-pool-not-allowed'
       : 'no-pool-matches',

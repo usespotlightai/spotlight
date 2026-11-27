@@ -82,6 +82,10 @@ import {
   TASK_TURN_AWAITED,
   type TaskTurnAwaitedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-turn-awaited.integration-event';
+import {
+  WORKSPACE_NOTICE_RAISED,
+  type WorkspaceNoticeRaisedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-notice-raised.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
@@ -117,18 +121,25 @@ const inboxRequestOpened = (
   at: event.at.toISOString(),
 });
 
-// A notice about the whole workspace has no team, so it is not published.
+// A notice about the whole workspace has no team, so it is published as its own kind.
 const noticeRaised = (
   event: NoticeRaised | NoticeReopened,
-): NoticeRaisedIntegrationEvent | null =>
-  event.teamId && {
-    kind: NOTICE_RAISED,
-    noticeId: event.noticeId.value,
-    workspaceId: event.workspaceId.value,
-    teamId: event.teamId.value,
-    addressee: event.addressee?.value ?? null,
-    at: event.at.toISOString(),
-  };
+): NoticeRaisedIntegrationEvent | WorkspaceNoticeRaisedIntegrationEvent =>
+  event.teamId
+    ? {
+        kind: NOTICE_RAISED,
+        noticeId: event.noticeId.value,
+        workspaceId: event.workspaceId.value,
+        teamId: event.teamId.value,
+        addressee: event.addressee?.value ?? null,
+        at: event.at.toISOString(),
+      }
+    : {
+        kind: WORKSPACE_NOTICE_RAISED,
+        noticeId: event.noticeId.value,
+        workspaceId: event.workspaceId.value,
+        at: event.at.toISOString(),
+      };
 
 export const WORK_EVENT_MAPPERS = [
   mapping<DispatchBriefed>(
