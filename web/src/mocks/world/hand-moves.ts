@@ -30,6 +30,14 @@ const denialOf = (
   if (from.kind === 'completed') {
     return 'out-of-completed';
   }
+  if (
+    task.awaitingReview !== null &&
+    task.hold === null &&
+    to.harness !== null &&
+    from.passesTo.includes(to.id)
+  ) {
+    return null;
+  }
 
   const starts = from.kind === 'backlog' && to.kind === 'work';
   const parks = from.kind === 'work' && to.kind === 'backlog';

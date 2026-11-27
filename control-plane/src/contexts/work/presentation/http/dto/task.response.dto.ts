@@ -305,7 +305,7 @@ export class TaskResponseDto {
   @ApiProperty({
     type: [TaskHandMoveResponseDto],
     description:
-      'Each station of the line, and whether the caller may move the task there by hand. Empty where the task is on no line the caller reads.',
+      'Each station of the line, and whether the caller may move the task there by hand. While the task waits on a question, the stations its station passes work to are open too, as they are to its agent. Empty where the task is on no line the caller reads.',
   })
   readonly handMoves: readonly TaskHandMoveResponseDto[];
 

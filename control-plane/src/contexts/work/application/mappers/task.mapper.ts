@@ -73,6 +73,7 @@ export const TaskMapper = {
         {
           stationId: StationId.of(summary.stationId),
           hold: summary.hold && heldOf(summary.hold),
+          awaiting: summary.awaitingReview,
           finished: summary.finished,
         },
         reading.lineOf(summary.stationId),

@@ -732,9 +732,7 @@ export class Task extends EventRecorder {
   }
 
   private get waitsOnAQuestion(): boolean {
-    const asked = this.pendingAsk;
-
-    return asked !== null && !asked.approval && !asked.connectionAsk;
+    return ConversationAudience.asksAQuestion(this.pendingAsk);
   }
 
   deferMove(line: LineMap, to: StationId, newNote: NewNote): Task {
@@ -3270,7 +3268,12 @@ export class Task extends EventRecorder {
     const from = Task.stationOn(line, this.stationId);
     const hold = this.openHold;
     const denial = HandMoves.denial(
-      { stationId: this.stationId, hold, finished: this.finished },
+      {
+        stationId: this.stationId,
+        hold,
+        awaiting: this.awaitingReview ? { ask: this.openAsk } : null,
+        finished: this.finished,
+      },
       line,
       into,
       mover,

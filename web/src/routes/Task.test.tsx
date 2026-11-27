@@ -468,6 +468,27 @@ describe('Task', () => {
     ).not.toHaveAttribute('aria-disabled', 'true');
   });
 
+  it('offers a work station where the server lets the task pass on there', async () => {
+    const user = userEvent.setup();
+    listed.mockReturnValue([
+      {
+        ...task,
+        handMoves: opens(['station_0', 'station_1', 'station_2', 'station_3']),
+      },
+    ]);
+    renderAt('task_1');
+
+    await user.click(screen.getByRole('button', { name: /Station/ }));
+    await screen.findByRole('menu');
+
+    expect(
+      screen.getAllByRole('menuitemradio').map((each) => each.textContent),
+    ).toEqual(['Backlog', 'Triage', 'Spec', 'Completed']);
+    expect(
+      screen.getByRole('menuitemradio', { name: 'Spec' }),
+    ).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('sends a finished task back to an earlier station, with the reason the person gives', async () => {
     const user = userEvent.setup();
     listed.mockReturnValue([

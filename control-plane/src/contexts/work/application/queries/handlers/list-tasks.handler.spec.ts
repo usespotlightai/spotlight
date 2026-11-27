@@ -1,3 +1,4 @@
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -372,5 +373,47 @@ describe('ListTasksHandler', () => {
       },
       { stationId: at('completed'), denial: null, skips: [], sendsBack: false },
     ]);
+  });
+
+  it('opens the stations its station passes work to while the task waits on a question, and not while it waits on an approval', async () => {
+    let next = 0;
+    const line = deliveryLineOf({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      newId: () => `station_${++next}`,
+      harness: HarnessId.of('dev'),
+    });
+    const at = (key: string) =>
+      line.stations.find((each) => each.key.value === key)?.id.value as string;
+    const openFrom = async (summary: TaskSummary) =>
+      (
+        await new ListTasksHandler(reader([summary]), seeing(), {
+          ofTeam: async () => [line],
+        } as never).execute(
+          new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
+        )
+      )?.items[0]?.handMoves
+        .filter((move) => move.denial === null)
+        .map((move) => move.stationId);
+    const atTriage = { ...summaries[0], stationId: at('triage') };
+
+    await expect(
+      openFrom({
+        ...atTriage,
+        awaitingReview: {
+          conversationId: 'task_1:3',
+          ask: { approval: null, connectionAsk: null },
+        },
+      }),
+    ).resolves.toEqual([
+      at('backlog'),
+      at('triage'),
+      at('spec'),
+      at('implementation'),
+      at('completed'),
+    ]);
+    await expect(
+      openFrom({ ...asking(ALICE, 'user_2'), stationId: at('triage') }),
+    ).resolves.toEqual([at('backlog'), at('triage'), at('completed')]);
   });
 });

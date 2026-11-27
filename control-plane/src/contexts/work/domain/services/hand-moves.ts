@@ -1,11 +1,13 @@
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
+import type { OpenAsk } from '@work/domain/services/conversation-audience';
 import {
   type HeldFor,
   type HoldViewer,
   HoldRights,
 } from '@work/domain/services/hold-rights';
+import { PassOn } from '@work/domain/services/pass-on';
 import { SendBack } from '@work/domain/services/send-back';
 import type { MoveDenial } from '@work/domain/value-objects/line-denial';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -14,6 +16,7 @@ import type { Station } from '@work/domain/value-objects/station.vo';
 export interface HandMovedTask {
   readonly stationId: StationId;
   readonly hold: HeldFor | null;
+  readonly awaiting: { readonly ask: OpenAsk | null } | null;
   readonly finished: boolean;
 }
 
@@ -50,7 +53,16 @@ const denialBetween = (
   if (SendBack.allows(task, line, to)) {
     return null;
   }
-  return line.moveDenial(from, to);
+
+  const denial = line.moveDenial(from, to);
+
+  if (
+    denial === 'between-work-stations' &&
+    PassOn.allows({ ...task, onHold: task.hold !== null }, line, to)
+  ) {
+    return null;
+  }
+  return denial;
 };
 
 export const HandMoves = {
