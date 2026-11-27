@@ -40,6 +40,44 @@ const stored = (
 describe('MemoryProposal', () => {
   const RETIRES = { memory: MemoryId.of('memory_old'), reason: 'Gone.' };
 
+  it('is made by the command of its step that carries its body, or its reason when it retires a memory', () => {
+    const commands = [
+      'spotlight remember --kind environment --body "npm ci fails in the sandbox; use npm ci --ignore-scripts."',
+      'spotlight remember --kind preference --body "Name branches after the ticket."',
+      "spotlight forget M-2 --because 'Gone.'",
+    ];
+
+    expect(stored('proposed', null).madeBy(commands)).toBe(commands[1]);
+    expect(stored('proposed', RETIRES).madeBy(commands)).toBe(commands[2]);
+    expect(stored('proposed', null).madeBy(commands.slice(0, 1))).toBeNull();
+    expect(stored('proposed', null).madeBy([])).toBeNull();
+  });
+
+  it('is made by a command that escapes the quotes of its body', () => {
+    const quoted = MemoryProposal.rehydrate({
+      id: MemoryId.of('memory_q'),
+      kind: 'preference' as const,
+      body: MemoryBody.of('Say "done" when done.'),
+      scope: MemoryScope.of({ teamId: TeamId.of('team_1') }),
+      provenance: MemoryProvenance.of({
+        taskId: TaskId.of('task_1'),
+        runId: RunId.of('run_1'),
+        steps: [3],
+        notes: [],
+      }),
+      source: 'run' as const,
+      supersedes: null,
+      retires: null,
+      recordedAt: NOW,
+      state: 'proposed' as const,
+      decision: null,
+    });
+    const command =
+      'spotlight remember --kind preference --body "Say \\"done\\" when done."';
+
+    expect(quoted.madeBy([command])).toBe(command);
+  });
+
   it('can be edited only while proposed, and never when it retires a memory', () => {
     expect(stored('proposed', null).editable).toBe(true);
     expect(stored('approved', null).editable).toBe(false);

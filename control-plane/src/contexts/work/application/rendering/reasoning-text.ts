@@ -29,6 +29,10 @@ const invocationFrom = (shell: string, start: number): string => {
   ).trim();
 };
 
+/** Each spotlight command a step ran, alone, in the order it ran them; nothing for a step that ran none. */
+export const reasoningCommandsOf = (reasoning: Reasoning): readonly string[] =>
+  reasoning.commandsAt.map((at) => invocationFrom(reasoning.text, at));
+
 /** How a person reads a step of reasoning: a spotlight command alone, without the rest of the script it ran in. */
 export const reasoningTextOf = (reasoning: Reasoning): string =>
   reasoning.commandAt === null

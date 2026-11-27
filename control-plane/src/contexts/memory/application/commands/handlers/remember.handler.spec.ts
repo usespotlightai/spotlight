@@ -38,7 +38,16 @@ const LEASED: LeasedRun = {
   trial: false,
 };
 
-const remembering = (run: LeasedRun | null = LEASED) => {
+const ONE_COMMAND = [
+  {
+    index: 4,
+    kind: 'remember',
+    text: 'spotlight remember',
+    commands: ['spotlight remember'],
+  },
+];
+
+const remembering = (run: LeasedRun | null = LEASED, steps = ONE_COMMAND) => {
   const added: MemoryProposalSet[] = [];
   let ids = 0;
   const work = {
@@ -57,9 +66,7 @@ const remembering = (run: LeasedRun | null = LEASED) => {
       stationName: 'Build',
       repositories: [Repository.of('acme/api')],
     }),
-    reasoning: async () => [
-      { index: 4, kind: 'remember', text: 'spotlight remember' },
-    ],
+    reasoning: async () => steps,
     notesOf: async () => [],
     harnessOf: async () => 'claude-code',
   } as unknown as WorkPort;
@@ -118,6 +125,27 @@ const remembering = (run: LeasedRun | null = LEASED) => {
 };
 
 describe('RememberHandler', () => {
+  it('shows as its source the command of its step that carried it, where the step remembered several things', async () => {
+    const first =
+      'spotlight remember --kind environment --body "npm ci fails in the sandbox; use npm ci --ignore-scripts."';
+    const second =
+      'spotlight remember --kind rationale --body "Uploads retry in the request."';
+    const { remember, proposedAs } = remembering(LEASED, [
+      {
+        index: 4,
+        kind: 'remember',
+        text: first,
+        commands: [first, second],
+      },
+    ]);
+
+    const proposed = await proposedAs(await remember());
+
+    expect(proposed.steps).toEqual([
+      { index: 4, kind: 'remember', text: second },
+    ]);
+  });
+
   it('opens the task’s set with what the run proposed to remember, which cites its step', async () => {
     const { added, remember, proposedAs } = remembering();
 

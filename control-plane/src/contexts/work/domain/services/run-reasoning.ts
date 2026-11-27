@@ -22,6 +22,8 @@ export interface Reasoning {
   readonly text: string;
   /** Where in the text the spotlight command that the step ran starts; null where it ran none. */
   readonly commandAt: number | null;
+  /** Where in the text each spotlight command that the step ran starts, in order; empty where it ran none. */
+  readonly commandsAt: readonly number[];
 }
 
 const REASONING_KINDS: Partial<Record<StepKind, ReasoningKind>> = {
@@ -33,6 +35,7 @@ const REASONING_KINDS: Partial<Record<StepKind, ReasoningKind>> = {
 const invoking = (command: string): RegExp =>
   new RegExp(
     `(?:^\\s*\`?|&&|;|\\|\\||\\n|"command"\\s*:\\s*")\\s*(${command.split(' ').join('\\s+')})\\b`,
+    'g',
   );
 
 const COMMANDS: readonly [RegExp, ReasoningKind][] = [
@@ -55,17 +58,25 @@ const shellOf = (text: string): string => {
 
 const firstIn = (text: string): Reasoning | null => {
   const shell = shellOf(text);
-  const found = COMMANDS.flatMap(([invoked, kind]) => {
-    const match = invoked.exec(shell);
-    const command = match?.[1];
+  const found = COMMANDS.flatMap(([invoked, kind]) =>
+    [...shell.matchAll(invoked)].flatMap((match) => {
+      const command = match[1];
 
-    return match && command
-      ? [{ at: match.index + match[0].length - command.length, kind }]
-      : [];
-  }).sort((one, other) => one.at - other.at);
+      return command
+        ? [{ at: match.index + match[0].length - command.length, kind }]
+        : [];
+    }),
+  ).sort((one, other) => one.at - other.at);
   const first = found[0];
 
-  return first ? { kind: first.kind, text: shell, commandAt: first.at } : null;
+  return first
+    ? {
+        kind: first.kind,
+        text: shell,
+        commandAt: first.at,
+        commandsAt: found.map((each) => each.at),
+      }
+    : null;
 };
 
 const commanded = (step: {
@@ -88,5 +99,7 @@ export const reasoningIn = (step: {
   }
 
   const kind = REASONING_KINDS[step.kind];
-  return kind ? { kind, text: step.text, commandAt: null } : null;
+  return kind
+    ? { kind, text: step.text, commandAt: null, commandsAt: [] }
+    : null;
 };

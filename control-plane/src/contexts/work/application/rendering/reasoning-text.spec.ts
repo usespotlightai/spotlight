@@ -1,4 +1,7 @@
-import { reasoningTextOf } from '@work/application/rendering/reasoning-text';
+import {
+  reasoningCommandsOf,
+  reasoningTextOf,
+} from '@work/application/rendering/reasoning-text';
 import { reasoningIn } from '@work/domain/services/run-reasoning';
 import { describe, expect, it } from 'vitest';
 
@@ -30,6 +33,29 @@ describe('the text of reasoning', () => {
     expect(ran('`spotlight handover --note "Retries once"`')).toBe(
       'spotlight handover --note "Retries once"',
     );
+  });
+
+  it('names each command of a step that ran several, each alone', () => {
+    const reasoning = reasoningIn({
+      kind: 'tool',
+      text: [
+        'spotlight remember --kind environment --body "npm ci fails; use --ignore-scripts." 2>&1',
+        'spotlight remember --kind environment --body "Vitest globals are off."',
+      ].join('\n'),
+    });
+
+    expect(reasoning && reasoningCommandsOf(reasoning)).toEqual([
+      'spotlight remember --kind environment --body "npm ci fails; use --ignore-scripts."',
+      'spotlight remember --kind environment --body "Vitest globals are off."',
+    ]);
+    expect(
+      reasoningCommandsOf({
+        kind: 'message',
+        text: 'Done.',
+        commandAt: null,
+        commandsAt: [],
+      }),
+    ).toEqual([]);
   });
 
   it('keeps a message, a thought or a plan whole', () => {

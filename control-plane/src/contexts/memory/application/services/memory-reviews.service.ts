@@ -58,9 +58,13 @@ export class MemoryReviews {
           at: proposal.decision.at.toISOString(),
         },
         harness,
-        steps: (steps ?? []).filter((each) =>
-          proposal.provenance.steps.includes(each.index),
-        ),
+        steps: (steps ?? [])
+          .filter((each) => proposal.provenance.steps.includes(each.index))
+          .map((each) => ({
+            index: each.index,
+            kind: each.kind,
+            text: proposal.madeBy(each.commands) ?? each.text,
+          })),
         notes: await provenanceNotes(
           notes ?? [],
           proposal.provenance.notes,

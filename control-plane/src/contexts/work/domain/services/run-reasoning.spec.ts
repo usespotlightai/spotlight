@@ -47,6 +47,7 @@ describe('reasoning in a run’s journal', () => {
       kind: 'remember',
       text: 'spotlight remember --kind failure --body "CI flakes"',
       commandAt: 0,
+      commandsAt: [0],
     });
   });
 
@@ -57,12 +58,26 @@ describe('reasoning in a run’s journal', () => {
       kind: 'remember',
       text: script,
       commandAt: script.indexOf('spotlight'),
+      commandsAt: [script.indexOf('spotlight')],
     });
     expect(reasoningIn({ kind: 'message', text: 'Retrying once.' })).toEqual({
       kind: 'message',
       text: 'Retrying once.',
       commandAt: null,
+      commandsAt: [],
     });
+  });
+
+  it('finds each command of a step that ran several, in order', () => {
+    const script = [
+      'spotlight remember --kind environment --body "npm ci fails; use --ignore-scripts."',
+      'spotlight remember --kind environment --body "Vitest globals are off."',
+    ].join(' && ');
+
+    expect(reasoningIn({ kind: 'tool', text: script })?.commandsAt).toEqual([
+      0,
+      script.lastIndexOf('spotlight'),
+    ]);
   });
 
   it('is the command the agent ran, not one it only mentions', () => {

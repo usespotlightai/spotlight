@@ -64,6 +64,8 @@ export interface ReasonedStep {
   readonly index: number;
   readonly kind: 'message' | 'thought' | 'planned' | 'handover' | 'remember';
   readonly text: string;
+  /** Each spotlight command the step ran, alone, in order: more than one where one step ran several. */
+  readonly commands: readonly string[];
 }
 
 export interface RunReasoning {

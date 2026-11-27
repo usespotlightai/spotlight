@@ -360,6 +360,7 @@ describe('WorkRunLookup, reading how a run reasoned', () => {
         index: 0,
         kind: 'remember',
         text: 'spotlight remember --kind rationale --body "Retry once"',
+        commands: ['spotlight remember --kind rationale --body "Retry once"'],
       },
     ]);
   });

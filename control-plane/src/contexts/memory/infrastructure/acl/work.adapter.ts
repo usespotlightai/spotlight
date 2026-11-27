@@ -117,6 +117,7 @@ export class Work implements WorkPort {
         index: each.index,
         kind: each.kind,
         text: each.text,
+        commands: each.commands,
       })) ?? null
     );
   }

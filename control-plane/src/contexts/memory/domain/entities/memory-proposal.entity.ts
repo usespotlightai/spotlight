@@ -179,6 +179,19 @@ export class MemoryProposal {
       : [];
   }
 
+  /**
+   * Which of the commands a cited step ran made this proposal: the one that carries its body, or, for a retirement,
+   * its reason. Null where none does, such as a step that ran one command for another proposal only.
+   */
+  madeBy(commands: readonly string[]): string | null {
+    const carried = this.retires ? this.retires.reason : this.body.value;
+
+    return (
+      commands.find((each) => each.replaceAll('\\', '').includes(carried)) ??
+      null
+    );
+  }
+
   get fromOutside(): boolean {
     return this.source === 'outside';
   }

@@ -79,7 +79,12 @@ const forgetting = (
       repositories: [Repository.of('acme/api')],
     }),
     reasoning: async () => [
-      { index: 4, kind: 'remember', text: 'spotlight remember' },
+      {
+        index: 4,
+        kind: 'remember',
+        text: 'spotlight remember',
+        commands: ['spotlight remember'],
+      },
     ],
     notesOf: async () => [],
     harnessOf: async () => 'claude-code',
