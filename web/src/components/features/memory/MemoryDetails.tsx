@@ -4,7 +4,7 @@ import { RestoreMemoryButton } from '@/components/features/memory/RestoreMemoryB
 import { RetireReply } from '@/components/features/memory/RetireReply';
 import { SaveCancelButtons } from '@/components/features/memory/SaveCancelButtons';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
-import { DecisionButton } from '@/components/shared/DecisionButton';
+import { PillButton } from '@/components/shared/PillButton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useTeamMemory } from '@/hooks/api/useTeamMemory';
 import { failed, loading } from '@/lib/query';
@@ -82,15 +82,16 @@ export function MemoryDetails({
 
       {memory.status === 'active' && !retiring && !editing && (
         <div className="flex flex-wrap items-center gap-2">
-          <DecisionButton className="min-w-0" onClick={onEdit}>
+          <PillButton variant="default" size="regular" onClick={onEdit}>
             Edit
-          </DecisionButton>
-          <DecisionButton
-            className="min-w-0 hover:text-destructive"
+          </PillButton>
+          <PillButton
+            size="regular"
+            className="hover:text-destructive"
             onClick={() => setRetiring(true)}
           >
             Retire
-          </DecisionButton>
+          </PillButton>
         </div>
       )}
 
