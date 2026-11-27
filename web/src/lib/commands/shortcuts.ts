@@ -17,6 +17,7 @@ export type Shortcut = {
   readonly typing?: boolean;
   readonly focused?: boolean;
   readonly inPalette?: boolean;
+  readonly onSelection?: boolean;
 };
 
 const SHORTCUTS = {
@@ -94,27 +95,56 @@ const SHORTCUTS = {
     title: 'Move to a station',
     group: 'Tasks',
     keys: ['s'],
+    onSelection: true,
   },
-  'task.backlog': { title: 'Move to Backlog', group: 'Tasks', keys: ['b'] },
-  'task.complete': { title: 'Move to Completed', group: 'Tasks', keys: ['d'] },
-  'task.assign': { title: 'Assign', group: 'Tasks', keys: ['a'] },
+  'task.backlog': {
+    title: 'Move to Backlog',
+    group: 'Tasks',
+    keys: ['b'],
+    onSelection: true,
+  },
+  'task.complete': {
+    title: 'Move to Completed',
+    group: 'Tasks',
+    keys: ['d'],
+    onSelection: true,
+  },
+  'task.assign': {
+    title: 'Assign',
+    group: 'Tasks',
+    keys: ['a'],
+    onSelection: true,
+  },
   'task.resume': {
     title: 'Resume the line',
     group: 'Tasks',
     keys: ['shift+r'],
+    onSelection: true,
   },
   'task.delete': {
     title: 'Delete the task',
     group: 'Tasks',
     keys: ['mod+backspace'],
+    onSelection: true,
   },
-  'inbox.resolve': { title: 'Resolve', group: 'Inbox', keys: ['e'] },
-  'inbox.reply': { title: 'Reply', group: 'Inbox', keys: ['r'] },
+  'inbox.resolve': {
+    title: 'Resolve',
+    group: 'Inbox',
+    keys: ['e'],
+    onSelection: true,
+  },
+  'inbox.reply': {
+    title: 'Reply',
+    group: 'Inbox',
+    keys: ['r'],
+    onSelection: true,
+  },
   'approval.approve': {
     title: 'Approve the focused card',
     group: 'Inbox',
     keys: ['mod+enter'],
     typing: true,
+    onSelection: true,
   },
 } as const satisfies Record<string, Shortcut>;
 
