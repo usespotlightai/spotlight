@@ -32946,7 +32946,8 @@
             "type": "string",
             "enum": [
               "pending",
-              "answered"
+              "answered",
+              "moved-on"
             ]
           },
           "conversationId": {

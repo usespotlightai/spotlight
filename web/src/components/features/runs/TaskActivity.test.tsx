@@ -67,4 +67,14 @@ describe('TaskActivity', () => {
 
     expect(screen.getByText('Answered')).toBeInTheDocument();
   });
+
+  it('says the task moved on where nobody answered the question', () => {
+    runs.mockReturnValue([
+      run({ state: 'moved-on', conversationId: 'task_1:3' }, false),
+    ]);
+    shown();
+
+    expect(screen.getByText('Moved on without an answer')).toBeInTheDocument();
+    expect(screen.queryByText('Answered')).not.toBeInTheDocument();
+  });
 });
