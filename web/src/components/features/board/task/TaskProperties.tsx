@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
+import { SendBackDialog } from '@/components/features/board/task/SendBackDialog';
 import { StationSelect } from '@/components/features/board/task/StationSelect';
 import { StopRunDialog } from '@/components/features/board/task/StopRunDialog';
 import { TASK_PROPERTIES } from '@/components/features/board/task/TaskLayout';
@@ -10,7 +11,7 @@ import { TaskChangesLink } from '@/components/features/changes/TaskChangesLink';
 import { OpenInEditorRow } from '@/components/features/editor/OpenInEditorRow';
 import { TaskTraceLink } from '@/components/features/trace/TaskTraceLink';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
-import type { LineResponseDto } from '@/lib/api';
+import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import { nonEmpty } from '@/lib/non-empty';
 import { stopsRun, type Task } from '@/lib/task';
 
@@ -32,8 +33,11 @@ export function TaskProperties({
   const station = line?.stations.find((each) => each.id === task.stationId);
   const stoppingAt = line?.stations.find((each) => each.id === stopping);
   const linked = nonEmpty(slug) && nonEmpty(teamId) ? { slug, teamId } : null;
+  const [sendingBackTo, setSendingBackTo] = useState<StationResponseDto | null>(
+    null,
+  );
 
-  const move = (stationId: string) => {
+  const move = (stationId: string, reason?: string) => {
     if (!nonEmpty(teamId) || !line) {
       return;
     }
@@ -45,6 +49,7 @@ export function TaskProperties({
       revision: task.revision,
       stationId,
       afterTaskId: null,
+      ...(nonEmpty(reason) ? { reason } : {}),
     });
   };
 
@@ -60,13 +65,35 @@ export function TaskProperties({
             stations={line.stations}
             value={station.id}
             held={task.hold}
-            onChange={(stationId) =>
-              stopsRun(line.stations, task, stationId)
-                ? setStopping(stationId)
-                : move(stationId)
-            }
+            sendsBackTo={task.sendsBackTo}
+            onChange={(stationId) => {
+              const to = line.stations.find((each) => each.id === stationId);
+
+              if (to && task.sendsBackTo.includes(to.id)) {
+                setSendingBackTo(to);
+                return;
+              }
+
+              if (stopsRun(line.stations, task, stationId)) {
+                setStopping(stationId);
+                return;
+              }
+
+              move(stationId);
+            }}
           />
         )}
+
+        <SendBackDialog
+          station={sendingBackTo?.name ?? null}
+          onOpenChange={(open) => !open && setSendingBackTo(null)}
+          onSend={(reason) => {
+            if (sendingBackTo) {
+              move(sendingBackTo.id, reason);
+            }
+            setSendingBackTo(null);
+          }}
+        />
 
         <StopRunDialog
           move={

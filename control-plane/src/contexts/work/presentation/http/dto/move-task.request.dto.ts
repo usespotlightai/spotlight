@@ -22,4 +22,14 @@ export class MoveTaskRequestDto {
       'The task it was dropped after. Left out for the top of the station.',
   })
   readonly afterTaskId?: string | null;
+
+  @ApiPropertyOptional({
+    example:
+      'The pull request conflicts with main. Rebase it and run the tests.',
+    nullable: true,
+    type: String,
+    description:
+      'Why the person moves the task. It goes on the task, so the next run reads it.',
+  })
+  readonly reason?: string | null;
 }

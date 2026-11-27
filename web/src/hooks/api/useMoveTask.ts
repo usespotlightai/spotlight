@@ -15,6 +15,7 @@ type MoveTaskInput = {
   revision: number;
   stationId: string;
   afterTaskId: string | null;
+  reason?: string;
 };
 
 export function useMoveTask(): UseMutationResult<
@@ -34,10 +35,11 @@ export function useMoveTask(): UseMutationResult<
       revision,
       stationId,
       afterTaskId,
+      reason,
     }: MoveTaskInput) => {
       const { data } = await moveTask({
         path: { teamId, lineId, taskId },
-        body: { revision, stationId, afterTaskId },
+        body: { revision, stationId, afterTaskId, reason },
         throwOnError: true,
       });
       return data;

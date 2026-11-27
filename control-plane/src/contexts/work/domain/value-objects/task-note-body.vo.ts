@@ -216,8 +216,18 @@ export class TaskNoteBody {
       : `An event asked to move the task to ${held.value} while the task was on hold. That move did not happen, because the person chose where the task goes.`;
   }
 
-  static movedTo(station: StationName): TaskNoteBody {
-    return TaskNoteBody.of(`Moved to ${station.value}.`);
+  static movedTo(
+    station: StationName,
+    reason: string | null = null,
+  ): TaskNoteBody {
+    const moved = `Moved to ${station.value}.`;
+    const why = reason?.trim();
+
+    return TaskNoteBody.of(
+      nonEmpty(why)
+        ? `${moved} The person who moved it gave this reason:\n\n${why}`
+        : moved,
+    );
   }
 
   static connected(providedBy: string): TaskNoteBody {

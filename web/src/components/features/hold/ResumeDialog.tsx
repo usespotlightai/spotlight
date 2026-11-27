@@ -22,6 +22,7 @@ import {
   resumedTo,
   HOLD_VERDICTS,
   heldBecause,
+  nextOf,
 } from '@/lib/hold';
 import { nonEmpty } from '@/lib/non-empty';
 import { toast } from '@/lib/toast';
@@ -57,10 +58,9 @@ export function ResumeDialog({
   const next = choices.some((each) => each.value === chosen)
     ? chosen
     : 'continue';
-  const [picked, setTo] = useState(moveOn[0]?.id ?? '');
-  const to = moveOn.some((each) => each.id === picked)
-    ? picked
-    : (moveOn[0]?.id ?? '');
+  const natural = nextOf(moveOn, station)?.id ?? '';
+  const [picked, setTo] = useState(natural);
+  const to = moveOn.some((each) => each.id === picked) ? picked : natural;
   const target = moveOn.find((each) => each.id === to);
   const [verdict, setVerdict] = useState<HoldVerdict>('not-right');
   const [changingWhy, setChangingWhy] = useState(false);

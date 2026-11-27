@@ -40,6 +40,12 @@ export const moveOnTargets = (
   return stations.filter((each) => Boolean(each.harness) && next.has(each.id));
 };
 
+export const nextOf = (
+  moveOn: readonly StationResponseDto[],
+  station: StationResponseDto,
+): StationResponseDto | undefined =>
+  moveOn.find((each) => each.position > station.position) ?? moveOn[0];
+
 export const holdPathOf = (
   slug: string,
   teamId: string,

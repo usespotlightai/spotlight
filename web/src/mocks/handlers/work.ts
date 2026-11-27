@@ -241,6 +241,7 @@ export const workHandlers: RequestHandler[] = [
         waitingForYou: false,
         yourMessage: 'message',
         finished: false,
+        sendsBackTo: [],
         pullRequests: [],
         createdBy: SAM,
         assignee: null,
