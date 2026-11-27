@@ -34,6 +34,7 @@ import type { ProposalRestored } from '@work/domain/events/proposal-restored.eve
 import type { ProposalsReplaced } from '@work/domain/events/proposals-replaced.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
+import type { SetupPullRequestMerged } from '@work/domain/events/setup-pull-request-merged.event';
 import type { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import type { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
@@ -80,6 +81,7 @@ type ChatEvent =
   | ChatRunEnded
   | ChatRunNotStarted
   | SetupPullRequestOpened
+  | SetupPullRequestMerged
   | ChatStarted
   | TaskProposed;
 
@@ -142,6 +144,7 @@ const CHAT_KINDS = [
   'chat.run-assigned',
   'chat.run-ended',
   'chat.run-not-started',
+  'chat.setup-pull-request-merged',
   'chat.setup-pull-request-opened',
   'chat.started',
   'chat.task-proposed',

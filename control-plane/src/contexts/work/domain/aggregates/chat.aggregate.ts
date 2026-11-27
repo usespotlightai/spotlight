@@ -30,6 +30,7 @@ import { ProposalBecameTask } from '@work/domain/events/proposal-became-task.eve
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { ProposalRestored } from '@work/domain/events/proposal-restored.event';
 import { ProposalsReplaced } from '@work/domain/events/proposals-replaced.event';
+import { SetupPullRequestMerged } from '@work/domain/events/setup-pull-request-merged.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
@@ -627,6 +628,28 @@ export class Chat extends EventRecorder {
     );
 
     return opened;
+  }
+
+  setupPullRequestClosed(
+    pullRequest: PullRequestUrl,
+    merged: boolean,
+    at: Date,
+  ): Chat {
+    if (
+      !merged ||
+      !this.setup?.pullRequest?.equals(pullRequest) ||
+      this.resolvedAt
+    ) {
+      return this;
+    }
+
+    const resolved = this.with({ resolvedAt: at, readAt: at });
+
+    resolved.record(
+      new SetupPullRequestMerged(this.id, this.workspaceId, this.startedBy),
+    );
+
+    return resolved;
   }
 
   assignRun(runId: RunId, at: Date): Chat {

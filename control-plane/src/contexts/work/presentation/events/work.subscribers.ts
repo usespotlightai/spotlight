@@ -63,6 +63,7 @@ import type { RetireChatSandbox } from '@work/application/events/handlers/retire
 import type { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import type { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import type { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
+import type { TrackSetupPullRequests } from '@work/application/events/handlers/track-setup-pull-requests.handler';
 import type { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
 import {
   type NewTeam,
@@ -148,6 +149,7 @@ export const workSubscribers = (reactions: {
   notices: Notices;
   takenMarks: ReleaseTakenMarks;
   taskPullRequests: TrackTaskPullRequests;
+  setupPullRequests: TrackSetupPullRequests;
   stackedTasks: RetargetStackedTasks;
   chatsOfTasks: TellChatOfTask;
 }): readonly DomainEventSubscriber[] => [
@@ -327,6 +329,17 @@ export const workSubscribers = (reactions: {
     [PULL_REQUEST_CLOSED],
     (event) =>
       reactions.taskPullRequests.closed(
+        WorkspaceId.of(event.workspaceId),
+        PullRequestUrl.of(event.pullRequest),
+        event.closedAt ? new Date(event.closedAt) : null,
+        event.merged,
+      ),
+  ),
+  subscribing<PullRequestClosedIntegrationEvent>(
+    'work.resolve-merged-setup-chat',
+    [PULL_REQUEST_CLOSED],
+    (event) =>
+      reactions.setupPullRequests.closed(
         WorkspaceId.of(event.workspaceId),
         PullRequestUrl.of(event.pullRequest),
         event.closedAt ? new Date(event.closedAt) : null,

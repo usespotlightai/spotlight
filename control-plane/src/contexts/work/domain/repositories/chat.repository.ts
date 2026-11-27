@@ -1,3 +1,4 @@
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
@@ -16,6 +17,11 @@ export interface ChatRepository {
   find(id: ChatId): Promise<Chat | null>;
 
   ofTeam(teamId: TeamId): Promise<Chat[]>;
+
+  owningSetupPullRequest(
+    workspaceId: WorkspaceId,
+    pullRequest: PullRequestUrl,
+  ): Promise<Chat | null>;
 
   findByCorrelation(
     workspaceId: WorkspaceId,
