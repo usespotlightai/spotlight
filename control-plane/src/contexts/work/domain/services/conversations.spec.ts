@@ -9,6 +9,7 @@ import {
   reopenable,
   reviewsIn,
   stillOpen,
+  unreadIn,
   worksOn,
 } from '@work/domain/services/conversations';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -77,8 +78,24 @@ describe('listedAsOpen', () => {
   });
 
   it('lists a closed conversation only while an ask in it is unread', () => {
-    expect(listedAsOpen({ from: 0, to: 1, notes: [unseen] }, true)).toBe(true);
+    expect(listedAsOpen({ from: 0, to: 1, notes: [unseen] }, false)).toBe(true);
     expect(listedAsOpen({ from: 0, to: 1, notes: [seen] }, false)).toBe(false);
+  });
+
+  it('lists no conversation of a finished task, read or not', () => {
+    expect(listedAsOpen({ from: 0, to: 1, notes: [unseen] }, true)).toBe(false);
+  });
+});
+
+describe('unreadIn', () => {
+  const unseen = { kind: 'asked' as const, readAt: null };
+
+  it('counts an unread ask while its task is unfinished', () => {
+    expect(unreadIn({ notes: [unseen] }, false)).toBe(true);
+  });
+
+  it('counts no ask of a finished task as unread', () => {
+    expect(unreadIn({ notes: [unseen] }, true)).toBe(false);
   });
 });
 
@@ -202,7 +219,7 @@ describe('reviewsIn', () => {
         note('asked', 'run_2'),
       ]),
     ]).toEqual([
-      ['run_1', { from: at(0), state: 'answered' }],
+      ['run_1', { from: at(0), state: 'moved-on' }],
       ['run_2', { from: at(2), state: 'pending' }],
     ]);
   });
@@ -213,10 +230,34 @@ describe('reviewsIn', () => {
     ]);
   });
 
-  it('counts an asking as answered once the task moves on from it without an answer', () => {
+  it('says the task moved on where it left an asking without an answer', () => {
     expect([
       ...reviewed([note('asked', 'run_1'), note('passed', 'run_2')]),
+    ]).toEqual([['run_1', { from: at(0), state: 'moved-on' }]]);
+  });
+
+  it('keeps an asking answered when the task moves on after the answer', () => {
+    expect([
+      ...reviewed([
+        note('asked', 'run_1'),
+        note('answered'),
+        note('passed', 'run_2'),
+      ]),
     ]).toEqual([['run_1', { from: at(0), state: 'answered' }]]);
+  });
+
+  it('does not take the answer to a later asking for an earlier one', () => {
+    expect([
+      ...reviewed([
+        note('asked', 'run_1'),
+        note('passed'),
+        note('asked', 'run_2'),
+        note('answered'),
+      ]),
+    ]).toEqual([
+      ['run_1', { from: at(0), state: 'moved-on' }],
+      ['run_2', { from: at(2), state: 'answered' }],
+    ]);
   });
 
   it('keeps each run apart', () => {
@@ -266,6 +307,30 @@ describe('awaitsAPerson', () => {
 
   it('does not wait where nothing was asked', () => {
     expect(awaitsAPerson([note('passed')])).toBe(false);
+  });
+
+  it('waits exactly while the review of the last asking is pending', () => {
+    const trails: TaskNoteKind[][] = [
+      ['asked'],
+      ['asked', 'answered'],
+      ['asked', 'passed'],
+      ['asked', 'passed', 'reopened'],
+      ['asked', 'answered', 'passed', 'reopened'],
+      ['asked', 'passed', 'asked'],
+    ];
+
+    for (const kinds of trails) {
+      const notes = kinds.map((kind) => ({
+        kind,
+        runId: kind === 'asked' ? RunId.of('run_1') : null,
+      }));
+
+      const reviews = reviewsIn(notes);
+
+      expect(awaitsAPerson(notes)).toBe(
+        reviews[reviews.length - 1]?.state === 'pending',
+      );
+    }
   });
 });
 

@@ -111,6 +111,7 @@ import { RUNNER_IDENTITY } from '@runners/application/ports/runner-identity.port
 import { RUNNER_LEASES } from '@runners/application/ports/runner-leases.port';
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
+import { RUNNER_READINESS } from '@runners/application/ports/runner-readiness.port';
 import { RUNNER_RESOURCES } from '@runners/application/ports/runner-resources.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
 import { SANDBOX_RETIREMENT } from '@runners/application/ports/sandbox-retirement.port';
@@ -167,12 +168,14 @@ import { RunnerDependents } from '@runners/application/services/runner-dependent
 import { RunnerEgress } from '@runners/application/services/runner-egress.service';
 import { RunnerHeartbeats } from '@runners/application/services/runner-heartbeats.service';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
+import { RunnerReadiness } from '@runners/application/services/runner-readiness.service';
 import { RunnerTokens } from '@runners/application/services/runner-tokens.service';
 import { Runners } from '@runners/application/services/runners.service';
 import { SandboxEditors } from '@runners/application/services/sandbox-editors.service';
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import { WarmSandboxes } from '@runners/application/services/warm-sandboxes.service';
 import { WorkingCopyStores } from '@runners/application/services/working-copy-stores.service';
+import { WorkspaceEgressRunners } from '@runners/application/services/workspace-egress-runners.service';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
@@ -215,6 +218,10 @@ import { SandboxEditorGateway } from '@runners/presentation/websocket/sandbox-ed
 import { SandboxesWorker } from '@runners/presentation/workers/sandboxes.worker';
 import { StaleHostsWorker } from '@runners/presentation/workers/stale-hosts.worker';
 import {
+  EGRESS_RUNNERS,
+  type EgressRunnersPort,
+} from '@secrets/application/ports/egress-runners.port';
+import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
@@ -246,6 +253,8 @@ import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 const RUNNERS_EVENTS = Symbol('RUNNERS_EVENTS');
 
 const RUNNERS_DEPENDENTS = Symbol('RUNNERS_DEPENDENTS');
+
+const RUNNERS_EGRESS_RUNNERS = Symbol('RUNNERS_EGRESS_RUNNERS');
 
 const PLATFORM_EGRESS = Symbol('PLATFORM_EGRESS');
 
@@ -409,6 +418,31 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     ) => {
       dependents.register(
         new RunnerDependents(trusts, workspaceRunners, pools, egresses),
+      );
+      return true;
+    },
+  },
+  {
+    provide: RUNNERS_EGRESS_RUNNERS,
+    inject: [
+      EGRESS_RUNNERS,
+      DrizzleRunnerPoolRepository,
+      DrizzleRunnerTrustRepository,
+      PLATFORM_EGRESS,
+      PLATFORM_POOL,
+    ],
+    useFactory: (
+      egressRunners: EgressRunnersPort,
+      pools: DrizzleRunnerPoolRepository,
+      trusts: DrizzleRunnerTrustRepository,
+      platformEgress: PlatformEgressSettings | null,
+      platformPool: PlatformPoolSettings | null,
+    ) => {
+      egressRunners.register(
+        new WorkspaceEgressRunners(pools, trusts, {
+          platformEgressSet: platformEgress !== null,
+          platformPoolSet: platformPool !== null,
+        }),
       );
       return true;
     },
@@ -769,17 +803,35 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: RUNNER_READER,
-    inject: [DRIZZLE, CLOCK, PLATFORM_EGRESS, PLATFORM_POOL],
+    inject: [DRIZZLE, CLOCK, PLATFORM_EGRESS],
     useFactory: (
       db: DrizzleDatabase,
       clock: ClockPort,
       platformEgress: PlatformEgressSettings | null,
-      platformPool: PlatformPoolSettings | null,
     ) =>
       new DrizzleRunnerReader(db, clock, {
         platformEgressSet: platformEgress !== null,
+      }),
+  },
+  {
+    provide: RUNNER_READINESS,
+    inject: [
+      DrizzleRunnerPoolRepository,
+      DrizzleRunnerHostRepository,
+      CLOCK,
+      PLATFORM_EGRESS,
+      PLATFORM_POOL,
+    ],
+    useFactory: (
+      pools: DrizzleRunnerPoolRepository,
+      hosts: DrizzleRunnerHostRepository,
+      clock: ClockPort,
+      platformEgress: PlatformEgressSettings | null,
+      platformPool: PlatformPoolSettings | null,
+    ) =>
+      new RunnerReadiness(pools, hosts, clock, {
+        platformEgressSet: platformEgress !== null,
         platformPoolSet: platformPool !== null,
-        platformImages: platformPool?.images ?? null,
       }),
   },
   { provide: IDLE_WORKING_COPIES, useExisting: RUNNER_READER },
@@ -799,6 +851,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ListRunnersQuery, ListRunnersHandler, [
     WORKSPACE_ACCESS,
     RUNNER_READER,
+    RUNNER_READINESS,
     DrizzleRunnerRepository,
     WORKING_COPY_IMAGES,
     CLOCK,

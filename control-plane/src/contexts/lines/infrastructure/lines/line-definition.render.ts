@@ -42,6 +42,7 @@ const renderStationSearch = (
   ...present('iterations', search.iterations),
   ...present('repeats', search.repeats),
   ...present('objective', search.objective),
+  ...present('requestsPerDay', search.requestsPerDay),
 });
 
 const renderLineSearch = (search: LineSearchPolicy): LineDefinitionSearch =>

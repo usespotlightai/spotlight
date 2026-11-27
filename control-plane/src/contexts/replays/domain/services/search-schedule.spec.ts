@@ -42,6 +42,7 @@ const policyOf = (over: Partial<Parameters<typeof SearchPolicy.of>[0]> = {}) =>
     iterations: null,
     repeats: null,
     objective: null,
+    requestsPerDay: 3,
     ...over,
   });
 
@@ -235,6 +236,7 @@ describe('setVerdict', () => {
         kind: 'skip',
         reason,
         checkAfter: ahead(DAY),
+        warning: over.warnings?.find((each) => each.kind === reason) ?? null,
       });
     }
   });

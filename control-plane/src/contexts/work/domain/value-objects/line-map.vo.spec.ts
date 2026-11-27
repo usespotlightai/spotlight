@@ -271,6 +271,26 @@ describe('LineMap, where work may be passed on to', () => {
     ).toBe('out-of-completed');
   });
 
+  it('sends work back to an earlier work station, or to one its station passes to', () => {
+    const line = delivery();
+    const moves = [
+      ['code-review', 'implementation'],
+      ['code-review', 'triage'],
+      ['spec', 'implementation'],
+      ['spec', 'code-review'],
+      ['code-review', 'code-review'],
+      ['backlog', 'spec'],
+      ['code-review', 'backlog'],
+      ['code-review', 'completed'],
+    ] as const;
+
+    expect(
+      moves.map(([from, to]) =>
+        line.sendsBack(keyed(line, from), keyed(line, to)),
+      ),
+    ).toEqual([true, true, true, false, false, false, false, false]);
+  });
+
   it('offers the stations work passes to, then a person, and finishing where the line ends', () => {
     const line = delivery();
 

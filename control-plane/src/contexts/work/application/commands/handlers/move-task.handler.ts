@@ -90,7 +90,7 @@ export class MoveTaskHandler implements CommandHandlerPort<
         rank,
         {
           line,
-          body: TaskNoteBody.movedTo(station.name),
+          body: TaskNoteBody.movedTo(station.name, command.reason),
           at: this.clock.now(),
           voice: Voice.station(),
         },

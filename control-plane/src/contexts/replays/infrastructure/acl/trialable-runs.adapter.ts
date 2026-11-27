@@ -28,6 +28,7 @@ export const UNTRIALABLE: Readonly<
   'attachments-gone': 'attachments-gone',
   'answer-gone': 'answer-gone',
   'repository-gone': 'repository-gone',
+  'repository-missing': 'repository-missing',
   'not-at-the-station': 'not-at-the-station',
   'candidate-unfit': 'candidate-unfit',
   'cannot-start': 'cannot-start',

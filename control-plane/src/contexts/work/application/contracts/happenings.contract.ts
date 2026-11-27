@@ -83,4 +83,5 @@ export interface Happened {
   readonly chat?: StartsChatPayload | null;
   readonly attachments?: readonly InboundAttachment[];
   readonly closedPullRequest?: string | null;
+  readonly closedUnmerged?: boolean;
 }

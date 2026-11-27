@@ -14,6 +14,7 @@ import {
   repositoriesReviewedOrAll,
   type TaskCheckout,
 } from '@work/domain/services/task-checkouts';
+import { trialRepositoriesBlockOf } from '@work/domain/services/trialability';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -60,27 +61,30 @@ const checkoutsAt = (
   candidate: LineMap,
 ): TaskCheckout[] => {
   const repositories = repositoriesReviewedOrAll(briefed.reviewing, candidate);
-
-  return original.checkouts.map((each) => {
-    const repository =
-      repositories.find(
-        (repository) => each.repository?.equals(repository) ?? false,
-      ) ??
-      untrialable(
-        original,
-        'repository-gone',
-        `The line no longer has repository ${each.checkedOutAt}.`,
-      );
-
-    return {
-      repository,
-      branch: null,
-      base: null,
-      ref: each.commit,
-      diffOf: briefed.reviewing ? 'commits' : 'worktree',
-      setup: candidate.repositories.setupOf(repository),
-    };
+  const block = trialRepositoriesBlockOf({
+    checkouts: original.checkouts,
+    reviewing: briefed.reviewing,
+    line: candidate,
   });
+
+  if (block) {
+    untrialable(original, block.reason, block.description);
+  }
+
+  const diffOf = briefed.reviewing ? 'commits' : 'worktree';
+
+  return original.checkouts.flatMap((each) =>
+    repositories
+      .filter((repository) => each.repository?.equals(repository) ?? false)
+      .map((repository) => ({
+        repository,
+        branch: null,
+        base: null,
+        ref: each.commit,
+        diffOf,
+        setup: candidate.repositories.setupOf(repository),
+      })),
+  );
 };
 
 const NOT_DEFERRED = {

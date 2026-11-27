@@ -41,6 +41,8 @@ export interface JudgeRequest {
   readonly reference: ReferenceChange | null;
   readonly guidanceRequested: boolean;
   readonly effectsBlocked: boolean;
+  /** The tools of the run's station that its sandbox blocked; the briefing names them only where effects were blocked. */
+  readonly blockedTools: readonly string[];
 }
 
 export interface JudgeAnswer {

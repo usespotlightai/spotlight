@@ -135,6 +135,7 @@ const DELIVERY_STATIONS: StationResponseDto[] = [
     effort: 'medium',
     agentPrompt:
       '## Role\n\nReview the pull request on the task.\n\n- Flag what would break in production\n- Approve only what you would merge',
+    passesTo: ['station_spec', 'station_implementation'],
   }),
   station({
     id: 'station_completed',
@@ -239,6 +240,7 @@ const task = (
   pullRequests: [],
   hold: null,
   runNotStarted: null,
+  handMoves: [],
   createdBy: SAM,
   assignee: null,
   note: null,

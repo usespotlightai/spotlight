@@ -63,4 +63,15 @@ describe('HeldHarnessKeys', () => {
     expect(await subject.of(WORKSPACE, HarnessId.of('aider'))).toEqual([]);
     expect(namesIn).not.toHaveBeenCalled();
   });
+
+  it('names the keys of every harness in the catalogue, held or not', () => {
+    expect(held([]).subject.names()).toEqual([
+      'ANTHROPIC_API_KEY',
+      'CLAUDE_CODE_OAUTH_TOKEN',
+      'CODEX_API_KEY',
+      'OPENAI_API_KEY',
+      'ANTHROPIC_API_KEY',
+      'OPENAI_API_KEY',
+    ]);
+  });
 });

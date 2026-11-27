@@ -434,6 +434,7 @@ describe('compileLine', () => {
         currency: 'eur',
         period: '36h',
         cooldown: '1d',
+        requestsPerDay: 5,
       },
     });
 
@@ -445,6 +446,7 @@ describe('compileLine', () => {
       period: '36h',
       onAlert: true,
       cooldown: '1d',
+      requestsPerDay: 5,
     });
 
     const unset = compileLine(DELIVERY);
@@ -463,6 +465,7 @@ describe('compileLine', () => {
     expect(at({ cooldown: 'weekly' })).toBe('search.cooldown');
     expect(at({ onAlert: 'yes' })).toBe('search.onAlert');
     expect(at({ period: '2d' })).toBe('search.cooldown');
+    expect(at({ requestsPerDay: 0 })).toBe('search.requestsPerDay');
   });
 
   it('reads a station’s own search settings, and none where it has none', () => {
@@ -475,6 +478,7 @@ describe('compileLine', () => {
           agent: { harness: 'claude-code', effort: 'high' },
           iterations: 4,
           objective: 'cost',
+          requestsPerDay: 6,
         },
       }),
     );
@@ -491,6 +495,7 @@ describe('compileLine', () => {
       iterations: 4,
       repeats: null,
       objective: 'cost',
+      requestsPerDay: 6,
     });
     expect(compiled.ok && compiled.line.stations[0]?.search).toBeNull();
   });
@@ -504,6 +509,7 @@ describe('compileLine', () => {
 
     expect(at({ iterations: 11 })).toBe('stations.1.search.iterations');
     expect(at({ repeats: 0 })).toBe('stations.1.search.repeats');
+    expect(at({ requestsPerDay: 21 })).toBe('stations.1.search.requestsPerDay');
     expect(at({ objective: 'speed' })).toBe('stations.1.search.objective');
     expect(at({ cooldown: '10m' })).toBe('stations.1.search.cooldown');
     expect(at({ agent: { harness: ' ' } })).toBe(

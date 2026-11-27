@@ -102,6 +102,13 @@ const onboarding = (teamId: string): OnboardingResponseDto => ({
   ],
   canSetUp:
     settingsWorld().gitHubConnected && settingsWorld().fleet.hosts.length > 0,
+  setupRefusal: !settingsWorld().viewerIsAdmin
+    ? 'needs-an-admin'
+    : !settingsWorld().gitHubConnected
+      ? 'code-unreachable'
+      : settingsWorld().fleet.hosts.length === 0
+        ? 'needs-egress'
+        : null,
   viewerIsAdmin: settingsWorld().viewerIsAdmin,
   setupChat: setupChatOf(teamId),
 });
@@ -404,6 +411,12 @@ const workspaceHandlers = [
       : notFound(),
   ),
 
+  api.get('/workspaces/:slug/github/installations', ({ params }) =>
+    ofWorkspace(params.slug)
+      ? json([{ id: '58213907', account: params.slug }])
+      : notFound(),
+  ),
+
   api.post('/workspaces/:slug/github', async ({ params, request }) => {
     if (!ofWorkspace(params.slug)) {
       return notFound();
@@ -441,7 +454,11 @@ const workspaceHandlers = [
     }
 
     const { hosts, runners } = settingsWorld().fleet;
-    return json({ hosts, runners });
+    return json({
+      hosts,
+      runners,
+      readyToRun: hosts.some((host) => host.online) || runners.length > 0,
+    });
   }),
 
   api.delete('/workspaces/:slug/runners/hosts/:hostId', ({ params }) => {

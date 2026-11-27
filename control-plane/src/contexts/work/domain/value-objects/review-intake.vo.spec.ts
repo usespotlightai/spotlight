@@ -84,6 +84,13 @@ describe('ReviewIntake', () => {
     ).toBe(false);
   });
 
+  it('reviews a pull request Spotlight opened when a person labels it, since a label asks for a review by hand', () => {
+    expect(reviewsOf({}).takes(labelled('spotlight', { ours: true }))).toBe(
+      true,
+    );
+    expect(reviewsOf({}).takes(labelled('bug', { ours: true }))).toBe(false);
+  });
+
   it('skips a draft as it opens, but reviews one when requested', () => {
     const policy = reviewsOf({ start: 'opened' });
 

@@ -129,6 +129,7 @@ export class WorkJudgings implements PendingJobsPort {
       reference: null,
       guidanceRequested: false,
       effectsBlocked: false,
+      blockedTools: [],
     });
 
     switch (answer.status) {

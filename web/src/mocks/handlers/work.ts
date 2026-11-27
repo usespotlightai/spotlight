@@ -245,6 +245,7 @@ export const workHandlers: RequestHandler[] = [
         source: null,
         hold: null,
         runNotStarted: null,
+        handMoves: [],
       };
 
       world().tasks[teamId] = [...(world().tasks[teamId] ?? []), task];

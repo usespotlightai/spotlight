@@ -14,6 +14,7 @@ export interface RunEvidence {
   readonly description: string | null;
   readonly steps: readonly JudgedStep[];
   readonly hunks: readonly JudgedHunk[];
+  readonly blockedTools: readonly string[];
 }
 
 export interface EvidencePort {

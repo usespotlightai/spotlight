@@ -330,6 +330,7 @@ describe('withActivity', () => {
         runners: [
           runner({ id: 'runner_1', hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P' }),
         ],
+        readyToRun: true,
       },
       {
         runners: [{ runnerId: 'runner_1', currentRun: LEASED_RUN }],
@@ -359,6 +360,7 @@ describe('withActivity', () => {
           }),
         ],
         runners: [],
+        readyToRun: true,
       },
       {
         runners: [],
@@ -386,6 +388,7 @@ describe('withActivity', () => {
           }),
           runner({ id: 'runner_3' }),
         ],
+        readyToRun: true,
       },
       { runners: [], workingCopies: [] },
     );
@@ -412,6 +415,16 @@ describe('formatRun', () => {
       formatRun({ ...LEASED_RUN, kind: 'spec', teamId: null, title: null }),
     ).toBe('A run queued by hand');
     expect(formatRun(null)).toBe('No run yet');
+  });
+
+  it('says the task or agent chat is deleted where the viewer reads its team but it has no title', () => {
+    expect(formatRun({ ...LEASED_RUN, title: null })).toBe('Deleted task');
+    expect(formatRun({ ...LEASED_RUN, kind: 'chat', title: null })).toBe(
+      'Deleted agent chat',
+    );
+    expect(formatRun({ ...LEASED_RUN, readable: false, title: null })).toBe(
+      'Title hidden. This run belongs to a team you’re not on.',
+    );
   });
 });
 
@@ -476,6 +489,7 @@ describe('onlineCount', () => {
       onlineCount({
         hosts: [hosted(), hosted({ online: false })],
         pools: [],
+        readyToRun: true,
       }),
     ).toBe(1);
   });

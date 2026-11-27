@@ -260,6 +260,7 @@ export function ChatThread({
                           <Collapsible open={Boolean(progress)} appear={false}>
                             <div className="pt-6">
                               <AgentWorking
+                                slug={slug}
                                 harness={chat.harness}
                                 progress={working}
                                 phase={phaseOf(journals, chat.runId)}

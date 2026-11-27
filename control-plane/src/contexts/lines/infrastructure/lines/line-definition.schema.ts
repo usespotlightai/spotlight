@@ -64,6 +64,7 @@ const stationSearchSchema = z.object({
   iterations: z.number().optional(),
   repeats: z.number().optional(),
   objective: z.enum(SEARCH_OBJECTIVES).optional(),
+  requestsPerDay: z.number().optional(),
 });
 
 const stationSchema = z.object({
@@ -144,6 +145,7 @@ const lineSearchSchema = z.object({
   period: z.string().optional(),
   onAlert: z.boolean().optional(),
   cooldown: z.string().optional(),
+  requestsPerDay: z.number().optional(),
 });
 
 const sourceSchema = z.object({

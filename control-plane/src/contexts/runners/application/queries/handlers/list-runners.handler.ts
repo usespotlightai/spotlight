@@ -2,6 +2,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { RunnerFleetDto } from '@runners/application/dto/runner-fleet.dto';
 import { RunnerFleetMapper } from '@runners/application/mappers/runner-fleet.mapper';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import type { WorkingCopyImagesPort } from '@runners/application/ports/working-copy-images.port';
 import type { ListRunnersQuery } from '@runners/application/queries/list-runners.query';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
@@ -21,6 +22,7 @@ export class ListRunnersHandler implements QueryHandlerPort<
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly runners: RunnerReaderPort,
+    private readonly readiness: RunnerReadinessPort,
     private readonly runnerRepository: RunnerRepository,
     private readonly images: WorkingCopyImagesPort,
     private readonly clock: ClockPort,
@@ -38,13 +40,14 @@ export class ListRunnersHandler implements QueryHandlerPort<
       }
 
       const now = this.clock.now();
-      const [hosts, runners, alive] = await Promise.all([
+      const [hosts, runners, alive, readyToRun] = await Promise.all([
         this.runners.hostsIn(
           membership.workspaceId,
           RunnerHost.staleBefore(now),
         ),
         this.runners.inWorkspace(membership.workspaceId),
         this.runnerRepository.aliveInWorkspace(membership.workspaceId, now),
+        this.readiness.readyToRun(membership.workspaceId),
       ]);
       const aliveIds = new Set(alive.map((each) => each.id.value));
       const idleSandboxes = await this.runners.idleSandboxesOn(
@@ -91,6 +94,7 @@ export class ListRunnersHandler implements QueryHandlerPort<
         runners: runners
           .filter((each) => aliveIds.has(each.id) && !unlisted.has(each.id))
           .map((each) => RunnerFleetMapper.runner(each)),
+        readyToRun,
       };
     } catch (error) {
       rethrowAsApplicationError(error);

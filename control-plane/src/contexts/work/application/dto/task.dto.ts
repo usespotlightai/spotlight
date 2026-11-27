@@ -1,4 +1,8 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
+import {
+  HAND_MOVE_DENIALS,
+  type HandMoveDenial,
+} from '@work/domain/services/hand-moves';
 import type { MessageOutcome } from '@work/domain/services/message-effect';
 import { HOLD_ENDS } from '@work/domain/value-objects/hold-end';
 import { HOLD_VERDICTS } from '@work/domain/value-objects/hold-verdict';
@@ -9,6 +13,8 @@ export const PROGRESS_NAMES = PROGRESSES;
 export const HOLD_VERDICT_NAMES = HOLD_VERDICTS;
 
 export const HOLD_END_NAMES = HOLD_ENDS;
+
+export const HAND_MOVE_DENIAL_NAMES = HAND_MOVE_DENIALS;
 
 interface TaskNoteDto {
   readonly position: number;
@@ -56,6 +62,14 @@ export interface TaskDto {
   readonly source: string | null;
   readonly hold: TaskHoldDto | null;
   readonly runNotStarted: TaskRunNotStartedDto | null;
+  readonly handMoves: readonly TaskHandMoveDto[];
+}
+
+interface TaskHandMoveDto {
+  readonly stationId: string;
+  readonly denial: HandMoveDenial | null;
+  readonly skips: readonly string[];
+  readonly sendsBack: boolean;
 }
 
 interface TaskRunNotStartedDto {

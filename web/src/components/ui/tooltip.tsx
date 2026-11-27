@@ -6,17 +6,18 @@ function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
   return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
 }
 
-function TooltipProvider({
-  delay = 500,
-  ...props
-}: TooltipPrimitive.Provider.Props) {
-  return <TooltipPrimitive.Provider delay={delay} {...props} />
+const NAME_DELAY = 150
+const DETAIL_DELAY = 700
+
+function TooltipProvider(props: TooltipPrimitive.Provider.Props) {
+  return <TooltipPrimitive.Provider {...props} />
 }
 
 function TooltipTrigger({
-  delay = 500,
+  iconOnly = false,
+  delay = iconOnly ? NAME_DELAY : DETAIL_DELAY,
   ...props
-}: TooltipPrimitive.Trigger.Props) {
+}: TooltipPrimitive.Trigger.Props & { iconOnly?: boolean }) {
   return (
     <TooltipPrimitive.Trigger
       data-slot="tooltip-trigger"

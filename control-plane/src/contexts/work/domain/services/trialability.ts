@@ -1,5 +1,8 @@
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { UntrialableReason } from '@work/domain/value-objects/untrialable-reason';
 
 export type TrialArchive = 'none' | 'stored' | 'gone';
@@ -86,3 +89,59 @@ export const trialInputsBlockOf = (inputs: TrialInputs): TrialBlock | null => {
 
   return null;
 };
+
+interface TrialCheckoutFact {
+  readonly checkedOutAt: string;
+  readonly repository: Repository | null;
+}
+
+/** What a run checked out, held against the repositories a run of its task checks out on a line. */
+export interface TrialRepositories {
+  readonly checkouts: readonly TrialCheckoutFact[];
+  readonly reviewing: Repository | null;
+  readonly line: LineMap;
+}
+
+export const trialRepositoriesBlockOf = ({
+  checkouts,
+  reviewing,
+  line,
+}: TrialRepositories): TrialBlock | null => {
+  const repositories = repositoriesReviewedOrAll(reviewing, line);
+  const isOf = (checkout: TrialCheckoutFact, repository: Repository) =>
+    checkout.repository?.equals(repository) ?? false;
+  const gone = checkouts.find(
+    (each) => !repositories.some((repository) => isOf(each, repository)),
+  );
+
+  if (gone) {
+    return {
+      reason: 'repository-gone',
+      description: `The line no longer has repository ${gone.checkedOutAt}.`,
+    };
+  }
+
+  const missing = repositories.find(
+    (repository) => !checkouts.some((each) => isOf(each, repository)),
+  );
+
+  if (missing) {
+    return {
+      reason: 'repository-missing',
+      description: `It ran without repository ${missing.value}, which the line has now.`,
+    };
+  }
+
+  return null;
+};
+
+/**
+ * Whether a run can be picked for trials on its station's line as it is now.
+ * `onLine` is null where the run's line is not known; a trial plan checks the
+ * candidate's repositories again when a trial is ordered.
+ */
+export const trialBlockOnLineOf = (
+  facts: TrialFacts | null,
+  onLine: TrialRepositories | null,
+): TrialBlock | null =>
+  trialBlockOf(facts) ?? (onLine ? trialRepositoriesBlockOf(onLine) : null);

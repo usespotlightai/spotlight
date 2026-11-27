@@ -14,6 +14,7 @@ export class SearchPolicy {
     readonly iterations: number | null,
     readonly repeats: number | null,
     readonly objective: SearchObjective | null,
+    readonly requestsPerDay: number,
   ) {}
 
   static of(input: {
@@ -32,6 +33,7 @@ export class SearchPolicy {
     iterations: number | null;
     repeats: number | null;
     objective: SearchObjective | null;
+    requestsPerDay: number;
   }): SearchPolicy {
     return new SearchPolicy(
       input.enabled,
@@ -44,6 +46,7 @@ export class SearchPolicy {
       input.iterations,
       input.repeats,
       input.objective,
+      input.requestsPerDay,
     );
   }
 }

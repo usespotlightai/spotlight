@@ -8,6 +8,7 @@ import {
 
 import { BoardStation } from '@/components/features/board/BoardStation';
 import { SelectionBar } from '@/components/features/board/SelectionBar';
+import { StopRunDialog } from '@/components/features/board/task/StopRunDialog';
 import { TaskDragOverlay } from '@/components/features/board/TaskDragOverlay';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
@@ -63,6 +64,9 @@ export function Board({
     .filter(({ station }) => inView(view, station.kind));
   const options = moveOptionsFor(line.stations, tasks, selected);
   const dragged = tasks.find((each) => each.id === drag.draggedId) ?? null;
+  const stoppingAt = line.stations.find(
+    (each) => each.id === drag.stopping?.landing.stationId,
+  );
 
   const select = (taskId: string, taken: boolean) =>
     onSelectedChange((current) =>
@@ -141,6 +145,16 @@ export function Board({
           commands.find((command) => command.id === 'palette.open')?.run()
         }
         onClear={() => onSelectedChange([])}
+      />
+
+      <StopRunDialog
+        move={
+          drag.stopping && stoppingAt
+            ? { title: drag.stopping.task.title, station: stoppingAt.name }
+            : null
+        }
+        onConfirm={drag.confirmStop}
+        onClose={drag.cancelStop}
       />
     </div>
   );

@@ -1,8 +1,11 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import { MemoryMerged } from '@memory/domain/events/memory-merged.event';
+import { MemoryRestored } from '@memory/domain/events/memory-restored.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
+import { MemoryNotRetiredError } from '@memory/domain/exceptions/memory-not-retired.error';
+import { MemoryReplacedError } from '@memory/domain/exceptions/memory-replaced.error';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
@@ -191,6 +194,49 @@ describe('Memory', () => {
         at: LATER,
       }),
     ).toThrow(MemoryAlreadyRetiredError);
+  });
+
+  it('is restored after a person retired it, saying who restored it', () => {
+    const retired = created().retire({
+      by: UserId.of('user_bea'),
+      reason: 'Gone.',
+      at: LATER,
+    });
+    retired.pullEvents();
+
+    const restored = retired.restore({ by: UserId.of('user_ada'), at: LATER });
+
+    expect(restored.status).toBe('active');
+    expect(restored.retirement).toBeNull();
+    expect(restored.pullEvents()).toEqual([
+      new MemoryRestored(NEW, TEAM, UserId.of('user_ada'), LATER),
+    ]);
+  });
+
+  it('is restorable only after a person retired it', () => {
+    const retired = created().retire({
+      by: UserId.of('user_bea'),
+      reason: 'Gone.',
+      at: LATER,
+    });
+
+    expect(retired.restorable).toBe(true);
+    expect(created().restorable).toBe(false);
+    expect(created().supersedeWith(OLD, LATER).restorable).toBe(false);
+    expect(
+      retired.restore({ by: UserId.of('user_ada'), at: LATER }).restorable,
+    ).toBe(false);
+  });
+
+  it('is not restored while active, or after a newer memory replaced it', () => {
+    expect(() =>
+      created().restore({ by: UserId.of('user_ada'), at: LATER }),
+    ).toThrow(MemoryNotRetiredError);
+    expect(() =>
+      created()
+        .supersedeWith(OLD, LATER)
+        .restore({ by: UserId.of('user_ada'), at: LATER }),
+    ).toThrow(MemoryReplacedError);
   });
 
   it('is corrected by a successor that keeps what it cites and becomes active to supersede it, leaving it untouched', () => {

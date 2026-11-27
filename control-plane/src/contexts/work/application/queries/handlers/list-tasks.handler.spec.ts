@@ -1,4 +1,7 @@
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import type {
   TaskReaderPort,
@@ -11,6 +14,7 @@ import {
   linesWhere,
 } from '@work/application/services/run-access.fake-spec';
 import type { WorkAccess } from '@work/application/services/work-access.service';
+import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
 import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -61,6 +65,7 @@ const summaries: TaskSummary[] = [
 
 const asDto = ({ running: _running, ...summary }: TaskSummary) => ({
   ...summary,
+  handMoves: [],
   createdAt: summary.createdAt.toISOString(),
   waitingForYou: false,
   yourMessage: 'message',
@@ -132,6 +137,37 @@ const handle = (tasks: TaskReaderPort, access = seeing()) =>
   );
 
 describe('ListTasksHandler', () => {
+  it('lists where a person may send a finished task back, as its line decides', async () => {
+    let next = 0;
+    const line = deliveryLineOf({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      newId: () => `station_${++next}`,
+    });
+    const at = (key: string) =>
+      line.stations.find((each) => each.key.value === key)?.id.value as string;
+    const lines = { ofTeam: async () => [line] } as never;
+    const sentBack = async (finished: boolean) =>
+      (
+        await new ListTasksHandler(
+          reader([{ ...summaries[0], stationId: at('code-review'), finished }]),
+          seeing(),
+          lines,
+        ).execute(
+          new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
+        )
+      )?.items[0]?.handMoves.flatMap((each) =>
+        each.sendsBack ? [each.stationId] : [],
+      );
+
+    await expect(sentBack(true)).resolves.toEqual([
+      at('triage'),
+      at('spec'),
+      at('implementation'),
+    ]);
+    await expect(sentBack(false)).resolves.toEqual([]);
+  });
+
   it('hands back each task with the station it is at', async () => {
     await expect(handle(reader(summaries))).resolves.toEqual({
       items: summaries.map(asDto),
@@ -290,5 +326,94 @@ describe('ListTasksHandler', () => {
       viewerDrives: false,
       viewerEnds: false,
     });
+  });
+
+  it('lists where a person may move each task by hand, as its line decides', async () => {
+    let next = 0;
+    const line = deliveryLineOf({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      newId: () => `station_${++next}`,
+    });
+    const at = (key: string) =>
+      line.stations.find((each) => each.key.value === key)?.id.value as string;
+    const moves = await new ListTasksHandler(
+      reader([{ ...summaries[0], stationId: at('implementation') }]),
+      seeing(),
+      { ofTeam: async () => [line] } as never,
+    ).execute(
+      new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
+    );
+
+    expect(moves?.items[0]?.handMoves).toEqual([
+      { stationId: at('backlog'), denial: null, skips: [], sendsBack: false },
+      {
+        stationId: at('triage'),
+        denial: 'between-work-stations',
+        skips: [],
+        sendsBack: false,
+      },
+      {
+        stationId: at('spec'),
+        denial: 'between-work-stations',
+        skips: [],
+        sendsBack: false,
+      },
+      {
+        stationId: at('implementation'),
+        denial: null,
+        skips: [],
+        sendsBack: false,
+      },
+      {
+        stationId: at('code-review'),
+        denial: 'between-work-stations',
+        skips: [],
+        sendsBack: false,
+      },
+      { stationId: at('completed'), denial: null, skips: [], sendsBack: false },
+    ]);
+  });
+
+  it('opens the stations its station passes work to while the task waits on a question, and not while it waits on an approval', async () => {
+    let next = 0;
+    const line = deliveryLineOf({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      newId: () => `station_${++next}`,
+      harness: HarnessId.of('dev'),
+    });
+    const at = (key: string) =>
+      line.stations.find((each) => each.key.value === key)?.id.value as string;
+    const openFrom = async (summary: TaskSummary) =>
+      (
+        await new ListTasksHandler(reader([summary]), seeing(), {
+          ofTeam: async () => [line],
+        } as never).execute(
+          new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
+        )
+      )?.items[0]?.handMoves
+        .filter((move) => move.denial === null)
+        .map((move) => move.stationId);
+    const atTriage = { ...summaries[0], stationId: at('triage') };
+
+    await expect(
+      openFrom({
+        ...atTriage,
+        awaitingReview: {
+          conversationId: 'task_1:3',
+          ask: { approval: null, connectionAsk: null },
+        },
+      }),
+    ).resolves.toEqual([
+      at('backlog'),
+      at('triage'),
+      at('spec'),
+      at('implementation'),
+      at('completed'),
+    ]);
+    await expect(
+      openFrom({ ...asking(ALICE, 'user_2'), stationId: at('triage') }),
+    ).resolves.toEqual([at('backlog'), at('triage'), at('completed')]);
   });
 });

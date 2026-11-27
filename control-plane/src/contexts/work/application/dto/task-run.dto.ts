@@ -2,6 +2,7 @@ import {
   RUNNER_SOURCE_KIND_FACTS,
   RUN_WAIT_REASON_FACTS,
 } from '@runs/application/ports/run-facts.port';
+import { REVIEW_STATES } from '@work/domain/services/conversations';
 import {
   MESSAGE_OUTCOMES,
   type MessageOutcome,
@@ -13,7 +14,7 @@ import {
 import type { Progress } from '@work/domain/value-objects/progress';
 import { TASK_RUN_STATES } from '@work/domain/value-objects/task-run-state';
 
-export const REVIEW_STATE_NAMES = ['pending', 'answered'] as const;
+export const REVIEW_STATE_NAMES = REVIEW_STATES;
 
 interface RunReviewDto {
   readonly state: string;

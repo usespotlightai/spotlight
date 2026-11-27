@@ -76,9 +76,9 @@ import {
   type RunnerLeasesPort,
 } from '@runners/application/ports/runner-leases.port';
 import {
-  RUNNER_READER,
-  type RunnerReaderPort,
-} from '@runners/application/ports/runner-reader.port';
+  RUNNER_READINESS,
+  type RunnerReadinessPort,
+} from '@runners/application/ports/runner-readiness.port';
 import {
   SANDBOX_RETIREMENT,
   type SandboxRetirementPort,
@@ -249,9 +249,11 @@ import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.h
 import { ProjectLineStations } from '@work/application/events/handlers/project-line-stations.handler';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
 import { RetargetStackedTasks } from '@work/application/events/handlers/retarget-stacked-tasks.handler';
+import { RetireChatSandbox } from '@work/application/events/handlers/retire-chat-sandbox.handler';
 import { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
+import { TrackSetupPullRequests } from '@work/application/events/handlers/track-setup-pull-requests.handler';
 import { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
 import { WelcomeTeam } from '@work/application/events/handlers/welcome-team.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
@@ -1209,13 +1211,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     provide: SetupStatus,
     inject: [
       WORKSPACE_CONNECTIONS,
-      RUNNER_READER,
+      RUNNER_READINESS,
       CHAT_READER,
       CHAT_REPOSITORY,
     ],
     useFactory: (
       connections: WorkspaceConnectionsPort,
-      runners: RunnerReaderPort,
+      runners: RunnerReadinessPort,
       chats: ChatReaderPort,
       chatRepository: ChatRepository,
     ) => new SetupStatus(connections, runners, chats, chatRepository),
@@ -1803,12 +1805,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: TRIALABLE_RUNS,
-    inject: [RUN_FACTS, TRIAL_FACTS, STATION_RUN_READER],
+    inject: [RUN_FACTS, TRIAL_FACTS, STATION_RUN_READER, LINE_MAPS],
     useFactory: (
       runs: RunFactsPort,
       trials: TrialFactsPort,
       stationRuns: StationRunReaderPort,
-    ) => new TrialableRuns(runs, trials, stationRuns),
+      lines: LineMapsPort,
+    ) => new TrialableRuns(runs, trials, stationRuns, lines),
   },
 
   { provide: TRIAL_FACTS, useClass: DrizzleTrialFacts },
@@ -1932,7 +1935,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ResumeTaskRun,
       SANDBOX_RETIREMENT,
       PULL_REQUESTS,
-      RUNNER_READER,
+      RUNNER_READINESS,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1968,7 +1971,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       resuming: ResumeTaskRun,
       retirement: SandboxRetirementPort,
       pullRequests: PullRequestPort,
-      runnerReader: RunnerReaderPort,
+      runnerReadiness: RunnerReadinessPort,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
@@ -1995,7 +1998,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             lines,
             tasks,
             welcomes,
-            runnerReader,
+            runnerReadiness,
             ids,
             clock,
           ),
@@ -2033,7 +2036,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           deletingChats: new DeleteTeamChats(chats),
           taskInboxRequests: new DeleteTaskInboxRequests(inboxRequests),
           taskDraft: new DeleteTaskDraft(draftStates),
-          taskSandbox: new RetireTaskSandbox(tasks, lines, retirement),
+          taskSandbox: new RetireTaskSandbox(tasks, retirement),
+          chatSandbox: new RetireChatSandbox(chats, retirement),
           toolUsedHooks,
           notices,
           takenMarks: new ReleaseTakenMarks(tasks, transaction),
@@ -2042,6 +2046,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             lines,
             placements,
             taskDispatch,
+            transaction,
+            clock,
+          ),
+          setupPullRequests: new TrackSetupPullRequests(
+            chats,
             transaction,
             clock,
           ),
@@ -2517,7 +2526,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     DispatchChat,
     HARNESS_LAUNCH,
     ACCESSIBLE_REPOSITORIES,
-    RUNNER_READER,
+    RUNNER_READINESS,
     CiSetups,
     ID_GENERATOR,
     CLOCK,

@@ -19,24 +19,34 @@ import { StartSearch } from '@replays/application/services/start-search.service'
 import { StationChangeTests } from '@replays/application/services/station-change-tests.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import {
   aSearch,
   aSet,
   BY,
+  candidateOf,
+  endOf,
   JUDGE,
   LIVE_FINGERPRINT,
   LIVE_HASHES,
+  later,
+  measuresOf,
   NOW,
+  runIds,
   STATION,
   searchRunIds,
+  slots,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
+import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
+import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
@@ -46,6 +56,7 @@ import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -95,6 +106,7 @@ const policyOf = (over: Partial<Parameters<typeof SearchPolicy.of>[0]> = {}) =>
     iterations: 2,
     repeats: null,
     objective: null,
+    requestsPerDay: 3,
     ...over,
   });
 
@@ -102,6 +114,7 @@ const joinOf = (request: string) => ({
   searchId: SearchId.of('search_other'),
   request: CandidateId.of(request),
   at: now,
+  requestsPerDay: 3,
 });
 
 const tests = () => {
@@ -193,6 +206,69 @@ const finished = (id: string, spent: number): Search =>
 const withSet = async (set: ReplaySet) => {
   memory.sets.clear();
   await memory.setRepository.add(set);
+};
+
+const verdictOf = (claimResults: readonly boolean[]) =>
+  JudgeVerdict.of({
+    claimResults,
+    claims: [...JUDGE.claims],
+    passThreshold: 1,
+    model: 'judge/model',
+    referenced: false,
+    reasons: [],
+    guidance: null,
+  });
+
+const PASSED = ChangeChecks.of([
+  {
+    repository: 'api',
+    state: 'passed',
+    skip: null,
+    failedAt: [],
+    spent: ModelSpent.of([], 0),
+  },
+]);
+
+const judgedTwice = async (
+  secondOf: (place: number) => readonly boolean[],
+): Promise<void> => {
+  const live = candidateOf(
+    'live',
+    'candidate_live',
+    JUDGE,
+    'npm test',
+    LIVE_FINGERPRINT,
+  );
+  const started = Replay.start({
+    id: ReplayId.of('replay_calibration'),
+    set: aSet(10).snapshot,
+    candidate: live.asReplayed,
+    baseline: false,
+    ceiling: Money.ceiling(100, 'USD'),
+    at: NOW,
+    by: BY,
+    repeats: 2,
+    calibration: true,
+  });
+  const reserved = started.reserving(slots(started.entries.length), runIds());
+  const judged = reserved.entries.reduce((built, entry) => {
+    const run = entry.run as RunId;
+
+    return built
+      .confirm(run, LIVE_FINGERPRINT, NOW)
+      .recordRunEnd(run, endOf('completed'))
+      .measure(run, measuresOf(1), later(61_000))
+      .recordReview(run, PASSED, null, later(62_000))
+      .recordVerdict(run, verdictOf([true, true]), later(63_000));
+  }, reserved);
+  const rejudged = judged.entries.reduce(
+    (built, entry, place) =>
+      built.recordRejudgment(entry.run as RunId, verdictOf(secondOf(place))),
+    judged,
+  );
+
+  await memory.candidateRepository.add(live);
+  await memory.replayRepository.add(rejudged);
 };
 
 beforeEach(async () => {
@@ -366,6 +442,18 @@ describe('StationChangeTests', () => {
     expect(await asked()).toMatchObject({ outcome: 'started' });
   });
 
+  it('refuses a station whose judge disagrees with itself, with how often it agreed and the claims that changed most', async () => {
+    scoring = JUDGED;
+    await judgedTwice((place) => [place !== 0, place >= 5]);
+
+    expect(await asked()).toMatchObject({
+      outcome: 'refused',
+      code: 'judge-unstable',
+      reason:
+        'The judge of the station does not give the same verdict twice for the same run. Calibration judged 20 runs twice, and the two verdicts agreed for 15 of them (75%). Spotlight needs at least 80%. The claims whose result changed most between the two verdicts: “It keeps the order of the jobs.” in 5 runs; “It drains the queue without dropping a job.” in 1 run. Please make the claims of the judge more exact.',
+    });
+  });
+
   it('refuses while a config pull request of the station is open, or the last search has not given its result', async () => {
     await pullRequests.add(
       ConfigPullRequest.pick({
@@ -418,8 +506,37 @@ describe('StationChangeTests', () => {
 
     expect(await asked()).toMatchObject({
       code: 'request-limit',
-      reason: expect.stringMatching(/Maximum requests a day: 3$/) as unknown,
+      reason:
+        'The station took the most requested tests for today. Maximum requests a day: 3. The count resets at 2026-10-02 00:00 UTC. To allow more, set requests_per_day in the search block of the station or of the line in Terraform.',
     });
+  });
+
+  it('refuses a change to a running search after the requests of the day, and says when the count resets', async () => {
+    await asked({ mode: 'search' });
+    policy = policyOf({ requestsPerDay: 1 });
+
+    expect(
+      await asked({ name: 'second', requester: UserId.of('user_other') }),
+    ).toEqual({
+      outcome: 'refused',
+      code: 'request-limit',
+      reason:
+        'The station took the most requested tests for today. Maximum requests a day: 1. The count resets at 2026-10-02 00:00 UTC. To allow more, set requests_per_day in the search block of the station or of the line in Terraform.',
+    });
+  });
+
+  it('takes as many requests a day as the search of the station allows', async () => {
+    const schedule = memory.schedules.get(STATION.stationId.value);
+
+    await memory.scheduleRepository.save(
+      (schedule as StationSearchSchedule)
+        .requested(joinOf('a'))
+        .requested(joinOf('b'))
+        .requested(joinOf('c')),
+    );
+    policy = policyOf({ requestsPerDay: 4 });
+
+    expect(await asked()).toMatchObject({ outcome: 'started' });
   });
 
   it('ignores the cooldown of the station', async () => {
@@ -431,6 +548,7 @@ describe('StationChangeTests', () => {
         inSet: [],
         at: now,
         cooldownMilliseconds: 3 * DAY,
+        requestsPerDay: 3,
         searchId: SearchId.of('search_earlier'),
         request: null,
         candidates: [],

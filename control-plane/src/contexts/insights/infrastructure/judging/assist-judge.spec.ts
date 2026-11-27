@@ -50,6 +50,7 @@ const REQUEST: JudgeRequest = {
   reference: null,
   guidanceRequested: false,
   effectsBlocked: false,
+  blockedTools: [],
 };
 
 const REASONS = [{ text: 'It retries in the request.', steps: [7], hunks: [] }];
@@ -144,6 +145,32 @@ describe('judging a run in an assist session', () => {
     expect(JSON.parse(order?.files['evidence.json'] ?? '')).toMatchObject({
       reference: { left_out: { hunks: 0 } },
     });
+  });
+
+  it('names the tools the sandbox blocked and judges a claim on a blocked effect on the attempt, only for a run whose effects were blocked', async () => {
+    const replayed = new FakeAssistSessions(submitted(VERDICT));
+    const live = new FakeAssistSessions(submitted(VERDICT));
+
+    await judging(replayed, {
+      ...REQUEST,
+      effectsBlocked: true,
+      blockedTools: ['pull-request', 'linear.comment'],
+    });
+    await judging(live, { ...REQUEST, blockedTools: ['pull-request'] });
+
+    const [blocked] = replayed.orders;
+    const [open] = live.orders;
+    expect(blocked?.briefing).toContain(
+      'The sandbox also blocked these tools of the station: `pull-request`, `linear.comment`.',
+    );
+    expect(blocked?.briefing).toContain(
+      'Judge a claim that depends only on a blocked effect on the attempt, not on the outcome.',
+    );
+    expect(blocked?.briefing).toContain(
+      'unless it depends only on a blocked effect that the steps show the agent attempted',
+    );
+    expect(open?.briefing).not.toContain('pull-request');
+    expect(open?.briefing).not.toContain('on the attempt');
   });
 
   it('waits while the session has not submitted', async () => {

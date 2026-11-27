@@ -1,4 +1,4 @@
-import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -28,7 +28,7 @@ export class WelcomeTeam {
     private readonly lines: LineMapsPort,
     private readonly tasks: TaskRepository,
     private readonly welcomes: TeamWelcomesPort,
-    private readonly runners: RunnerReaderPort,
+    private readonly runners: RunnerReadinessPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}

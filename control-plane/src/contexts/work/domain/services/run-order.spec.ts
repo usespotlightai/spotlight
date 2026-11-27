@@ -3,13 +3,15 @@ import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { orderAt } from '@work/domain/services/run-order';
+import { handoverOf, orderAt } from '@work/domain/services/run-order';
+import type { TaskCheckout } from '@work/domain/services/task-checkouts';
 import type { BoundSecret } from '@work/domain/value-objects/bound-secret';
 import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
 import {
@@ -77,9 +79,15 @@ const known = (
 const orderWith = (
   boundSecrets: readonly BoundSecret[],
   sandboxEnv: ReadyProfile['sandboxEnv'] = [],
+  at: { checkouts?: readonly TaskCheckout[]; needsCheckout?: boolean } = {},
 ) =>
   orderAt({
-    at: { stationId: TRIAGE, resume: Resume.of({}), checkouts: [] },
+    at: {
+      stationId: TRIAGE,
+      resume: Resume.of({}),
+      checkouts: at.checkouts ?? [],
+      needsCheckout: at.needsCheckout,
+    },
     line: LINE,
     harnesses: HarnessCatalogue.of([HarnessId.of('dev')]),
     ready: [],
@@ -133,6 +141,38 @@ describe('orderAt', () => {
     ]);
   });
 
+  describe('a run that needs a checkout', () => {
+    const refusalsAt = (at: {
+      checkouts?: readonly TaskCheckout[];
+      needsCheckout?: boolean;
+    }) => orderWith([], [], at)?.refusals.map((each) => each.description);
+
+    it('refuses the run where the line has no repository to check out', () => {
+      expect(refusalsAt({ needsCheckout: true })).toEqual([
+        'line_has_no_repositories: This line has no repositories. Add one in the line’s configuration. Station: Triage',
+      ]);
+    });
+
+    it('does not refuse the run where it checks out a repository', () => {
+      const widgets: TaskCheckout = {
+        repository: Repository.of('acme/widgets'),
+        branch: null,
+        base: null,
+        ref: null,
+        diffOf: 'worktree',
+        setup: null,
+      };
+
+      expect(refusalsAt({ needsCheckout: true, checkouts: [widgets] })).toEqual(
+        [],
+      );
+    });
+
+    it('does not refuse a run that needs no checkout', () => {
+      expect(refusalsAt({})).toEqual([]);
+    });
+  });
+
   it('does not refuse the run for a secret the profile does not inject', () => {
     expect(refusalsWith([known('SENTRY_TOKEN', true)])).toEqual([]);
   });
@@ -144,5 +184,29 @@ describe('orderAt', () => {
     expect(
       orderWith([viewer, known('SENTRY_TOKEN', false), linear])?.boundSecrets,
     ).toEqual([viewer]);
+  });
+});
+
+describe('handoverOf', () => {
+  const ORDER = {
+    options: LINE.optionsFrom(TRIAGE),
+    resumeOptions: LINE.resumeOptionsAt(TRIAGE),
+    noteLimit: 0,
+  };
+  const words = (options: readonly { readonly word: string }[]) =>
+    options.map((each) => each.word);
+
+  it('offers the line run where it may hand over, and nothing to resume', () => {
+    const handover = handoverOf(ORDER, false);
+
+    expect(handover.options).toEqual(ORDER.options);
+    expect(handover.resumeOptions).toEqual([]);
+  });
+
+  it('offers a person’s turn no handover, only where the line resumes', () => {
+    const handover = handoverOf(ORDER, true);
+
+    expect(handover.options).toEqual([]);
+    expect(words(handover.resumeOptions)).toEqual(['triage', 'done']);
   });
 });

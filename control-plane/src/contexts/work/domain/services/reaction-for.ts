@@ -25,6 +25,7 @@ interface OutcomeNote {
 export type Outcome =
   | { readonly kind: 'nothing' }
   | (OutcomeNote & { readonly kind: 'stays' })
+  | (OutcomeNote & { readonly kind: 'asks' })
   | (OutcomeNote & {
       readonly kind: 'deferredMove';
       readonly to: Station;
@@ -56,6 +57,7 @@ export interface OpenedOn {
 
 export type ReviewAnswer =
   | { readonly kind: 'nothing' }
+  | { readonly kind: 'unconnected' }
   | { readonly kind: 'received'; readonly by: Task }
   | { readonly kind: 'opens'; readonly on: OpenedOn };
 
@@ -132,6 +134,22 @@ export const ReactionFor = {
       }
     }
 
+    if (
+      !rule &&
+      closed &&
+      input.payload.closedUnmerged &&
+      input.task.ownsPullRequest(closed)
+    ) {
+      return {
+        kind: 'asks',
+        ...note(
+          TaskNoteBody.closedUnmerged(
+            TaskNoteBody.receivedHappening(input.payload.summary, input.anchor),
+          ),
+        ),
+      };
+    }
+
     const pending = input.task.pendingConversation;
     if (here && pending && input.payload.answers && input.anchor) {
       return {
@@ -179,6 +197,7 @@ export const ReactionFor = {
   // pullRequestTask has the mark of the pull request. reviewTask has the mark of a review of the pull request.
   reviewRequested(input: {
     lines: readonly LineMap[];
+    workspaceLines: readonly LineMap[];
     opens: OpensWith;
     request: ReviewRequest;
     anchor: Anchor | null;
@@ -186,6 +205,15 @@ export const ReactionFor = {
     pullRequestTask: Task | null;
     reviewTask: Task | null;
   }): ReviewAnswer {
+    const repository = input.request.pullRequest.repository;
+
+    if (
+      !repository ||
+      !input.workspaceLines.some((line) => line.names(repository))
+    ) {
+      return { kind: 'unconnected' };
+    }
+
     const on = ReactionFor.reviewOn({
       lines: input.lines,
       opens: input.opens,

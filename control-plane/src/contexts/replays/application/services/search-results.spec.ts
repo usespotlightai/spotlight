@@ -16,6 +16,7 @@ import { SearchFindings } from '@replays/application/services/search-findings.se
 import { SearchSchedules } from '@replays/application/services/search-schedules.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { ConfigPullRequestFailed } from '@replays/domain/events/config-pull-request-failed.event';
@@ -25,19 +26,30 @@ import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
 import {
+  aBudget,
   aSearch,
   aSet,
   BY,
   candidateOf,
+  endOf,
+  FINGERPRINT,
+  JUDGE,
   later,
+  measuresOf,
   NOW,
+  runIds,
+  SEARCH_ID,
   STATION,
   searchRunIds,
+  slots,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import type { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
+import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
+import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SEARCH_SKIP_REASONS } from '@replays/domain/value-objects/search-skip-reason';
@@ -45,6 +57,7 @@ import { StationFingerprint } from '@replays/domain/value-objects/station-finger
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -171,6 +184,114 @@ const pullRequestOf = (search: Search, source = true) =>
     at: NOW,
     by: BY,
   });
+
+const checksAs = (state: 'passed' | 'skipped') =>
+  ChangeChecks.of([
+    {
+      repository: 'api',
+      state,
+      skip: state === 'skipped' ? 'checkout-failed' : null,
+      failedAt: [],
+      spent: ModelSpent.of([], 0),
+    },
+  ]);
+
+const verdictOf = (passes: boolean) =>
+  JudgeVerdict.of({
+    claimResults: [passes, passes],
+    claims: [...JUDGE.claims],
+    passThreshold: 1,
+    model: 'judge/model',
+    referenced: true,
+    reasons: [],
+    guidance: null,
+  });
+
+const judgedRuns = (
+  replay: Replay,
+  runs: readonly { checks: 'passed' | 'skipped'; passes: boolean }[],
+): Replay => {
+  const reserved = replay.reserving(slots(runs.length), runIds());
+
+  return runs.reduce((built, each, at) => {
+    const run = reserved.entries[at]?.run as RunId;
+
+    return built
+      .confirm(run, FINGERPRINT, NOW)
+      .recordRunEnd(run, endOf('completed'))
+      .measure(run, measuresOf(0.05), later(61_000))
+      .recordReview(run, checksAs(each.checks), null, later(62_000))
+      .recordVerdict(run, verdictOf(each.passes), later(63_000));
+  }, reserved);
+};
+
+const ceilingReachedOnCalibration = async (): Promise<Search> => {
+  const set = aSet(10);
+  const runs = searchRunIds();
+  const search = aSearch({
+    set,
+    requestedBy: 'user_asking',
+    calibrates: true,
+    budget: aBudget({ ceiling: 40 }),
+  })
+    .recordReplayEndState(
+      ReplayId.of('replay_seed'),
+      'finished',
+      { spent: Money.of(1.5, 'USD'), unpriced: 0 },
+      NOW,
+      runs,
+      true,
+    )
+    .requestsTaken(() => ReplayId.of('replay_asked'), NOW, runs)
+    .recordReplayEndState(
+      ReplayId.of('replay_asked'),
+      'ceiling-reached',
+      { spent: Money.of(0.1, 'USD'), unpriced: 0 },
+      NOW,
+      runs,
+      false,
+    );
+  const seed = Replay.start({
+    id: ReplayId.of('replay_seed'),
+    set: set.snapshot,
+    candidate: candidateOf('live', 'candidate_live', JUDGE, 'npm test')
+      .asReplayed,
+    baseline: true,
+    ceiling: Money.ceiling(2, 'USD'),
+    at: NOW,
+    by: BY,
+    searchId: SEARCH_ID,
+    repeats: 3,
+    calibration: true,
+  });
+  const asked = Replay.start({
+    id: ReplayId.of('replay_asked'),
+    set: set.snapshot,
+    candidate: candidateOf('searched', 'candidate_asked', JUDGE, 'npm test')
+      .asReplayed,
+    baseline: false,
+    ceiling: Money.ceiling(0.1, 'USD'),
+    at: NOW,
+    by: BY,
+    searchId: SEARCH_ID,
+    runSubset: search.split.searchedRuns,
+  });
+
+  await memory.replayRepository.add(
+    judgedRuns(
+      seed,
+      seed.entries.map(() => ({ checks: 'skipped', passes: false })),
+    ),
+  );
+  await memory.replayRepository.add(
+    judgedRuns(asked, [
+      { checks: 'passed', passes: true },
+      { checks: 'skipped', passes: true },
+    ]),
+  );
+
+  return search;
+};
 
 beforeEach(() => {
   memory = new InMemoryReplays();
@@ -314,10 +435,29 @@ describe('NoticeSearchResults', () => {
         headline:
           'Spotlight did not open a config pull request for the Build station',
         points: [
-          'No candidate did better than the live config on the searched tasks.',
-          'Spotlight did not replay asked: the search ended first.',
+          'No candidate finished its replay of the searched tasks.',
+          'Spotlight did not replay asked: the search reached its ceiling first.',
+          'The replay of the live config stopped at the search ceiling.',
         ],
       },
+    ]);
+  });
+
+  it('tells the person who asked how the live config and their change scored, that checks did not run, and what calibration spent of its share', async () => {
+    const search = await ceilingReachedOnCalibration();
+    const searched = search.split.searchedRuns.length;
+
+    await memory.searchRepository.add(search);
+    await noticing().requestersOfDecline(
+      new SearchPickDeclined(search.id, search.workspaceId, 'no-candidate'),
+    );
+
+    expect(noticed[0]?.points).toEqual([
+      'No candidate finished its replay of the searched tasks.',
+      `Live config: 0% success on ${searched} searched tasks.`,
+      `The replay of asked stopped at the search ceiling: 100% success on 1 of ${searched} searched tasks. It spent 0.10 USD, and its share of the ceiling was 0.10 USD.`,
+      'Checks did not run in 31 of 32 replayed runs: the checkout failed. A run without checks counts only when the judge fails it.',
+      'Calibration of the live config replayed 10 tasks 3 times each. It spent 1.50 USD, and its share of the 40.00 USD search ceiling was 2.00 USD.',
     ]);
   });
 

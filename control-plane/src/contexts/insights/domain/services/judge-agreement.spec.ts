@@ -80,6 +80,26 @@ describe('judge agreement', () => {
     ]);
   });
 
+  it('measures no kappa while people gave every run the same verdict, however often the judge agrees', () => {
+    const agreement = agreementOf([
+      ...repeated(true, true, 13),
+      ...repeated(false, true, 1),
+    ]);
+
+    expect(agreement).toMatchObject({ pairs: 14, kappa: null, reading: null });
+    expect(agreement.observed).toBeCloseTo(13 / 14);
+    expect(
+      agreementOf([...repeated(true, false, 3), ...repeated(false, false, 9)])
+        .kappa,
+    ).toBeNull();
+  });
+
+  it('still measures kappa when only the judge gave every run the same verdict', () => {
+    expect(
+      agreementOf([...repeated(false, true, 11), ...repeated(false, false, 5)]),
+    ).toMatchObject({ kappa: 0, reading: 'chance' });
+  });
+
   it('knows nothing of agreement with no runs both scored', () => {
     expect(agreementOf([])).toMatchObject({
       pairs: 0,

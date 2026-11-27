@@ -7,6 +7,7 @@ import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { IconRowSkeleton } from '@/components/shared/skeleton/IconRowSkeleton';
+import { TerraformResourceLink } from '@/components/shared/TerraformResourceLink';
 import { useWorkspaceSecrets } from '@/hooks/api/useWorkspaceSecrets';
 import { failed, loading } from '@/lib/query';
 import type { WorkspaceSecret } from '@/lib/secret';
@@ -54,13 +55,15 @@ export function Secrets() {
 
           {secrets.data?.length === 0 && (
             <li className="px-4 py-4 text-muted-foreground text-sm">
-              No secrets. Define them in Terraform with spotlight_secret.
+              No secrets. Define them in Terraform with{' '}
+              <TerraformResourceLink resource="secret" />.
             </li>
           )}
 
           {secrets.data?.map((secret) => (
             <SecretRow
               key={secret.name}
+              slug={slug}
               secret={secret}
               onSetValue={() => setSetting(secret)}
             />

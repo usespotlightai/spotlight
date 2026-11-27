@@ -1,3 +1,4 @@
+import { AgentQueued } from '@/components/features/agent/AgentQueued';
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
 import { useElapsed } from '@/hooks/useElapsed';
 import type { AgentPhase } from '@/lib/chat';
@@ -5,6 +6,7 @@ import { doingOf } from '@/lib/journal-step';
 import type { Progress } from '@/lib/run';
 
 type AgentWorkingProps = {
+  slug: string;
   harness: string;
   progress: Progress;
   phase: AgentPhase;
@@ -44,16 +46,19 @@ function AgentDoing({ phase }: { phase: AgentPhase }) {
   );
 }
 
-export function AgentWorking({ harness, progress, phase }: AgentWorkingProps) {
+export function AgentWorking({
+  slug,
+  harness,
+  progress,
+  phase,
+}: AgentWorkingProps) {
   return (
     <div className="flex items-center gap-1.5 px-1 text-xs leading-6">
       <span className="flex size-6 shrink-0 items-center justify-center">
         <HarnessLogo harness={harness} />
       </span>
       {progress === 'queued' ? (
-        <span className="text-muted-foreground">
-          Queued. The agent starts when a runner is free.
-        </span>
+        <AgentQueued slug={slug} />
       ) : progress === 'stopping' ? (
         <span className="animate-pulse text-muted-foreground">Stopping…</span>
       ) : (

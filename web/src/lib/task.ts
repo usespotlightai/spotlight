@@ -1,4 +1,8 @@
-import type { StationResponseDto, TaskResponseDto } from '@/lib/api';
+import type {
+  StationResponseDto,
+  TaskHandMoveResponseDto,
+  TaskResponseDto,
+} from '@/lib/api';
 import { formatDate } from '@/lib/date-format';
 import { stationShare } from '@/lib/station';
 import { teamPath } from '@/lib/team';
@@ -44,28 +48,63 @@ type Placed = {
   readonly kind: StationResponseDto['kind'];
 };
 
-export const movableByHand = (from: Placed, to: Placed): boolean =>
-  from.id === to.id ||
-  (from.kind !== 'completed' &&
-    (to.kind === 'completed' ||
-      (from.kind === 'backlog' && to.kind === 'work') ||
-      (from.kind === 'work' && to.kind === 'backlog')));
+type HandMove = TaskHandMoveResponseDto;
 
-export const mayLand = (
+type Denial = NonNullable<HandMove['denial']>;
+
+const DENIALS: Record<Denial, string> = {
+  'between-work-stations': 'Only runs move it here',
+  'out-of-completed': 'A completed task stays completed',
+  'on-hold': 'On hold for someone else',
+};
+
+const NAMES = new Intl.ListFormat('en', { type: 'conjunction' });
+
+const handMoveTo = (task: Task, stationId: string): HandMove | undefined =>
+  task.handMoves.find((each) => each.stationId === stationId);
+
+export const mayLand = (task: Task, stationId: string): boolean =>
+  handMoveTo(task, stationId)?.denial === null;
+
+export const handMoveHint = (
+  move: HandMove,
+  stations: readonly { readonly id: string; readonly name: string }[],
+): string | null => {
+  if (move.denial) {
+    return DENIALS[move.denial];
+  }
+  if (move.sendsBack) {
+    return 'Sends it back with a reason';
+  }
+
+  const skips = new Set(move.skips);
+  const skipped = stations
+    .filter((each) => skips.has(each.id))
+    .map((each) => each.name);
+
+  return skipped.length > 0 ? `Skips ${NAMES.format(skipped)}` : null;
+};
+
+export const handMoveDenial = (task: {
+  readonly stationId: string;
+  readonly handMoves: readonly HandMove[];
+}): string | null => {
+  const denials = task.handMoves
+    .filter((each) => each.stationId !== task.stationId)
+    .map((each) => each.denial);
+  const [first] = denials;
+
+  return first && denials.every(Boolean) ? DENIALS[first] : null;
+};
+
+export const stopsRun = (
   stations: readonly Placed[],
   task: Task,
   stationId: string,
-): boolean => {
-  const from = stations.find((each) => each.id === task.stationId);
-  const to = stations.find((each) => each.id === stationId);
-
-  return Boolean(
-    from &&
-    to &&
-    (from.id === to.id ||
-      ((!task.hold || task.hold.viewerEnds) && movableByHand(from, to))),
-  );
-};
+): boolean =>
+  task.progress === 'in-progress' &&
+  task.stationId !== stationId &&
+  stations.find((each) => each.id === stationId)?.kind === 'completed';
 
 type Station = Placed & { readonly name: string };
 
@@ -97,7 +136,9 @@ export const moveOptionsFor = (
   return candidates.flatMap(([command, station]) =>
     station &&
     picked.some((each) => each.stationId !== station.id) &&
-    picked.every((each) => mayLand(stations, each, station.id))
+    picked.every(
+      (each) => each.stationId === station.id || mayLand(each, station.id),
+    )
       ? [
           {
             ...station,

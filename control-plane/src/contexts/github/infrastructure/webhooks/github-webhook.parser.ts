@@ -33,6 +33,8 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
 interface Payload {
   readonly action?: unknown;
+  readonly ref?: unknown;
+  readonly deleted?: unknown;
   readonly label?: { readonly name?: unknown };
   readonly installation?: { readonly id?: unknown };
   readonly pull_request?: Pull;
@@ -61,6 +63,7 @@ interface Payload {
   readonly sender?: { readonly type?: unknown; readonly login?: unknown };
   readonly repository?: {
     readonly full_name?: unknown;
+    readonly default_branch?: unknown;
   };
 }
 
@@ -99,13 +102,13 @@ interface CommentPayload {
   readonly original_line?: unknown;
   readonly start_line?: unknown;
   readonly original_start_line?: unknown;
+  readonly subject_type?: unknown;
 }
 
 interface ReviewComment {
   readonly id?: unknown;
   readonly html_url?: unknown;
   readonly side?: unknown;
-  readonly subject_type?: unknown;
   readonly in_reply_to_id?: unknown;
   readonly created_at?: unknown;
 }
@@ -149,13 +152,12 @@ const headed = (delivery: GitHubDelivery, name: string): string | undefined => {
   return Array.isArray(value) ? value[0] : value;
 };
 
-const reviewCommentOf = (
-  comment: CommentPayload | undefined,
-): PullRequestReviewComment | null =>
-  comment && (text(comment.body) || text(comment.path))
-    ? {
-        body: text(comment.body)?.trim() ?? '',
-        path: text(comment.path)?.trim() ?? null,
+const linesOf = (
+  comment: CommentPayload,
+): Pick<PullRequestReviewComment, 'from' | 'to'> =>
+  comment.subject_type === 'file'
+    ? { from: null, to: null }
+    : {
         from:
           at(comment.start_line) ??
           at(comment.line) ??
@@ -164,6 +166,16 @@ const reviewCommentOf = (
           at(comment.start_line) !== null
             ? (at(comment.line) ?? at(comment.original_line))
             : null,
+      };
+
+const reviewCommentOf = (
+  comment: CommentPayload | undefined,
+): PullRequestReviewComment | null =>
+  comment && (text(comment.body) || text(comment.path))
+    ? {
+        body: text(comment.body)?.trim() ?? '',
+        path: text(comment.path)?.trim() ?? null,
+        ...linesOf(comment),
         id: text(comment.node_id),
       }
     : null;
@@ -206,6 +218,7 @@ const pullRequestActivity = (
     merged: payload.pull_request?.merged === true,
     reviewState: text(payload.review?.state),
     checkConclusion: text(payload.check_suite?.conclusion),
+    issueIsPullRequest: Boolean(payload.issue?.pull_request),
   });
 
   if (!activity) {
@@ -564,6 +577,18 @@ const repositoryVisibility = (payload: Payload): WebhookEvent[] => {
     : [];
 };
 
+const defaultBranchPushed = (payload: Payload): WebhookEvent[] => {
+  const repository = text(payload.repository?.full_name);
+  const branch = text(payload.repository?.default_branch);
+
+  return repository &&
+    branch &&
+    payload.ref === `refs/heads/${branch}` &&
+    payload.deleted !== true
+    ? [{ kind: 'default-branch-pushed', repository, branch }]
+    : [];
+};
+
 const eventsIn = (
   event: string | undefined,
   payload: Payload,
@@ -585,6 +610,7 @@ const eventsIn = (
     ...(event === 'pull_request' ? pullRequestPushed(payload) : []),
     ...(event === 'pull_request_review' ? pullRequestReviewed(payload) : []),
     ...(event === 'pull_request_review' ? reviewDismissed(payload) : []),
+    ...(event === 'push' ? defaultBranchPushed(payload) : []),
     ...pullRequestActivity(event, payload),
   ];
 };

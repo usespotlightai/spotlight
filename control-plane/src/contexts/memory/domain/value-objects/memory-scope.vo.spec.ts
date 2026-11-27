@@ -69,4 +69,19 @@ describe('MemoryScope', () => {
 
     expect(specificity).toEqual([4, 3, 2, 1, 0]);
   });
+
+  it('overlaps a scope it shares a place with, not another line or team', () => {
+    const line = MemoryScope.of({ teamId: TEAM, lineId: LineId.of('line_1') });
+
+    expect(MemoryScope.of({ teamId: TEAM }).overlaps(line)).toBe(true);
+    expect(line.overlaps(aboutPaths(['src']))).toBe(true);
+    expect(
+      line.overlaps(
+        MemoryScope.of({ teamId: TEAM, lineId: LineId.of('line_2') }),
+      ),
+    ).toBe(false);
+    expect(line.overlaps(MemoryScope.of({ teamId: TeamId.of('team_2') }))).toBe(
+      false,
+    );
+  });
 });

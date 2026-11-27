@@ -15,6 +15,7 @@ const POLICY: SearchPolicy = {
   period: '7d',
   onAlert: true,
   cooldown: '3d',
+  requestsPerDay: 3,
   agent: null,
   iterations: null,
   repeats: null,
