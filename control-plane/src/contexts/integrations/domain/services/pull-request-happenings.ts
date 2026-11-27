@@ -12,7 +12,8 @@ type ActivityKind =
   | 'commented'
   | 'changes-requested'
   | 'checks-failed'
-  | 'closed-unmerged';
+  | 'closed-unmerged'
+  | 'conflicted';
 
 export type ReportedActivity = Exclude<ActivityKind, 'opened' | 'labelled'>;
 

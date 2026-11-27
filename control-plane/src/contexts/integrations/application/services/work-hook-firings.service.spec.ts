@@ -140,6 +140,7 @@ const setUp = (
         open: vi.fn(),
         edit: vi.fn(),
         statusOf: vi.fn(),
+        mergeabilityOf: vi.fn(),
         close: vi.fn(),
         retarget: vi.fn(),
         comment: vi.fn(),

@@ -660,6 +660,34 @@ describe('GitHubWebhookParser', () => {
     });
   });
 
+  describe('reading a push to the default branch', () => {
+    const pushedTo = (body: Record<string, unknown> = {}) =>
+      eventsOf('push', {
+        ref: 'refs/heads/main',
+        repository: { full_name: 'acme/api', default_branch: 'main' },
+        ...body,
+      });
+
+    it('reads which default branch of which repository moved', () => {
+      expect(pushedTo()).toEqual([
+        {
+          kind: 'default-branch-pushed',
+          repository: 'acme/api',
+          branch: 'main',
+        },
+      ]);
+    });
+
+    it('reads nothing from a push to another branch, or a tag', () => {
+      expect(pushedTo({ ref: 'refs/heads/spotlight/task_1' })).toEqual([]);
+      expect(pushedTo({ ref: 'refs/tags/main' })).toEqual([]);
+    });
+
+    it('reads nothing when the push deleted the branch', () => {
+      expect(pushedTo({ deleted: true })).toEqual([]);
+    });
+  });
+
   describe('reading what a pull request is', () => {
     const snapshotIn = (
       body: Record<string, unknown>,
