@@ -4,6 +4,7 @@ import { ChatHeardFromTask } from '@work/domain/events/chat-heard-from-task.even
 import { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
 import { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
 import { ChatPullRequestOpened } from '@work/domain/events/chat-pull-request-opened.event';
+import { ChatResolved } from '@work/domain/events/chat-resolved.event';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
@@ -263,6 +264,7 @@ export const WORK_PAYLOAD_TYPES = [
   ChatMessageSent,
   ChatMessagesAcknowledged,
   ChatRunEnded,
+  ChatResolved,
   ProposalAcceptanceFailed,
   ProposalBecameTask,
   TaskProposed,

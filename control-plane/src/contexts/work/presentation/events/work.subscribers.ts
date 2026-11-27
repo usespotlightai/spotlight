@@ -59,6 +59,7 @@ import type { OrderChatRun } from '@work/application/events/handlers/order-chat-
 import type { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import type { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
 import type { RetargetStackedTasks } from '@work/application/events/handlers/retarget-stacked-tasks.handler';
+import type { RetireChatSandbox } from '@work/application/events/handlers/retire-chat-sandbox.handler';
 import type { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import type { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import type { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
@@ -75,7 +76,9 @@ import type { TakeTurn } from '@work/application/services/take-turn.service';
 import type { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { ChatDeleted } from '@work/domain/events/chat-deleted.event';
+import type { ChatResolved } from '@work/domain/events/chat-resolved.event';
 import type { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
+import type { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
 import type { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { DispatchOrdered } from '@work/domain/events/dispatch-ordered.event';
@@ -140,6 +143,7 @@ export const workSubscribers = (reactions: {
   taskInboxRequests: DeleteTaskInboxRequests;
   taskDraft: DeleteTaskDraft;
   taskSandbox: RetireTaskSandbox;
+  chatSandbox: RetireChatSandbox;
   toolUsedHooks: ToolUsedHooks;
   notices: Notices;
   takenMarks: ReleaseTakenMarks;
@@ -370,6 +374,11 @@ export const workSubscribers = (reactions: {
     'work.retire-sandbox-of-deleted-task',
     ['task.deleted'],
     (event) => reactions.taskSandbox.onDeleted(event),
+  ),
+  subscribing<ChatResolved | ChatRunEnded | ChatDeleted>(
+    'work.retire-sandbox-of-resolved-chat',
+    ['chat.resolved', 'chat.run-ended', 'chat.deleted'],
+    (event) => reactions.chatSandbox.on(event),
   ),
   subscribing<ChatDeleted>(
     'work.cancel-run-of-deleted-chat',
