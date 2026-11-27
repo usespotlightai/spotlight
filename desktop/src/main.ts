@@ -167,6 +167,9 @@ const rememberPlaceOf = (window: BrowserWindow) => {
 const EXTRA_WINDOW = '--spotlight-extra-window';
 const CASCADE = 24;
 
+const windowBackground = () =>
+  nativeTheme.shouldUseDarkColors ? '#0d0d0e' : '#efeff1';
+
 const workAreas = () => screen.getAllDisplays().map((each) => each.workArea);
 
 const spotlightWindow = (
@@ -180,7 +183,7 @@ const spotlightWindow = (
     title: 'Spotlight',
     titleBarStyle: 'hidden',
     trafficLightPosition: TRAFFIC_LIGHTS,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0d0d0e' : '#efeff1',
+    backgroundColor: windowBackground(),
     show: false,
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
@@ -193,6 +196,10 @@ const spotlightWindow = (
   });
 
   withContextMenu(window.webContents);
+
+  const followTheme = () => window.setBackgroundColor(windowBackground());
+  nativeTheme.on('updated', followTheme);
+  window.on('closed', () => nativeTheme.off('updated', followTheme));
 
   window.webContents.on(
     'did-fail-load',
