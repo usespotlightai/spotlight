@@ -8,6 +8,7 @@ import {
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import {
+  aSandbox,
   storedSandboxes,
   tokenHashOf,
 } from '@runners/domain/aggregates/sandbox.fake-spec';
@@ -17,6 +18,7 @@ import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
@@ -50,16 +52,30 @@ const warm = (id: string, requestedAt: Date): Sandbox =>
 const running = (id: string): Runner =>
   aRunner({ id }).claim(RunnerWork.run(`run_of_${id}`), NOW);
 
+const idle = (id: string, idleAt: Date): Sandbox =>
+  aSandbox({
+    id,
+    workspaceId: WorkspaceId.of('ws_1'),
+    hostId: HOST,
+    at: new Date(NOW.getTime() - 20_000),
+  }).releaseRun(RunId.of('run_1'), idleAt);
+
 const slotsOn = (input: {
   warm: readonly string[];
+  idle?: readonly Sandbox[];
   alive: readonly Runner[];
 }) => {
   const placed = input.warm.map((id, at) =>
     warm(id, new Date(NOW.getTime() - 10_000 + at * 1_000)),
   );
-  const { stored, sandboxes } = storedSandboxes({}, ...placed);
+  const kept = input.idle ?? [];
+  const { stored, sandboxes } = storedSandboxes({}, ...placed, ...kept);
   const { hosts } = storedHosts(
-    aHost({ id: HOST, at: NOW, sandboxes: [...input.warm] }),
+    aHost({
+      id: HOST,
+      at: NOW,
+      sandboxes: [...input.warm, ...kept.map((each) => each.id.value)],
+    }),
   );
   const runners = {
     aliveInWorkspace: vi.fn(async () => input.alive),
@@ -133,13 +149,36 @@ describe('HostWarmSlots', () => {
       alive: [running('running_1')],
     });
 
-    await slots.drainWarmOn(HOST.value, NOW, aRunWaits);
-    await slots.drainWarmOn(HOST.value, NOW, aRunWaits);
+    await slots.drainIdleOn(HOST.value, NOW, aRunWaits);
+    await slots.drainIdleOn(HOST.value, NOW, aRunWaits);
 
     expect(stored.get('sandbox_w1')?.current).toBe('draining');
     expect(stored.get('sandbox_w2')?.isWarm).toBe(true);
     expect(stored.get('sandbox_w3')?.isWarm).toBe(true);
     expect(logger.info).toHaveBeenCalledTimes(1);
+  });
+
+  it('drains the sandbox idle the longest on a full host with no warm sandbox, one at a time', async () => {
+    const { slots, stored, logger } = slotsOn({
+      warm: [],
+      idle: [
+        idle('sandbox_i1', new Date(NOW.getTime() - 5_000)),
+        idle('sandbox_i2', new Date(NOW.getTime() - 15_000)),
+        idle('sandbox_i3', new Date(NOW.getTime() - 10_000)),
+      ],
+      alive: [running('running_1')],
+    });
+
+    await slots.drainIdleOn(HOST.value, NOW, aRunWaits);
+    await slots.drainIdleOn(HOST.value, NOW, aRunWaits);
+
+    expect(stored.get('sandbox_i2')?.current).toBe('draining');
+    expect(stored.get('sandbox_i1')?.current).toBe('open');
+    expect(stored.get('sandbox_i3')?.current).toBe('open');
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ sandboxId: 'sandbox_i2', lineId: null }),
+      'Draining an idle sandbox early so a queued run can take its slot',
+    );
   });
 
   it('drains nothing while the host offers a slot through a claim that waits for work', async () => {
@@ -148,7 +187,7 @@ describe('HostWarmSlots', () => {
       alive: [aRunner({ id: 'claiming_1' })],
     });
 
-    await slots.drainWarmOn(HOST.value, NOW, aRunWaits);
+    await slots.drainIdleOn(HOST.value, NOW, aRunWaits);
 
     expect(stored.get('sandbox_w1')?.isWarm).toBe(true);
   });
@@ -159,8 +198,8 @@ describe('HostWarmSlots', () => {
       alive: [running('running_1')],
     });
 
-    await slots.drainWarmOn(HOST.value, NOW, aRunWaits);
-    await slots.drainWarmOn('01J8ZQ4Y7N3K5V2W9X6RTBHCDF', NOW, aRunWaits);
+    await slots.drainIdleOn(HOST.value, NOW, aRunWaits);
+    await slots.drainIdleOn('01J8ZQ4Y7N3K5V2W9X6RTBHCDF', NOW, aRunWaits);
 
     expect(await started(slots, '01J8ZQ4Y7N3K5V2W9X6RTBHCDF')).toBeNull();
     expect(stored.get('sandbox_w1')?.isWarm).toBe(true);
@@ -173,7 +212,7 @@ describe('HostWarmSlots', () => {
     });
 
     await started(slots, HOST.value);
-    await slots.drainWarmOn(HOST.value, NOW, aRunWaits);
+    await slots.drainIdleOn(HOST.value, NOW, aRunWaits);
 
     expect(held).toEqual([HOST.value, HOST.value]);
   });
@@ -189,11 +228,11 @@ describe('HostWarmSlots', () => {
     });
     const runWaits = vi.fn(async () => false);
 
-    await free.slots.drainWarmOn(HOST.value, NOW, runWaits);
+    await free.slots.drainIdleOn(HOST.value, NOW, runWaits);
 
     expect(runWaits).not.toHaveBeenCalled();
 
-    await full.slots.drainWarmOn(HOST.value, NOW, runWaits);
+    await full.slots.drainIdleOn(HOST.value, NOW, runWaits);
 
     expect(runWaits).toHaveBeenCalledTimes(1);
     expect(full.stored.get('sandbox_w1')?.isWarm).toBe(true);
