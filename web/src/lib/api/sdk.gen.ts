@@ -1531,7 +1531,7 @@ export const replyToReviewComment = <ThrowOnError extends boolean = false>(optio
 export const listInbox = <ThrowOnError extends boolean = false>(options: Options<ListInboxData, ThrowOnError>): RequestResult<ListInboxResponses, ListInboxErrors, ThrowOnError> => (options.client ?? client).get<ListInboxResponses, ListInboxErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox', ...options });
 
 /**
- * One conversation or inbox request with all its notes, open or resolved
+ * One task’s inbox item, open or resolved: the conversation it opens on with all its notes, and its parts. The id is the task, or one of its parts, so older links still open it
  */
 export const readInboxItem = <ThrowOnError extends boolean = false>(options: Options<ReadInboxItemData, ThrowOnError>): RequestResult<ReadInboxItemResponses, ReadInboxItemErrors, ThrowOnError> => (options.client ?? client).get<ReadInboxItemResponses, ReadInboxItemErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{itemId}', ...options });
 

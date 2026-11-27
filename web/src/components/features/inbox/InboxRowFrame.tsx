@@ -16,6 +16,8 @@ type InboxRowFrameProps = {
   icon: ReactNode;
   title: string;
   unread: boolean;
+  unreadCount?: number;
+  quiet?: boolean;
   at: string;
   preview: string;
   badge?: ReactNode;
@@ -30,6 +32,8 @@ export function InboxRowFrame({
   icon,
   title,
   unread,
+  unreadCount = unread ? 1 : 0,
+  quiet = false,
   at,
   preview,
   badge,
@@ -48,6 +52,7 @@ export function InboxRowFrame({
   const menu = useMenuActions(
     resolve ? [resolve, ...menuActions] : menuActions,
   );
+  const loud = unread && !quiet;
 
   return (
     <div
@@ -78,7 +83,7 @@ export function InboxRowFrame({
             title={title}
             className={cn(
               'truncate text-sm',
-              unread
+              loud
                 ? 'font-semibold text-foreground'
                 : 'font-medium text-muted-foreground',
             )}
@@ -88,12 +93,27 @@ export function InboxRowFrame({
 
           {badge}
 
-          {unread && (
+          {unread && unreadCount > 1 && (
+            <span
+              data-slot="unread-count"
+              className={cn(
+                'shrink-0 text-xs tabular-nums',
+                loud ? 'font-medium text-primary' : 'text-muted-foreground',
+              )}
+            >
+              {unreadCount} new
+            </span>
+          )}
+
+          {unread && unreadCount <= 1 && (
             <>
               <span className="sr-only">Unread</span>
               <span
                 aria-hidden
-                className="size-1.5 shrink-0 rounded-full bg-primary"
+                className={cn(
+                  'size-1.5 shrink-0 rounded-full',
+                  loud ? 'bg-primary' : 'bg-muted-foreground',
+                )}
               />
             </>
           )}

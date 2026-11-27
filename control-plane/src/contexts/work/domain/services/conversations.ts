@@ -52,18 +52,6 @@ export const unreadIn = (
   taskFinished: boolean,
 ): boolean => !taskFinished && anyUnread(conversation.notes);
 
-export const listedAsOpen = <T>(
-  conversation: {
-    readonly from: T;
-    readonly to: T | null;
-    readonly notes: readonly ReadableNote[];
-  },
-  taskFinished: boolean,
-): boolean =>
-  stillOpen(conversation)
-    ? !taskFinished
-    : unreadIn(conversation, taskFinished);
-
 export const reopenable = (
   from: NotePosition,
   last: Conversation | null,
@@ -74,6 +62,12 @@ export const reopenable = (
   last.from.equals(from) &&
   closing?.form === 'resolved' &&
   closing.byAPerson;
+
+export const lastAskIn = <T extends { readonly kind: TaskNoteKind }>(
+  notes: readonly T[],
+): T | null =>
+  [...notes].reverse().find((each) => each.kind === OPENS_A_CONVERSATION) ??
+  null;
 
 export const openAskIn = <T extends { readonly kind: TaskNoteKind }>(
   notes: readonly T[],

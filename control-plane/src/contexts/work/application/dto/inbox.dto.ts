@@ -14,6 +14,10 @@ import {
   type RunStanding,
 } from '@work/domain/services/conversation-audience';
 import {
+  INBOX_PART_KINDS,
+  type InboxPartKind,
+} from '@work/domain/services/task-inbox';
+import {
   APPROVAL_SUBJECT_KINDS,
   type ApprovalSubjectKind,
 } from '@work/domain/value-objects/approval-subject.vo';
@@ -31,6 +35,7 @@ export const NOTE_HOLD_ENDS = HOLD_ENDS;
 export const INBOX_APPROVAL_STATUSES = APPROVAL_STATUSES;
 export const APPROVAL_SUBJECTS = APPROVAL_SUBJECT_KINDS;
 export const INBOX_REQUEST_DTO_FORMS = INBOX_REQUEST_FORMS;
+export const INBOX_DTO_PART_KINDS = INBOX_PART_KINDS;
 export const INBOX_NOTICE_FORMS = NOTICE_FORMS;
 export const INBOX_DTO_SECTIONS = INBOX_SECTIONS;
 export const INBOX_STANDINGS = CONVERSATION_STANDINGS;
@@ -76,9 +81,26 @@ export interface NoteResumptionDto {
   readonly summary: string | null;
 }
 
-export interface InboxRequestDto {
-  readonly form: string;
-  readonly about: string;
+export interface InboxPartDto {
+  readonly id: string;
+  readonly kind: InboxPartKind;
+  readonly form: string | null;
+  readonly about: string | null;
+  readonly at: string;
+  readonly open: boolean;
+  readonly unread: boolean;
+  readonly resolvable: boolean;
+  readonly reopenable: boolean;
+}
+
+export interface InboxPartPreviewDto {
+  readonly kind: InboxPartKind;
+  readonly count: number;
+}
+
+export interface InboxFirstUnreadDto {
+  readonly partId: string;
+  readonly position: number | null;
 }
 
 interface InboxAuthorDto {
@@ -148,8 +170,13 @@ export interface InboxItemDto {
   readonly unread: boolean;
   readonly briefing: string | null;
   readonly failure: InboxFailureDto | null;
-  readonly inboxRequest: InboxRequestDto | null;
   readonly lastNote: NoteDto | null;
+  readonly conversationId: string | null;
+  readonly unreadCount: number;
+  readonly latest: InboxPartPreviewDto | null;
+  readonly quiet: boolean;
+  readonly parts: readonly InboxPartDto[];
+  readonly firstUnread: InboxFirstUnreadDto | null;
 }
 
 export interface FoldedVisitDto {
@@ -183,6 +210,7 @@ export interface InboxNoticeDto {
   readonly externalLink: NoticeExternalLinkDto | null;
   readonly askedAt: string;
   readonly unread: boolean;
+  readonly unreadCount: number;
   readonly resolved: boolean;
   readonly section: InboxSection;
   readonly resolvable: boolean;
@@ -202,6 +230,7 @@ export interface InboxRunDto {
   readonly progress: Progress;
   readonly askedAt: string;
   readonly unread: false;
+  readonly unreadCount: 0;
   readonly resolved: false;
   readonly section: InboxSection;
   readonly standing: InboxRunStanding;
@@ -218,6 +247,7 @@ export interface InboxChatDto {
   readonly openProposals: number;
   readonly askedAt: string;
   readonly unread: boolean;
+  readonly unreadCount: number;
   readonly resolved: boolean;
   readonly section: InboxSection;
   readonly reopenable: boolean;

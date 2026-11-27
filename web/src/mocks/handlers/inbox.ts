@@ -27,6 +27,7 @@ import {
   shown,
   shownConversation,
 } from '@/mocks/world/inbox';
+import { groupOfItem, listed } from '@/mocks/world/inbox-groups';
 import { landingsOf, noDecisions } from '@/mocks/world/inbox-reviews';
 import { pastScoresOf } from '@/mocks/world/inbox-scores';
 import { inboxStore, nextId } from '@/mocks/world/inbox-store';
@@ -196,20 +197,15 @@ const notedBySam = (
     suggestsClosing: false,
   });
 
-const rowOf = (entry: InboxEntry) => {
-  if (entry.kind !== 'task') {
-    return shown(entry);
-  }
-
-  const { notes, ...row } = shownConversation(entry);
-
-  return { ...row, lastNote: notes[notes.length - 1] ?? null };
+const resolveConversation = (item: InboxConversation) => {
+  notedBySam(item, 'passed', 'Resolved without an answer.');
+  actedOnByTheViewer(taskOf(item.taskId));
+  item.resolved = true;
+  item.standing = 'assignee';
+  item.unread = false;
+  item.runId = null;
+  item.progress = null;
 };
-
-const newestFirst = (entries: readonly InboxEntry[]) =>
-  [...entries].sort(
-    (one, other) => Date.parse(other.askedAt) - Date.parse(one.askedAt),
-  );
 
 const conversationHandlers = [
   api.get('/workspaces/:slug/inbox', ({ params, request }) => {
@@ -219,11 +215,7 @@ const conversationHandlers = [
 
     const resolved =
       new URL(request.url).searchParams.get('state') === 'resolved';
-    const shown = newestFirst(
-      inboxStore().entries.filter((entry) =>
-        resolved ? entry.resolved : !entry.resolved || entry.unread,
-      ),
-    ).map(rowOf);
+    const shown = listed(inboxStore().entries, resolved);
 
     return json(
       resolved
@@ -233,14 +225,9 @@ const conversationHandlers = [
   }),
 
   api.get('/workspaces/:slug/inbox/:itemId', ({ params }) => {
-    const item = itemOf(param(params, 'itemId'));
+    const group = groupOfItem(inboxStore().entries, param(params, 'itemId'));
 
-    return isOurs(params) && item
-      ? json({
-          ...shown(item),
-          lastNote: item.notes[item.notes.length - 1] ?? null,
-        })
-      : notFound();
+    return isOurs(params) && group ? json(group) : notFound();
   }),
 
   api.get('/workspaces/:slug/inbox/notices/:noticeId', ({ params }) => {
@@ -323,13 +310,7 @@ const conversationHandlers = [
     if (item.standing !== 'assignee' && item.standing !== 'team') {
       return problem(403, 'Another person is the assignee.');
     }
-    notedBySam(item, 'passed', 'Resolved without an answer.');
-    actedOnByTheViewer(taskOf(item.taskId));
-    item.resolved = true;
-    item.standing = 'assignee';
-    item.unread = false;
-    item.runId = null;
-    item.progress = null;
+    resolveConversation(item);
 
     return noContent();
   }),
@@ -361,6 +342,8 @@ const conversationHandlers = [
         return notFound();
       }
       item.resolved = false;
+      item.unread = true;
+      item.askedAt = now();
 
       return noContent();
     },

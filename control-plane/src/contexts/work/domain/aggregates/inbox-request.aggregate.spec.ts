@@ -70,6 +70,36 @@ describe('InboxRequest', () => {
     expect(resolved.resolve(NOW)).toBe(resolved);
   });
 
+  it('remembers whether a person resolved it, until it reopens', () => {
+    const settled = created().resolve(LATER);
+    const byAPerson = created().resolve(LATER, true);
+
+    expect(settled.resolvedByAPerson).toBe(false);
+    expect(byAPerson.resolvedByAPerson).toBe(true);
+    expect(byAPerson.reopen(LATER).resolvedByAPerson).toBe(false);
+  });
+
+  it('reopens with its task’s item only where a person resolved it', () => {
+    const acts = TeamStanding.of({
+      seesTeam: true,
+      actsOnTeam: true,
+      memberOfTeam: true,
+    });
+
+    expect(
+      InboxRequest.reopensWithItem(acts, { at: LATER, byAPerson: true }),
+    ).toBe(true);
+    expect(
+      InboxRequest.reopensWithItem(acts, { at: LATER, byAPerson: false }),
+    ).toBe(false);
+    expect(
+      InboxRequest.reopensWithItem(TeamStanding.outside(), {
+        at: LATER,
+        byAPerson: true,
+      }),
+    ).toBe(false);
+  });
+
   it('reopens unread once resolved, opened again but created when it was, and leaves an open inbox request as it is', () => {
     const resolved = created().readBy(ADA, NOW).resolve(NOW);
 
@@ -143,6 +173,7 @@ describe('InboxRequest', () => {
         openedAt: LATER,
         reads,
         resolvedAt: null,
+        resolvedByAPerson: false,
         version: 1,
       });
 
@@ -165,6 +196,7 @@ describe('InboxRequest', () => {
           openedAt: NOW,
           reads: [],
           resolvedAt: null,
+          resolvedByAPerson: false,
           version: 1,
         }),
       ).toThrow(InconsistentStateError);

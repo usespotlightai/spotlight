@@ -27,6 +27,17 @@ const itemDtoOf = (item: InboxItemSummary): InboxItemDto => ({
   createdAt: item.createdAt.toISOString(),
   askedAt: item.askedAt.toISOString(),
   lastNote: item.lastNote && NoteMapper.toDto(item.lastNote),
+  parts: item.parts.map((part) => ({
+    id: part.id,
+    kind: part.kind,
+    form: part.form,
+    about: part.about,
+    at: part.arrivedAt.toISOString(),
+    open: part.open,
+    unread: part.unread,
+    resolvable: part.resolvable,
+    reopenable: part.reopenable,
+  })),
 });
 
 const noticeDtoOf = (notice: InboxNoticeSummary): InboxNoticeDto => ({

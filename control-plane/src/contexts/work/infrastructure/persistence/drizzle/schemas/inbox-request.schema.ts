@@ -1,6 +1,7 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
 import {
+  boolean,
   index,
   integer,
   pgEnum,
@@ -27,6 +28,7 @@ export const inboxRequest = pgTable(
     createdAt: timestamptz('created_at').notNull(),
     openedAt: timestamptz('opened_at').notNull(),
     resolvedAt: timestamptz('resolved_at'),
+    resolvedByAPerson: boolean('resolved_by_a_person').notNull().default(false),
     version: integer('version').notNull().default(0),
   },
   (table) => [

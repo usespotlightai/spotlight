@@ -44,12 +44,20 @@ interface ReviewBody {
 interface InboxBody {
   readonly id: string;
   readonly taskId: string;
+  readonly parts?: readonly {
+    readonly id: string;
+    readonly form: string | null;
+    readonly about: string | null;
+    readonly open: boolean;
+    readonly unread: boolean;
+  }[];
+}
+
+interface InboxRequestBody {
+  readonly id: string;
+  readonly taskId: string;
   readonly resolved: boolean;
   readonly unread: boolean;
-  readonly inboxRequest: {
-    readonly form: string;
-    readonly about: string;
-  } | null;
 }
 
 let app: INestApplication;
@@ -132,11 +140,25 @@ const inbox = async (as: string): Promise<readonly InboxBody[]> => [
   ...(await inboxIn(as, 'resolved')),
 ];
 
-const inboxRequestFor = (items: readonly InboxBody[], runId: RunId) =>
-  items.find(
-    (each) =>
-      each.inboxRequest?.form === 'memories' &&
-      each.inboxRequest.about === runId.value,
+const inboxRequestFor = (
+  items: readonly InboxBody[],
+  runId: RunId,
+): InboxRequestBody | undefined =>
+  firstOf(
+    items.flatMap((each) =>
+      (each.parts ?? []).flatMap((part) =>
+        part.form === 'memories' && part.about === runId.value
+          ? [
+              {
+                id: part.id,
+                taskId: each.taskId,
+                resolved: !part.open,
+                unread: part.unread,
+              },
+            ]
+          : [],
+      ),
+    ),
   );
 
 beforeAll(async () => {

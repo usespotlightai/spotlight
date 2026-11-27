@@ -5,6 +5,7 @@ import type {
   InboxRunResponseDto,
   NoteResponseDto,
 } from '@/lib/api';
+import type { InboxPart } from '@/lib/inbox';
 import { daysAgo, hoursAgo } from '@/mocks/clock';
 import {
   acceptedRun,
@@ -36,12 +37,21 @@ import { SAM } from '@/mocks/world/people';
 import { PLATFORM_ID } from '@/mocks/world/platform';
 import { notesOfRun, type StoryNote } from '@/mocks/world/run-stories';
 
-type Shown = 'section' | 'reopenable';
+type Shown = 'section' | 'reopenable' | 'unreadCount';
 
+type Grouped = 'conversationId' | 'latest' | 'quiet' | 'parts' | 'firstUnread';
+
+// The mock keeps what the control plane keeps: each conversation and each
+// inbox request on its own. The handlers show them one item per task.
 export type InboxConversation = Omit<
   InboxItemViewResponseDto,
-  'lastNote' | 'answerable' | 'resolvable' | Shown
->;
+  'lastNote' | 'answerable' | 'resolvable' | Shown | Grouped
+> & {
+  readonly inboxRequest: {
+    readonly form: NonNullable<InboxPart['form']>;
+    readonly about: string;
+  } | null;
+};
 
 const answers = (entry: InboxConversation): boolean =>
   entry.standing === 'assignee' ||
@@ -120,6 +130,7 @@ type ShownEntry =
 const showing = (entry: InboxEntry): Showing => ({
   section: sectionOf(entry),
   reopenable: reopenableOf(entry),
+  unreadCount: entry.unread ? 1 : 0,
 });
 
 export const shownConversation = (

@@ -51,6 +51,7 @@ const ISSUED = 'issued-token';
 interface InboxItem {
   readonly id: string;
   readonly taskId: string;
+  readonly conversationId: string | null;
   readonly lastNote: { readonly position: number } | null;
 }
 
@@ -534,7 +535,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     );
 
     await http()
-      .post(`/api/workspaces/${team.slug}/inbox/${item.id}/answer`)
+      .post(`/api/workspaces/${team.slug}/inbox/${item.conversationId}/answer`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({
         body: 'Delete the other one.',

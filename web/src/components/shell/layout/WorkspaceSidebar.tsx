@@ -6,7 +6,7 @@ import { TeamNav } from '@/components/shell/layout/TeamNav';
 import { WorkspaceMenu } from '@/components/shell/layout/WorkspaceMenu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useInbox } from '@/hooks/api/useInbox';
-import { inboxPath } from '@/lib/inbox';
+import { inboxPath, unreadCountOf } from '@/lib/inbox';
 import { nonEmpty } from '@/lib/non-empty';
 import { isAdmin, type Role } from '@/lib/role';
 import type { Team } from '@/lib/team';
@@ -29,8 +29,8 @@ export function WorkspaceSidebar({
   onSearch,
 }: WorkspaceSidebarProps) {
   const { data: waiting } = useInbox(slug);
-  const unseen = waiting?.filter((each) => each.unread) ?? [];
-  const unread = unseen.length > 0 ? `${unseen.length} unread` : undefined;
+  const unseen = unreadCountOf(waiting ?? []);
+  const unread = unseen > 0 ? `${unseen} unread` : undefined;
 
   return (
     <>
@@ -54,7 +54,7 @@ export function WorkspaceSidebar({
               trailing={
                 nonEmpty(unread) ? (
                   <p className="text-xs">
-                    <span aria-hidden>{unseen.length}</span>
+                    <span aria-hidden>{unseen}</span>
                     <span className="sr-only">{unread}</span>
                   </p>
                 ) : null

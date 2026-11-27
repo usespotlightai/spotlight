@@ -2983,6 +2983,10 @@ export type InboxChatResponseDto = {
    */
   unread: boolean;
   /**
+   * 1 while it is unread, else 0
+   */
+  unreadCount: number;
+  /**
    * True once the chat is resolved and nothing runs on it
    */
   resolved: boolean;
@@ -3022,6 +3026,67 @@ export type InboxCurrentStationResponseDto = {
   latestRunId: string | null;
 };
 
+export type InboxPartPreviewResponseDto = {
+  /**
+   * The kind of the newest unread part, preferring one that blocks the line
+   */
+  kind: 'question' | 'failure' | 'judge-question' | 'memories' | 'alert';
+  /**
+   * How many unread parts are of that kind
+   */
+  count: number;
+};
+
+export type InboxPartResponseDto = {
+  /**
+   * The conversation (task id and the position it opened at) or the inbox request
+   */
+  id: string;
+  /**
+   * What waits: question when a station asks, failure when a run failed or was refused and waits for an answer, judge-question when the judge and people disagree on a run, memories when a run proposed memories, alert when a station alert fired. Only question and failure block the line
+   */
+  kind: 'question' | 'failure' | 'judge-question' | 'memories' | 'alert';
+  /**
+   * The form of the inbox request; null for a conversation
+   */
+  form: 'memories' | 'alert' | 'judge-disagreement' | null;
+  /**
+   * What the inbox request is about: for memories, the run that proposed them; for alert, the alert; for judge-disagreement, the disagreement. Null for a conversation
+   */
+  about: string | null;
+  /**
+   * When it last arrived
+   */
+  at: string;
+  /**
+   * It still waits on a person
+   */
+  open: boolean;
+  /**
+   * Not seen yet
+   */
+  unread: boolean;
+  /**
+   * True when resolving the item resolves this part: it is open and the person may resolve it
+   */
+  resolvable: boolean;
+  /**
+   * True when reopening the item reopens this part: the last resolve of the item closed it, and the person may reopen it
+   */
+  reopenable: boolean;
+};
+
+export type InboxFirstUnreadResponseDto = {
+  /**
+   * The part to open at
+   */
+  partId: string;
+  /**
+   * The position of the first unread note, when the part is a conversation
+   */
+  position: number | null;
+};
+
 export type InboxFailureResponseDto = {
   /**
    * Where the failure came from: the run, or the hook that failed
@@ -3035,17 +3100,6 @@ export type InboxFailureResponseDto = {
    * How many times it happened while this was open, rather than asking again each time
    */
   occurrences: number;
-};
-
-export type InboxRequestResponseDto = {
-  /**
-   * The kind of inbox request: memories are proposed memories to approve or reject; alert reports a station that needs attention; judge-disagreement asks why people’s verdict on a run differs from the judge’s
-   */
-  form: 'memories' | 'alert' | 'judge-disagreement';
-  /**
-   * What it is about: for memories, the run that proposed them; for alert, the alert; for judge-disagreement, the disagreement
-   */
-  about: string;
 };
 
 export type InboxAuthorResponseDto = {
@@ -3192,11 +3246,11 @@ export type NoteResponseDto = {
 
 export type InboxItemResponseDto = {
   /**
-   * A task’s conversation or an inbox request on the task
+   * A task, with everything on it that waits on the person: its conversation and the inbox requests raised about it
    */
   kind: 'task';
   /**
-   * One conversation a person was asked to own
+   * The task. Reading an item also accepts the id of one of its parts
    */
   id: string;
   taskId: string;
@@ -3268,6 +3322,30 @@ export type InboxItemResponseDto = {
    */
   unread: boolean;
   /**
+   * How many of its parts the person has not seen yet. The inbox badge is the sum of these over the open entries
+   */
+  unreadCount: number;
+  /**
+   * What the newest unread part is, preferring one that blocks the line; null when nothing is unread
+   */
+  latest: InboxPartPreviewResponseDto | null;
+  /**
+   * True when only judge questions are unread, so nothing unread blocks the line
+   */
+  quiet: boolean;
+  /**
+   * The conversation it opens on, to answer, read or resolve; null when the task has no conversation waiting on the person
+   */
+  conversationId: string | null;
+  /**
+   * Everything on the task that waits or waited on the person, oldest first. Answered inbox requests stay as history
+   */
+  parts: Array<InboxPartResponseDto>;
+  /**
+   * Where to open: the oldest part not seen yet
+   */
+  firstUnread: InboxFirstUnreadResponseDto | null;
+  /**
    * The briefing of the station that opened this conversation
    */
   briefing: string | null;
@@ -3275,10 +3353,6 @@ export type InboxItemResponseDto = {
    * The failure this conversation is about, where it is about one
    */
   failure: InboxFailureResponseDto | null;
-  /**
-   * The inbox request of this item, where it is not a conversation. It never blocks the task
-   */
-  inboxRequest: InboxRequestResponseDto | null;
   /**
    * The newest note of the conversation
    */
@@ -3323,6 +3397,10 @@ export type InboxNoticeResponseDto = {
    * Not seen yet
    */
   unread: boolean;
+  /**
+   * 1 while it is unread, else 0
+   */
+  unreadCount: number;
   /**
    * True once its person resolved it
    */
@@ -3379,6 +3457,10 @@ export type InboxRunResponseDto = {
    */
   unread: false;
   /**
+   * Never unread
+   */
+  unreadCount: 0;
+  /**
    * Never resolved
    */
   resolved: false;
@@ -3429,11 +3511,11 @@ export type FoldedVisitResponseDto = {
 
 export type InboxItemViewResponseDto = {
   /**
-   * A task’s conversation or an inbox request on the task
+   * A task, with everything on it that waits on the person: its conversation and the inbox requests raised about it
    */
   kind: 'task';
   /**
-   * One conversation a person was asked to own
+   * The task. Reading an item also accepts the id of one of its parts
    */
   id: string;
   taskId: string;
@@ -3505,6 +3587,30 @@ export type InboxItemViewResponseDto = {
    */
   unread: boolean;
   /**
+   * How many of its parts the person has not seen yet. The inbox badge is the sum of these over the open entries
+   */
+  unreadCount: number;
+  /**
+   * What the newest unread part is, preferring one that blocks the line; null when nothing is unread
+   */
+  latest: InboxPartPreviewResponseDto | null;
+  /**
+   * True when only judge questions are unread, so nothing unread blocks the line
+   */
+  quiet: boolean;
+  /**
+   * The conversation it opens on, to answer, read or resolve; null when the task has no conversation waiting on the person
+   */
+  conversationId: string | null;
+  /**
+   * Everything on the task that waits or waited on the person, oldest first. Answered inbox requests stay as history
+   */
+  parts: Array<InboxPartResponseDto>;
+  /**
+   * Where to open: the oldest part not seen yet
+   */
+  firstUnread: InboxFirstUnreadResponseDto | null;
+  /**
    * The briefing of the station that opened this conversation
    */
   briefing: string | null;
@@ -3512,10 +3618,6 @@ export type InboxItemViewResponseDto = {
    * The failure this conversation is about, where it is about one
    */
   failure: InboxFailureResponseDto | null;
-  /**
-   * The inbox request of this item, where it is not a conversation. It never blocks the task
-   */
-  inboxRequest: InboxRequestResponseDto | null;
   /**
    * The newest note of the conversation
    */

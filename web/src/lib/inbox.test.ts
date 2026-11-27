@@ -5,6 +5,7 @@ import type {
   InboxEntry,
   InboxItem,
   InboxNotice,
+  InboxPart,
   JournalStep,
   Note,
   RunJournal,
@@ -27,6 +28,7 @@ import {
   spentOn,
   workingWordsOf,
   threadText,
+  unreadCountOf,
   workedOn,
 } from '@/lib/inbox';
 import { partial } from '@/test/partial';
@@ -93,12 +95,32 @@ describe('spentIn', () => {
 });
 
 describe('previewOf', () => {
-  const item = (lastNote: Partial<Note> | null) =>
+  const item = (
+    lastNote: Partial<Note> | null,
+    over: Partial<InboxItem> = {},
+  ) =>
     partial<InboxItem>({
       station: 'Planning',
       description: 'A few quick steps will get everything ready.',
       lastNote: lastNote === null ? null : partial<Note>(lastNote),
+      conversationId: null,
+      latest: null,
+      parts: [],
+      ...over,
     });
+
+  const part = (over: Partial<InboxPart>): InboxPart => ({
+    id: 'request_1',
+    kind: 'judge-question',
+    form: 'judge-disagreement',
+    about: 'disagreement_1',
+    at: '2026-11-27T09:00:00.000Z',
+    open: true,
+    unread: false,
+    resolvable: false,
+    reopenable: false,
+    ...over,
+  });
 
   it('shows the last note', () => {
     expect(previewOf(item({ form: 'words', body: 'Which queue?' }))).toBe(
@@ -116,30 +138,64 @@ describe('previewOf', () => {
     expect(previewOf(item(null))).toBe('Waiting at Planning');
   });
 
-  it('says a station alert fired, and that it resolved', () => {
-    const alert = (resolved: boolean) =>
-      ({
-        ...item(null),
-        resolved,
-        inboxRequest: { form: 'alert', about: 'alert_1' },
-      }) as InboxItem;
+  it('says a station asks, when its question is the newest unread thing', () => {
+    expect(
+      previewOf(
+        item(
+          { form: 'words', body: 'Which queue?' },
+          { latest: { kind: 'question', count: 1 } },
+        ),
+      ),
+    ).toBe('Planning asks: Which queue?');
+  });
 
-    expect(previewOf(alert(false))).toBe('Station alert fired.');
-    expect(previewOf(alert(true))).toBe('Station alert resolved.');
+  it('says a run stopped, when a failed run waits for an answer', () => {
+    expect(
+      previewOf(
+        item(
+          { form: 'failure', body: 'The run exited.' },
+          { latest: { kind: 'failure', count: 1 } },
+        ),
+      ),
+    ).toBe('Planning stopped: The run exited.');
+  });
+
+  it('counts the judge questions that are new', () => {
+    expect(
+      previewOf(item(null, { latest: { kind: 'judge-question', count: 2 } })),
+    ).toBe('2 judge questions');
+  });
+
+  it('says a station alert fired, and that it resolved', () => {
+    const alert = (open: boolean) =>
+      item(null, {
+        parts: [part({ kind: 'alert', form: 'alert', about: 'alert_1', open })],
+      });
+
+    expect(previewOf(alert(true))).toBe('Station alert fired.');
+    expect(previewOf(alert(false))).toBe('Station alert resolved.');
   });
 
   it('says the judge and people disagree on a run, and that someone answered', () => {
-    const disagreement = (resolved: boolean) =>
-      ({
-        ...item(null),
-        resolved,
-        inboxRequest: { form: 'judge-disagreement', about: 'disagreement_1' },
-      }) as InboxItem;
+    const disagreement = (open: boolean) =>
+      item(null, { parts: [part({ open })] });
 
-    expect(previewOf(disagreement(false))).toBe(
+    expect(previewOf(disagreement(true))).toBe(
       'The judge and people disagree on a run. Spotlight asks why.',
     );
-    expect(previewOf(disagreement(true))).toBe('Disagreement resolved.');
+    expect(previewOf(disagreement(false))).toBe('Disagreement resolved.');
+  });
+});
+
+describe('unreadCountOf', () => {
+  it('adds up what each entry counts as unread', () => {
+    expect(
+      unreadCountOf([
+        partial<InboxItem>({ unreadCount: 4 }),
+        partial<InboxChat>({ unreadCount: 1 }),
+        partial<InboxNotice>({ unreadCount: 0 }),
+      ]),
+    ).toBe(5);
   });
 });
 
@@ -390,6 +446,7 @@ const notice = (over: Partial<InboxNotice> = {}): InboxNotice => ({
   form: 'ended',
   headline: 'Spotlight opened a config pull request for the Build station',
   points: ['Candidate terse changes prompt.', 'Held-out gain: +8 points'],
+  unreadCount: 0,
   link: 'lines/line_1/stations/station_1',
   linkLabel: 'Open the station',
   externalLink: {
@@ -483,6 +540,7 @@ describe('chatPreviewOf', () => {
     title: 'Why do retries pile up?',
     progress: null,
     openProposals: 0,
+    unreadCount: 0,
     askedAt: '2026-10-01T10:00:00.000Z',
     unread: false,
     resolved: false,

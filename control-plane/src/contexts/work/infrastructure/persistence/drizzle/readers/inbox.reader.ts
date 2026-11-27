@@ -29,7 +29,6 @@ import type { AttachmentSummary } from '@work/application/ports/attachment-reade
 import type {
   InboxChatSummary,
   InboxEntrySummary,
-  InboxItemSummary,
   InboxItemView,
   InboxNote,
   InboxNoticeSummary,
@@ -38,6 +37,13 @@ import type {
   InboxScope,
 } from '@work/application/ports/inbox-reader.port';
 import { inboxSectionOf } from '@work/application/read-models/inbox-section';
+import {
+  type Grouped,
+  groupOf,
+  type PartItem,
+  type Piece,
+  type TaskPieces,
+} from '@work/application/read-models/task-inbox-item';
 import {
   InboxRequest,
   type InboxRequestAudience,
@@ -59,7 +65,7 @@ import {
 } from '@work/domain/services/conversation-audience';
 import {
   type Conversation,
-  listedAsOpen,
+  lastAskIn,
   reopenable,
   openAskIn,
   stillOpen,
@@ -72,6 +78,8 @@ import {
   RunStopPolicy,
   type StoppableRun,
 } from '@work/domain/services/run-stop-policy';
+import { TaskInbox } from '@work/domain/services/task-inbox';
+import { unread as unreadNote } from '@work/domain/services/unread';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -415,6 +423,7 @@ const requestsWhere = (
       cursorAt: sortableTime(orderedBy),
       readAt: inboxRequestRead.readAt,
       resolvedAt: inboxRequest.resolvedAt,
+      resolvedByAPerson: inboxRequest.resolvedByAPerson,
       taskId: task.id,
       assigneeId: task.assigneeId,
       teamId: workStation.teamId,
@@ -590,7 +599,7 @@ const conversationItem = (
   latest: Conversation | null,
   lastNote: InboxNote | null,
   context: TaskContext,
-): InboxItemSummary => {
+): PartItem => {
   const opening = conversation.from;
   const open = stillOpen(conversation);
   const last = itemAt(conversation.notes, conversation.notes.length - 1);
@@ -660,8 +669,37 @@ const conversationItem = (
     unread,
     briefing: briefingOf(opening.runId, context.briefings),
     failure: failureIn(conversation.notes),
-    inboxRequest: null,
     lastNote,
+  };
+};
+
+const conversationPiece = (
+  item: PartItem,
+  conversation: MarkedConversation<ConversationMark>,
+  resolutionKey: string | null,
+): Piece => {
+  const firstUnread = item.unread
+    ? conversation.notes.find(unreadNote)
+    : undefined;
+
+  return {
+    item,
+    part: {
+      id: item.id,
+      kind: TaskInbox.kindOfConversation(item.failure !== null),
+      form: null,
+      about: null,
+      open: !item.resolved,
+      unread: item.unread,
+      unreadSince: firstUnread?.at ?? null,
+      arrivedAt: (lastAskIn(conversation.notes) ?? conversation.from).at,
+      interactedAt: item.askedAt,
+      resolvedAt: conversation.to?.at ?? null,
+      resolvable: item.resolvable,
+      reopenable: item.reopenable,
+    },
+    firstUnreadAt: firstUnread?.position ?? null,
+    resolutionKey: item.resolved ? resolutionKey : null,
   };
 };
 
@@ -687,6 +725,7 @@ const runItem = (
         progress,
         askedAt: row.workingSince ?? row.createdAt,
         unread: false,
+        unreadCount: 0,
         resolved: false,
         section: inboxSectionOf({
           unread: false,
@@ -720,6 +759,104 @@ const requestVisibilityOf = (
 
 type NoticeRow = Awaited<ReturnType<typeof noticesWhere>>[number];
 
+const closingKeysOf = async (
+  db: DrizzleDatabase,
+  taskIds: readonly string[],
+): Promise<Map<string, string>> => {
+  if (taskIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select({
+      taskId: taskNote.taskId,
+      position: taskNote.position,
+      key: sortableTime(taskNote.at),
+    })
+    .from(taskNote)
+    .where(
+      and(
+        inArray(taskNote.taskId, [...taskIds]),
+        eq(taskNote.closesConversation, true),
+      ),
+    );
+
+  return new Map(rows.map((each) => [noteKey(each), each.key] as const));
+};
+
+const unique = (ids: readonly string[]): string[] => [...new Set(ids)];
+
+interface Sighted {
+  readonly taskIds: readonly string[];
+  readonly floor: string | null;
+}
+
+interface TasksAmong {
+  readonly tasks: SQL;
+  readonly requests: SQL;
+}
+
+const amongTasks = (taskIds: readonly string[]): TasksAmong =>
+  taskIds.length === 0
+    ? { tasks: sql`false`, requests: sql`false` }
+    : {
+        tasks: inArray(task.id, [...taskIds]),
+        requests: inArray(inboxRequest.taskId, [...taskIds]),
+      };
+
+const openRequestOn = sql`exists (select 1 from ${inboxRequest} where ${inboxRequest.taskId} = ${task.id} and ${inboxRequest.resolvedAt} is null)`;
+
+// Only narrows the read: TaskInbox decides what is listed as open, and a
+// finished task with no open inbox request has nothing open or unread left.
+// Every request of a task read is a part of its item, answered ones too.
+const listable = or(isNull(task.finishedAt), openRequestOn) ?? sql`false`;
+
+const named = alias(inboxRequest, 'named');
+
+const candidatesOf = (itemId: string): string[] =>
+  unique([itemId, ConversationId.tryParse(itemId)?.taskId.value ?? itemId]);
+
+const amongItem = (db: DrizzleDatabase, itemId: string): TasksAmong => {
+  const requested = db
+    .select({ taskId: named.taskId })
+    .from(named)
+    .where(eq(named.id, itemId));
+
+  return {
+    tasks:
+      or(inArray(task.id, candidatesOf(itemId)), inArray(task.id, requested)) ??
+      sql`false`,
+    requests:
+      or(
+        inArray(inboxRequest.taskId, candidatesOf(itemId)),
+        inArray(inboxRequest.taskId, requested),
+      ) ?? sql`false`,
+  };
+};
+
+// The item an id opens: a task id, then an inbox request on a task, then
+// a conversation, so links from before items were grouped by task still work.
+const taskOfItem = (
+  found: ReadonlyMap<string, TaskPieces>,
+  itemId: string,
+): string | null => {
+  if (found.has(itemId)) {
+    return itemId;
+  }
+
+  const requested = [...found.values()]
+    .flatMap((each) => each.pieces)
+    .find((each) => each.part.id === itemId);
+  const conversation = ConversationId.tryParse(itemId)?.taskId.value;
+
+  return (
+    requested?.item.taskId ??
+    (conversation !== undefined && found.has(conversation)
+      ? conversation
+      : null)
+  );
+};
+
 @Injectable()
 export class DrizzleInboxReader implements InboxReaderPort {
   constructor(
@@ -731,15 +868,8 @@ export class DrizzleInboxReader implements InboxReaderPort {
   async open(scope: InboxScope): Promise<InboxEntrySummary[]> {
     const { workspaceId, viewer: userId } = scope;
 
-    const [tasks, requests, notices, chats] = await Promise.all([
-      this.openTasks(scope),
-      requestsWhere(
-        this.db,
-        workspaceId,
-        userId,
-        isNull(inboxRequest.resolvedAt),
-        null,
-      ),
+    const [tasks, notices, chats] = await Promise.all([
+      this.tasksIn(scope, { tasks: listable, requests: listable }),
       noticesWhere(
         this.db,
         workspaceId,
@@ -747,20 +877,35 @@ export class DrizzleInboxReader implements InboxReaderPort {
         isNull(notice.resolvedAt),
         null,
       ),
-      chatsWhere(this.db, scope, chatUnresolvedWhere, null),
-    ]);
-    const chatEntries = await this.chatItems(chats);
-    const items: Ranked[] = [
-      ...tasks,
-      ...(await this.requestItems(scope, requests)).map((each) =>
-        rankedAt(each.entry),
+      chatsWhere(this.db, scope, chatUnresolvedWhere, null).then(
+        async (rows) => ({ rows, items: await this.chatItems(rows) }),
       ),
+    ]);
+    const chatEntries = chats.items;
+    const items: Ranked[] = [
+      ...[...tasks.values()].flatMap((found): Ranked[] => {
+        const group = groupOf(found);
+
+        if (group?.listedAsOpen) {
+          return [rankedAt(group.item, group.arrivedAt, group.interactedAt)];
+        }
+
+        return found.run
+          ? [
+              rankedAt(
+                found.run,
+                found.run.askedAt,
+                found.newestAt ?? found.run.askedAt,
+              ),
+            ]
+          : [];
+      }),
       ...this.noticeItems(scope, notices).map((each) => rankedAt(each.entry)),
       ...chatEntries.map((each, place) =>
         rankedAt(
           each.entry,
-          chats[place]?.createdAt,
-          laterOf(each.entry.askedAt, chats[place]?.reopenedAt),
+          chats.rows[place]?.createdAt,
+          laterOf(each.entry.askedAt, chats.rows[place]?.reopenedAt),
         ),
       ),
     ];
@@ -793,11 +938,56 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   async item(scope: InboxScope, itemId: string): Promise<InboxItemView | null> {
-    const conversationId = ConversationId.tryParse(itemId);
+    const [found, trails] = await Promise.all([
+      this.tasksIn(scope, amongItem(this.db, itemId)),
+      trailsFor(this.db, this.people, candidatesOf(itemId)),
+    ]);
+    const taskId = taskOfItem(found, itemId);
+    const pieces = taskId === null ? undefined : found.get(taskId);
+    const named = pieces?.pieces.find((each) => each.part.id === itemId);
+    const conversationNamed =
+      named === undefined && ConversationId.tryParse(itemId) !== null;
+    const group =
+      pieces && !conversationNamed ? groupOf(pieces, named?.part.id) : null;
 
-    return conversationId
-      ? this.conversationView(scope, conversationId)
-      : this.requestView(scope, itemId);
+    if (!group) {
+      return (
+        (await this.unlistedConversation(scope, itemId)) ??
+        (pieces ? this.withNotes(groupOf(pieces), trails) : null)
+      );
+    }
+
+    return this.withNotes(group, trails);
+  }
+
+  private async withNotes(
+    group: Grouped | null,
+    trails: ReadonlyMap<string, InboxNote[]>,
+  ): Promise<InboxItemView | null> {
+    if (!group) {
+      return null;
+    }
+
+    const conversationId = nonEmpty(group.item.conversationId)
+      ? ConversationId.parse(group.item.conversationId)
+      : null;
+    const trail = conversationId
+      ? (trails.get(group.item.taskId) ??
+        (await trailsFor(this.db, this.people, [group.item.taskId])).get(
+          group.item.taskId,
+        ) ??
+        [])
+      : [];
+    const notes =
+      conversationsAmong(trail).find(
+        (each) => each.from.position === conversationId?.from.value,
+      )?.notes ?? [];
+
+    return {
+      ...group.item,
+      notes,
+      folded: notes.length > 0 ? foldedAround(trail, notes) : [],
+    };
   }
 
   async notice(
@@ -822,18 +1012,28 @@ export class DrizzleInboxReader implements InboxReaderPort {
     limit: number,
   ): Promise<{ items: readonly Keyed[]; next: Cursor | null }> {
     const fetched = limit + 1;
-    const sources = await Promise.all([
+    const [conversations, requests, notices, chats] = await Promise.all([
       this.resolvedConversations(scope, before, fetched),
       this.resolvedRequests(scope, before, fetched),
       this.resolvedNotices(scope, before, fetched),
       this.resolvedChats(scope, before, fetched),
     ]);
-    const floors = sources.flatMap((each) =>
+    const tasks = await this.tasksIn(
+      scope,
+      amongTasks(unique([...conversations.taskIds, ...requests.taskIds])),
+    );
+    const groups = [...tasks.values()].flatMap((found): Keyed[] => {
+      const group = groupOf(found);
+
+      return group && !group.listedAsOpen && nonEmpty(group.resolutionKey)
+        ? [keyedAt(group.item, group.resolutionKey)]
+        : [];
+    });
+    const floors = [conversations, requests, notices, chats].flatMap((each) =>
       nonEmpty(each.floor) ? [each.floor] : [],
     );
     const floor = itemAt(floors.sort(), floors.length - 1) ?? null;
-    const shown = sources
-      .flatMap((each) => each.keyed)
+    const shown = [...groups, ...notices.keyed, ...chats.keyed]
       .filter(
         (each) =>
           (!before || newer(before, each.cursor)) &&
@@ -863,20 +1063,18 @@ export class DrizzleInboxReader implements InboxReaderPort {
     scope: InboxScope,
     before: Cursor | null,
     fetched: number,
-  ): Promise<Gathered> {
-    const { workspaceId, viewer: userId } = scope;
+  ): Promise<Sighted> {
     const closing = await this.db
       .select({
         taskId: taskNote.taskId,
-        position: taskNote.position,
         cursorAt: sortableTime(taskNote.at),
       })
       .from(taskNote)
       .innerJoin(task, eq(task.id, taskNote.taskId))
       .where(
         and(
-          eq(task.workspaceId, workspaceId),
-          eq(task.assigneeId, userId.value),
+          eq(task.workspaceId, scope.workspaceId),
+          eq(task.assigneeId, scope.viewer.value),
           eq(taskNote.closesConversation, true),
           before ? notNewerThan(taskNote.at, before) : undefined,
         ),
@@ -888,71 +1086,8 @@ export class DrizzleInboxReader implements InboxReaderPort {
       )
       .limit(fetched);
 
-    const closedAt = new Map(
-      closing.map((each) => [noteKey(each), each.cursorAt] as const),
-    );
-    const taskIds = [...new Set(closing.map((each) => each.taskId))];
-    const rows = await tasksWhere(
-      this.db,
-      this.progress,
-      scope,
-      inArray(task.id, taskIds),
-    );
-    const marks = await marksFor(this.db, taskIds);
-    const resolved = rows.flatMap((row) => {
-      const conversations = conversationsAmong(marks.get(row.taskId) ?? []);
-      const latest = latestOf(conversations);
-
-      return conversations.flatMap((conversation) => {
-        const at =
-          conversation.to === null
-            ? undefined
-            : closedAt.get(
-                noteKey({
-                  taskId: row.taskId,
-                  position: conversation.to.position,
-                }),
-              );
-
-        return nonEmpty(at) ? [{ row, conversation, latest, at }] : [];
-      });
-    });
-    const [context, lastNotes] = await Promise.all([
-      this.contextFor(
-        rows,
-        resolved.map((each) => each.conversation),
-      ),
-      notesAt(
-        this.db,
-        this.people,
-        resolved.flatMap(({ row, conversation }) =>
-          conversation.to
-            ? [{ taskId: row.taskId, position: conversation.to.position }]
-            : [],
-        ),
-      ),
-    ]);
-
     return {
-      keyed: resolved.map(({ row, conversation, latest, at }) =>
-        keyedAt(
-          conversationItem(
-            row,
-            conversation,
-            latest,
-            (conversation.to &&
-              lastNotes.get(
-                noteKey({
-                  taskId: row.taskId,
-                  position: conversation.to.position,
-                }),
-              )) ??
-              null,
-            context,
-          ),
-          at,
-        ),
-      ),
+      taskIds: unique(closing.map((each) => each.taskId)),
       floor: floorOf(closing, fetched, (each) => each.cursorAt),
     };
   }
@@ -961,7 +1096,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
     scope: InboxScope,
     before: Cursor | null,
     fetched: number,
-  ): Promise<Gathered> {
+  ): Promise<Sighted> {
     const rows = await requestsWhere(
       this.db,
       scope.workspaceId,
@@ -975,7 +1110,13 @@ export class DrizzleInboxReader implements InboxReaderPort {
     );
 
     return {
-      keyed: await this.requestItems(scope, rows),
+      taskIds: unique(
+        rows
+          .filter((row) =>
+            InboxRequest.visibleTo(requestVisibilityOf(scope, row)),
+          )
+          .map((row) => row.taskId),
+      ),
       floor: floorOf(rows, fetched, (each) => each.cursorAt),
     };
   }
@@ -1024,17 +1165,57 @@ export class DrizzleInboxReader implements InboxReaderPort {
     };
   }
 
-  private async openTasks(scope: InboxScope): Promise<Ranked[]> {
-    const rows = await tasksWhere(
-      this.db,
-      this.progress,
-      scope,
-      isNull(task.finishedAt),
+  // Everything that waits on the viewer, per task: the task's conversations
+  // and every inbox request raised about it, answered ones included.
+  private async tasksIn(
+    scope: InboxScope,
+    among: TasksAmong,
+  ): Promise<Map<string, TaskPieces>> {
+    const [conversations, requests] = await Promise.all([
+      tasksWhere(this.db, this.progress, scope, among.tasks).then((rows) =>
+        this.conversationPieces(rows),
+      ),
+      requestsWhere(
+        this.db,
+        scope.workspaceId,
+        scope.viewer,
+        among.requests,
+        null,
+        inboxRequest.resolvedAt,
+      ).then((rows) => this.requestPieces(scope, rows)),
+    ]);
+    const taskIds = unique([
+      ...conversations.keys(),
+      ...requests.map((each) => each.item.taskId),
+    ]);
+
+    return new Map(
+      taskIds.map((taskId) => {
+        const own = conversations.get(taskId);
+
+        return [
+          taskId,
+          {
+            pieces: [
+              ...(own?.pieces ?? []),
+              ...requests.filter((each) => each.item.taskId === taskId),
+            ],
+            run: own?.run ?? null,
+            newestAt: own?.newestAt ?? null,
+          },
+        ] as const;
+      }),
     );
+  }
+
+  private async conversationPieces(
+    rows: readonly TaskRow[],
+  ): Promise<Map<string, TaskPieces>> {
     const taskIds = rows.map((row) => row.taskId);
-    const [marks, newest] = await Promise.all([
+    const [marks, newest, closingKeys] = await Promise.all([
       marksFor(this.db, taskIds),
       newestNotesFor(this.db, this.people, taskIds),
+      closingKeysOf(this.db, taskIds),
     ]);
     const all = new Map(
       rows.map(
@@ -1045,28 +1226,29 @@ export class DrizzleInboxReader implements InboxReaderPort {
           ] as const,
       ),
     );
-    const shown = new Map(
+    const held = new Map(
       rows.map(
         (row) =>
           [
             row.taskId,
-            (all.get(row.taskId) ?? []).filter(
-              (conversation) =>
-                listedAsOpen(conversation, row.finishedAt !== null) &&
-                (ConversationAudience.listsResolved(row.standing) ||
-                  stillOpen(conversation)),
+            (all.get(row.taskId) ?? []).filter((conversation) =>
+              TaskInbox.holdsConversation(
+                { open: stillOpen(conversation) },
+                { finished: row.finishedAt !== null },
+                row.standing,
+              ),
             ),
           ] as const,
       ),
     );
-    const conversations = [...shown.values()].flat();
+    const conversations = [...held.values()].flat();
     const [context, closingNotes] = await Promise.all([
       this.contextFor(rows, conversations),
       notesAt(
         this.db,
         this.people,
         rows.flatMap((row) =>
-          (shown.get(row.taskId) ?? []).flatMap((conversation) =>
+          (held.get(row.taskId) ?? []).flatMap((conversation) =>
             conversation.to
               ? [{ taskId: row.taskId, position: conversation.to.position }]
               : [],
@@ -1075,60 +1257,119 @@ export class DrizzleInboxReader implements InboxReaderPort {
       ),
     ]);
 
-    return rows.flatMap((row) => {
-      const listed = shown.get(row.taskId) ?? [];
-      const latest = latestOf(all.get(row.taskId) ?? []);
-      const working =
-        nonEmpty(row.working) &&
-        ConversationAudience.listsRuns(row.standing) &&
-        !listed.some(stillOpen)
-          ? runItem(row, row.standing, row.working, context)
-          : null;
+    return new Map(
+      rows.map((row) => {
+        const listed = held.get(row.taskId) ?? [];
+        const latest = latestOf(all.get(row.taskId) ?? []);
+        const pieces = listed.map((conversation) => {
+          const closing = conversation.to
+            ? noteKey({
+                taskId: row.taskId,
+                position: conversation.to.position,
+              })
+            : null;
 
-      return [
-        ...(working
-          ? [
-              rankedAt(
-                working,
-                working.askedAt,
-                newest.get(row.taskId)?.at ?? working.askedAt,
-              ),
-            ]
-          : []),
-        ...listed.map((conversation) => {
-          const entry = conversationItem(
-            row,
+          return conversationPiece(
+            conversationItem(
+              row,
+              conversation,
+              latest,
+              closing === null
+                ? (newest.get(row.taskId) ?? null)
+                : (closingNotes.get(closing) ?? null),
+              context,
+            ),
             conversation,
-            latest,
-            conversation.to
-              ? (closingNotes.get(
-                  noteKey({
-                    taskId: row.taskId,
-                    position: conversation.to.position,
-                  }),
-                ) ?? null)
-              : (newest.get(row.taskId) ?? null),
-            context,
+            closing === null ? null : (closingKeys.get(closing) ?? null),
           );
+        });
+        const run =
+          nonEmpty(row.working) &&
+          ConversationAudience.listsRuns(row.standing) &&
+          !pieces.some((each) => each.part.open)
+            ? runItem(row, row.standing, row.working, context)
+            : null;
 
-          return rankedAt(entry, conversation.from.at, entry.askedAt);
-        }),
-      ];
-    });
+        return [
+          row.taskId,
+          { pieces, run, newestAt: newest.get(row.taskId)?.at ?? null },
+        ] as const;
+      }),
+    );
   }
 
-  private async conversationView(
+  // A link to a conversation that is no longer part of the viewer's inbox
+  // item, such as one from a chat notice, still opens it.
+  private async unlistedConversation(
+    scope: InboxScope,
+    itemId: string,
+  ): Promise<InboxItemView | null> {
+    const conversationId = ConversationId.tryParse(itemId);
+    const row =
+      conversationId &&
+      firstOf(
+        await tasksWhere(
+          this.db,
+          this.progress,
+          scope,
+          eq(task.id, conversationId.taskId.value),
+        ),
+      );
+
+    if (!conversationId || !row) {
+      return null;
+    }
+
+    const shown = await this.conversationNotes(scope, conversationId, row);
+
+    if (!shown) {
+      return null;
+    }
+
+    const group = groupOf({
+      pieces: [
+        conversationPiece(
+          conversationItem(
+            row,
+            shown.conversation,
+            shown.latest,
+            shown.notes[shown.notes.length - 1] ?? null,
+            shown.context,
+          ),
+          shown.conversation,
+          null,
+        ),
+      ],
+      run: null,
+      newestAt: null,
+    });
+
+    // Not part of the viewer's item for the task, so it keeps its own id.
+    return (
+      group && {
+        ...group.item,
+        id: conversationId.value,
+        notes: shown.notes,
+        folded: shown.folded,
+      }
+    );
+  }
+
+  private async conversationNotes(
     scope: InboxScope,
     conversationId: ConversationId,
-  ): Promise<InboxItemView | null> {
-    const row = firstOf(
-      await tasksWhere(
-        this.db,
-        this.progress,
-        scope,
-        eq(task.id, conversationId.taskId.value),
-      ),
-    );
+    known?: TaskRow,
+  ) {
+    const row =
+      known ??
+      firstOf(
+        await tasksWhere(
+          this.db,
+          this.progress,
+          scope,
+          eq(task.id, conversationId.taskId.value),
+        ),
+      );
 
     if (row === undefined) {
       return null;
@@ -1146,38 +1387,13 @@ export class DrizzleInboxReader implements InboxReaderPort {
       return null;
     }
 
-    const context = await this.contextFor([row], [conversation]);
-    const notes = conversation.notes;
-
     return {
-      ...conversationItem(
-        row,
-        conversation,
-        latestOf(conversations),
-        notes[notes.length - 1] ?? null,
-        context,
-      ),
-      notes,
-      folded: foldedAround(trail, notes),
+      conversation,
+      latest: latestOf(conversations),
+      context: await this.contextFor([row], [conversation]),
+      notes: conversation.notes,
+      folded: foldedAround(trail, conversation.notes),
     };
-  }
-
-  private async requestView(
-    scope: InboxScope,
-    requestId: string,
-  ): Promise<InboxItemView | null> {
-    const rows = await requestsWhere(
-      this.db,
-      scope.workspaceId,
-      scope.viewer,
-      eq(inboxRequest.id, requestId),
-      null,
-    );
-    const found = firstOf(await this.requestItems(scope, rows));
-
-    return found?.entry.kind === 'task'
-      ? { ...found.entry, notes: [], folded: [] }
-      : null;
   }
 
   private async contextFor(
@@ -1205,10 +1421,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
     return { stationCounts, attached, briefings, latestRuns };
   }
 
-  private async requestItems(
+  private async requestPieces(
     scope: InboxScope,
     rows: readonly RequestRow[],
-  ): Promise<Keyed[]> {
+  ): Promise<Piece[]> {
     const attending = rows.filter((row) =>
       InboxRequest.visibleTo(requestVisibilityOf(scope, row)),
     );
@@ -1229,15 +1445,23 @@ export class DrizzleInboxReader implements InboxReaderPort {
       latestRunsAtCurrentStation(this.db, attending.map(placeOf)),
     ]);
 
-    return attending.map((row) => {
+    return attending.map((row): Piece => {
       const currentStation = {
         name: row.currentStationName,
         color: row.currentStationColor,
         position: row.currentStationPosition,
       };
+      const team = teamStandingOf(scope, row.teamId);
+      const unread = InboxRequest.unread(row);
+      const resolvable = InboxRequest.resolvableBy(team, row.resolvedAt);
+      const reopenable = InboxRequest.reopenableBy(team, row.resolvedAt);
+      const reopensWithItem = InboxRequest.reopensWithItem(team, {
+        at: row.resolvedAt,
+        byAPerson: row.resolvedByAPerson,
+      });
 
-      return keyedAt(
-        {
+      return {
+        item: {
           kind: 'task',
           id: row.id,
           taskId: row.taskId,
@@ -1258,32 +1482,40 @@ export class DrizzleInboxReader implements InboxReaderPort {
           askedAt: row.requestOpenedAt,
           resolved: row.resolvedAt !== null,
           section: inboxSectionOf({
-            unread: InboxRequest.unread(row),
+            unread,
             resolved: row.resolvedAt !== null,
             running: false,
             following: false,
           }),
           standing: InboxRequest.standingOf(requestVisibilityOf(scope, row)),
           answerable: false,
-          resolvable: InboxRequest.resolvableBy(
-            teamStandingOf(scope, row.teamId),
-            row.resolvedAt,
-          ),
-          reopenable: InboxRequest.reopenableBy(
-            teamStandingOf(scope, row.teamId),
-            row.resolvedAt,
-          ),
+          resolvable,
+          reopenable,
           progress: null,
           runId: null,
           stoppableByYou: false,
-          unread: InboxRequest.unread(row),
+          unread,
           briefing: null,
           failure: null,
-          inboxRequest: { form: row.form, about: row.about },
           lastNote: null,
         },
-        row.cursorAt,
-      );
+        part: {
+          id: row.id,
+          kind: TaskInbox.kindOfRequest(row.form),
+          form: row.form,
+          about: row.about,
+          open: row.resolvedAt === null,
+          unread,
+          unreadSince: unread ? row.requestOpenedAt : null,
+          arrivedAt: row.requestOpenedAt,
+          interactedAt: row.resolvedAt ?? row.requestOpenedAt,
+          resolvedAt: row.resolvedAt,
+          resolvable,
+          reopenable: reopensWithItem,
+        },
+        firstUnreadAt: null,
+        resolutionKey: row.resolvedAt === null ? null : row.cursorAt,
+      };
     });
   }
 
@@ -1299,8 +1531,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
             scope.viewer,
           ),
       )
-      .map(({ notice: row, cursorAt }) =>
-        keyedAt(
+      .map(({ notice: row, cursorAt }) => {
+        const unread = Notice.unread(row.resolvedAt);
+
+        return keyedAt(
           {
             kind: 'notice',
             id: row.id,
@@ -1315,10 +1549,11 @@ export class DrizzleInboxReader implements InboxReaderPort {
                 ? { url: row.externalUrl, label: row.externalLabel }
                 : null,
             askedAt: row.createdAt,
-            unread: Notice.unread(row.resolvedAt),
+            unread,
+            unreadCount: unread ? 1 : 0,
             resolved: row.resolvedAt !== null,
             section: inboxSectionOf({
-              unread: Notice.unread(row.resolvedAt),
+              unread,
               resolved: row.resolvedAt !== null,
               running: false,
               following: false,
@@ -1333,8 +1568,8 @@ export class DrizzleInboxReader implements InboxReaderPort {
             ),
           },
           cursorAt,
-        ),
-      );
+        );
+      });
   }
 
   private async chatItems(rows: readonly ChatRow[]): Promise<Keyed[]> {
@@ -1355,6 +1590,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         openProposals: row.openProposals,
         askedAt: row.lastAt,
         unread: standing.unread,
+        unreadCount: standing.unread ? 1 : 0,
         resolved: standing.resolved,
         section: inboxSectionOf({ ...standing, following: false }),
         reopenable: standing.resolved,

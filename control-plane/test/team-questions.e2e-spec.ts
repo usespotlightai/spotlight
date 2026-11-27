@@ -24,6 +24,7 @@ interface Entry {
   readonly kind: string;
   readonly id: string;
   readonly taskId?: string;
+  readonly conversationId?: string | null;
   readonly standing?: string;
   readonly section: string;
   readonly unread?: boolean;
@@ -147,7 +148,7 @@ describe('a question on a task without an assignee', () => {
     const item = await entryOf(team.owner, taskId);
 
     await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/answer`)
+      .post(`/api/workspaces/${team.slug}/inbox/${item?.conversationId}/answer`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ body: 'From eu-west-1.' })
       .expect(204);
@@ -159,7 +160,7 @@ describe('a question on a task without an assignee', () => {
     expect(await entryOf(ben, taskId)).toBeUndefined();
 
     await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/answer`)
+      .post(`/api/workspaces/${team.slug}/inbox/${item?.conversationId}/answer`)
       .set(TEST_USER_HEADER, ben.value)
       .send({ body: 'From eu-west-2.' })
       .expect(409);
@@ -170,7 +171,9 @@ describe('a question on a task without an assignee', () => {
     const item = await entryOf(ben, taskId);
 
     await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/resolve`)
+      .post(
+        `/api/workspaces/${team.slug}/inbox/${item?.conversationId}/resolve`,
+      )
       .set(TEST_USER_HEADER, ben.value)
       .expect(204);
 
@@ -184,7 +187,7 @@ describe('a question on a task without an assignee', () => {
     expect(await entryOf(dee, taskId)).toBeUndefined();
 
     await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/answer`)
+      .post(`/api/workspaces/${team.slug}/inbox/${item?.conversationId}/answer`)
       .set(TEST_USER_HEADER, dee.value)
       .send({ body: 'From eu-west-1.' })
       .expect(403)
@@ -202,7 +205,7 @@ describe('a question on a task without an assignee', () => {
     const item = await entryOf(ben, taskId);
 
     await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/answer`)
+      .post(`/api/workspaces/${team.slug}/inbox/${item?.conversationId}/answer`)
       .set(TEST_USER_HEADER, cy.value)
       .send({ body: 'From eu-west-1.' })
       .expect(403)
@@ -239,7 +242,7 @@ describe('a task a person wrote in', () => {
     const item = await entryOf(ben, taskId);
 
     await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/answer`)
+      .post(`/api/workspaces/${team.slug}/inbox/${item?.conversationId}/answer`)
       .set(TEST_USER_HEADER, ben.value)
       .send({ body: 'From eu-west-1.' })
       .expect(409);
@@ -254,7 +257,7 @@ describe('a task a person wrote in', () => {
     const item = await entryOf(cy, taskId);
 
     await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/answer`)
+      .post(`/api/workspaces/${team.slug}/inbox/${item?.conversationId}/answer`)
       .set(TEST_USER_HEADER, cy.value)
       .send({ body: 'From eu-west-1.' })
       .expect(403);
@@ -267,7 +270,7 @@ describe('a task a person wrote in', () => {
     const item = await entryOf(cy, taskId);
 
     await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/${item?.id}/read`)
+      .post(`/api/workspaces/${team.slug}/inbox/${item?.conversationId}/read`)
       .set(TEST_USER_HEADER, cy.value)
       .expect(204);
 

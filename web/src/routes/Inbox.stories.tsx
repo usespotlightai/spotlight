@@ -50,6 +50,38 @@ const disagreementOpened = (opened: string) => {
   return nonEmpty(about) ? inboxStore().disagreements[about] : undefined;
 };
 
+const GROUPED = [
+  SEARCH_DISAGREEMENT_REQUEST_ID,
+  SENT_BACK_DISAGREEMENT_REQUEST_ID,
+  ACCEPTED_DISAGREEMENT_REQUEST_ID,
+];
+
+// The inbox shows one item per task: put three judge questions and an open
+// station question on the task of the first one.
+const onOneTask = () => {
+  const { entries } = inboxStore();
+  const first = entries.find(
+    (each) => each.id === SEARCH_DISAGREEMENT_REQUEST_ID,
+  );
+
+  if (first?.kind !== 'task') return;
+
+  for (const entry of entries) {
+    if (entry.kind !== 'task') continue;
+    if (GROUPED.includes(entry.id)) {
+      Object.assign(entry, {
+        taskId: first.taskId,
+        title: first.title,
+        unread: true,
+        resolved: false,
+      });
+    }
+    if (entry.inboxRequest === null && entry.taskId === first.taskId) {
+      Object.assign(entry, { unread: true, resolved: false });
+    }
+  }
+};
+
 const GITHUB_INSTALLED_PATH = `/github/installed?installation_id=58213907&state=${encodeURIComponent(
   stateFor({
     slug: SLUG,
@@ -73,6 +105,7 @@ type Standing = 'seeded' | 'assignee' | 'team' | 'following';
 
 type InboxArgs = {
   readonly opened: string;
+  readonly groupedTask: boolean;
   readonly gitHubInstalled: boolean;
   readonly hostConnected: boolean;
   readonly configuration: Configuration;
@@ -100,6 +133,7 @@ const meta = {
     },
     args: {
       opened: 'none',
+      groupedTask: false,
       gitHubInstalled: true,
       hostConnected: true,
       configuration: 'done',
@@ -147,6 +181,9 @@ const meta = {
         [SETUP_ITEM_ID]: 'Set up your team',
         [GITHUB_INSTALLED]: 'Setup with GitHub installed',
       }),
+      groupedTask: toggle(
+        'Three judge questions and a station question on one task',
+      ),
       gitHubInstalled: { ...toggle('GitHub App installed'), if: SETTING_UP },
       hostConnected: { ...toggle('Host connected'), if: SETTING_UP },
       configuration: {
@@ -198,6 +235,7 @@ const meta = {
     },
     world: ({
       opened,
+      groupedTask,
       gitHubInstalled,
       hostConnected,
       configuration,
@@ -208,6 +246,9 @@ const meta = {
       scoresLoading,
       citationsGone,
     }) => {
+      if (groupedTask) {
+        onOneTask();
+      }
       const disagreement = disagreementOpened(opened);
       if (disagreement) {
         answerDisputedClaims(disagreement, claimsAnswered);

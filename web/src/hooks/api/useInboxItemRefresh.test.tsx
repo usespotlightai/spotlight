@@ -40,16 +40,18 @@ describe('a bump while the run is live', () => {
     vi.unstubAllGlobals();
   });
 
-  it('refreshes the journal of the live run and not the whole task', () => {
+  it('refreshes the journal of the live run and the item as it was opened, not the whole task', () => {
     const invalidated = vi.spyOn(client, 'invalidateQueries');
     const item = partial<InboxItem>({
-      id: 'task_1:2',
+      id: 'task_1',
       taskId: 'task_1',
       runId: 'run_1',
       progress: 'in-progress',
     });
 
-    renderHook(() => useInboxItemRefresh('acme', item), { wrapper });
+    renderHook(() => useInboxItemRefresh('acme', 'task_1:2', item), {
+      wrapper,
+    });
     invalidated.mockClear();
     act(() => streams[0]?.onmessage?.());
 
@@ -76,7 +78,9 @@ describe('the stream of a run that is stopping', () => {
       progress: null,
     });
 
-    renderHook(() => useInboxItemRefresh('acme', item), { wrapper });
+    renderHook(() => useInboxItemRefresh('acme', 'task_1', item), {
+      wrapper,
+    });
 
     expect(opened).toEqual(['/api/runs/run_1/stream']);
   });

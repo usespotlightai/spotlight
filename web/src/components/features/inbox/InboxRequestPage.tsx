@@ -5,12 +5,12 @@ import { JudgeDisagreementThread } from '@/components/features/inbox/disagreemen
 import { InboxDetailLayout } from '@/components/features/inbox/InboxDetailLayout';
 import { MemoryThread } from '@/components/features/inbox/memories/MemoryThread';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
-import type { InboxItem } from '@/lib/inbox';
+import type { InboxItem, InboxPart } from '@/lib/inbox';
 
 type InboxRequestPageProps = {
   slug: string;
   item: InboxItem;
-  inboxRequest: NonNullable<InboxItem['inboxRequest']>;
+  inboxRequest: InboxPart & { readonly about: string };
   trail: readonly BreadcrumbSegment[];
 };
 
@@ -19,7 +19,7 @@ export function InboxRequestPage({
   item,
   inboxRequest,
   trail,
-}: InboxRequestPageProps): ReactElement {
+}: InboxRequestPageProps): ReactElement | null {
   switch (inboxRequest.form) {
     case 'memories':
       return (
@@ -50,5 +50,7 @@ export function InboxRequestPage({
           trail={trail}
         />
       );
+    case null:
+      return null;
   }
 }

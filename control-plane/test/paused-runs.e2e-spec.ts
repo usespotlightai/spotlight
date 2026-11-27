@@ -49,6 +49,7 @@ interface InboxItem {
   readonly kind: string;
   readonly id: string;
   readonly taskId: string;
+  readonly conversationId: string | null;
   readonly progress: string | null;
   readonly runId: string | null;
   readonly currentStation: { readonly latestRunId: string | null };
@@ -302,7 +303,7 @@ const answered = async (taskId: string, body: string) => {
   const item = await inboxItemOf(taskId);
 
   await http()
-    .post(`/api/workspaces/${team.slug}/inbox/${item.id}/answer`)
+    .post(`/api/workspaces/${team.slug}/inbox/${item.conversationId}/answer`)
     .set(TEST_USER_HEADER, team.owner.value)
     .send({ body })
     .expect(204);

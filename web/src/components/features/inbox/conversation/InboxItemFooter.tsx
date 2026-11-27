@@ -8,12 +8,14 @@ import { type Progress, stoppable } from '@/lib/run';
 type InboxItemFooterProps = {
   slug: string;
   item: InboxItem;
+  conversationId: string;
   progress: Progress | null;
 };
 
 export function InboxItemFooter({
   slug,
   item,
+  conversationId,
   progress,
 }: InboxItemFooterProps) {
   const { station, task } = useTaskStation(item.teamId, item.taskId);
@@ -56,7 +58,7 @@ export function InboxItemFooter({
         ) : null}
         <InboxComposer
           slug={slug}
-          itemId={item.id}
+          itemId={conversationId}
           taskId={item.taskId}
           station={item.station}
           teamId={item.teamId}

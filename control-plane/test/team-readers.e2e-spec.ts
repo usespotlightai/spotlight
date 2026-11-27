@@ -40,9 +40,11 @@ const inboxRequestsIn = async (userId: string): Promise<string[]> => {
 
   expect(answer.status).toBe(200);
 
-  return bodyOf<{ items: { id: string; inboxRequest: object | null }[] }>(
-    answer,
-  ).items.flatMap((each) => (each.inboxRequest ? [each.id] : []));
+  return bodyOf<{
+    items: { parts?: { id: string; form: string | null }[] }[];
+  }>(answer).items.flatMap((each) =>
+    (each.parts ?? []).flatMap((part) => (part.form === null ? [] : [part.id])),
+  );
 };
 
 const createInboxRequest = async (

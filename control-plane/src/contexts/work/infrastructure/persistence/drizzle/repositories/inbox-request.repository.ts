@@ -44,6 +44,7 @@ const toInboxRequest = (row: Row, reads: readonly ReadRow[]): InboxRequest =>
       InboxRequestRead.of({ by: UserId.of(each.userId), at: each.readAt }),
     ),
     resolvedAt: row.resolvedAt,
+    resolvedByAPerson: row.resolvedByAPerson,
     version: row.version,
   });
 
@@ -68,6 +69,7 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
           createdAt: added.createdAt,
           openedAt: added.openedAt,
           resolvedAt: added.resolvedAt,
+          resolvedByAPerson: added.resolvedByAPerson,
           version: added.version,
         });
       } catch (error) {
@@ -93,6 +95,7 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
         .set({
           openedAt: saved.openedAt,
           resolvedAt: saved.resolvedAt,
+          resolvedByAPerson: saved.resolvedByAPerson,
           version: saved.version + 1,
         })
         .where(

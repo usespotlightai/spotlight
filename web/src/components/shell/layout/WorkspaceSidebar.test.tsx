@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { WorkspaceSidebar } from '@/components/shell/layout/WorkspaceSidebar';
 
-const inbox = vi.fn<() => { unread: boolean }[] | undefined>();
+const inbox =
+  vi.fn<() => { unread: boolean; unreadCount: number }[] | undefined>();
 
 vi.mock('@/hooks/api/useInbox', () => ({
   useInbox: () => ({ data: inbox() }),
@@ -35,22 +36,22 @@ const renderSidebar = () =>
   );
 
 describe('WorkspaceSidebar', () => {
-  it('says that the inbox badge counts the unread items', () => {
+  it('counts in the badge everything unread, as the items count it', () => {
     inbox.mockReturnValue([
-      { unread: true },
-      { unread: false },
-      { unread: true },
+      { unread: true, unreadCount: 4 },
+      { unread: false, unreadCount: 0 },
+      { unread: true, unreadCount: 1 },
     ]);
 
     renderSidebar();
 
     expect(
-      screen.getByRole('link', { name: /^Inbox\s*2 unread$/ }),
+      screen.getByRole('link', { name: /^Inbox\s*5 unread$/ }),
     ).toBeInTheDocument();
   });
 
   it('shows no badge while nothing is unread', () => {
-    inbox.mockReturnValue([{ unread: false }]);
+    inbox.mockReturnValue([{ unread: false, unreadCount: 0 }]);
 
     renderSidebar();
 

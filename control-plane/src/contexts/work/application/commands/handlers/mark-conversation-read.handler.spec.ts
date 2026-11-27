@@ -16,6 +16,7 @@ import type { TaskPlacementsPort } from '@work/application/ports/task-placements
 import { ConversationLoader } from '@work/application/services/conversation-loader.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
   lineMapOf,
@@ -150,6 +151,18 @@ describe('MarkConversationRead', () => {
     await expect(read(waiting(), 'user_2').done).rejects.toThrow(
       ApplicationError,
     );
+  });
+
+  it('reads again when another read of the same task landed first', async () => {
+    const { repository, done } = read(waiting());
+    repository.save.mockRejectedValueOnce(
+      new TaskVersionConflictError('task_1'),
+    );
+
+    await done;
+
+    expect(repository.save).toHaveBeenCalledTimes(2);
+    expect(saved?.notes[0]?.readAt).toEqual(NOW);
   });
 
   it('rejects a task that is not there', async () => {
