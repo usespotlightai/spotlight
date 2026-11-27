@@ -197,21 +197,33 @@ const sandboxIndex = fc.integer({ min: 0, max: 1 });
 
 const runIndex = fc.integer({ min: 0, max: RUNS.length - 1 });
 
-const action: fc.Arbitrary<Action> = fc.oneof(
+interface RunLine {
+  readonly line: string;
+  readonly fingerprint: string;
+}
+
+const runLine: fc.Arbitrary<RunLine> = fc.record({
+  line: fc.oneof(
+    { weight: 4, arbitrary: fc.constant(LINE) },
+    { weight: 1, arbitrary: fc.constant('line_2') },
+  ),
+  fingerprint: fc.oneof(
+    { weight: 4, arbitrary: fc.constant(SETUP) },
+    { weight: 1, arbitrary: fc.constant('setup_2') },
+  ),
+});
+
+type Step =
+  | { readonly kind: 'adopt'; readonly sandbox: number; readonly run: number }
+  | Exclude<Action, { kind: 'adopt' }>;
+
+const step: fc.Arbitrary<Step> = fc.oneof(
   {
     weight: 6,
     arbitrary: fc.record({
       kind: fc.constant('adopt' as const),
       sandbox: sandboxIndex,
       run: runIndex,
-      line: fc.oneof(
-        { weight: 4, arbitrary: fc.constant(LINE) },
-        { weight: 1, arbitrary: fc.constant('line_2') },
-      ),
-      fingerprint: fc.oneof(
-        { weight: 4, arbitrary: fc.constant(SETUP) },
-        { weight: 1, arbitrary: fc.constant('setup_2') },
-      ),
     }),
   },
   {
@@ -232,7 +244,22 @@ const action: fc.Arbitrary<Action> = fc.oneof(
   { weight: 1, arbitrary: fc.constant({ kind: 'sweep' as const }) },
 );
 
-const actions = fc.array(action, { minLength: 2, maxLength: 5 });
+const actions: fc.Arbitrary<readonly Action[]> = fc
+  .tuple(
+    fc.array(runLine, { minLength: RUNS.length, maxLength: RUNS.length }),
+    fc.array(step, { minLength: 2, maxLength: 5 }),
+  )
+  .map(([lines, steps]) =>
+    steps.map((each): Action => {
+      if (each.kind !== 'adopt') {
+        return each;
+      }
+
+      const { line, fingerprint } = lines[each.run];
+
+      return { ...each, line, fingerprint };
+    }),
+  );
 
 interface WarmRace {
   readonly place: Place;
