@@ -108,7 +108,7 @@ export const stopsRun = (
 
 type Station = Placed & { readonly name: string };
 
-export type MoveCommand = 'task.backlog' | 'task.station' | 'task.complete';
+type MoveCommand = 'task.backlog' | 'task.station' | 'task.complete';
 
 export type MoveOption = Station & {
   readonly command: MoveCommand;
