@@ -2,12 +2,15 @@ import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { RunRefused } from '@work/application/rendering/run-refused';
+import { HandoverFor } from '@work/domain/services/handover-for';
 import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { LineSource } from '@work/domain/value-objects/line-source.vo';
 import { ProfileMissing } from '@work/domain/value-objects/profile-missing.vo';
 import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
 import { RepositoriesMissing } from '@work/domain/value-objects/repositories-missing.vo';
+import { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { SecretAwaitingValue } from '@work/domain/value-objects/secret-awaiting-value.vo';
 import { SecretSandboxNotAllowed } from '@work/domain/value-objects/secret-sandbox-not-allowed.vo';
 import { describe, expect, it } from 'vitest';
@@ -102,5 +105,22 @@ describe('RunRefused', () => {
       expect(RunRefused.text(each)).not.toContain(each.code);
       expect(RunRefused.text(each)).not.toContain('Station:');
     }
+  });
+
+  it('reads, in the task’s note, as what did not start, why, what to do, and that an answer starts it again', () => {
+    const note = HandoverFor.outcome(
+      RunResult.of({
+        exitCode: -1,
+        failure: 'refused',
+        message: RunRefused.text(noRepository('Delivery')),
+        stopped: false,
+      }),
+      null,
+      StationName.of('Triage'),
+    ).body.value;
+
+    expect(note).toBe(
+      'Triage didn’t start. The Delivery line has no repository yet. Add one in your team’s Terraform, as a `repository` block on the line’s `spotlight_line`. If the team has no configuration as code yet, start with “Set up configuration as code” on the setup checklist. Then answer the task to start it again.',
+    );
   });
 });
