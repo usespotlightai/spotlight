@@ -7,6 +7,7 @@ import {
   resumedTo,
   heldUntilResumed,
   moveOnTargets,
+  nextOf,
 } from '@/lib/hold';
 import { station } from '@/mocks/world/stations';
 
@@ -37,6 +38,24 @@ describe('moveOnTargets', () => {
     expect(
       moveOnTargets([build, review, humans], build).map((each) => each.id),
     ).toEqual(['review']);
+  });
+});
+
+describe('nextOf', () => {
+  const spec = station({
+    id: 'spec',
+    key: 'spec',
+    name: 'Spec',
+    position: 0,
+    harness: 'claude-code',
+  });
+
+  it('picks the next station on the line before one the task came from', () => {
+    expect(nextOf([spec, review], build)?.id).toBe('review');
+  });
+
+  it('picks an earlier station when the line goes on to none', () => {
+    expect(nextOf([spec], build)?.id).toBe('spec');
   });
 });
 
