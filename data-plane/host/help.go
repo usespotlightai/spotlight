@@ -45,7 +45,7 @@ var initHelp = help.Command{
 	},
 	Flags: []help.Flag{
 		{Name: "url", Value: "<address>", Usage: "The Spotlight address. Default: https://app.usespotlight.ai."},
-		{Name: "token", Value: "<token>", Usage: "The pool's token, from the Runners page."},
+		{Name: "token", Value: "<token>", Usage: "The pool's token, from the Runners page. Without it, init reads SPOTLIGHT_POOL_TOKEN."},
 		{Name: "token-stdin", Usage: "Read the pool's token from stdin."},
 		{Name: "trust", Value: "<id>", Usage: "A runner trust. Use it in place of --token."},
 		{Name: "oidc-token-file", Value: "<path>", Usage: "The file with the OIDC token that the trust exchanges."},
@@ -61,6 +61,7 @@ var initHelp = help.Command{
 	Examples: []help.Example{
 		{Comment: "Pick the agents, keep their keys in Spotlight and build the image, in the terminal", Command: "spotlight host init"},
 		{Command: "spotlight host init --token $POOL_TOKEN --capacity 8 --yes"},
+		{Comment: "Keep the token out of the command line and the shell history", Command: "read -rs SPOTLIGHT_POOL_TOKEN && export SPOTLIGHT_POOL_TOKEN && spotlight host init"},
 	},
 	Notes: []string{
 		"With no flags in a terminal, init logs in, makes a pull pool for this host, keeps each agent's key as a workspace secret, and builds the image with the agents. That needs a workspace admin.",
