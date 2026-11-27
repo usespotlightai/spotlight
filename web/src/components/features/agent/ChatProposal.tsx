@@ -15,6 +15,7 @@ type ChatProposalProps = {
   chatId: string;
   position: number;
   proposal: Proposal;
+  waitsFor?: readonly string[];
   attachments: readonly Attachment[];
   awaiting: RefObject<Set<number>>;
 };
@@ -25,6 +26,7 @@ export function ChatProposal({
   chatId,
   position,
   proposal,
+  waitsFor = [],
   attachments,
   awaiting,
 }: ChatProposalProps) {
@@ -48,6 +50,7 @@ export function ChatProposal({
       slug={slug}
       teamId={teamId}
       proposal={proposal}
+      waitsFor={waitsFor}
       attachments={attachments}
       pending={pending}
       onCreate={() => {

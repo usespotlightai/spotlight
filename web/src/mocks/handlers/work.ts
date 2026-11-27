@@ -4,6 +4,7 @@ import type {
   AddTaskRequestDto,
   AnswerQuestionRequestDto,
   AssignTaskRequestDto,
+  BlockTaskRequestDto,
   AttachmentResponseDto,
   ChangeStackResponseDto,
   GrantAttachmentUploadRequestDto,
@@ -249,6 +250,8 @@ export const workHandlers: RequestHandler[] = [
         hold: null,
         runNotStarted: null,
         handMoves: [],
+        blockedBy: [],
+        blockable: false,
       };
 
       world().tasks[teamId] = [...(world().tasks[teamId] ?? []), task];
@@ -379,6 +382,30 @@ export const workHandlers: RequestHandler[] = [
           : null,
       };
       replaceTask(teamId, assigned);
+      seenAgain(teamId, task.id);
+
+      return json(findTask(teamId, task.id));
+    },
+  ),
+
+  api.put<BlockTaskRequestDto>(
+    '/teams/:teamId/tasks/:taskId/blocked-by',
+    async ({ params, request }) => {
+      const teamId = String(params.teamId);
+      const task = findTask(teamId, String(params.taskId));
+      const { blockedBy } = await request.json();
+      const blockers = blockedBy.map((id) => findTask(teamId, id));
+
+      if (!task || blockers.some((each) => !each)) {
+        return notFound();
+      }
+
+      replaceTask(teamId, {
+        ...task,
+        blockedBy: blockers.flatMap((each) =>
+          each ? [{ id: each.id, title: each.title, teamId }] : [],
+        ),
+      });
       seenAgain(teamId, task.id);
 
       return json(findTask(teamId, task.id));

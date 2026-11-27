@@ -153,6 +153,8 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   hold: null,
   runNotStarted: null,
   handMoves: [],
+  blockedBy: [],
+  blockable: false,
 });
 
 const seenRunOf = (run: HistoryRun): TaskRunResponseDto => {

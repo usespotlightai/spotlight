@@ -18,6 +18,7 @@ const task = (over: Partial<Task> = {}) =>
     awaitingReview: null,
     waitingForYou: false,
     note: null,
+    blockedBy: [],
     ...over,
   });
 
@@ -49,6 +50,18 @@ describe('TaskState', () => {
 
     expect(screen.getByText('On hold')).toBeInTheDocument();
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();
+  });
+
+  it('says which task a blocked task waits for', () => {
+    renderIn(
+      <TaskState
+        task={task({
+          blockedBy: [{ id: 'task_0', title: 'Web 1/4', teamId: 'team_1' }],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Waiting for Web 1/4')).toBeInTheDocument();
   });
 
   it('says nothing about a task that is simply waiting its turn', () => {

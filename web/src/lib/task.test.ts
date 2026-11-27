@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  blockerCandidates,
   handMoveDenial,
   handMoveHint,
   mayLand,
@@ -8,6 +9,7 @@ import {
   placed,
   stopsRun,
   type Task,
+  waitingFor,
 } from '@/lib/task';
 
 const task = (
@@ -35,6 +37,8 @@ const task = (
   hold: null,
   runNotStarted: null,
   handMoves,
+  blockedBy: [],
+  blockable: false,
 });
 
 const board = [task('a', 'triage'), task('b', 'triage'), task('c', 'spec')];
@@ -266,5 +270,42 @@ describe('moveOptionsFor', () => {
 
   it('offers nothing until something is picked', () => {
     expect(names([task('a', 'build')], [])).toEqual([]);
+  });
+});
+
+describe('a task blocked by others', () => {
+  const blocked = (titles: readonly string[]): Task => ({
+    ...task('d', 'backlog'),
+    blockedBy: titles.map((title) => ({
+      id: `id_${title}`,
+      title,
+      teamId: 'team_1',
+    })),
+  });
+
+  it('says what it waits for', () => {
+    expect(waitingFor(blocked(['Web 1/4']))).toBe('Waiting for Web 1/4');
+    expect(waitingFor(blocked(['Web 1/4', 'Web 2/4']))).toBe(
+      'Waiting for 2 tasks',
+    );
+    expect(waitingFor(blocked([]))).toBeNull();
+  });
+
+  it('says why it cannot be moved on by hand', () => {
+    expect(handMoveHint(denied('triage', 'blocked'), [])).toBe(
+      'Waits for the tasks it is blocked by',
+    );
+  });
+
+  it('offers as blockers the other open tasks only', () => {
+    const done = { ...task('e', 'completed'), finished: true };
+
+    expect(
+      blockerCandidates(task('a', 'backlog'), [
+        task('a', 'backlog'),
+        task('b', 'triage'),
+        done,
+      ]).map((each) => each.id),
+    ).toEqual(['b']);
   });
 });

@@ -309,6 +309,16 @@ const PROPOSAL_TITLES: Record<Proposal['state'], string> = {
 export const proposalTitleOf = (proposal: Proposal): string =>
   PROPOSAL_TITLES[proposal.state];
 
+export const proposalsWaitedFor = (
+  messages: readonly ChatMessage[],
+  proposal: Proposal,
+): string[] =>
+  proposal.blockedBy.flatMap((position) => {
+    const earlier = messages.find((each) => each.position === position);
+
+    return earlier?.proposal ? [earlier.proposal.title] : [];
+  });
+
 export const proposedStationOf = (proposal: Proposal): string | null =>
   nonEmpty(proposal.stationName)
     ? [proposal.lineName, proposal.stationName].filter(Boolean).join(' › ')

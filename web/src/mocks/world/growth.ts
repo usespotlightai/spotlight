@@ -99,6 +99,8 @@ const task = (
   hold: null,
   runNotStarted: null,
   handMoves: [],
+  blockedBy: [],
+  blockable: false,
   createdBy: PRIYA,
   assignee: PRIYA,
   note: null,

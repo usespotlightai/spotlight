@@ -29,6 +29,8 @@ const task = {
   handMoves: opens(['station_0', 'station_1', 'station_3']),
   createdAt: '2026-08-04T09:15:00.000Z',
   pullRequests: [],
+  blockedBy: [],
+  blockable: false,
 };
 
 const worked = vi.fn((): unknown[] => []);
@@ -49,6 +51,7 @@ vi.mock('@/hooks/api/useStopRun', () => ({
 }));
 
 vi.mock('@/hooks/api/useTasks', () => ({
+  useTasks: () => ({ data: listed() }),
   useTask: (_teamId: string, taskId: string) => ({
     data: listed()?.find((each) => each.id === taskId),
     isPending: listed() === undefined,
@@ -74,6 +77,9 @@ vi.mock('@/hooks/api/useMembers', () => ({
 }));
 vi.mock('@/hooks/api/useAssignTask', () => ({
   useAssignTask: () => ({ mutate: vi.fn() }),
+}));
+vi.mock('@/hooks/api/useBlockTask', () => ({
+  useBlockTask: () => ({ mutate: vi.fn() }),
 }));
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [] }),
@@ -427,6 +433,25 @@ describe('Task', () => {
 
     expect(screen.getByRole('button', { name: /Station/ })).toHaveTextContent(
       'Triage',
+    );
+  });
+
+  it('says what a blocked task waits for, and leads to it', () => {
+    listed.mockReturnValue([
+      {
+        ...task,
+        stationId: 'station_0',
+        blockedBy: [{ id: 'task_0', title: 'Web 1/4', teamId: 'team_1' }],
+      },
+    ]);
+    renderAt('task_1');
+
+    expect(
+      screen.getByRole('button', { name: 'Blocked by' }),
+    ).toHaveTextContent('Blocked by Web 1/4');
+    expect(screen.getByRole('link', { name: 'Web 1/4' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/tasks/task_0',
     );
   });
 

@@ -179,6 +179,7 @@ const proposalAt = (
     stationCount: line?.stations.length ?? null,
     state: 'open',
     taskId: null,
+    blockedBy: [],
     ...over,
   };
 };

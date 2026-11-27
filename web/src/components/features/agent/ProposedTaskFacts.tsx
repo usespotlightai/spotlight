@@ -13,14 +13,18 @@ type ProposedTaskFactsProps = {
   slug: string;
   teamId: string;
   proposal: Proposal;
+  waitsFor?: readonly string[];
   attachments: readonly Attachment[];
   titleId: string;
 };
+
+const NAMES = new Intl.ListFormat('en', { type: 'conjunction' });
 
 export function ProposedTaskFacts({
   slug,
   teamId,
   proposal,
+  waitsFor = [],
   attachments,
   titleId,
 }: ProposedTaskFactsProps) {
@@ -72,6 +76,15 @@ export function ProposedTaskFacts({
           )}
         </dd>
       </FactRow>
+
+      {waitsFor.length > 0 && (
+        <FactRow>
+          <dt className={FACT_LABEL}>Waits for</dt>
+          <dd>
+            <p className={FACT_VALUE}>{NAMES.format(waitsFor)}</p>
+          </dd>
+        </FactRow>
+      )}
 
       {!made && nonEmpty(proposal.description) && (
         <FactRow>
