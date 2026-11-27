@@ -74,6 +74,26 @@ const countOf = (value: unknown): number | null =>
     : null;
 
 const DETAIL_LIMIT = 4_000;
+const OUTPUT_HEAD = 1_000;
+const OUTPUT_TAIL = 2_900;
+
+const headAndTail = (output: string): string => {
+  if (output.length <= DETAIL_LIMIT) {
+    return output;
+  }
+
+  const headEnd = output.lastIndexOf('\n', OUTPUT_HEAD - 1) + 1 || OUTPUT_HEAD;
+  const afterLine = output.indexOf('\n', output.length - OUTPUT_TAIL - 1) + 1;
+  const tailStart = Math.max(
+    headEnd,
+    afterLine > 0 && afterLine < output.length
+      ? afterLine
+      : output.length - OUTPUT_TAIL,
+  );
+  const lines = output.slice(headEnd, tailStart).split('\n').length - 1 || 1;
+
+  return `${output.slice(0, headEnd)}… ${lines} ${lines === 1 ? 'line' : 'lines'} omitted …\n${output.slice(tailStart)}`;
+};
 
 const priced = (cost: ContextChanged['cost']): Money | null =>
   cost?.currency && Money.isCurrency(cost.currency)
@@ -516,9 +536,7 @@ export class JournalBuilder {
     step.status = failed === true ? 'failed' : 'completed';
     step.endedAt = event.at;
     step.detail =
-      typeof output === 'string' && output
-        ? output.slice(0, DETAIL_LIMIT)
-        : null;
+      typeof output === 'string' && output ? headAndTail(output) : null;
   }
 
   private runnerStep(event: Journalled): Building {
