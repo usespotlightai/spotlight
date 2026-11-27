@@ -23,6 +23,7 @@ export function useCreateRunnerPool(
 
   return useMutation({
     mutationKey: ['runner-pools', 'create'],
+    meta: { quiet: true },
     mutationFn: async (key: string): Promise<CreatedRunnerPool> => {
       const { data, error, response } = await createRunnerPool({
         path: { workspaceId },

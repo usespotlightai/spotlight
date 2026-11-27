@@ -91,8 +91,8 @@ export const runnersPath = (slug: string): string =>
 
 export const addHostPath = (slug: string): string => `${runnersPath(slug)}/new`;
 
-export const installCommand = (token: string): string =>
-  `curl -fsSL ${window.location.origin}/api/install.sh | sh -s -- --token ${token}`;
+export const installCommand = (): string =>
+  `sh -c 'printf "Pool token: "; stty -echo; read -r SPOTLIGHT_POOL_TOKEN; stty echo; echo; export SPOTLIGHT_POOL_TOKEN; curl -fsSL ${window.location.origin}/api/install.sh | sh'`;
 
 export const onlineCount = (fleet: Fleet): number =>
   fleet.hosts.filter((host) => host.online).length;

@@ -117,9 +117,10 @@ const reviewing = (
 ) => created(LineRole.REVIEW, over, repositories);
 
 const requested = (
-  trigger: 'opened' | 'mentioned',
+  trigger: 'opened' | 'mentioned' | 'labelled',
   over: {
     body?: string;
+    label?: string;
     draft?: boolean;
     branch?: string | null;
     outside?: boolean;
@@ -146,6 +147,7 @@ const requested = (
       marks,
       review: {
         trigger,
+        label: over.label ?? null,
         pullRequest,
         author: 'octocat',
         outside: over.outside ?? true,
@@ -382,7 +384,7 @@ describe('ReactToHappenings, with a review request', () => {
     expect(added).toHaveLength(1);
   });
 
-  it('skips a pull request from a branch a task of Spotlight’s holds, unless told not to', async () => {
+  it('skips a pull request from a branch a task of Spotlight’s holds, unless told not to or a person labels it', async () => {
     const delivery = created(LineRole.DELIVERY);
     const own = Task.add({
       line: delivery,
@@ -412,6 +414,15 @@ describe('ReactToHappenings, with a review request', () => {
     });
     await reviewingOwn.react(requested('opened', { branch: own.branch.value }));
     expect(reviewingOwn.added).toHaveLength(1);
+
+    const labelling = world({
+      lines: [delivery, reviewing({ reviews: policy('opened') })],
+      findByCorrelation: holding,
+    });
+    await labelling.react(
+      requested('labelled', { label: 'spotlight', branch: own.branch.value }),
+    );
+    expect(labelling.added).toHaveLength(1);
   });
 
   it('skips a pull request a task of Spotlight’s opened, however its branch is named', async () => {

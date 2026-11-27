@@ -66,7 +66,7 @@ export class ReviewIntake {
       return false;
     }
 
-    if (this.skip.spotlight && request.ours) {
+    if (this.skip.spotlight && request.ours && request.trigger !== 'labelled') {
       return false;
     }
 

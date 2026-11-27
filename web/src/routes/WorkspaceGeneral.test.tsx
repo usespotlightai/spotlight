@@ -54,7 +54,9 @@ describe('WorkspaceGeneral', () => {
       screen.getByRole('heading', { level: 1, name: 'General' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Acme Inc.')).toBeVisible();
-    expect(screen.getByText('usespotlight.ai/w/acme-inc')).toBeVisible();
+    expect(
+      screen.getByText(`${window.location.host}/w/acme-inc`),
+    ).toBeVisible();
   });
 
   it('keeps the place of the name while the workspace loads', () => {
