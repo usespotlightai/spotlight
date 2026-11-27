@@ -3,9 +3,11 @@ import {
   type RunCheckoutShape,
   type RunCommandShape,
   type RunResumeShape,
+  type RunSpecShape,
   TRACE_PARENT_VAR,
 } from '@runs/application/contracts/run-spec.contract';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import type { OrderedHandover } from '@work/domain/services/run-order';
 
 export interface ProxiedCheckout {
   readonly path: string;
@@ -26,6 +28,20 @@ export const RunSpecPartsMapper = {
       ...(nonEmpty(checkout.ref) ? { ref: checkout.ref } : {}),
       ...(checkout.diffOf ? { diffOf: checkout.diffOf } : {}),
       ...(nonEmpty(checkout.setup) ? { setup: checkout.setup } : {}),
+    };
+  },
+
+  handover({
+    options,
+    resumeOptions,
+    noteLimit,
+  }: OrderedHandover): RunSpecShape['handover'] {
+    return {
+      options: options.map((each) => each.word),
+      ...(resumeOptions.length > 0
+        ? { resumeOptions: resumeOptions.map((each) => each.word) }
+        : {}),
+      noteLimit,
     };
   },
 

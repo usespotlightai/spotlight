@@ -20,7 +20,7 @@ export function HoldMarker({ note }: { note: Note }) {
         data-slot="hold-marker"
         className="text-center text-muted-foreground text-xs"
       >
-        {who} put the task on hold.
+        {who} put the task on hold. The line waits until someone resumes it.
       </p>
     );
   }

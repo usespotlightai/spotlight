@@ -42,6 +42,7 @@ export interface RunCommand {
 
 interface RunHandover {
   readonly options: readonly string[];
+  readonly resumeOptions?: readonly string[];
   readonly noteLimit: number;
 }
 
@@ -238,6 +239,10 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   briefing: parts.briefing,
   handover: {
     options: [...parts.handover.options],
+    ...(parts.handover.resumeOptions !== undefined &&
+    parts.handover.resumeOptions.length > 0
+      ? { resumeOptions: [...parts.handover.resumeOptions] }
+      : {}),
     noteLimit: parts.handover.noteLimit,
   },
   resume: {
