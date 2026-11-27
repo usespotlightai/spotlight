@@ -16,6 +16,13 @@ const QUALIFIED: JudgeCalibration = {
   hiddenReason: null,
 };
 
+const FAILING: JudgeCalibration = {
+  ...QUALIFIED,
+  qualified: false,
+  agreement: 0.2,
+  hiddenReason: 'below-min-agreement',
+};
+
 const claimWrong = (claim: number): AnsweredDisagreement => ({
   claimsWrong: [claim],
   pointsToNoClaim: false,
@@ -48,18 +55,22 @@ describe('revisionTriggerOf', () => {
     ).toBeNull();
   });
 
-  it('starts when the calibration fails on enough pairs', () => {
+  it('starts when the calibration fails on enough pairs and a person answered', () => {
+    expect(
+      revisionTriggerOf({
+        answers: [claimWrong(1)],
+        calibration: FAILING,
+      }),
+    ).toBe('calibration-failed');
+  });
+
+  it('waits for an answer before it revises claims of a failing calibration', () => {
     expect(
       revisionTriggerOf({
         answers: [],
-        calibration: {
-          ...QUALIFIED,
-          qualified: false,
-          agreement: 0.2,
-          hiddenReason: 'below-min-agreement',
-        },
+        calibration: FAILING,
       }),
-    ).toBe('calibration-failed');
+    ).toBeNull();
   });
 
   it.each(['no-agreement', 'unreadable-rubric'] as const)(
