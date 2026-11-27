@@ -128,6 +128,7 @@ export function NewTaskDialog({
               }}
               placeholder="Task title"
               aria-label="Task title"
+              maxLength={200}
               className="font-medium text-base text-foreground leading-6"
             />
 

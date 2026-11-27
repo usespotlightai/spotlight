@@ -142,23 +142,32 @@ describe('NewTaskDialog', () => {
     expect(create()).toBeDisabled();
   });
 
-  it('keeps a title the server refuses and says why', async () => {
+  it('stops the title at 200 characters', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(title());
+    await user.paste('x'.repeat(200));
+    await user.type(title(), 'more');
+
+    expect(title()).toHaveValue('x'.repeat(200));
+  });
+
+  it('keeps the draft the server refuses and says why', async () => {
     const user = userEvent.setup();
     created.mockRejectedValue({
       statusCode: 422,
-      message: 'Task title must be at most 200 characters.',
+      message: 'Station is not accepting tasks.',
     });
     renderDialog();
 
-    const long = `${'x'.repeat(300)} end`;
-    await user.click(title());
-    await user.paste(long);
+    await user.type(title(), 'Fix the queue');
     await user.click(create());
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Task title must be at most 200 characters.',
+      'Station is not accepting tasks.',
     );
-    expect(title()).toHaveValue(long);
+    expect(title()).toHaveValue('Fix the queue');
   });
 
   it('creates the task on Cmd+Enter in the title', async () => {
