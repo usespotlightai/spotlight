@@ -8,7 +8,8 @@ export type SearchPolicyField =
   | 'cooldown'
   | 'iterations'
   | 'repeats'
-  | 'objective';
+  | 'objective'
+  | 'requestsPerDay';
 
 const TERRAFORM_NAMES: Readonly<Record<SearchPolicyField, string>> = {
   monthlyCeiling: 'monthly_ceiling',
@@ -19,6 +20,7 @@ const TERRAFORM_NAMES: Readonly<Record<SearchPolicyField, string>> = {
   iterations: 'iterations',
   repeats: 'repeats',
   objective: 'objective',
+  requestsPerDay: 'requests_per_day',
 };
 
 export class InvalidSearchPolicyError extends DomainError {

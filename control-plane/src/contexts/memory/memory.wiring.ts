@@ -31,6 +31,7 @@ import { RecordRecallHandler } from '@memory/application/commands/handlers/recor
 import { RejectMemoryHandler } from '@memory/application/commands/handlers/reject-memory.handler';
 import { RememberHandler } from '@memory/application/commands/handlers/remember.handler';
 import { RestoreMemoryHandler } from '@memory/application/commands/handlers/restore-memory.handler';
+import { RestoreTeamMemoryHandler } from '@memory/application/commands/handlers/restore-team-memory.handler';
 import { RetireMemoryHandler } from '@memory/application/commands/handlers/retire-memory.handler';
 import { WriteMemoryHandler } from '@memory/application/commands/handlers/write-memory.handler';
 import { RecordDeliveryCommand } from '@memory/application/commands/record-delivery.command';
@@ -38,8 +39,10 @@ import { RecordRecallCommand } from '@memory/application/commands/record-recall.
 import { RejectMemoryCommand } from '@memory/application/commands/reject-memory.command';
 import { RememberCommand } from '@memory/application/commands/remember.command';
 import { RestoreMemoryCommand } from '@memory/application/commands/restore-memory.command';
+import { RestoreTeamMemoryCommand } from '@memory/application/commands/restore-team-memory.command';
 import { RetireMemoryCommand } from '@memory/application/commands/retire-memory.command';
 import { WriteMemoryCommand } from '@memory/application/commands/write-memory.command';
+import { DuplicateCheckReactions } from '@memory/application/events/handlers/duplicate-check-reactions.handler';
 import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import { UpkeepReactions } from '@memory/application/events/handlers/upkeep-reactions.handler';
 import { MEMORY_EVENT_MAPPERS } from '@memory/application/integration-events/memory.event-mappers';
@@ -58,6 +61,10 @@ import {
   type MemoryUsesPort,
 } from '@memory/application/ports/memory-uses.port';
 import { PEOPLE, type PeoplePort } from '@memory/application/ports/people.port';
+import {
+  PROPOSAL_COMPARER,
+  type ProposalComparerPort,
+} from '@memory/application/ports/proposal-comparer.port';
 import {
   REPOSITORY_PATHS,
   type RepositoryPathsPort,
@@ -99,6 +106,7 @@ import { DeleteMemoryProposalSet } from '@memory/application/services/delete-mem
 import { DeleteTeamMemories } from '@memory/application/services/delete-team-memories.service';
 import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
+import { MemoryDuplicateChecks } from '@memory/application/services/memory-duplicate-checks.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { MemoryUpkeepSweeps } from '@memory/application/services/memory-upkeep-sweeps.service';
 import { RecalledMemoryViews } from '@memory/application/services/recalled-memory-views.service';
@@ -108,7 +116,12 @@ import { RunProposing } from '@memory/application/services/run-proposing.service
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import { TeamMemoryLoader } from '@memory/application/services/team-memory-loader.service';
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
+import { WakeDuplicateChecks } from '@memory/application/services/wake-duplicate-checks.service';
 import { WakeUpkeepSweeps } from '@memory/application/services/wake-upkeep-sweeps.service';
+import {
+  DUPLICATE_CHECKS,
+  type DuplicateCheckRepository,
+} from '@memory/domain/repositories/duplicate-check.repository';
 import {
   MEMORY_PROPOSAL_SETS,
   type MemoryProposalSetRepository,
@@ -131,7 +144,9 @@ import { TeamHostRunsAdapter } from '@memory/infrastructure/acl/team-host-runs.a
 import { UpkeepNotices } from '@memory/infrastructure/acl/upkeep-notices.adapter';
 import { Work } from '@memory/infrastructure/acl/work.adapter';
 import { AssistMemoryConsolidator } from '@memory/infrastructure/consolidation/assist-memory-consolidator';
+import { AssistProposalComparer } from '@memory/infrastructure/duplicates/assist-proposal-comparer';
 import { MEMORY_PAYLOAD_TYPES } from '@memory/infrastructure/events/memory-payload-types';
+import { DrizzleDuplicateCheckRepository } from '@memory/infrastructure/persistence/drizzle/repositories/duplicate-check.repository';
 import { DrizzleMemoryListing } from '@memory/infrastructure/persistence/drizzle/repositories/memory-listing.reader';
 import { DrizzleMemoryProposalSetRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-proposal-set.repository';
 import { DrizzleMemoryRelevance } from '@memory/infrastructure/persistence/drizzle/repositories/memory-relevance.reader';
@@ -264,6 +279,72 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     inject: [ASSIST_SESSIONS],
     useFactory: (sessions: AssistSessionsPort) =>
       new AssistMemoryConsolidator(sessions),
+  },
+  { provide: DUPLICATE_CHECKS, useClass: DrizzleDuplicateCheckRepository },
+  {
+    provide: PROPOSAL_COMPARER,
+    inject: [ASSIST_SESSIONS],
+    useFactory: (sessions: AssistSessionsPort) =>
+      new AssistProposalComparer(sessions),
+  },
+  {
+    provide: WakeDuplicateChecks,
+    inject: [PROPOSAL_COMPARER, DUPLICATE_CHECKS, TRANSACTION, CLOCK],
+    useFactory: (
+      comparer: ProposalComparerPort,
+      checks: DuplicateCheckRepository,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new WakeDuplicateChecks(comparer, checks, transaction, clock),
+  },
+  {
+    provide: DuplicateCheckReactions,
+    inject: [MEMORY_PROPOSAL_SETS, DUPLICATE_CHECKS, TRANSACTION, CLOCK],
+    useFactory: (
+      sets: MemoryProposalSetRepository,
+      checks: DuplicateCheckRepository,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new DuplicateCheckReactions(sets, checks, transaction, clock),
+  },
+  {
+    provide: MemoryDuplicateChecks,
+    inject: [
+      DUPLICATE_CHECKS,
+      MEMORY_PROPOSAL_SETS,
+      MEMORIES,
+      LINES,
+      PROPOSAL_COMPARER,
+      CLOCK,
+      LOGGER,
+      TRANSACTION,
+      ERROR_REPORTS,
+      TELEMETRY,
+    ],
+    useFactory: (
+      checks: DuplicateCheckRepository,
+      sets: MemoryProposalSetRepository,
+      memories: MemoryRepository,
+      lines: LinesPort,
+      comparer: ProposalComparerPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+      transaction: TransactionPort,
+      reports: ErrorReportsPort,
+      telemetry: TelemetryPort,
+    ) =>
+      new MemoryDuplicateChecks(
+        checks,
+        sets,
+        memories,
+        lines,
+        comparer,
+        clock,
+        logger,
+        transaction,
+        reports,
+        telemetry,
+      ),
   },
   {
     provide: TEAM_HOST_RUNS,
@@ -416,12 +497,13 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: MemoryReviews,
-    inject: [WORK, PEOPLE, MEMORIES],
+    inject: [WORK, PEOPLE, MEMORIES, DUPLICATE_CHECKS],
     useFactory: (
       work: WorkPort,
       people: PeoplePort,
       memories: MemoryRepository,
-    ) => new MemoryReviews(work, people, memories),
+      checks: DuplicateCheckRepository,
+    ) => new MemoryReviews(work, people, memories, checks),
   },
   {
     provide: MemoryReactions,
@@ -522,6 +604,13 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     TRANSACTION,
     CLOCK,
   ]),
+  ...bindCommandHandler(RestoreTeamMemoryCommand, RestoreTeamMemoryHandler, [
+    MemoryAccess,
+    TeamMemoryLoader,
+    MEMORIES,
+    TRANSACTION,
+    CLOCK,
+  ]),
   ...bindQueryHandler(ListTeamMemoriesQuery, ListTeamMemoriesHandler, [
     MemoryAccess,
     MEMORY_LISTING,
@@ -591,19 +680,30 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: DeleteTeamMemories,
-    inject: [MEMORIES, TRANSACTION, MEMORY_UPKEEPS, MEMORY_UPKEEP_SCHEDULES],
+    inject: [
+      MEMORIES,
+      TRANSACTION,
+      MEMORY_UPKEEPS,
+      MEMORY_UPKEEP_SCHEDULES,
+      DUPLICATE_CHECKS,
+    ],
     useFactory: (
       memories: MemoryRepository,
       transaction: TransactionPort,
       upkeeps: MemoryUpkeepRepository,
       schedules: MemoryUpkeepScheduleRepository,
-    ) => new DeleteTeamMemories(memories, transaction, upkeeps, schedules),
+      checks: DuplicateCheckRepository,
+    ) =>
+      new DeleteTeamMemories(memories, transaction, upkeeps, schedules, checks),
   },
   {
     provide: PendingJobWorker,
-    inject: [MemoryUpkeepSweeps, LOGGER],
-    useFactory: (sweeps: MemoryUpkeepSweeps, logger: LoggerPort) =>
-      new PendingJobWorker([sweeps], logger),
+    inject: [MemoryUpkeepSweeps, MemoryDuplicateChecks, LOGGER],
+    useFactory: (
+      sweeps: MemoryUpkeepSweeps,
+      checks: MemoryDuplicateChecks,
+      logger: LoggerPort,
+    ) => new PendingJobWorker([sweeps, checks], logger),
   },
   {
     provide: MEMORY_EVENTS,
@@ -617,6 +717,8 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       RecordRunMemoryUses,
       UpkeepReactions,
       WakeUpkeepSweeps,
+      DuplicateCheckReactions,
+      WakeDuplicateChecks,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -628,6 +730,8 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       recording: RecordRunMemoryUses,
       upkeep: UpkeepReactions,
       waking: WakeUpkeepSweeps,
+      checking: DuplicateCheckReactions,
+      wakingChecks: WakeDuplicateChecks,
     ) => {
       types.register('memory', MEMORY_PAYLOAD_TYPES);
       mappers.register(MEMORY_EVENT_MAPPERS);
@@ -639,6 +743,8 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
           recording,
           upkeep,
           waking,
+          checking,
+          wakingChecks,
         ),
       );
       return true;

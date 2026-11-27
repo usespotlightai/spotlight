@@ -169,6 +169,7 @@ export class StartSearch {
           inSet: set.entries.map((each) => each.taskId),
           at,
           cooldownMilliseconds: beginning.policy.cooldownMilliseconds,
+          requestsPerDay: beginning.policy.requestsPerDay,
         }),
       );
 

@@ -234,7 +234,7 @@ const pulling = (
       at: Date,
       start: () => Promise<T | null>,
     ) => (roomForWarmOn(host, at) ? start() : null),
-    drainWarmOn: vi.fn(
+    drainIdleOn: vi.fn(
       async (_: string, __: Date, runWaits: () => Promise<boolean>) => {
         drained.push(await runWaits());
       },
@@ -572,6 +572,38 @@ describe('ClaimHostWorkHandler', () => {
         outcome: 'claimed',
       });
       expect(sandboxes.drain).not.toHaveBeenCalled();
+    });
+
+    it('asks its host to drain an idle sandbox when it finds no run of its key and a fresh sandbox would take a waiting run', async () => {
+      const { handler, waitsFor, drained, runners } = pulling({
+        taking: live,
+        liveKeys: ['requester/subject-task_1'],
+        waits: true,
+      });
+
+      expect(await handler.execute(into())).toEqual({ outcome: 'nothing' });
+      expect(waitsFor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sandbox: {
+            avoiding: [WorkingCopyKey.parse('requester/subject-task_1')],
+          },
+        }),
+        expect.any(Date),
+      );
+      expect(drained).toEqual([true]);
+      expect(runners.release).toHaveBeenCalled();
+    });
+
+    it('drains no sandbox once it took a run of its key', async () => {
+      const { handler, warmSlots } = pulling({
+        run: taken(),
+        taking: live,
+        waits: true,
+      });
+
+      await handler.execute(into());
+
+      expect(warmSlots.drainIdleOn).not.toHaveBeenCalled();
     });
 
     it('takes no check', async () => {
@@ -1054,7 +1086,7 @@ describe('ClaimHostWorkHandler', () => {
       await handler.execute(into());
 
       expect(waitsFor).not.toHaveBeenCalled();
-      expect(warmSlots.drainWarmOn).not.toHaveBeenCalled();
+      expect(warmSlots.drainIdleOn).not.toHaveBeenCalled();
     });
 
     it('puts the run back and releases the runner when adopting the warm sandbox fails', async () => {

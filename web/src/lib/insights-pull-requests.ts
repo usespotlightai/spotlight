@@ -246,7 +246,7 @@ const PULL_REQUEST_TYPE_SOURCE =
 
 export const TIME_TO_MERGE_NOTE = `Time from when a pull request opens to its merge, at the chosen percentile. ${SPOTLIGHT_COMPARED_WITH_PEOPLE}`;
 
-export const MERGE_BY_TYPE_NOTE = `Time to merge for each pull request type. ${PULL_REQUEST_TYPE_SOURCE}`;
+export const MERGE_BY_TYPE_NOTE = `Time to merge for each pull request type. ${SPOTLIGHT_COMPARED_WITH_PEOPLE} ${PULL_REQUEST_TYPE_SOURCE}`;
 
 export const WEEK_BY_WEEK_NOTE =
   'Merged pull requests each week, by who made them: Spotlight, others with a Spotlight review task, people alone, bots alone.';
@@ -256,8 +256,7 @@ export const BY_REPOSITORY_NOTE =
 
 export const TYPES_NOTE = `Merged pull requests by type, with Spotlight’s run cost for each type. ${SPOTLIGHT_COMPARED_WITH_PEOPLE} ${PULL_REQUEST_TYPE_SOURCE}`;
 
-export const REVIEW_DEPTH_NOTE =
-  'Review rounds per merged pull request. A person’s approval or change request is a round. Comments after the last round add one more round. Dismissed reviews don’t count.';
+export const REVIEW_DEPTH_NOTE = `Review rounds per merged pull request. ${SPOTLIGHT_COMPARED_WITH_PEOPLE} A person’s approval or change request is a round. Comments after the last round add one more round. Dismissed reviews don’t count.`;
 
 export const PULL_REQUEST_LIST_NOTE =
   'Pull requests in the team’s repositories: opened or closed this period, or still open. Latest first.';

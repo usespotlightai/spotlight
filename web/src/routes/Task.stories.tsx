@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { EDITOR_NAMES, type EditorApp } from '@/lib/editor';
+import { world } from '@/mocks/world';
 import { onHoldBy } from '@/mocks/world/holds';
 import { MAYA, SAM } from '@/mocks/world/people';
 import { choice, type PageArgs, pageStory } from '@/stories/application';
@@ -14,9 +15,22 @@ type TaskArgs = {
   readonly preferred: EditorApp;
   readonly editor: 'closed' | 'menu' | 'setup';
   readonly hold: 'none' | 'taken' | 'yours';
+  readonly sendBack: 'none' | 'menu' | 'dialog';
 };
 
 const TEAM = 'team_platform';
+
+const finishedAtReview = (taskId: string) => {
+  world().tasks[TEAM] = (world().tasks[TEAM] ?? []).map((each) =>
+    each.id === taskId
+      ? {
+          ...each,
+          awaitingReview: null,
+          finished: true,
+        }
+      : each,
+  );
+};
 
 const meta = {
   title: 'Team/Lines/Task',
@@ -28,6 +42,7 @@ const meta = {
       preferred: 'vscode',
       editor: 'closed',
       hold: 'none',
+      sendBack: 'none',
     },
     argTypes: {
       task: choice('Task', {
@@ -47,8 +62,13 @@ const meta = {
         taken: 'On hold by someone else',
         yours: 'On hold by you',
       }),
+      sendBack: choice('Send a finished task back', {
+        none: 'No',
+        menu: 'Station menu open',
+        dialog: 'Reason asked',
+      }),
     },
-    world: ({ preferred, task, hold }) => {
+    world: ({ preferred, task, hold, sendBack }) => {
       try {
         localStorage.setItem('spotlight.editor-app', preferred);
       } catch {}
@@ -58,8 +78,25 @@ const meta = {
       if (hold === 'yours') {
         onHoldBy(TEAM, task, SAM);
       }
+      if (sendBack !== 'none') {
+        finishedAtReview(task);
+      }
     },
-    script: ({ editor, preferred }) => {
+    script: ({ editor, preferred, sendBack }) => {
+      if (sendBack !== 'none') {
+        return async (screen, user) => {
+          await user.click(
+            await screen.findByRole('button', { name: 'Station' }),
+          );
+          const implementation = await screen.findByRole('menuitemradio', {
+            name: 'Implementation',
+          });
+          if (sendBack === 'dialog') {
+            await user.click(implementation);
+            await screen.findByRole('dialog');
+          }
+        };
+      }
       if (editor === 'menu') {
         return async (screen, user) => {
           await user.click(
@@ -104,6 +141,10 @@ export const EditorSetup: StoryObj<typeof meta> = {
 
 export const FromAnIntegration: StoryObj<typeof meta> = {
   args: { task: 'task_latency' },
+};
+
+export const SendBack: StoryObj<typeof meta> = {
+  args: { task: 'task_postgres', sendBack: 'dialog' },
 };
 
 export const Held: StoryObj<typeof meta> = {

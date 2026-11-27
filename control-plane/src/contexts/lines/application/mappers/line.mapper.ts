@@ -32,6 +32,7 @@ export const LineMapper = {
         iterations: policy.iterations,
         repeats: policy.repeats,
         objective: policy.objective,
+        requestsPerDay: policy.requestsPerDay,
       }
     );
   },

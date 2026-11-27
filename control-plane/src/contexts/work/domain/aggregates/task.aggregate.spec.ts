@@ -537,19 +537,12 @@ describe('Task, reopened by a word', () => {
     ).toThrow(TaskNotReopenableError);
   });
 
-  it('keeps no live working copy once finished for good: at Completed, or with no line left', () => {
-    const completed = added().react(
-      LINE,
-      StationId.of('completed_1'),
-      TaskRank.of('m'),
-      newNote,
-    );
+  it('keeps no live working copy once finished, also while it can still reopen', () => {
+    const reopened = ended().reopen(LINE, MENTIONED, TaskRank.of('m'), said);
 
-    expect(completed.keepsNoLiveWorkingCopyOn(LINE)).toBe(true);
-    expect(ended().keepsNoLiveWorkingCopyOn(LINE)).toBe(false);
-    expect(ended().keepsNoLiveWorkingCopyOn(null)).toBe(true);
-    expect(added().keepsNoLiveWorkingCopyOn(LINE)).toBe(false);
-    expect(added().keepsNoLiveWorkingCopyOn(null)).toBe(false);
+    expect(ended().keepsNoLiveWorkingCopy).toBe(true);
+    expect(added().keepsNoLiveWorkingCopy).toBe(false);
+    expect(reopened.keepsNoLiveWorkingCopy).toBe(false);
   });
 
   it('does not take a word from the world as a reopening', () => {
@@ -2389,6 +2382,49 @@ describe('Task, what it is doing', () => {
       expect(() => moved(HERE, StationId.of('station_2'))).toThrow(
         new MoveDeniedError('between-work-stations', 'Triage', 'Spec'),
       );
+    });
+
+    it('is moved on by a person to a station its station passes work to, while it waits on their answer', () => {
+      const SPEC = StationId.of('station_2');
+      const passed = at(HERE)
+        .assignRun(RUN, LINE)
+        .askedBy({ ...newNote, voice: Voice.station(RUN) }, RUN)
+        .moveTo(LINE, SPEC, TaskRank.of('m'), newNote, hand);
+
+      expect(passed.stationId).toEqual(SPEC);
+      expect(passed.awaitingReview).toBe(false);
+      expect(passed.running).toBe(false);
+    });
+
+    it('will not be moved on by a person to a station its station does not pass work to', () => {
+      const atSpec = at(StationId.of('station_2'))
+        .assignRun(RUN, LINE)
+        .askedBy({ ...newNote, voice: Voice.station(RUN) }, RUN);
+
+      expect(() =>
+        atSpec.moveTo(LINE, HERE, TaskRank.of('m'), newNote, hand),
+      ).toThrow(new MoveDeniedError('between-work-stations', 'Spec', 'Triage'));
+    });
+
+    it('is sent back between work stations once its line finished it, and tells a person sent it back', () => {
+      const finished = at(HERE)
+        .assignRun(RUN, LINE)
+        .finishHere(RUN, LINE, { ...newNote, voice: Voice.station(RUN) });
+      finished.pullEvents();
+
+      const sentBack = finished.moveTo(
+        LINE,
+        StationId.of('station_2'),
+        TaskRank.of('m'),
+        newNote,
+        hand,
+      );
+
+      expect(sentBack.stationId).toEqual(StationId.of('station_2'));
+      expect(sentBack.finished).toBe(false);
+      expect(actsOf(sentBack)).toEqual([
+        { action: 'sent-back', by: 'user_2', after: 'run_1' },
+      ]);
     });
 
     it('will not be moved out of completed', () => {

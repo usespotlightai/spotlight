@@ -28,6 +28,17 @@ describe('JudgeCalibration', () => {
     );
   });
 
+  it('lacks pairs only while fewer runs than its minimum have both verdicts', () => {
+    const unmeasured = { ...FIELDS, state: 'unmeasured', agreement: null };
+
+    expect(JudgeCalibration.of({ ...unmeasured, pairs: 9 }).lacksPairs()).toBe(
+      true,
+    );
+    expect(JudgeCalibration.of({ ...unmeasured, pairs: 10 }).lacksPairs()).toBe(
+      false,
+    );
+  });
+
   it.each([
     { state: 'broken' },
     { pairs: -1 },

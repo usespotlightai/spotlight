@@ -181,6 +181,7 @@ const start = async (
       iterations: null,
       repeats: null,
       objective: null,
+      requestsPerDay: 3,
     }),
   });
 

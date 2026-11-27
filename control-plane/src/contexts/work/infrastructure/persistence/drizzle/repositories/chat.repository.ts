@@ -57,7 +57,7 @@ import {
   chatMessage,
   type ProposalRow,
 } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
-import { and, asc, eq, or } from 'drizzle-orm';
+import { and, asc, desc, eq, or, sql } from 'drizzle-orm';
 import { ChatPullRequest } from '@work/domain/value-objects/chat-pull-request.vo';
 
 type Row = typeof chat.$inferSelect;
@@ -346,6 +346,26 @@ export class DrizzleChatRepository implements ChatRepository {
     }
 
     return chats;
+  }
+
+  async owningSetupPullRequest(
+    workspaceId: WorkspaceId,
+    pullRequest: PullRequestUrl,
+  ): Promise<Chat | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(chat)
+      .where(
+        and(
+          eq(chat.workspaceId, workspaceId.value),
+          eq(sql`${chat.setup}->>'pullRequest'`, pullRequest.value),
+        ),
+      )
+      .orderBy(desc(chat.createdAt), chat.id)
+      .limit(1)
+      .for('update');
+
+    return found ? this.whole(found) : null;
   }
 
   async find(id: ChatId): Promise<Chat | null> {

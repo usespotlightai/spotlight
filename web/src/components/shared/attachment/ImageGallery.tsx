@@ -14,6 +14,11 @@ import {
   type GalleryEntry,
 } from '@/components/shared/attachment/imageGalleryContext';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { prefersReducedMotion } from '@/lib/motion';
 
 const MARGIN_X = 64;
@@ -316,38 +321,54 @@ export function ImageGallery({ children }: { children: ReactNode }) {
                     ref={pager}
                     className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-1"
                   >
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      disabled={!previous}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        go(previous);
-                      }}
-                      aria-label="Previous image"
-                      className={OVERLAY_BUTTON}
-                    >
-                      <ChevronLeftIcon aria-hidden />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger
+                        iconOnly
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            disabled={!previous}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              go(previous);
+                            }}
+                            aria-label="Previous image"
+                            className={OVERLAY_BUTTON}
+                          />
+                        }
+                      >
+                        <ChevronLeftIcon aria-hidden />
+                      </TooltipTrigger>
+                      <TooltipContent>Previous image</TooltipContent>
+                    </Tooltip>
                     <span
                       aria-live="polite"
                       className="text-sm text-white/80 tabular-nums"
                     >
                       {index + 1} of {sorted.length}
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      disabled={!next}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        go(next);
-                      }}
-                      aria-label="Next image"
-                      className={OVERLAY_BUTTON}
-                    >
-                      <ChevronRightIcon aria-hidden />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger
+                        iconOnly
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            disabled={!next}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              go(next);
+                            }}
+                            aria-label="Next image"
+                            className={OVERLAY_BUTTON}
+                          />
+                        }
+                      >
+                        <ChevronRightIcon aria-hidden />
+                      </TooltipTrigger>
+                      <TooltipContent>Next image</TooltipContent>
+                    </Tooltip>
                   </div>
                 )}
                 {sorted.length > 1 && peeking && (

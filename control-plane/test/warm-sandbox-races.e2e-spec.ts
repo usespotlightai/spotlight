@@ -56,11 +56,18 @@ const POLICY = SandboxDrainPolicy.of({
   warmAgeMs: 24 * 60 * 60_000,
 });
 
+// A run is dispatched at one line and setup, and asks for a sandbox with them each time it claims. The first
+// FITTING_RUNS fit the warm sandboxes.
 const RUNS = [
-  { name: 'run_1', key: 'task-a' },
-  { name: 'run_2', key: 'task-b' },
-  { name: 'run_3', key: 'task-a' },
+  { name: 'run_1', key: 'task-a', line: LINE, fingerprint: SETUP },
+  { name: 'run_2', key: 'task-b', line: LINE, fingerprint: SETUP },
+  { name: 'run_3', key: 'task-a', line: LINE, fingerprint: SETUP },
+  { name: 'run_4', key: 'task-c', line: 'line_2', fingerprint: SETUP },
+  { name: 'run_5', key: 'task-d', line: LINE, fingerprint: 'setup_2' },
+  { name: 'run_6', key: 'task-e', line: 'line_2', fingerprint: 'setup_2' },
 ] as const;
+
+const FITTING_RUNS = 3;
 
 const silent: LoggerPort = {
   debug: () => {},
@@ -182,20 +189,23 @@ const settledAll = async <T>(
 };
 
 type Action =
-  | {
-      readonly kind: 'adopt';
-      readonly sandbox: number;
-      readonly run: number;
-      readonly line: string;
-      readonly fingerprint: string;
-    }
+  | { readonly kind: 'adopt'; readonly sandbox: number; readonly run: number }
   | { readonly kind: 'retire-warm'; readonly sandbox: number }
   | { readonly kind: 'release'; readonly run: number }
   | { readonly kind: 'drain-for-queued' | 'sweep' };
 
 const sandboxIndex = fc.integer({ min: 0, max: 1 });
 
-const runIndex = fc.integer({ min: 0, max: RUNS.length - 1 });
+const runIndex = fc.oneof(
+  {
+    weight: 2,
+    arbitrary: fc.integer({ min: 0, max: FITTING_RUNS - 1 }),
+  },
+  {
+    weight: 1,
+    arbitrary: fc.integer({ min: FITTING_RUNS, max: RUNS.length - 1 }),
+  },
+);
 
 const action: fc.Arbitrary<Action> = fc.oneof(
   {
@@ -204,14 +214,6 @@ const action: fc.Arbitrary<Action> = fc.oneof(
       kind: fc.constant('adopt' as const),
       sandbox: sandboxIndex,
       run: runIndex,
-      line: fc.oneof(
-        { weight: 4, arbitrary: fc.constant(LINE) },
-        { weight: 1, arbitrary: fc.constant('line_2') },
-      ),
-      fingerprint: fc.oneof(
-        { weight: 4, arbitrary: fc.constant(SETUP) },
-        { weight: 1, arbitrary: fc.constant('setup_2') },
-      ),
     }),
   },
   {
@@ -256,8 +258,8 @@ const performed = (
         {
           workspaceId: place.workspaceId.value,
           key: RUNS[each.run].key,
-          line: each.line,
-          lineFingerprint: each.fingerprint,
+          line: RUNS[each.run].line,
+          lineFingerprint: RUNS[each.run].fingerprint,
           hostId: place.host.id.value,
           runId: runIds[each.run],
         },
@@ -269,7 +271,7 @@ const performed = (
       return service.releaseRun(runIds[each.run], AT).then(() => true);
     case 'drain-for-queued':
       return slots
-        .drainWarmOn(place.host.id.value, AT, async () => true)
+        .drainIdleOn(place.host.id.value, AT, async () => true)
         .then(() => true);
     case 'sweep':
       return service.drainIdle(AT).then(() => true);
@@ -352,7 +354,9 @@ describe('two placed warm sandboxes raced by adopting runs, retirements, drains 
     await fc.assert(
       warmRaced(({ adopted }) =>
         adopted.every(
-          (each) => each.line === LINE && each.fingerprint === SETUP,
+          (each) =>
+            RUNS[each.run].line === LINE &&
+            RUNS[each.run].fingerprint === SETUP,
         ),
       ),
       RACES,

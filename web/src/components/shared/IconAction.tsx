@@ -30,6 +30,7 @@ export function IconAction({
   return (
     <Tooltip>
       <TooltipTrigger
+        iconOnly
         render={
           <button
             type="button"

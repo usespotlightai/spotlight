@@ -12,6 +12,7 @@ import {
   formatRounds,
   ROUNDS,
   type RoundsCount,
+  SPOTLIGHT_AND_PEOPLE,
 } from '@/lib/insights-shipping';
 import { formatDay } from '@/lib/judge';
 
@@ -54,6 +55,11 @@ export function ReviewDepthOverTime({
       flat
       title="Review depth by week"
       description={DEPTH_OVER_TIME_NOTE}
+      actions={
+        <span className="text-muted-foreground text-xs">
+          {SPOTLIGHT_AND_PEOPLE}
+        </span>
+      }
     >
       <figure
         aria-label="Review depth week by week"

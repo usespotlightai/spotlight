@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { runnersPath } from '@/lib/runner';
 import { secretsPath } from '@/lib/settings';
 import { api, json } from '@/mocks/http';
+import { setScenario } from '@/mocks/scenario';
 import { serveMockApi } from '@/mocks/testing';
 import { SLUG } from '@/mocks/world';
 import { settingsWorld } from '@/mocks/world/settings';
@@ -34,6 +35,7 @@ const rowOf = async (name: string) => {
 
 const UNUSED =
   'No harness profile or integration uses this secret, so no run receives it.';
+const UNUSED_LABEL = 'No run receives it';
 
 describe('Secrets on the mock API', () => {
   const server = serveMockApi();
@@ -116,9 +118,13 @@ describe('Secrets on the mock API', () => {
     );
     render(<MockApplication at={secretsPath(SLUG)} />);
 
-    expect((await rowOf('LINEAR_API_KEY')).getByText(UNUSED)).toBeVisible();
     expect(
-      (await rowOf('STAGING_VIEWER_TOKEN')).queryByText(UNUSED),
+      (await rowOf('LINEAR_API_KEY')).getByRole('img', { name: UNUSED_LABEL }),
+    ).toHaveAccessibleDescription(UNUSED);
+    expect(
+      (await rowOf('STAGING_VIEWER_TOKEN')).queryByRole('img', {
+        name: UNUSED_LABEL,
+      }),
     ).not.toBeInTheDocument();
   });
 
@@ -140,15 +146,31 @@ describe('Secrets on the mock API', () => {
 
     const linear = await rowOf('LINEAR_API_KEY');
 
-    expect(linear.getByText(UNUSED)).toBeVisible();
+    expect(
+      linear.getByRole('img', { name: UNUSED_LABEL }),
+    ).toHaveAccessibleDescription(UNUSED);
     expect(
       linear.getByText('No runner pool has egress, so no run sends it.', {
         exact: false,
       }),
     ).toBeVisible();
     expect(
-      (await rowOf('DEV_GITHUB_APP_KEY')).queryByText(UNUSED),
+      (await rowOf('DEV_GITHUB_APP_KEY')).queryByRole('img', {
+        name: UNUSED_LABEL,
+      }),
     ).not.toBeInTheDocument();
+  });
+
+  it('links to how to define a secret where there is none', async () => {
+    setScenario({ state: 'empty' });
+    render(<MockApplication at={secretsPath(SLUG)} />);
+
+    expect(
+      await screen.findByRole('link', { name: 'spotlight_secret' }, WAIT),
+    ).toHaveAttribute(
+      'href',
+      'https://docs.usespotlight.ai/docs/reference/terraform/secret',
+    );
   });
 
   it('sets the value of a secret that awaits one, and never shows it', async () => {

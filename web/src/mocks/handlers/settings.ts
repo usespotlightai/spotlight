@@ -102,6 +102,13 @@ const onboarding = (teamId: string): OnboardingResponseDto => ({
   ],
   canSetUp:
     settingsWorld().gitHubConnected && settingsWorld().fleet.hosts.length > 0,
+  setupRefusal: !settingsWorld().viewerIsAdmin
+    ? 'needs-an-admin'
+    : !settingsWorld().gitHubConnected
+      ? 'code-unreachable'
+      : settingsWorld().fleet.hosts.length === 0
+        ? 'needs-egress'
+        : null,
   viewerIsAdmin: settingsWorld().viewerIsAdmin,
   setupChat: setupChatOf(teamId),
 });
@@ -401,6 +408,12 @@ const workspaceHandlers = [
           connected: settingsWorld().gitHubConnected,
           installUrl: INSTALL_URL,
         })
+      : notFound(),
+  ),
+
+  api.get('/workspaces/:slug/github/installations', ({ params }) =>
+    ofWorkspace(params.slug)
+      ? json([{ id: '58213907', account: params.slug }])
       : notFound(),
   ),
 

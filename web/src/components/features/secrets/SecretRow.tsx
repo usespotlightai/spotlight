@@ -3,6 +3,7 @@ import { LockKeyhole } from 'lucide-react';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { PillButton } from '@/components/shared/PillButton';
 import { RowIcon } from '@/components/shared/RowIcon';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { runnersPath } from '@/lib/runner';
@@ -14,6 +15,7 @@ import {
   SANDBOX_NOTE,
   setValueLabel,
   UNDELIVERABLE_NOTE,
+  UNUSED_LABEL,
   UNUSED_NOTE,
   valueNote,
   type WorkspaceSecret,
@@ -35,11 +37,6 @@ export function SecretRow({ slug, secret, onSetValue }: SecretRowProps) {
         description={
           <>
             {describeHosts(secret)}
-            {!secret.reach.usedByRuns && (
-              <span className="block text-amber-600 dark:text-amber-400">
-                {UNUSED_NOTE}
-              </span>
-            )}
             {!secret.reach.deliverable && (
               <span className="block text-amber-600 dark:text-amber-400">
                 {UNDELIVERABLE_NOTE}{' '}
@@ -56,6 +53,14 @@ export function SecretRow({ slug, secret, onSetValue }: SecretRowProps) {
         stack
       >
         <div className="flex items-center gap-3">
+          {!secret.reach.usedByRuns && (
+            <WarningTooltip
+              tone="warning"
+              label={UNUSED_LABEL}
+              tooltip={UNUSED_NOTE}
+            />
+          )}
+
           {allowsSandbox(secret) && (
             <WithTooltip tooltip={SANDBOX_NOTE}>
               <span className="whitespace-nowrap text-xs text-muted-foreground">

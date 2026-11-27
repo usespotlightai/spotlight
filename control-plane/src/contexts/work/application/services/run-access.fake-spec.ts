@@ -58,6 +58,7 @@ export const linesWhere = (
           harness: harnessed.includes(id.value) ? 'claude-code' : null,
         }),
         completed: { id: StationId.of(COMPLETED) },
+        stations: [],
       },
     ],
   }) as never;

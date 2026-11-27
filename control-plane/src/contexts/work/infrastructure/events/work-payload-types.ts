@@ -4,6 +4,7 @@ import { ChatHeardFromTask } from '@work/domain/events/chat-heard-from-task.even
 import { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
 import { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
 import { ChatPullRequestOpened } from '@work/domain/events/chat-pull-request-opened.event';
+import { ChatResolved } from '@work/domain/events/chat-resolved.event';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
@@ -29,6 +30,7 @@ import { ProposalRestored } from '@work/domain/events/proposal-restored.event';
 import { ProposalsReplaced } from '@work/domain/events/proposals-replaced.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
+import { SetupPullRequestMerged } from '@work/domain/events/setup-pull-request-merged.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
@@ -125,6 +127,7 @@ import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.
 import { PushedHead } from '@work/domain/value-objects/pushed-head.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
+import { RepositoriesMissing } from '@work/domain/value-objects/repositories-missing.vo';
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { RequestedBase } from '@work/domain/value-objects/requested-base.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
@@ -193,6 +196,7 @@ export const WORK_PAYLOAD_TYPES = [
   DeniedCatalogItem,
   HarnessPermission,
   ProfileMissing,
+  RepositoriesMissing,
   SecretAwaitingValue,
   SecretSandboxNotAllowed,
   HandoverOption,
@@ -263,12 +267,14 @@ export const WORK_PAYLOAD_TYPES = [
   ChatMessageSent,
   ChatMessagesAcknowledged,
   ChatRunEnded,
+  ChatResolved,
   ProposalAcceptanceFailed,
   ProposalBecameTask,
   TaskProposed,
   ChatStarted,
   ProposalAccepted,
   SetupPullRequestOpened,
+  SetupPullRequestMerged,
   ProposalDismissed,
   ProposalRestored,
   ProposalsReplaced,

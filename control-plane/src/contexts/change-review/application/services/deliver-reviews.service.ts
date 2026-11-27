@@ -327,6 +327,10 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
               ]
             : [],
         ),
+        onFiles: plan.onFiles.map((comment) => ({
+          path: comment.anchor.path.value,
+          body: comment.sentBody ?? comment.body,
+        })),
       }),
     );
 

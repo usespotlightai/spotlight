@@ -69,6 +69,7 @@ const toPullRequest = (row: PullRequestRow): PullRequest =>
     botComments: row.botComments.map((each) => BotComment.of(each)),
     threads: row.threads.map((each) => PullRequestThread.of(each)),
     revertedBy: row.revertedBy ? PullRequestUrl.of(row.revertedBy) : null,
+    mergeable: row.mergeable,
     version: row.version,
   });
 
@@ -124,6 +125,7 @@ const columnsOf = (pullRequest: PullRequest) => ({
     }),
   ),
   revertedBy: pullRequest.revertedBy?.value ?? null,
+  mergeable: pullRequest.mergeable,
 });
 
 const at = (workspaceId: WorkspaceId, url: PullRequestUrl) =>
@@ -187,6 +189,24 @@ export class DrizzlePullRequests implements PullRequestRepository {
           eq(githubPullRequest.workspaceId, workspaceId.value),
           eq(githubPullRequest.repository, repository.value),
           eq(githubPullRequest.title, title),
+        ),
+      );
+
+    return rows.map(toPullRequest);
+  }
+
+  async openIn(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+  ): Promise<readonly PullRequest[]> {
+    const rows = await this.context.db
+      .select()
+      .from(githubPullRequest)
+      .where(
+        and(
+          eq(githubPullRequest.workspaceId, workspaceId.value),
+          eq(githubPullRequest.repository, repository.value.toLowerCase()),
+          eq(githubPullRequest.state, 'open'),
         ),
       );
 

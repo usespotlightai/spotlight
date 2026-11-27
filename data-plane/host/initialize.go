@@ -58,6 +58,7 @@ func initialize(version string, args []string) error {
 	}
 	f.given = map[string]bool{}
 	flags.Visit(func(each *flag.Flag) { f.given[each.Name] = true })
+	f.tokenFromEnv(os.Getenv)
 
 	if onlyURL(f.given) && personal() && Interactive() && !connected() {
 		address := ""
@@ -224,7 +225,7 @@ func credential(file *config.File, f initFlags, tty *console.Terminal, saved map
 	case saved["SPOTLIGHT_TRUST"] != "":
 		return nil
 	case tty == nil && saved["SPOTLIGHT_POOL_TOKEN"] == "":
-		return errors.New("--token is required: a pull pool's token, from Settings → Runners → Add a host")
+		return errors.New("--token or SPOTLIGHT_POOL_TOKEN is required: a pull pool's token, from Settings → Runners → Add a host")
 	case tty == nil:
 		return nil
 	}
@@ -354,6 +355,16 @@ func serveIt(out io.Writer, version string, cfg config.Config, noService bool) e
 		return err
 	}
 	return install.Service{Binary: binary, Config: config.Path()}.Install(out)
+}
+
+// tokenFromEnv takes the pool token from SPOTLIGHT_POOL_TOKEN when no flag gives a credential, so that the token stays out of the command line.
+func (f *initFlags) tokenFromEnv(getenv func(string) string) {
+	if f.given["token"] || f.tokenStdin || f.given["trust"] || f.given["oidc-token-file"] {
+		return
+	}
+	if token := strings.TrimSpace(getenv("SPOTLIGHT_POOL_TOKEN")); token != "" {
+		f.token, f.given["token"] = token, true
+	}
 }
 
 func onlyURL(given map[string]bool) bool {
