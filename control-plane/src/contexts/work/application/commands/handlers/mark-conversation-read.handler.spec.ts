@@ -18,6 +18,7 @@ import { workAccessSeeing } from '@work/application/services/work-access.fake-sp
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import {
   lineMapOf,
   stationOf,
@@ -99,6 +100,8 @@ const tasks = (found: Task | null) =>
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
     startingFrom: vi.fn(async () => []),
+    waitingFor: vi.fn(async () => []),
+    blockingIn: vi.fn(async () => BlockingGraph.empty()),
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 

@@ -22,10 +22,12 @@ import { CreateTask } from '@work/application/services/create-task';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
+import { SeenBlockers } from '@work/application/services/seen-blockers';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import {
@@ -125,6 +127,8 @@ const tasks = () =>
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
     startingFrom: vi.fn(async () => []),
+    waitingFor: vi.fn(async () => []),
+    blockingIn: vi.fn(async () => BlockingGraph.empty()),
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
@@ -178,6 +182,7 @@ const addTask = (
     new CreateTask(tasks(), dispatch(), transaction, files),
     files,
     { defaultBranchNameOf: async () => 'main' },
+    new SeenBlockers(tasks(), board, seen),
   ).execute(command);
 
 beforeEach(() => {

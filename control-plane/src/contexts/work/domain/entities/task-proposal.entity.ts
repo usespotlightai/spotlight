@@ -27,6 +27,7 @@ export class TaskProposal {
     readonly state: ProposalState,
     readonly taskId: TaskId | null,
     readonly decidedAt: Date | null,
+    readonly blockedBy: readonly MessagePosition[] = [],
   ) {}
 
   static open(input: {
@@ -35,6 +36,7 @@ export class TaskProposal {
     title: TaskTitle;
     description: TaskDescription | null;
     base: Branch | null;
+    blockedBy?: readonly MessagePosition[];
   }): TaskProposal {
     return new TaskProposal(
       input.position,
@@ -45,6 +47,7 @@ export class TaskProposal {
       'open',
       null,
       null,
+      input.blockedBy ?? [],
     );
   }
 
@@ -57,11 +60,21 @@ export class TaskProposal {
     state: ProposalState;
     taskId: TaskId | null;
     decidedAt: Date | null;
+    blockedBy?: readonly MessagePosition[];
   }): TaskProposal {
     if ((input.state === 'created') !== (input.taskId !== null)) {
       throw new InconsistentStateError(
         'task proposal',
         `is ${input.state} ${input.taskId ? 'with' : 'without'} a task`,
+      );
+    }
+
+    const blockedBy = input.blockedBy ?? [];
+
+    if (blockedBy.some((each) => each.value >= input.position.value)) {
+      throw new InconsistentStateError(
+        'task proposal',
+        'waits for a proposal that comes after it',
       );
     }
 
@@ -74,6 +87,7 @@ export class TaskProposal {
       input.state,
       input.taskId,
       input.decidedAt,
+      blockedBy,
     );
   }
 
@@ -151,6 +165,7 @@ export class TaskProposal {
       part.state,
       part.taskId !== undefined ? part.taskId : this.taskId,
       part.decidedAt,
+      this.blockedBy,
     );
   }
 }

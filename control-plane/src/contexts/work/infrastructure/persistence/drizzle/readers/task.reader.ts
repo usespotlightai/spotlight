@@ -18,6 +18,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
+  TaskBlockerSummary,
   TaskListing,
   TaskNoteSummary,
   TaskReaderPort,
@@ -173,6 +174,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         openedFrom: task.openedFrom,
         notStartedStationId: task.notStartedStationId,
         notStartedHarness: task.notStartedHarness,
+        blockedBy: task.blockedBy,
         hold: {
           heldBy: taskHold.heldBy,
           startedAt: taskHold.startedAt,
@@ -192,7 +194,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
       .$dynamic();
     const rows = await (limit === null ? listed : listed.limit(limit));
 
-    const [notes, pulled, awaited, attached, people, progressOf] =
+    const [notes, pulled, awaited, attached, people, progressOf, blockers] =
       await Promise.all([
         this.latestNotes(rows.map((row) => row.id)),
         this.ownedPullRequests(rows.map((row) => row.id)),
@@ -215,6 +217,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
           rows.map((row) => row.currentRunId),
           true,
         ),
+        this.blockers(rows.flatMap((row) => row.blockedBy)),
       ]);
     const person = (id: string) => ({
       id,
@@ -233,6 +236,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         hold,
         notStartedStationId,
         notStartedHarness,
+        blockedBy,
         ...rest
       }) => ({
         ...rest,
@@ -256,8 +260,29 @@ export class DrizzleTaskReader implements TaskReaderPort {
           finishedAt === null
             ? { harness: notStartedHarness }
             : null,
+        blockedBy: blockedBy.flatMap((id) => blockers.get(id) ?? []),
       }),
     );
+  }
+
+  private async blockers(
+    taskIds: string[],
+  ): Promise<Map<string, TaskBlockerSummary>> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.db
+      .select({
+        id: task.id,
+        title: task.title,
+        teamId: workStation.teamId,
+      })
+      .from(task)
+      .innerJoin(workStation, eq(workStation.stationId, task.stationId))
+      .where(inArray(task.id, [...new Set(taskIds)]));
+
+    return new Map(rows.map((row) => [row.id, row] as const));
   }
 
   private async ownedPullRequests(

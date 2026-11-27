@@ -68,6 +68,7 @@ interface ChatProposalView {
   readonly description: string | null;
   readonly state: string;
   readonly taskId: string | null;
+  readonly blockedBy: readonly number[];
 }
 
 interface ChatPullRequestView {

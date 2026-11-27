@@ -26,6 +26,7 @@ import { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import {
   lineMapOf,
   stationOf,
@@ -144,6 +145,8 @@ const tasks = (found: Task | null = taskAt()) =>
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
     startingFrom: vi.fn(async () => []),
+    waitingFor: vi.fn(async () => []),
+    blockingIn: vi.fn(async () => BlockingGraph.empty()),
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 

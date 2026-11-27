@@ -21,6 +21,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { NotOnTheTeamAskedError } from '@work/domain/exceptions/not-on-the-team-asked.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import {
@@ -124,6 +125,8 @@ const tasks = (found: Task) =>
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
     startingFrom: vi.fn(async () => []),
+    waitingFor: vi.fn(async () => []),
+    blockingIn: vi.fn(async () => BlockingGraph.empty()),
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 

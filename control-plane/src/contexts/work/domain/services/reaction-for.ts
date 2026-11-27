@@ -172,6 +172,10 @@ export const ReactionFor = {
     note: OutcomeNote,
     closed: PullRequestUrl | null,
   ): Outcome {
+    if (task.blocksMoveTo(note.line, to.id)) {
+      return { kind: 'stays', ...note };
+    }
+
     return task.movableByHappeningTo(note.line, to.id)
       ? { kind: 'moves', to, closed, ...note }
       : { kind: 'deferredMove', to, closed, ...note };

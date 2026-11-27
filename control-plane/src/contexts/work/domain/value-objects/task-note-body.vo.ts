@@ -243,6 +243,20 @@ export class TaskNoteBody {
     );
   }
 
+  static unblocked(to: StationName): TaskNoteBody {
+    return TaskNoteBody.of(
+      `Moved to ${to.value}. Every task it waited for is completed.`,
+    );
+  }
+
+  static blockerDeleted(stillBlocked: boolean): TaskNoteBody {
+    return TaskNoteBody.of(
+      stillBlocked
+        ? 'A task it waited for was deleted. It still waits for the others.'
+        : 'A task it waited for was deleted. It waits for nothing now: move it on when it is ready.',
+    );
+  }
+
   static connected(providedBy: string): TaskNoteBody {
     return TaskNoteBody.of(`Connected ${providedBy}.`);
   }

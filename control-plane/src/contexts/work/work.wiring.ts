@@ -163,6 +163,7 @@ import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AnswerConversationCommand } from '@work/application/commands/answer-conversation.command';
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
+import { BlockTaskCommand } from '@work/application/commands/block-task.command';
 import { CarryGitCallCommand } from '@work/application/commands/carry-git-call.command';
 import {
   AcceptProposalCommand,
@@ -185,6 +186,7 @@ import { AddTaskHandler } from '@work/application/commands/handlers/add-task.han
 import { AnswerConversationHandler } from '@work/application/commands/handlers/answer-conversation.handler';
 import { AskPermissionHandler } from '@work/application/commands/handlers/ask-permission.handler';
 import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
+import { BlockTaskHandler } from '@work/application/commands/handlers/block-task.handler';
 import { CarryGitCallHandler } from '@work/application/commands/handlers/carry-git-call.handler';
 import { ConnectEditorHandler } from '@work/application/commands/handlers/connect-editor.handler';
 import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-task.handler';
@@ -248,6 +250,7 @@ import { NotifyOutsideTools } from '@work/application/events/handlers/notify-out
 import { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
 import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import { ProjectLineStations } from '@work/application/events/handlers/project-line-stations.handler';
+import { ReleaseBlockedTasks } from '@work/application/events/handlers/release-blocked-tasks.handler';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
 import { RetargetStackedTasks } from '@work/application/events/handlers/retarget-stacked-tasks.handler';
 import { RetireChatSandbox } from '@work/application/events/handlers/retire-chat-sandbox.handler';
@@ -584,6 +587,7 @@ import { RunFiles } from '@work/application/services/run-files.service';
 import { RunLoader } from '@work/application/services/run-loader.service';
 import { RunRouting } from '@work/application/services/run-routing.service';
 import { RunWorks } from '@work/application/services/run-works.service';
+import { SeenBlockers } from '@work/application/services/seen-blockers';
 import { SetupPullRequestToolUse } from '@work/application/services/setup-pull-request.tool-use';
 import { SetupStatus } from '@work/application/services/setup-status.service';
 import { StationConfigCandidates } from '@work/application/services/station-config-candidates.service';
@@ -1587,6 +1591,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ID_GENERATOR,
       CLOCK,
       REPOSITORY_SETTINGS,
+      TASK_REPOSITORY,
     ],
     useFactory: (
       chats: ChatRepository,
@@ -1597,6 +1602,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       clock: ClockPort,
       settings: RepositorySettingsPort,
+      tasks: TaskRepository,
     ) =>
       new CreateTaskFromProposal(
         chats,
@@ -1607,6 +1613,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         ids,
         clock,
         settings,
+        tasks,
       ),
   },
 
@@ -1876,6 +1883,16 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: SeenBlockers,
+    inject: [TASK_REPOSITORY, LINE_MAPS, WorkAccess],
+    useFactory: (
+      tasks: TaskRepository,
+      lines: LineMapsPort,
+      access: WorkAccess,
+    ) => new SeenBlockers(tasks, lines, access),
+  },
+
+  {
     provide: CreateTask,
     inject: [TASK_REPOSITORY, DispatchTask, TRANSACTION, FilesLoader],
     useFactory: (
@@ -2061,6 +2078,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             pullRequests,
             transaction,
           ),
+          blockedTasks: new ReleaseBlockedTasks(
+            tasks,
+            lines,
+            placements,
+            taskDispatch,
+            transaction,
+            clock,
+          ),
         }),
       ]);
       return true;
@@ -2235,6 +2260,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CreateTask,
     FilesLoader,
     REPOSITORY_SETTINGS,
+    SeenBlockers,
   ]),
 
   ...bindCommandHandler(
@@ -2650,5 +2676,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     WorkAccess,
     TRANSACTION,
     LINE_MAPS,
+  ]),
+
+  ...bindCommandHandler(BlockTaskCommand, BlockTaskHandler, [
+    TASK_REPOSITORY,
+    WorkAccess,
+    TRANSACTION,
+    LINE_MAPS,
+    SeenBlockers,
   ]),
 ];

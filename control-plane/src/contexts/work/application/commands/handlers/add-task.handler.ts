@@ -12,6 +12,7 @@ import type { CreateTask } from '@work/application/services/create-task';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { LineLoader } from '@work/application/services/line-loader.service';
 import { requestedBase } from '@work/application/services/requested-base';
+import type { SeenBlockers } from '@work/application/services/seen-blockers';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Placement } from '@work/domain/services/placement';
 import { Branch } from '@work/domain/value-objects/branch.vo';
@@ -33,6 +34,7 @@ export class AddTaskHandler implements CommandHandlerPort<
       RepositorySettingsPort,
       'defaultBranchNameOf'
     >,
+    private readonly blockers: SeenBlockers,
   ) {}
 
   async execute(command: AddTaskCommand): Promise<string> {
@@ -52,7 +54,10 @@ export class AddTaskHandler implements CommandHandlerPort<
       command.lineId,
       createdBy.value,
     );
-    const placed = await this.placements.placementsAt(stationId);
+    const blockedBy = await this.blockers.named(command.blockedBy, createdBy);
+    const placed = await this.placements.placementsAt(
+      Task.opensAt(line, stationId, blockedBy),
+    );
 
     const attachments = await this.files.handedOver(
       line.workspaceId,
@@ -79,6 +84,7 @@ export class AddTaskHandler implements CommandHandlerPort<
           ? Branch.of(command.base.trim())
           : null,
       ),
+      blockedBy,
       now: this.clock.now(),
       newId: () => this.ids.generate(),
     });

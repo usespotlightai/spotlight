@@ -320,6 +320,7 @@ export class DrizzleChatReader implements ChatReaderPort {
             description: proposal.description,
             state: proposal.state,
             taskId: proposal.taskId,
+            blockedBy: proposal.blockedBy ?? [],
           },
           pullRequest: pullRequest && {
             taskId: pullRequest.taskId,

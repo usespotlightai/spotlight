@@ -68,6 +68,7 @@ export class ChatMessage {
     title: TaskTitle;
     description: TaskDescription | null;
     base: Branch | null;
+    blockedBy?: readonly MessagePosition[];
     attachments?: readonly Attachment[];
     at: Date;
   }): ChatMessage {

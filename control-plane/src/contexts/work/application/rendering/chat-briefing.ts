@@ -64,6 +64,7 @@ const proposing = [
   'The person sees each proposal here and decides whether to create it. Nothing is created until they do, so do not propose anything they have not agreed to.',
   'Each proposal is shown to them in full the moment you make it, so do not list or summarise what you proposed afterwards. A short line saying it is their move is enough.',
   'When a new proposal takes the place of earlier ones, name each earlier one with `--replaces <number>`. Its number is in the list of proposals so far. The person then sees the earlier one as replaced, and does not have to dismiss it.',
+  'When a task can only start after earlier ones are merged, as in a plan of steps, name each earlier one with `--blocked-by <number>`. The task then waits in Backlog and starts by itself when they are completed, so do not ask the person to move it on.',
 ].join('\n\n');
 
 const changing = [

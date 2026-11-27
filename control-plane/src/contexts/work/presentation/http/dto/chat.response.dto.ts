@@ -205,6 +205,14 @@ export class ChatProposalResponseDto {
   })
   readonly taskId: string | null;
 
+  @ApiProperty({
+    type: [Number],
+    example: [3],
+    description:
+      'The messages of the proposals in this chat that it waits for. Each must become a task before this one can',
+  })
+  readonly blockedBy: readonly number[];
+
   constructor(
     lineId: string,
     lineName: string | null,
@@ -217,6 +225,7 @@ export class ChatProposalResponseDto {
     description: string | null,
     state: string,
     taskId: string | null,
+    blockedBy: readonly number[],
   ) {
     this.lineId = lineId;
     this.lineName = lineName;
@@ -229,6 +238,7 @@ export class ChatProposalResponseDto {
     this.description = description;
     this.state = state;
     this.taskId = taskId;
+    this.blockedBy = blockedBy;
   }
 }
 

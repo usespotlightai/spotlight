@@ -32,6 +32,12 @@ export interface TaskHoldSummary {
   readonly chatId: string | null;
 }
 
+export interface TaskBlockerSummary {
+  readonly id: string;
+  readonly title: string;
+  readonly teamId: string;
+}
+
 export interface TaskSummary {
   readonly id: string;
   readonly stationId: string;
@@ -51,6 +57,7 @@ export interface TaskSummary {
   readonly source: string | null;
   readonly hold: TaskHoldSummary | null;
   readonly runNotStarted: TaskRunNotStartedSummary | null;
+  readonly blockedBy: readonly TaskBlockerSummary[];
 }
 
 interface TaskRunNotStartedSummary {

@@ -62,6 +62,7 @@ import type { NotifyOutsideToolsOfNotices } from '@work/application/events/handl
 import type { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
 import type { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
 import type { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
+import type { ReleaseBlockedTasks } from '@work/application/events/handlers/release-blocked-tasks.handler';
 import type { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
 import type { RetargetStackedTasks } from '@work/application/events/handlers/retarget-stacked-tasks.handler';
 import type { RetireChatSandbox } from '@work/application/events/handlers/retire-chat-sandbox.handler';
@@ -157,6 +158,7 @@ export const workSubscribers = (reactions: {
   setupPullRequests: TrackSetupPullRequests;
   stackedTasks: RetargetStackedTasks;
   chatsOfTasks: TellChatOfTask;
+  blockedTasks: ReleaseBlockedTasks;
 }): readonly DomainEventSubscriber[] => [
   subscribing<ToolUsed>(
     'work.fire-hooks-after-tool-used',
@@ -395,6 +397,18 @@ export const workSubscribers = (reactions: {
     'work.delete-draft-of-deleted-task',
     ['task.deleted'],
     (event) => reactions.taskDraft.on(event),
+  ),
+  subscribing<TaskFinished>(
+    'work.start-tasks-blocked-by-finished-task',
+    ['task.finished'],
+    (event) => reactions.blockedTasks.onFinished(event),
+    { callsOut: true },
+  ),
+  subscribing<TaskDeleted>(
+    'work.release-tasks-blocked-by-deleted-task',
+    ['task.deleted'],
+    (event) => reactions.blockedTasks.onDeleted(event),
+    { callsOut: true },
   ),
   subscribing<TaskFinished>(
     'work.retire-sandbox-of-finished-task',

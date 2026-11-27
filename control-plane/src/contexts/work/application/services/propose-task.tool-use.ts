@@ -50,7 +50,8 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
         ? TaskDescription.of(description)
         : null,
       base: nonEmpty(base) ? Branch.of(base) : null,
-      replaces: this.replacedIn(inputs),
+      replaces: this.numbersIn(inputs, 'replaces'),
+      blockedBy: this.numbersIn(inputs, 'blocked-by'),
     };
     const position = chat.proposalPositionFor(runId).value;
     const attachments = await this.copies.copy(
@@ -80,6 +81,9 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
       proposed: proposal.title.value,
       number: proposed.proposals.length,
       ...(proposal.replaces.length > 0 && { replaced: proposal.replaces }),
+      ...(proposal.blockedBy.length > 0 && {
+        blockedBy: proposal.blockedBy,
+      }),
       line: named.line,
       station: named.station,
       next: 'The person decides whether to create it, and already sees it in full, so do not repeat it to them.',
@@ -96,14 +100,14 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
     return chat;
   }
 
-  private replacedIn(inputs: ToolInputs): number[] {
-    return inputs.texts('replaces').map((each) => {
+  private numbersIn(inputs: ToolInputs, name: string): number[] {
+    return inputs.texts(name).map((each) => {
       const number = Number(each);
 
       if (!Number.isInteger(number) || number < 1) {
         throw new InvalidToolInputError(
           this.tool.value,
-          `replaces takes proposal numbers, not "${each}"`,
+          `${name} takes proposal numbers, not "${each}"`,
         );
       }
 

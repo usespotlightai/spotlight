@@ -45,6 +45,7 @@ const summaries: TaskSummary[] = [
     source: null,
     hold: null,
     runNotStarted: null,
+    blockedBy: [],
   },
   {
     id: 'task_2',
@@ -65,6 +66,7 @@ const summaries: TaskSummary[] = [
     source: null,
     hold: null,
     runNotStarted: null,
+    blockedBy: [],
   },
 ];
 

@@ -7,11 +7,12 @@ import type {
 } from '@work/application/ports/task-reader.port';
 import type { MessageReading } from '@work/application/services/message-reading';
 import type { ConversationViewer } from '@work/domain/services/conversation-audience';
-import { HandMoves } from '@work/domain/services/hand-moves';
+import { HandMoves, mayWaitAt } from '@work/domain/services/hand-moves';
 import { type HeldFor, HoldRights } from '@work/domain/services/hold-rights';
 import type { MessagedTask } from '@work/domain/services/message-effect';
 import { TaskWaits } from '@work/domain/services/task-waits';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 const heldOf = (hold: TaskHoldSummary): HeldFor => ({
   by: UserId.of(hold.by.id),
@@ -45,6 +46,12 @@ const messagedTaskOf = (
   },
 });
 
+const blockableAt = (line: LineMap | null, summary: TaskSummary): boolean => {
+  const station = line?.stationAt(StationId.of(summary.stationId));
+
+  return station ? mayWaitAt(station) : false;
+};
+
 export const TaskMapper = {
   summaryToDto(summary: TaskSummary, reading: MessageReading): TaskDto {
     const { viewer } = reading;
@@ -75,6 +82,7 @@ export const TaskMapper = {
           hold: summary.hold && heldOf(summary.hold),
           awaiting: summary.awaitingReview,
           finished: summary.finished,
+          blocked: summary.blockedBy.length > 0,
         },
         reading.lineOf(summary.stationId),
         viewer,
@@ -84,6 +92,8 @@ export const TaskMapper = {
         skips: move.skips.map((each) => each.id.value),
         sendsBack: move.sendsBack,
       })),
+      blockedBy: summary.blockedBy,
+      blockable: blockableAt(reading.lineOf(summary.stationId), summary),
       note: summary.note
         ? {
             position: summary.note.position,

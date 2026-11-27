@@ -31,6 +31,8 @@ const dto: TaskDto = {
   handMoves: [
     { stationId: 'station_2', denial: null, skips: [], sendsBack: false },
   ],
+  blockedBy: [{ id: 'task_0', title: 'Add the API', teamId: 'team_1' }],
+  blockable: true,
 };
 
 describe('TaskHttpMapper', () => {

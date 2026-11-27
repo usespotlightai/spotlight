@@ -18,13 +18,15 @@ export interface HandMovedTask {
   readonly hold: HeldFor | null;
   readonly awaiting: { readonly ask: OpenAsk | null } | null;
   readonly finished: boolean;
+  readonly blocked: boolean;
 }
 
 export const HAND_MOVE_DENIALS = [
   'out-of-completed',
   'between-work-stations',
   'on-hold',
-] as const satisfies readonly (MoveDenial | 'on-hold')[];
+  'blocked',
+] as const satisfies readonly (MoveDenial | 'on-hold' | 'blocked')[];
 
 export type HandMoveDenial = (typeof HAND_MOVE_DENIALS)[number];
 
@@ -36,6 +38,15 @@ export interface HandMove {
 }
 
 type EndsHold = (hold: HeldFor) => boolean;
+
+// Only a task that has not started can start to wait for other tasks.
+export const mayWaitAt = (station: Station): boolean => station.isBacklog;
+
+// A blocked task waits in Backlog. It may still be parked there, or completed.
+export const blockedMoveTo = (
+  task: { readonly blocked: boolean },
+  to: Station,
+): boolean => task.blocked && !to.isBacklog && !to.isCompleted;
 
 const denialBetween = (
   task: HandMovedTask,
@@ -49,6 +60,9 @@ const denialBetween = (
   }
   if (task.hold && !endsHold(task.hold)) {
     return 'on-hold';
+  }
+  if (blockedMoveTo(task, to)) {
+    return 'blocked';
   }
   if (SendBack.allows(task, line, to)) {
     return null;

@@ -1,0 +1,2 @@
+ALTER TABLE "task" ADD COLUMN "blocked_by" text[] DEFAULT '{}'::text[] NOT NULL;--> statement-breakpoint
+CREATE INDEX "task_blocked_by_idx" ON "task" USING gin ("blocked_by") WHERE cardinality("task"."blocked_by") > 0;

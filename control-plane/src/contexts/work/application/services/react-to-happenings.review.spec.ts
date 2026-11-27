@@ -27,6 +27,7 @@ import type { TaskDispatching } from '@work/application/services/dispatch-task.s
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { BlockingGraph } from '@work/domain/services/blocking-graph';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
@@ -197,6 +198,8 @@ const world = (input: {
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
     startingFrom: vi.fn(async () => []),
+    waitingFor: vi.fn(async () => []),
+    blockingIn: vi.fn(async () => BlockingGraph.empty()),
     onBranch: vi.fn(async () => null),
   } satisfies TaskRepository & TaskPlacementsPort;
 
