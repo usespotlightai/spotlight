@@ -1,8 +1,8 @@
-import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { IntegrationLogo } from '@/components/features/integrations/IntegrationLogo';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
+import { ExpandableText } from '@/components/shared/ExpandableText';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { GithubLogo } from '@/components/shared/icons';
 import {

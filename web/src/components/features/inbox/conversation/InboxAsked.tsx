@@ -1,7 +1,7 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
-import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
+import { ExpandableText } from '@/components/shared/ExpandableText';
 import type { Attachment } from '@/lib/attachment';
 import type { ConversationItem } from '@/lib/inbox';
 import { nonEmpty } from '@/lib/non-empty';

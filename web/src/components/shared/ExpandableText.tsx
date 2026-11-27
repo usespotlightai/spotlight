@@ -5,12 +5,28 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOverflows } from '@/hooks/useOverflows';
 import { cn } from '@/lib/utils';
 
+const HEIGHTS = {
+  regular: {
+    collapsed: 'max-h-[min(20vh,8rem)]',
+    expanded: 'max-h-[min(50vh,16rem)]',
+  },
+  tall: {
+    collapsed: 'max-h-[min(30vh,12rem)]',
+    expanded: 'max-h-[min(50vh,28rem)]',
+  },
+} as const;
+
 type ExpandableTextProps = {
   what: string;
+  size?: keyof typeof HEIGHTS;
   children: ReactNode;
 };
 
-export function ExpandableText({ what, children }: ExpandableTextProps) {
+export function ExpandableText({
+  what,
+  size = 'regular',
+  children,
+}: ExpandableTextProps) {
   const [open, setOpen] = useState(false);
   const text = useRef<HTMLDivElement>(null);
   const shown = useId();
@@ -30,7 +46,7 @@ export function ExpandableText({ what, children }: ExpandableTextProps) {
         viewportRef={text}
         className={cn(
           'transition-[max-height] duration-200 ease-out motion-reduce:transition-none',
-          open ? 'max-h-[min(50vh,16rem)]' : 'max-h-[min(20vh,8rem)]',
+          open ? HEIGHTS[size].expanded : HEIGHTS[size].collapsed,
           !open &&
             clipped &&
             '[mask-image:linear-gradient(to_bottom,black_55%,transparent)]',

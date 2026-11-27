@@ -64,7 +64,7 @@ const DELIVERY_STATIONS: StationResponseDto[] = [
     model: 'sonnet',
     effort: 'high',
     agentPrompt:
-      '## Role\n\nImplement the spec on the task.\n\n- Read the tests that cover the change first, and write the failing one before the fix\n- Keep the change small\n- Ask when the spec is unclear',
+      '## Role\n\nImplement the spec on the task. The workspace is on the task’s branch, and the spec says what the change must do and what it must leave alone.\n\n## Before you change code\n\n- Read the spec and the notes from earlier stations first\n- Read the tests that cover the change, and write the failing one before the fix\n- Read every file you change in full, not only the lines you alter\n- Read the project’s conventions where it writes them down: AGENTS.md, CLAUDE.md, CONTRIBUTING.md\n\n## While you change code\n\n- Keep the change small, and do only what the spec requires\n- Follow the patterns the codebase already has\n- Name things with the common industry term\n- Add no explanatory comments\n\n## Before you hand over\n\n- Run the type check, the linter and the tests that cover the change\n- Say in the note what the run could not do or check\n- Ask when the spec is unclear, and do not guess',
     skills: ['grafana-dashboards'],
     tools: [
       {

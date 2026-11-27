@@ -1,7 +1,7 @@
-import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { AvatarStack } from '@/components/shared/avatar/AvatarStack';
+import { ExpandableText } from '@/components/shared/ExpandableText';
 import type { Attachment } from '@/lib/attachment';
 import { namesOf } from '@/lib/people-list';
 import type { Person } from '@/lib/person';
