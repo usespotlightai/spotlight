@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { FieldRefusal } from '@/lib/error';
 import { ApiAccess } from '@/routes/ApiAccess';
 
 const listed = vi.fn<(...args: unknown[]) => unknown>();
@@ -265,16 +266,35 @@ describe('ApiAccess', () => {
     );
   });
 
+  it('says why Spotlight refused the token name, under the name', async () => {
+    const advice =
+      'Use lowercase letters and digits, with single dashes between words, such as ci-deploy (at most 64 characters).';
+    refusal.mockReturnValue(new FieldRefusal(advice, 'name'));
+    const { dialog } = await openCreate();
+
+    const alert = within(dialog).getByRole('alert');
+    expect(alert).toHaveTextContent(advice);
+    expect(within(dialog).getByLabelText('Name')).toHaveAttribute(
+      'aria-describedby',
+      alert.id,
+    );
+    expect(within(dialog).getByLabelText('Name')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+  });
+
   it('says why Spotlight refused the token', async () => {
     refusal.mockReturnValue(
-      new Error(
-        'Use lowercase letters, digits and dashes, such as ci-deploy (at most 64 characters).',
-      ),
+      new Error('scopes: include read, plan or configure'),
     );
     const { dialog } = await openCreate();
 
     expect(within(dialog).getByRole('alert')).toHaveTextContent(
-      'Use lowercase letters, digits and dashes, such as ci-deploy (at most 64 characters).',
+      'scopes: include read, plan or configure',
+    );
+    expect(within(dialog).getByLabelText('Name')).not.toHaveAttribute(
+      'aria-invalid',
     );
   });
 

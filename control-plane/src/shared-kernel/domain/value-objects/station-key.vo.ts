@@ -28,7 +28,8 @@ export class StationKey {
     if (nonEmpty(reserved)) {
       throw new InvalidIdentifierError(
         'station key',
-        `cannot be ${named}. A run names ${named} in its handover to ${reserved}`,
+        `Choose another name. A run names ${named} in its handover to ${reserved}.`,
+        `Station key cannot be ${named}. A run names ${named} in its handover to ${reserved}.`,
       );
     }
 

@@ -43,9 +43,7 @@ export function useCreateRunnerPool(
         );
       }
 
-      throw new Error(
-        refusalOf(error, ['key'], 'Sorry, the pool couldn’t be created.'),
-      );
+      throw refusalOf(error, ['key'], 'Sorry, the pool couldn’t be created.');
     },
     onSuccess: () =>
       queryClient.invalidateQueries({

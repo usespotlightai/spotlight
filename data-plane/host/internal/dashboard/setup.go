@@ -339,7 +339,7 @@ func (m model) enterText() (tea.Model, tea.Cmd) {
 		return m.askKey()
 	case nameStep:
 		if !slug(value) {
-			v.note = "Use lowercase words joined by dashes, as in my-laptop."
+			v.note = "Use lowercase letters and digits, with single dashes between words, such as my-laptop (at most 63 characters)."
 			return m, nil
 		}
 		if value != v.name {

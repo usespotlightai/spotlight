@@ -8,7 +8,7 @@ export class ProfileKey {
     const trimmed = raw.trim();
 
     if (!isSlug(trimmed)) {
-      throw InvalidIdentifierError.notSlug('harness profile', 'careful');
+      throw InvalidIdentifierError.notSlug('harness profile key', 'careful');
     }
 
     return new ProfileKey(trimmed);

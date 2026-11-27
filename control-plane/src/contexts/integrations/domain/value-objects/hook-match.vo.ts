@@ -80,17 +80,17 @@ const readEach = <T>(
   field: 'lines' | 'stations' | 'repositories',
   written: readonly string[],
   read: (raw: string) => T,
-  shape: string,
+  repositoryShape = '',
 ): T[] =>
   written.map((raw, index) => {
     try {
       return read(raw);
     } catch (error) {
-      if (
-        error instanceof InvalidIdentifierError ||
-        error instanceof InvalidRepositoryError
-      ) {
-        throw new InvalidHookError(at(field, index), shape);
+      if (error instanceof InvalidIdentifierError) {
+        throw InvalidHookError.naming(at(field, index), error);
+      }
+      if (error instanceof InvalidRepositoryError) {
+        throw new InvalidHookError(at(field, index), repositoryShape);
       }
       throw error;
     }
@@ -148,18 +148,8 @@ export class HookMatch {
     return HookMatch.of(
       {
         tools: written.tools,
-        lines: readEach(
-          'lines',
-          written.lines,
-          LineKey.of,
-          'is lowercase words joined by dashes, as in delivery',
-        ),
-        stations: readEach(
-          'stations',
-          written.stations,
-          StationKey.of,
-          'is lowercase words joined by dashes, as in implementation, and not review or done',
-        ),
+        lines: readEach('lines', written.lines, LineKey.of),
+        stations: readEach('stations', written.stations, StationKey.of),
         repositories: readEach(
           'repositories',
           written.repositories,

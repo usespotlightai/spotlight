@@ -9,7 +9,7 @@ export class DefinedSkillKey {
     const trimmed = raw.trim();
 
     if (!isSlug(trimmed)) {
-      throw InvalidIdentifierError.notSlug('skill', 'spotlight-handover');
+      throw InvalidIdentifierError.notSlug('skill key', 'spotlight-handover');
     }
 
     return new DefinedSkillKey(SkillKey.of(trimmed));

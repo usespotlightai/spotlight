@@ -61,7 +61,7 @@ describe('RunnerDefinitions', () => {
     ).toEqual([
       [
         'key',
-        'Use lowercase letters, digits and dashes, such as dev-host (at most 64 characters).',
+        'Use lowercase letters and digits, with single dashes between words, such as dev-host (at most 64 characters).',
       ],
     ]);
   });
@@ -72,7 +72,7 @@ describe('RunnerDefinitions', () => {
     expect(
       compiled.ok ? [] : compiled.problems.map((each) => each.reason),
     ).toEqual([
-      'Use lowercase letters, digits and dashes, such as vpc-internal (at most 64 characters).',
+      'Use lowercase letters and digits, with single dashes between words, such as vpc-internal (at most 64 characters).',
     ]);
   });
 

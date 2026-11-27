@@ -30,38 +30,54 @@ export function messageOf(
   return fallback;
 }
 
-const reasonFor = (
-  error: unknown,
-  fields: readonly string[],
-): string | null => {
-  const path = fieldOf(error, 'path');
+// A refusal about one field of a form, said without the field name, for the form to show beside that field.
+export class FieldRefusal extends Error {
+  readonly field: string;
+
+  constructor(message: string, field: string) {
+    super(message);
+    this.name = 'FieldRefusal';
+    this.field = field;
+  }
+}
+
+type Reason = { readonly field: string; readonly message: string };
+
+const reasonOf = (error: unknown): Reason | null => {
+  const field = fieldOf(error, 'path');
   const message = fieldOf(error, 'message');
 
-  return typeof path === 'string' &&
-    fields.includes(path) &&
+  return typeof field === 'string' &&
     typeof message === 'string' &&
     message.length > 0
-    ? message
+    ? { field, message }
     : null;
 };
 
-// What Spotlight found wrong, for a form that shows it beside the fields it names: their reasons without the field names. A problem with any other field keeps its detail, which names each field.
+// What Spotlight found wrong. When all of it is about one of the fields a form shows, it is that field's reasons without the field name. Otherwise it is the detail, which names each field.
 export function refusalOf(
   thrown: unknown,
   fields: readonly string[],
   fallback?: string,
-): string {
+): Error {
   const errors = fieldOf(thrown, 'errors');
+  const reasons = (Array.isArray(errors) ? errors : [])
+    .filter((error) => fieldOf(error, 'severity') !== 'warning')
+    .map(reasonOf);
+  const [first] = reasons;
 
-  if (Array.isArray(errors) && errors.length > 0) {
-    const reasons = errors.map((error) => reasonFor(error, fields));
-
-    if (reasons.every((reason) => reason !== null)) {
-      return reasons.join(' ');
-    }
+  if (
+    first &&
+    fields.includes(first.field) &&
+    reasons.every((reason) => reason?.field === first.field)
+  ) {
+    return new FieldRefusal(
+      reasons.map((reason) => reason?.message).join(' '),
+      first.field,
+    );
   }
 
-  return messageOf(thrown, fallback);
+  return new Error(messageOf(thrown, fallback));
 }
 
 const answered = (thrown: unknown, status: number): boolean => {

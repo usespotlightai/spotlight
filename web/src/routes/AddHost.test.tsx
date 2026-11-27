@@ -111,6 +111,25 @@ describe('AddHost', () => {
     expect(create).toHaveBeenCalledWith('my-computer-1');
   });
 
+  it('creates the suggested pool when only spaces are typed', async () => {
+    const person = userEvent.setup();
+
+    renderPage();
+
+    await person.type(screen.getByLabelText('Pool name'), '   ');
+    await person.click(screen.getByRole('button', { name: 'Create pool' }));
+
+    expect(create).toHaveBeenCalledWith('my-computer-1');
+  });
+
+  it('says that an empty name uses the suggested one', () => {
+    renderPage();
+
+    expect(screen.getByLabelText('Pool name')).toHaveAccessibleDescription(
+      'Leave it empty to use my-computer-1.',
+    );
+  });
+
   it('creates the pool with the name typed instead of the suggested one', async () => {
     const person = userEvent.setup();
 
@@ -151,17 +170,18 @@ describe('AddHost', () => {
     expect(create).toHaveBeenCalledWith('My Mac Pool!');
   });
 
-  it('says why Spotlight refused the pool name', () => {
-    creating.mockReturnValue({
-      error: new Error(
-        'Use lowercase letters, digits and dashes, such as dev-host (at most 64 characters).',
-      ),
-    });
+  it('says why Spotlight refused the pool name, beside the name', () => {
+    const advice =
+      'Use lowercase letters and digits, with single dashes between words, such as dev-host (at most 64 characters).';
+    creating.mockReturnValue({ error: new Error(advice) });
 
     renderPage();
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Use lowercase letters, digits and dashes, such as dev-host (at most 64 characters).',
+    expect(screen.getByRole('alert')).toHaveTextContent(advice);
+    const name = screen.getByLabelText('Pool name');
+    expect(name).toHaveAttribute('aria-invalid', 'true');
+    expect(name).toHaveAccessibleDescription(
+      `${advice} Leave it empty to use my-computer-1.`,
     );
   });
 

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useCreateRunnerPool } from '@/hooks/api/useCreateRunnerPool';
+import { FieldRefusal } from '@/lib/error';
 
 const createRunnerPool = vi.fn<(...args: unknown[]) => unknown>();
 
@@ -81,7 +82,7 @@ describe('useCreateRunnerPool', () => {
 
   it('says why Spotlight refused the name, without naming the field', async () => {
     const advice =
-      'Use lowercase letters, digits and dashes, such as dev-host (at most 64 characters).';
+      'Use lowercase letters and digits, with single dashes between words, such as dev-host (at most 64 characters).';
     createRunnerPool.mockResolvedValue(
       answered(422, {
         detail: `key: ${advice}`,
@@ -93,6 +94,8 @@ describe('useCreateRunnerPool', () => {
     act(() => result.current.mutate('Dev Host'));
 
     await waitFor(() => expect(result.current.error?.message).toBe(advice));
+    expect(result.current.error).toBeInstanceOf(FieldRefusal);
+    expect(result.current.error).toHaveProperty('field', 'key');
   });
 
   it('fails when Spotlight answers no token', async () => {

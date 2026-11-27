@@ -20,6 +20,9 @@ export function CreatePoolForm({
   onEdit,
 }: CreatePoolFormProps) {
   const nameId = useId();
+  const hintId = useId();
+  const refusalId = useId();
+  const refused = nonEmpty(refusal);
   const [name, setName] = useState('');
   const named = name.trim() || suggestedName;
 
@@ -39,6 +42,8 @@ export function CreatePoolForm({
           id={nameId}
           name="name"
           placeholder={suggestedName}
+          aria-invalid={refused || undefined}
+          aria-describedby={refused ? `${refusalId} ${hintId}` : hintId}
           autoComplete="off"
           spellCheck={false}
           disabled={creating}
@@ -54,11 +59,15 @@ export function CreatePoolForm({
         </Button>
       </div>
 
-      {nonEmpty(refusal) && (
-        <p role="alert" className="text-destructive text-xs">
+      {refused && (
+        <p id={refusalId} role="alert" className="text-destructive text-xs">
           {refusal}
         </p>
       )}
+
+      <p id={hintId} className="text-muted-foreground text-xs">
+        Leave it empty to use {suggestedName}.
+      </p>
     </form>
   );
 }

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useCreateWorkspaceToken } from '@/hooks/api/useCreateWorkspaceToken';
 import { tokenKeys } from '@/hooks/api/useWorkspaceTokens';
+import { FieldRefusal } from '@/lib/error';
 import type { TokenSpec } from '@/lib/token';
 
 const createWorkspaceToken = vi.fn<(...args: unknown[]) => unknown>();
@@ -100,7 +101,7 @@ describe('useCreateWorkspaceToken', () => {
 
   it('says why Spotlight refused the name, without naming the field', async () => {
     const advice =
-      'Use lowercase letters, digits and dashes, such as ci-deploy (at most 64 characters).';
+      'Use lowercase letters and digits, with single dashes between words, such as ci-deploy (at most 64 characters).';
     createWorkspaceToken.mockResolvedValue(
       answered(422, {
         detail: `name: ${advice}`,
@@ -112,6 +113,8 @@ describe('useCreateWorkspaceToken', () => {
     act(() => result.current.mutate(SPEC));
 
     await waitFor(() => expect(result.current.error?.message).toBe(advice));
+    expect(result.current.error).toBeInstanceOf(FieldRefusal);
+    expect(result.current.error).toHaveProperty('field', 'name');
   });
 
   it('says what Spotlight found wrong with the token, naming each field', async () => {

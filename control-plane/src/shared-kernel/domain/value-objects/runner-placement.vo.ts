@@ -3,7 +3,7 @@ import { InvalidRunnerPlacementError } from '@shared-kernel/domain/exceptions/in
 import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
 import {
   isSlug,
-  MAX_SLUG_LENGTH,
+  slugAdvice,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -31,7 +31,7 @@ export class RunnerPlacement {
 
       if (!isSlug(trimmed)) {
         throw new InvalidRunnerPlacementError(
-          `must each name a pool or trust label in lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, such as vpc-internal`,
+          `must each name a pool or trust label. ${slugAdvice('vpc-internal')}`,
         );
       }
 

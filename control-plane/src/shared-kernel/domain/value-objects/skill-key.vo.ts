@@ -13,7 +13,7 @@ export class SkillKey {
 
     if (!isSlug(trimmed) && !isCatalogReference(trimmed)) {
       throw InvalidIdentifierError.notSlug(
-        'skill',
+        'skill key',
         'spotlight-handover',
         'a catalog skill id, such as catalog.research@1.0.0',
       );

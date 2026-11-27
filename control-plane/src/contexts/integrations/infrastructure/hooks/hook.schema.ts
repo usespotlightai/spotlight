@@ -1,23 +1,23 @@
 import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
+import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import {
   HOOK_ON_FAILURES,
   Hook,
   isSetBySpotlight,
   SET_BY_SPOTLIGHT_REASON,
 } from '@integrations/domain/value-objects/hook.vo';
+import { madeBy } from '@platform/definitions/definition-schema';
 import { SLUG_SHAPE } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { z } from 'zod';
-
-const KEY = new RegExp(`^${SLUG_SHAPE}$`);
 
 const TOOL = new RegExp(`^[a-z0-9]+\\.${SLUG_SHAPE}$`);
 
 const VAR = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 const HEADER = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/;
-
-const key = (what: string) =>
-  z.string().regex(KEY, `is lowercase words joined by dashes, as in ${what}`);
 
 const tool = z
   .string()
@@ -57,7 +57,7 @@ const requestSchema = z
 
 const stepSchema = z
   .object({
-    name: key('notify'),
+    name: madeBy(HookStepName.of),
     call: tool.optional(),
     with: z.record(z.string(), json).optional(),
     request: requestSchema.optional(),
@@ -104,8 +104,8 @@ const signingSchema = z.union([
 const matchSchema = z
   .object({
     tools: z.array(tool).default([]),
-    lines: z.array(key('delivery')).default([]),
-    stations: z.array(key('implementation')).default([]),
+    lines: z.array(madeBy(LineKey.of)).default([]),
+    stations: z.array(madeBy(StationKey.of)).default([]),
     repositories: z.array(z.string()).default([]),
     paths: z
       .array(z.string().min(1, 'is a path pattern, as in db/migrations/**'))
@@ -115,7 +115,7 @@ const matchSchema = z
 
 export const hookSchema = z
   .object({
-    key: key('migrations-need-a-dba'),
+    key: madeBy(HookKey.of),
     on: z.enum(HOOK_EVENTS, {
       message: `is one of ${HOOK_EVENTS.join(', ')}`,
     }),

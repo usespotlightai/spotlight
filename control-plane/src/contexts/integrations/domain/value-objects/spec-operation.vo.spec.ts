@@ -41,7 +41,9 @@ describe('SpecOperation', () => {
   });
 
   it('is named in lowercase words joined by dashes', () => {
-    expect(() => operation({ name: 'getPet' })).toThrow(/lowercase words/);
+    expect(() => operation({ name: 'getPet' })).toThrow(
+      /is not valid\. Use lowercase letters and digits, with single dashes between words, such as create-issue/,
+    );
   });
 
   it('says what it does', () => {

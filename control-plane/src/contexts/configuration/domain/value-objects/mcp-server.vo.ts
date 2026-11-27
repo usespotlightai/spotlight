@@ -3,7 +3,10 @@ import {
   ENVIRONMENT_VARIABLE_NAME_RULE,
   isEnvironmentVariableName,
 } from '@shared-kernel/domain/value-objects/environment-variable-name';
-import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import {
+  isSlug,
+  slugAdvice,
+} from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 export class McpServer {
@@ -29,7 +32,7 @@ export class McpServer {
     if (!isSlug(name)) {
       throw new InvalidHarnessProfileError(
         ['mcpServers', at, 'name'],
-        'MCP server name must be lowercase words joined by dashes, as in linear',
+        `MCP server name is not valid. ${slugAdvice('linear')}`,
       );
     }
 

@@ -15,9 +15,10 @@ export class Tool {
     const trimmed = raw.trim();
 
     if (!isToolName(trimmed) && !isCatalogReference(trimmed)) {
-      throw new InvalidIdentifierError(
-        'tool',
-        'must be lowercase words joined by dashes (e.g. pull-request), an integration tool (e.g. linear.comment) or a catalog tool id (e.g. catalog.web-search@1.1.0)',
+      throw InvalidIdentifierError.notSlug(
+        'tool name',
+        'pull-request',
+        'an integration tool such as linear.comment, or a catalog tool id such as catalog.web-search@1.1.0',
       );
     }
 

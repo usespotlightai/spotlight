@@ -14,7 +14,7 @@ export class InvalidRunnerLabelError extends DomainError {
 
   // A label that is not a slug. Its reason is advice, so that it reads on its own under the field it is about.
   static notSlug(example: string): InvalidRunnerLabelError {
-    const advice = slugAdvice(example);
+    const advice = `${slugAdvice(example)}.`;
 
     return new InvalidRunnerLabelError(
       advice,

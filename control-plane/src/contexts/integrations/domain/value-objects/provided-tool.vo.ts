@@ -7,14 +7,13 @@ import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
 import {
   INPUT_NAME,
-  SLUG_SHAPE,
+  isSlug,
+  slugAdvice,
   WHOLE_CALL_INPUT,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 
 export const TOOL_INPUT_NAME = new RegExp(`^${INPUT_NAME}$`);
-
-const TOOL_NAME = new RegExp(`^${SLUG_SHAPE}$`);
 
 export interface ProvidedToolInput {
   readonly name: string;
@@ -56,8 +55,8 @@ export class ProvidedTool {
         `tool ${input.integration.value}.${name} ${because}`,
       );
 
-    if (!TOOL_NAME.test(name)) {
-      throw invalid('must be named in lowercase words joined by dashes');
+    if (!isSlug(name)) {
+      throw invalid(`is not valid. ${slugAdvice('comment')}`);
     }
 
     if (description.length === 0) {

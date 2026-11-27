@@ -5,20 +5,23 @@ import { IntegrationLogo } from '@integrations/domain/value-objects/integration-
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { TOOL_INPUT_NAME } from '@integrations/domain/value-objects/provided-tool.vo';
+import { madeBy } from '@platform/definitions/definition-schema';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
   DOTTED_NAME,
   INTEGRATION_KEY_SHAPE,
-  SLUG_SHAPE,
+  isSlug,
+  slugAdvice,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { z } from 'zod';
 
 const NAME = new RegExp(`^${INTEGRATION_KEY_SHAPE}$`);
 const HAPPENING = new RegExp(`^${DOTTED_NAME}$`);
 const MARK_KIND = HAPPENING;
-const KEY = new RegExp(`^${SLUG_SHAPE}$`);
 const WITHIN = /^\d+s$/;
 
 const EXPRESSION = /^\s*\$\{\{(.+)\}\}\s*$/s;
@@ -30,8 +33,8 @@ const expression = z.string().refine((written) => EXPRESSION.test(written), {
 
 const templated = z.string();
 
-const key = (what: string) =>
-  z.string().regex(KEY, `is lowercase words joined by dashes, as in ${what}`);
+const key = (example: string) =>
+  z.string().refine(isSlug, { message: `${slugAdvice(example)}.` });
 
 const NAMES_A_SECRET = 'names a workspace secret, as in secret.SLACK_BOT_TOKEN';
 
@@ -297,10 +300,8 @@ const raiseSchema = z.object({
   opens: z
     .union([
       z.object({
-        lineRole: z
-          .string()
-          .regex(KEY, 'is the role of the lines this opens on'),
-        station: key('triage').optional(),
+        lineRole: madeBy(LineRole.of),
+        station: madeBy(StationKey.of).optional(),
         title: expression,
         description: expression.optional(),
         assignBy: z.object({ email: expression }).optional(),

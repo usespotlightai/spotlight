@@ -259,6 +259,25 @@ describe('compileHook', () => {
     ]);
   });
 
+  it('says how to write a key, line or station it refuses', () => {
+    expect(
+      problemsOf({
+        ...MIGRATIONS,
+        key: 'Migrations Need A DBA',
+        match: { ...MIGRATIONS.match, lines: ['Delivery'] },
+      }),
+    ).toEqual([
+      [
+        'key',
+        'Use lowercase letters and digits, with single dashes between words, such as migrations-need-a-dba (at most 64 characters).',
+      ],
+      [
+        'match.lines[0]',
+        'Use lowercase letters and digits, with single dashes between words, such as web-app (at most 64 characters).',
+      ],
+    ]);
+  });
+
   it('rejects tools matched on an event that is not about a tool', () => {
     expect(
       problemsOf({ ...MIGRATIONS, match: { tools: ['grafana.search'] } }),

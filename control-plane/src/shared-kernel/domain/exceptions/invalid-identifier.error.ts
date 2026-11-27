@@ -20,7 +20,7 @@ export class InvalidIdentifierError extends DomainError {
     example: string,
     otherwise?: string,
   ): InvalidIdentifierError {
-    const advice = slugAdvice(example, otherwise);
+    const advice = `${slugAdvice(example, otherwise)}.`;
 
     return new InvalidIdentifierError(
       identifierKind,

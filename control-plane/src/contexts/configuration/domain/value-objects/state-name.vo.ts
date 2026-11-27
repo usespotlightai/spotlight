@@ -1,7 +1,7 @@
 import { InvalidTerraformStateError } from '@configuration/domain/exceptions/invalid-terraform-state.error';
 import {
   isSlug,
-  MAX_SLUG_LENGTH,
+  slugAdvice,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class StateName {
@@ -12,7 +12,7 @@ export class StateName {
 
     if (!isSlug(trimmed)) {
       throw new InvalidTerraformStateError(
-        `name must be lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in default`,
+        `name is not valid. ${slugAdvice('core-network')}`,
       );
     }
 

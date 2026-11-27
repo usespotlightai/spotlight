@@ -13,7 +13,7 @@ export class CatalogName {
     if (!isSlug(trimmed)) {
       throw new InvalidCatalogEntryError(
         'name',
-        `Catalog name "${trimmed}" is not valid. ${slugAdvice('web-search')}`,
+        `Catalog name "${trimmed}" is not valid. ${slugAdvice('web-search')}.`,
       );
     }
 

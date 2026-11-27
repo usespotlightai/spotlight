@@ -8,7 +8,7 @@ export class HookKey {
     const trimmed = raw.trim();
 
     if (!isSlug(trimmed)) {
-      throw InvalidIdentifierError.notSlug('hook', 'migrations-need-a-dba');
+      throw InvalidIdentifierError.notSlug('hook key', 'migrations-need-a-dba');
     }
 
     return new HookKey(trimmed);

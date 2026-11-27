@@ -45,9 +45,7 @@ export function useCreateWorkspaceToken(
         );
       }
 
-      throw new Error(
-        refusalOf(error, ['name'], 'Sorry, the token couldn’t be created.'),
-      );
+      throw refusalOf(error, ['name'], 'Sorry, the token couldn’t be created.');
     },
     onSettled: () =>
       queryClient.invalidateQueries({

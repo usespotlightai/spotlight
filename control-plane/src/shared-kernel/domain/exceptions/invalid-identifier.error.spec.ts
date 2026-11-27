@@ -23,8 +23,8 @@ describe('InvalidIdentifierError', () => {
     );
 
     expect([refused.because, refused.message]).toEqual([
-      'Use lowercase letters, digits and dashes, such as dev-host (at most 64 characters).',
-      'Runner pool key is not valid. Use lowercase letters, digits and dashes, such as dev-host (at most 64 characters).',
+      'Use lowercase letters and digits, with single dashes between words, such as dev-host (at most 64 characters).',
+      'Runner pool key is not valid. Use lowercase letters and digits, with single dashes between words, such as dev-host (at most 64 characters).',
     ]);
   });
 
@@ -36,7 +36,7 @@ describe('InvalidIdentifierError', () => {
         'a catalog skill id, such as catalog.research@1.0.0',
       ).because,
     ).toBe(
-      'Use lowercase letters, digits and dashes, such as spotlight-handover (at most 64 characters), or a catalog skill id, such as catalog.research@1.0.0.',
+      'Use lowercase letters and digits, with single dashes between words, such as spotlight-handover (at most 64 characters), or a catalog skill id, such as catalog.research@1.0.0.',
     );
   });
 
@@ -45,8 +45,8 @@ describe('InvalidIdentifierError', () => {
       refusalOf(() => LineKey.of('Web App')).because,
       refusalOf(() => StationKey.of('Code Review')).because,
     ]).toEqual([
-      'Use lowercase letters, digits and dashes, such as web-app (at most 64 characters).',
-      'Use lowercase letters, digits and dashes, such as code-review (at most 64 characters).',
+      'Use lowercase letters and digits, with single dashes between words, such as web-app (at most 64 characters).',
+      'Use lowercase letters and digits, with single dashes between words, such as code-review (at most 64 characters).',
     ]);
   });
 });

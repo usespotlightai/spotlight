@@ -115,8 +115,8 @@ describe('IdentityDefinitions', () => {
         }),
       ),
     ]).toEqual([
-      'Use lowercase letters, digits and dashes, such as platform-team (at most 64 characters).',
-      'Use lowercase letters, digits and dashes, such as ci-deploy (at most 64 characters).',
+      'Use lowercase letters and digits, with single dashes between words, such as platform-team (at most 64 characters).',
+      'Use lowercase letters and digits, with single dashes between words, such as ci-deploy (at most 64 characters).',
     ]);
   });
 

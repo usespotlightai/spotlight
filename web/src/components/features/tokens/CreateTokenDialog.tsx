@@ -17,7 +17,7 @@ import {
   type CreatedWorkspaceToken,
   useCreateWorkspaceToken,
 } from '@/hooks/api/useCreateWorkspaceToken';
-import { messageOf } from '@/lib/error';
+import { FieldRefusal, messageOf } from '@/lib/error';
 import { nonEmpty } from '@/lib/non-empty';
 import {
   expiryAfter,
@@ -48,6 +48,7 @@ export function CreateTokenDialog({
   const create = useCreateWorkspaceToken(workspaceId);
   const nameId = useId();
   const descriptionId = useId();
+  const nameRefusalId = useId();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [level, setLevel] = useState<TokenLevel>('configure');
@@ -56,6 +57,10 @@ export function CreateTokenDialog({
 
   const named = name.trim();
   const busy = create.isPending || create.isSuccess;
+  const nameRefusal =
+    create.error instanceof FieldRefusal && create.error.field === 'name'
+      ? create.error.message
+      : null;
 
   const reset = () => {
     setName('');
@@ -132,11 +137,24 @@ export function CreateTokenDialog({
                 placeholder="terraform"
                 disabled={busy}
                 value={name}
+                aria-invalid={nameRefusal !== null || undefined}
+                aria-describedby={
+                  nameRefusal === null ? undefined : nameRefusalId
+                }
                 onChange={(event) => {
                   setName(event.target.value);
                   if (create.isError) create.reset();
                 }}
               />
+              {nameRefusal !== null && (
+                <p
+                  id={nameRefusalId}
+                  role="alert"
+                  className="text-destructive text-xs"
+                >
+                  {nameRefusal}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -180,7 +198,7 @@ export function CreateTokenDialog({
             </div>
           </div>
 
-          {create.isError && (
+          {create.isError && nameRefusal === null && (
             <p role="alert" className="text-destructive text-xs">
               {messageOf(create.error)}
             </p>
