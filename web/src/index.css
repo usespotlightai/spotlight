@@ -491,17 +491,3 @@ body.resizing {
   --sidebar-hover: color-mix(in oklab, var(--border) 50%, transparent);
   --sidebar-selected: var(--border);
 }
-
-html[data-desktop='mac'] {
-  --sidebar-hover: color-mix(in oklab, var(--foreground) 5%, transparent);
-  --sidebar-selected: color-mix(in oklab, var(--foreground) 9%, transparent);
-}
-
-html[data-desktop='mac'],
-html[data-desktop='mac'] body {
-  background-color: transparent;
-}
-
-html[data-desktop='mac'] [data-slot='dialog-overlay'] {
-  backdrop-filter: none;
-}

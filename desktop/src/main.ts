@@ -180,9 +180,7 @@ const spotlightWindow = (
     title: 'Spotlight',
     titleBarStyle: 'hidden',
     trafficLightPosition: TRAFFIC_LIGHTS,
-    backgroundColor: '#00000000',
-    vibrancy: 'sidebar',
-    visualEffectState: 'followWindow',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0d0d0e' : '#efeff1',
     show: false,
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
