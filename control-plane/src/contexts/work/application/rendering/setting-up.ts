@@ -141,7 +141,7 @@ export const SettingUp = {
       each.equals(configFolder.repository),
     );
     const exported = `"$SPOTLIGHT_URL/api/v1/resources/workspaces/${workspaceId}/export"`;
-    const state = `${spotlightUrl.replace(/\/+$/, '')}/api/terraform/workspaces/<slug>/states/default`;
+    const state = `${spotlightUrl}/api/terraform/workspaces/<slug>/states/default`;
 
     return [
       '## Setting up configuration as code',

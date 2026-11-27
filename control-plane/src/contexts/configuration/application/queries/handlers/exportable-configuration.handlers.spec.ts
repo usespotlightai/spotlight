@@ -346,7 +346,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     runners,
     oidcTrusts,
     PIN,
-    'https://app.dev.example/',
+    'https://app.dev.example',
   );
 
   return {

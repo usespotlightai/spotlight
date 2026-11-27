@@ -54,7 +54,7 @@ export class ExportableConfigurations {
       provider: {
         source: this.pin.source,
         version: this.pin.version,
-        url: this.spotlightUrl.replace(/\/+$/, ''),
+        url: this.spotlightUrl,
       },
       resources: [
         ExportableResourceMapper.workspace(workspace),

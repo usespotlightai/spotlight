@@ -51,20 +51,14 @@ func Home(args []string, version string) int {
 		return 1
 	}
 
-	if !*asJSON {
-		if err := Overview(os.Stdout, version); err != nil {
-			fmt.Fprintln(os.Stderr, "spotlight status:", err)
-			return 1
-		}
-		return 0
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 2*timeout)
 	defer cancel()
 
-	home, err := inspectHome(ctx, version)
-	if err == nil {
+	home, err := inspectHome(ctx, version, true)
+	if err == nil && *asJSON {
 		err = json.NewEncoder(os.Stdout).Encode(home)
+	} else if err == nil {
+		home.print(os.Stdout)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "spotlight status:", err)
@@ -73,12 +67,10 @@ func Home(args []string, version string) int {
 	return 0
 }
 
-// Overview prints what is set up on this computer, as spotlight status does: spotlight without a command, outside a terminal.
+// Overview prints what is set up on this computer, for spotlight without a command outside a terminal.
+// It reads only this computer, so it answers at once: spotlight status also asks Spotlight and the container runtime.
 func Overview(out io.Writer, version string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*timeout)
-	defer cancel()
-
-	home, err := inspectHome(ctx, version)
+	home, err := inspectHome(context.Background(), version, false)
 	if err != nil {
 		return err
 	}
@@ -90,7 +82,7 @@ func personal() bool {
 	return os.Geteuid() != 0
 }
 
-func inspectHome(ctx context.Context, version string) (homeReport, error) {
+func inspectHome(ctx context.Context, version string, reach bool) (homeReport, error) {
 	home := homeReport{Version: version}
 	if personal() {
 		logins, err := savedLogins()
@@ -102,7 +94,7 @@ func inspectHome(ctx context.Context, version string) (homeReport, error) {
 		home.Editors = &editors
 	}
 
-	r := inspect(ctx, version)
+	r := inspected(ctx, version, reach)
 	if hostSetUp(r) {
 		home.Host = &r
 	} else {

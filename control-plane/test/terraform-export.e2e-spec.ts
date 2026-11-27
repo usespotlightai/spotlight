@@ -867,7 +867,7 @@ describe('the configuration the export spec renders (e2e)', () => {
         provider: {
           source: 'usespotlightai/spotlight',
           version: new PinnedTerraformProvider().version,
-          url: publicUrlOf(app.get<Env>(ENV)).replace(/\/+$/, ''),
+          url: publicUrlOf(app.get<Env>(ENV)),
         },
         resources: [
           ...CONFIGURATION.resources.map((each) => {

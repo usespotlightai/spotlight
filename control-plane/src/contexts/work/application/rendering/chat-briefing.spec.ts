@@ -86,7 +86,7 @@ const brief = (
     lines,
     memories,
     memoryFolder,
-    spotlightUrl: 'https://app.usespotlight.ai/',
+    spotlightUrl: 'https://app.usespotlight.ai',
     release,
     extensions,
   });
