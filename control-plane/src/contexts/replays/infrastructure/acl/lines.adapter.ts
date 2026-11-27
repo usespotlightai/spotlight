@@ -48,6 +48,14 @@ const objectiveOf = (
   return published ? OBJECTIVE[published] : null;
 };
 
+const sourceOf = (line: LineView): StationView['source'] =>
+  line.source
+    ? {
+        repository: Repository.of(line.source.repository),
+        path: line.source.path,
+      }
+    : null;
+
 const stationOf = (
   line: LineView,
   station: PublishedStationView,
@@ -59,12 +67,7 @@ const stationOf = (
   stationId: StationId.of(station.id),
   key: station.key,
   name: station.name,
-  source: line.source
-    ? {
-        repository: Repository.of(line.source.repository),
-        path: line.source.path,
-      }
-    : null,
+  source: sourceOf(line),
 });
 
 const searchOf = (station: PublishedStationView): SearchPolicy | null =>
@@ -81,6 +84,7 @@ const searchOf = (station: PublishedStationView): SearchPolicy | null =>
     iterations: station.search.iterations,
     repeats: station.search.repeats,
     objective: objectiveOf(station.search.objective),
+    requestsPerDay: station.search.requestsPerDay,
   });
 
 const agentOf = (station: PublishedStationView): SearchAgent | null =>
@@ -184,6 +188,7 @@ export class Lines implements LinesPort {
           lineName: line.name,
           key: station.key,
           name: station.name,
+          source: sourceOf(line),
         }
       : null;
   }

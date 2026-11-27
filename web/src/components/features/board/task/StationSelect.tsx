@@ -46,29 +46,34 @@ function StationOption({ station, share, hint, denied }: StationOptionProps) {
   const hintId = useId();
 
   return (
-    <DropdownMenuRadioItem
-      value={station.id}
-      disabled={denied}
-      aria-labelledby={nameId}
-      aria-describedby={hint ? hintId : undefined}
-      className="group/option"
-    >
-      <StationIcon
-        share={share}
-        color={station.color}
-        className="transition-[filter] group-focus/option:brightness-90"
-      />
-      <span className="flex min-w-0 flex-col">
+    <Tooltip disabled={!hint}>
+      <TooltipTrigger
+        render={
+          <DropdownMenuRadioItem
+            value={station.id}
+            disabled={denied}
+            aria-labelledby={nameId}
+            aria-describedby={hint ? hintId : undefined}
+            className="group/option data-disabled:pointer-events-auto"
+          />
+        }
+      >
+        <StationIcon
+          share={share}
+          color={station.color}
+          className="transition-[filter] group-focus/option:brightness-90"
+        />
         <span id={nameId} className="truncate">
           {station.name}
         </span>
         {hint && (
-          <span id={hintId} className="truncate text-muted-foreground text-xs">
+          <span id={hintId} className="sr-only">
             {hint}
           </span>
         )}
-      </span>
-    </DropdownMenuRadioItem>
+      </TooltipTrigger>
+      {hint && <TooltipContent side="right">{hint}</TooltipContent>}
+    </Tooltip>
   );
 }
 
@@ -164,7 +169,7 @@ export function StationSelect({
         </TooltipContent>
       </Tooltip>
 
-      <DropdownMenuContent align="start" sideOffset={6} className="min-w-60">
+      <DropdownMenuContent align="start" sideOffset={6} className="min-w-52">
         <DropdownMenuRadioGroup
           value={value}
           onValueChange={(next) => onChange(String(next))}
@@ -174,14 +179,11 @@ export function StationSelect({
               key={station.id}
               station={station}
               share={shareOf(station.id)}
-              hint={handMoveHint(move, stations)}
+              hint={stays ?? handMoveHint(move, stations)}
               denied={move.denial !== null}
             />
           ))}
         </DropdownMenuRadioGroup>
-        {stays && (
-          <p className="px-1.5 py-1 text-muted-foreground text-xs">{stays}</p>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

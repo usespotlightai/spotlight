@@ -179,6 +179,10 @@ export class MemoryProposal {
       : [];
   }
 
+  get comparable(): boolean {
+    return this.proposed && !this.retires;
+  }
+
   get fromOutside(): boolean {
     return this.source === 'outside';
   }

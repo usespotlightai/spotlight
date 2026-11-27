@@ -239,6 +239,15 @@ export class LineMap {
     return starts || parks || to.isCompleted ? null : 'between-work-stations';
   }
 
+  sendsBack(from: Station, to: Station): boolean {
+    return (
+      from.isAgentStation &&
+      to.isAgentStation &&
+      !from.id.equals(to.id) &&
+      (from.routesTo(to.id) || to.position < from.position)
+    );
+  }
+
   endsAt(stationId: StationId): boolean {
     return this.stationAt(stationId)?.ends ?? false;
   }

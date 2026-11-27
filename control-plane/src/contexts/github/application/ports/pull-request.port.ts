@@ -14,6 +14,13 @@ export interface PullRequestStatusDto {
   readonly closedAt: Date | null;
 }
 
+export interface PullRequestMergeabilityDto {
+  readonly state: 'open' | 'merged' | 'closed';
+  readonly mergeable: boolean | null;
+  readonly branch: string | null;
+  readonly base: string | null;
+}
+
 export interface CommitPullRequestDto {
   readonly number: number;
   readonly url: string;
@@ -51,6 +58,9 @@ export interface PullRequestPort {
   edit(editing: PullRequestEditing): Promise<void>;
 
   statusOf(at: PullRequestAt): Promise<PullRequestStatusDto>;
+
+  // GitHub answers null while it still computes whether the pull request merges.
+  mergeabilityOf(at: PullRequestAt): Promise<PullRequestMergeabilityDto>;
 
   close(at: PullRequestAt): Promise<void>;
 

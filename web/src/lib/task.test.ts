@@ -6,6 +6,7 @@ import {
   mayLand,
   moveTargetFor,
   placed,
+  stopsRun,
   type Task,
 } from '@/lib/task';
 
@@ -91,16 +92,21 @@ const completed = {
 } as const;
 const stations = [backlog, spec, build, completed];
 
-const allowed = (stationId: string, skips: string[] = []) => ({
+const allowed = (
+  stationId: string,
+  skips: string[] = [],
+  sendsBack = false,
+) => ({
   stationId,
   denial: null,
   skips,
+  sendsBack,
 });
 
 const denied = (
   stationId: string,
   denial: NonNullable<Task['handMoves'][number]['denial']>,
-) => ({ stationId, denial, skips: [] });
+) => ({ stationId, denial, skips: [], sendsBack: false });
 
 describe('mayLand', () => {
   it('lets a task land only where the server says a person may move it', () => {
@@ -130,6 +136,12 @@ describe('handMoveHint', () => {
       handMoveHint(allowed('completed', ['spec', 'build']), stations),
     ).toBe('Skips Spec and Build');
     expect(handMoveHint(allowed('backlog'), stations)).toBeNull();
+  });
+
+  it('says that a move sends the task back with a reason', () => {
+    expect(handMoveHint(allowed('spec', [], true), stations)).toBe(
+      'Sends it back with a reason',
+    );
   });
 
   it('says why a move is not open', () => {
@@ -164,6 +176,26 @@ describe('handMoveDenial', () => {
         ]),
       ),
     ).toBeNull();
+  });
+});
+
+describe('stopsRun', () => {
+  const running: Task = { ...task('a', 'spec'), progress: 'in-progress' };
+
+  it('stops the run of a task in progress that moves to the completed station', () => {
+    expect(stopsRun(stations, running, 'completed')).toBe(true);
+  });
+
+  it('stops nothing for a task that no run works', () => {
+    expect(stopsRun(stations, task('a', 'spec'), 'completed')).toBe(false);
+    expect(
+      stopsRun(stations, { ...running, progress: 'queued' }, 'completed'),
+    ).toBe(false);
+  });
+
+  it('stops nothing for a move to any other station', () => {
+    expect(stopsRun(stations, running, 'backlog')).toBe(false);
+    expect(stopsRun(stations, running, 'spec')).toBe(false);
   });
 });
 

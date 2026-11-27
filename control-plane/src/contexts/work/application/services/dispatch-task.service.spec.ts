@@ -221,6 +221,8 @@ const ids: IdGeneratorPort = { generate: () => 'run_1' };
 
 type RepositoryInput = string | RepositorySpec;
 
+const WIDGETS: readonly RepositoryInput[] = ['acme/widgets'];
+
 const repositoryConfig = (each: RepositoryInput): RepositorySpec =>
   typeof each === 'string' ? repositoryOf(Repository.of(each)) : each;
 
@@ -454,7 +456,11 @@ describe('DispatchTask', () => {
     it('names a catalog tool without its version, and pins the version in the run', async () => {
       resolvedItems = { tools: [WEB_SEARCH], skills: [], denied: [] };
 
-      await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
+      await dispatch(
+        triage({ tools: ['catalog.web-search@1.1.0'] }),
+        undefined,
+        WIDGETS,
+      );
 
       expect(enabledTools(queued[0])).toEqual(['catalog.web-search']);
       expect(written(queued[0]).catalog).toEqual(['catalog.web-search@1.1.0']);
@@ -498,7 +504,11 @@ describe('DispatchTask', () => {
         ],
       };
 
-      await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
+      await dispatch(
+        triage({ tools: ['catalog.web-search@1.1.0'] }),
+        undefined,
+        WIDGETS,
+      );
 
       expect(refusedAs(queued[0])).toEqual([
         'catalog_item_unknown: Catalog has no item catalog.web-search@1.1.0.',
@@ -517,7 +527,11 @@ describe('DispatchTask', () => {
         denied: [{ id: WEB_SEARCH.id, reason, because: 'denied here' }],
       };
 
-      await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
+      await dispatch(
+        triage({ tools: ['catalog.web-search@1.1.0'] }),
+        undefined,
+        WIDGETS,
+      );
 
       expect(refusedAs(queued[0])).toEqual([`${code}: denied here`]);
     });
@@ -545,6 +559,8 @@ describe('DispatchTask', () => {
           tools: ['catalog.web-search@1.1.0'],
           skills: [SkillKey.of('catalog.research@9.0.0')],
         }),
+        undefined,
+        WIDGETS,
       );
 
       expect(refusedAs(queued[0])).toEqual([
@@ -673,6 +689,31 @@ describe('DispatchTask', () => {
 
       expect(written(queued[0]).checkouts).toEqual([]);
     });
+
+    it('fails the run, saying why, rather than running it on an empty workspace, where the line works no repository', async () => {
+      const id = await dispatch(stations[1]);
+
+      expect(id).not.toBeNull();
+      expect(refusedAs(queued[0])).toEqual([
+        'line_has_no_repositories: This line has no repositories. Add one in the line’s configuration. Station: Triage',
+      ]);
+    });
+
+    it('runs a review of a pull request on a line that works no repository, as it checks out the pull request', async () => {
+      const station = stations[1];
+
+      await dispatch(
+        station,
+        task(station.id.value).reviews(
+          PullRequestUrl.of('https://github.com/acme/api/pull/42'),
+          { outside: false },
+          lineWith(),
+          new Date(0),
+        ),
+      );
+
+      expect(refusedAs(queued[0])).toEqual([]);
+    });
   });
 
   describe('the harness profile a station names', () => {
@@ -766,7 +807,7 @@ describe('DispatchTask', () => {
       readyAs = { injectedSecrets: [SecretName.of('LINEAR_API_KEY')] };
       awaitingValue = ['LINEAR_API_KEY'];
 
-      const id = await dispatch(naming('linear'));
+      const id = await dispatch(naming('linear'), undefined, WIDGETS);
 
       expect(id).not.toBeNull();
       expect(refusedAs(queued[0])).toEqual([
@@ -792,7 +833,7 @@ describe('DispatchTask', () => {
       });
 
       it('names each variable and its secret in the run spec and the briefing', async () => {
-        await dispatch(naming('app'));
+        await dispatch(naming('app'), undefined, WIDGETS);
 
         const spec = written(queued[0]);
         expect(spec.sandboxEnv).toEqual([
@@ -808,7 +849,7 @@ describe('DispatchTask', () => {
       it('fails the run, saying why, where the secret does not allow its value in a sandbox', async () => {
         sandboxNotAllowed = ['DEV_GITHUB_APP_KEY'];
 
-        await dispatch(naming('app'));
+        await dispatch(naming('app'), undefined, WIDGETS);
 
         expect(refusedAs(queued[0])).toEqual([
           'secret_sandbox_not_allowed: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
@@ -818,7 +859,7 @@ describe('DispatchTask', () => {
       it('fails the run, saying why, where the secret has no value yet', async () => {
         awaitingValue = ['DEV_GITHUB_APP_KEY'];
 
-        await dispatch(naming('app'));
+        await dispatch(naming('app'), undefined, WIDGETS);
 
         expect(refusedAs(queued[0])).toEqual([
           'secret_awaiting_value: Secret DEV_GITHUB_APP_KEY has no value. Station: Triage',
@@ -827,7 +868,7 @@ describe('DispatchTask', () => {
     });
 
     it('fails the run, saying why, where the team has no such profile', async () => {
-      const id = await dispatch(naming('reckless'));
+      const id = await dispatch(naming('reckless'), undefined, WIDGETS);
 
       expect(id).not.toBeNull();
       expect(refusedAs(queued[0])).toEqual([
@@ -897,7 +938,7 @@ describe('DispatchTask', () => {
     });
   });
 
-  it('lets the agent hand over nothing on a person’s turn', async () => {
+  it('lets the agent hand over on a person’s turn only to resume the line', async () => {
     const leon = UserId.of('user_1');
     const station = stations[1];
     const line = lineWith(station);
@@ -922,7 +963,11 @@ describe('DispatchTask', () => {
 
     await dispatch(station, taken);
 
-    expect(written(queued[0]).handover.options).toEqual([]);
+    expect(written(queued[0]).handover).toEqual({
+      options: [],
+      resumeOptions: ['triage', 'spec', 'done'],
+      noteLimit: 0,
+    });
   });
 
   it('does not offer a station nothing runs at', async () => {

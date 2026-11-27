@@ -51,10 +51,11 @@ const viewer = (person = LEON, actsOnTeam = true) => ({
   }),
 });
 
-const at = (key: string): HandMovedTask => ({
+const at = (key: string, finished = false): HandMovedTask => ({
   stationId: keyed(key).id,
   hold: null,
   awaiting: null,
+  finished,
 });
 
 const QUESTION = { ask: { approval: null, connectionAsk: null } };
@@ -99,6 +100,23 @@ describe('HandMoves', () => {
       'code-review': { denial: 'between-work-stations', skips: [] },
       completed: { denial: null, skips: [] },
     });
+  });
+
+  it('sends a finished task back to an earlier work station, or to one its station passes to', () => {
+    const moves = HandMoves.of(at('code-review', true), line, viewer());
+    const sentBack = moves
+      .filter((each) => each.sendsBack)
+      .map((each) => each.to.key.value);
+
+    expect(sentBack).toEqual(['triage', 'spec', 'implementation']);
+    expect(
+      moves.find((each) => each.to.key.value === 'implementation')?.denial,
+    ).toBeNull();
+    expect(
+      HandMoves.of(at('code-review'), line, viewer()).some(
+        (each) => each.sendsBack,
+      ),
+    ).toBe(false);
   });
 
   it('keeps a completed task where it is', () => {
@@ -207,7 +225,12 @@ describe('HandMoves', () => {
 
     expect(
       HandMoves.denial(
-        { stationId: StationId.of('closed'), hold: null, awaiting: QUESTION },
+        {
+          stationId: StationId.of('closed'),
+          hold: null,
+          awaiting: QUESTION,
+          finished: false,
+        },
         odd,
         work as Station,
         LEON,
@@ -244,7 +267,12 @@ describe('HandMoves', () => {
   it('refuses a mover whose task is on no station of the line', () => {
     expect(() =>
       HandMoves.denial(
-        { stationId: StationId.of('elsewhere'), hold: null, awaiting: null },
+        {
+          stationId: StationId.of('elsewhere'),
+          hold: null,
+          awaiting: null,
+          finished: false,
+        },
         line,
         keyed('backlog'),
         LEON,
@@ -289,7 +317,7 @@ describe('HandMoves', () => {
     for (const finished of [false, true]) {
       for (const from of line.stations) {
         for (const move of HandMoves.of(
-          { stationId: from.id, hold: null, awaiting: null },
+          { stationId: from.id, hold: null, awaiting: null, finished },
           line,
           viewer(),
         ).filter((each) => !each.to.id.equals(from.id))) {

@@ -21,6 +21,7 @@ import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
 import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
+import { RepositoriesMissing } from '@work/domain/value-objects/repositories-missing.vo';
 import type { Resume } from '@work/domain/value-objects/resume.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { SecretAwaitingValue } from '@work/domain/value-objects/secret-awaiting-value.vo';
@@ -35,6 +36,7 @@ export interface RunOrder {
   readonly priority: RunPriority;
   readonly placement: RunnerPlacement;
   readonly options: readonly HandoverOption[];
+  readonly resumeOptions: readonly HandoverOption[];
   readonly noteLimit: number;
   readonly resume: Resume;
   readonly checkouts: readonly TaskCheckout[];
@@ -45,10 +47,17 @@ export interface RunOrder {
   readonly boundSecrets: readonly BoundSecret[];
 }
 
+export interface OrderedHandover {
+  readonly options: readonly HandoverOption[];
+  readonly resumeOptions: readonly HandoverOption[];
+  readonly noteLimit: number;
+}
+
 export interface OrderedAt {
   readonly stationId: StationId;
   readonly resume: Resume;
   readonly checkouts: readonly TaskCheckout[];
+  readonly needsCheckout?: boolean;
 }
 
 export type RunLaunch = Pick<
@@ -125,6 +134,9 @@ export const orderAt = ({
     needed.some((name) => name.equals(each.name)),
   );
   const refusals = [
+    ...(at.needsCheckout && at.checkouts.length === 0
+      ? [RepositoriesMissing.at(station.name)]
+      : []),
     ...denied,
     ...launch.enabled.refusals,
     ...bound
@@ -145,6 +157,7 @@ export const orderAt = ({
     priority: RunPriority.forTask(line.depthOf(station.id)),
     placement: line.placementOf(station.id),
     options: line.optionsFrom(station.id),
+    resumeOptions: line.resumeOptionsAt(station.id),
     noteLimit: 0,
     resume: at.resume,
     checkouts: at.checkouts,
@@ -157,8 +170,19 @@ export const orderAt = ({
   };
 };
 
+// A person's turn hands over to no station. Its agent may only resume the line: at this station, at a station it passes to, or done.
+export const handoverOf = (
+  order: Pick<RunOrder, 'options' | 'resumeOptions' | 'noteLimit'>,
+  drivenByAPerson: boolean,
+): OrderedHandover => ({
+  options: drivenByAPerson ? [] : order.options,
+  resumeOptions: drivenByAPerson ? order.resumeOptions : [],
+  noteLimit: order.noteLimit,
+});
+
 export const taskOrderedAt = (task: Task, line: LineMap): OrderedAt => ({
   stationId: task.stationId,
   resume: task.resume(),
   checkouts: checkoutsOf(task, line),
+  needsCheckout: true,
 });

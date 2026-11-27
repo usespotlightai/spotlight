@@ -1041,6 +1041,19 @@ describe('Run', () => {
       );
     });
 
+    it('asks for the next turn, not an answer, while the task is on hold', () => {
+      taskStation.mockReturnValue(mine());
+      runs.mockReturnValue([
+        run({ state: 'suspended', yourMessage: 'answer' }),
+      ]);
+
+      renderRun();
+
+      expect(
+        screen.getByRole('textbox', { name: 'Message Implementation' }),
+      ).toHaveAttribute('aria-placeholder', 'Tell the agent what to do next…');
+    });
+
     it('resumes the line at its station', async () => {
       const user = userEvent.setup();
       taskStation.mockReturnValue(mine());
@@ -1085,6 +1098,62 @@ describe('Run', () => {
           next: 'continue',
           verdict: 'exploring',
         },
+        expect.anything(),
+      );
+    });
+
+    it('moves the task on to the next station by default', async () => {
+      const user = userEvent.setup();
+      const theirs = mine();
+      const implementation = {
+        ...working.station,
+        position: 2,
+        passesTo: ['station_spec', 'station_review'],
+      };
+      taskStation.mockReturnValue({
+        ...theirs,
+        station: implementation,
+        line: {
+          stations: [
+            {
+              id: 'station_spec',
+              name: 'Spec',
+              harness: 'claude-code',
+              kind: 'work',
+              position: 1,
+            },
+            implementation,
+            {
+              id: 'station_review',
+              name: 'Code Review',
+              harness: 'claude-code',
+              kind: 'work',
+              position: 3,
+            },
+          ],
+        },
+      });
+
+      renderRun();
+      await user.click(screen.getByRole('button', { name: 'Resume' }));
+      const dialog = await screen.findByRole('dialog');
+      await user.click(
+        within(dialog).getByRole('radio', { name: /^Move it on/ }),
+      );
+
+      expect(
+        within(dialog).getByRole('radio', { name: 'Code Review' }),
+      ).toBeChecked();
+
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Move it on' }),
+      );
+
+      expect(resumption).toHaveBeenCalledWith(
+        expect.objectContaining({
+          next: 'move-on',
+          stationId: 'station_review',
+        }),
         expect.anything(),
       );
     });
@@ -1333,17 +1402,14 @@ describe('Run', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('offers to answer the question right here, so the run carries on', () => {
+    it('offers to reply right here, so the run carries on', () => {
       runs.mockReturnValue([run({ state: 'suspended', review: PENDING })]);
 
       renderRun();
 
       expect(
         screen.getByRole('textbox', { name: 'Answer Implementation' }),
-      ).toHaveAttribute(
-        'aria-placeholder',
-        'Answer the question to continue the run…',
-      );
+      ).toHaveAttribute('aria-placeholder', 'Reply to continue the run…');
     });
 
     it('lets an approval be decided right here, through its inbox conversation', async () => {

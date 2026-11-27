@@ -129,6 +129,13 @@ export class MemoryProposalSet extends EventRecorder {
     return this.proposals.some((each) => each.proposedIn(runId));
   }
 
+  /** What the run proposed that is compared with the team's memories to see whether it repeats one. */
+  comparableIn(runId: RunId): readonly MemoryProposal[] {
+    return this.proposals.filter(
+      (each) => each.proposedIn(runId) && each.comparable,
+    );
+  }
+
   stepsRemembered(runId: RunId): readonly number[] {
     return this.proposals
       .filter((each) => each.provenance.runId.equals(runId))

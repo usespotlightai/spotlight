@@ -6,6 +6,7 @@ export interface ReportedGitHubActivity {
   readonly merged: boolean;
   readonly reviewState: string | null;
   readonly checkConclusion: string | null;
+  readonly issueIsPullRequest: boolean;
 }
 
 const OPENING_ACTIONS: readonly (string | null)[] = [
@@ -39,10 +40,13 @@ export const pullRequestActivityOf = (
         : null;
   }
 
-  if (
-    (event === 'issue_comment' || event === 'pull_request_review_comment') &&
-    action === 'created'
-  ) {
+  if (event === 'issue_comment') {
+    return action === 'created' && reported.issueIsPullRequest
+      ? 'commented'
+      : null;
+  }
+
+  if (event === 'pull_request_review_comment' && action === 'created') {
     return 'commented';
   }
 

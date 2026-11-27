@@ -2,6 +2,7 @@ import { MemoriesUsed } from '@memory/domain/events/memories-used.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import { MemoryMerged } from '@memory/domain/events/memory-merged.event';
+import { MemoryRestored } from '@memory/domain/events/memory-restored.event';
 import { MemoryRetirementApproved } from '@memory/domain/events/memory-retirement-approved.event';
 import { MemoryReviewReopened } from '@memory/domain/events/memory-review-reopened.event';
 import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
@@ -11,6 +12,8 @@ import { MemoryUpkeepSwept } from '@memory/domain/events/memory-upkeep-swept.eve
 import { UpkeepProposalApproved } from '@memory/domain/events/upkeep-proposal-approved.event';
 import { BriefingAbout } from '@memory/domain/value-objects/briefing-about.vo';
 import { ConsolidationRound } from '@memory/domain/value-objects/consolidation-round.vo';
+import { DuplicateQuestion } from '@memory/domain/value-objects/duplicate-question.vo';
+import { DuplicateVerdict } from '@memory/domain/value-objects/duplicate-verdict.vo';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
@@ -41,6 +44,7 @@ export const MEMORY_PAYLOAD_TYPES = [
   MemoryCreated,
   MemoryMerged,
   MemoryRetirementApproved,
+  MemoryRestored,
   MemoryDecision,
   MemoryRetirement,
   MemoryHandle,
@@ -52,4 +56,6 @@ export const MEMORY_PAYLOAD_TYPES = [
   MemoryUpkeepSwept,
   MemoryUpkeepSettled,
   UpkeepProposalApproved,
+  DuplicateVerdict,
+  DuplicateQuestion,
 ] as const;

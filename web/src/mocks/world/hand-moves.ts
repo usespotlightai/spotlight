@@ -5,6 +5,17 @@ import type {
 } from '@/lib/api';
 import { world } from '@/mocks/world';
 
+const sendsBack = (
+  task: TaskResponseDto,
+  stations: readonly StationResponseDto[],
+  from: StationResponseDto,
+  to: StationResponseDto,
+): boolean =>
+  task.finished &&
+  from.kind === 'work' &&
+  to.kind === 'work' &&
+  stations.indexOf(to) < stations.indexOf(from);
+
 const denialOf = (
   task: TaskResponseDto,
   from: StationResponseDto,
@@ -50,7 +61,8 @@ export const withHandMoves = (
     ...task,
     handMoves: from
       ? stations.map((to, at) => {
-          const denial = denialOf(task, from, to);
+          const back = sendsBack(task, stations, from, to);
+          const denial = back ? null : denialOf(task, from, to);
 
           return {
             stationId: to.id,
@@ -62,6 +74,7 @@ export const withHandMoves = (
                     .filter((each) => each.kind === 'work')
                     .map((each) => each.id)
                 : [],
+            sendsBack: back,
           };
         })
       : [],

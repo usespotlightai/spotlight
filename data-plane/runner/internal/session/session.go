@@ -269,7 +269,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) (
 	archiver.recordBaseline()
 
 	channel, err := agentapi.Serve(
-		run.Spec.Handover.Options,
+		slices.Concat(run.Spec.Handover.Options, run.Spec.Handover.ResumeOptions),
 		run.Spec.Handover.NoteLimit,
 		func(ctx context.Context, reply protocol.ReviewCommentReply) error {
 			if replays(run) {

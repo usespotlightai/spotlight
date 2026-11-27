@@ -14,6 +14,11 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const MAX_PATHS = 20;
 
+const meets = <T extends { equals(other: T): boolean }>(
+  mine: T | null,
+  theirs: T | null,
+): boolean => !mine || !theirs || mine.equals(theirs);
+
 export class MemoryScope {
   private constructor(
     readonly teamId: TeamId,
@@ -85,6 +90,15 @@ export class MemoryScope {
             repository?.equals(touched.repository) &&
             this.paths.some((path) => path.covers(touched.path)),
         ))
+    );
+  }
+
+  overlaps(other: MemoryScope): boolean {
+    return (
+      this.teamId.equals(other.teamId) &&
+      meets(this.lineId, other.lineId) &&
+      meets(this.stationId, other.stationId) &&
+      meets(this.repository, other.repository)
     );
   }
 

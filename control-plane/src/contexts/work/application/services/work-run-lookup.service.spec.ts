@@ -342,6 +342,28 @@ describe('WorkRunLookup, reading how a run reasoned', () => {
     ]);
   });
 
+  it('offers a spotlight command the agent ran as the command alone', async () => {
+    const reasoned = await lookingUp({
+      for: { kind: 'chat', chatId: ChatId.of('chat_1') },
+      attempts: [
+        journalOf([
+          step({
+            kind: 'tool',
+            text: 'cd api && spotlight remember --kind rationale --body "Retry once" | tail -2',
+          }),
+        ]),
+      ],
+    }).reasoning(RUN, 1);
+
+    expect(reasoned?.steps).toEqual([
+      {
+        index: 0,
+        kind: 'remember',
+        text: 'spotlight remember --kind rationale --body "Retry once"',
+      },
+    ]);
+  });
+
   it('reads every attempt of a kept run up to the turn asked about, numbering each attempt’s steps apart so a later step of one attempt moves none of the next', async () => {
     const attempts = [
       journalOf(

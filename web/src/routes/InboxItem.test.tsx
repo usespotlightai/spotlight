@@ -749,8 +749,18 @@ describe('InboxItem', () => {
       stationId: 'station_impl',
       revision: 7,
       handMoves: [
-        { stationId: 'station_impl', denial: null, skips: [] },
-        { stationId: 'station_done', denial: null, skips: [] },
+        {
+          stationId: 'station_impl',
+          denial: null,
+          skips: [],
+          sendsBack: false,
+        },
+        {
+          stationId: 'station_done',
+          denial: null,
+          skips: [],
+          sendsBack: false,
+        },
       ],
     };
 
@@ -815,8 +825,18 @@ describe('InboxItem', () => {
           ...task,
           hold: { by: { id: 'user_9' }, chatId: 'chat_1', viewerEnds: false },
           handMoves: [
-            { stationId: 'station_impl', denial: null, skips: [] },
-            { stationId: 'station_done', denial: 'on-hold', skips: [] },
+            {
+              stationId: 'station_impl',
+              denial: null,
+              skips: [],
+              sendsBack: false,
+            },
+            {
+              stationId: 'station_done',
+              denial: 'on-hold',
+              skips: [],
+              sendsBack: false,
+            },
           ],
         },
       });

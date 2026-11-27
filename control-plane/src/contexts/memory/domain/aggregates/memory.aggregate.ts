@@ -1,7 +1,10 @@
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import { MemoryMerged } from '@memory/domain/events/memory-merged.event';
+import { MemoryRestored } from '@memory/domain/events/memory-restored.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
+import { MemoryNotRetiredError } from '@memory/domain/exceptions/memory-not-retired.error';
+import { MemoryReplacedError } from '@memory/domain/exceptions/memory-replaced.error';
 import type { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import type { MemoryCreation } from '@memory/domain/value-objects/memory-creation';
 import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
@@ -349,6 +352,30 @@ export class Memory extends EventRecorder {
     return (
       this.state.retirement?.equals(MemoryRetirement.retired(input)) ?? false
     );
+  }
+
+  get restorable(): boolean {
+    return this.state.retirement !== null && !this.state.retirement.superseded;
+  }
+
+  restore(input: { by: UserId; at: Date }): Memory {
+    if (!this.restorable) {
+      throw this.state.retirement
+        ? new MemoryReplacedError(this.state.id.value)
+        : new MemoryNotRetiredError(this.state.id.value);
+    }
+
+    const restored = new Memory({ ...this.state, retirement: null });
+    restored.inheritEvents(this);
+    restored.record(
+      new MemoryRestored(
+        this.state.id,
+        this.state.scope.teamId,
+        input.by,
+        input.at,
+      ),
+    );
+    return restored;
   }
 
   private retiring(retirement: MemoryRetirement): Memory {

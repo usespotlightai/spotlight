@@ -116,10 +116,11 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
     }
 
     search {
-      ceiling    = 20
-      cooldown   = "12h"
-      iterations = 4
-      objective  = "cost"
+      ceiling          = 20
+      cooldown         = "12h"
+      iterations       = 4
+      objective        = "cost"
+      requests_per_day = 5
 
       agent {
         harness = "claude-code"
@@ -156,13 +157,14 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
   }
 
   search {
-    enabled         = true
-    monthly_ceiling = 100
-    currency        = "USD"
-    ceiling         = 10
-    period          = "7d"
-    on_alert        = false
-    cooldown        = "3d"
+    enabled          = true
+    monthly_ceiling  = 100
+    currency         = "USD"
+    ceiling          = 10
+    period           = "7d"
+    on_alert         = false
+    cooldown         = "3d"
+    requests_per_day = 4
   }
 
   source {
@@ -506,6 +508,28 @@ describe('workspaceTerraform', () => {
     expect(
       resourceHcl(CONFIGURATION, resourceOf('line', 'core/review')).hcl,
     ).not.toContain('warm_sandboxes');
+  });
+
+  it('writes requests_per_day only where it is not the default 3, and a station’s 3 under a line that takes more', () => {
+    const delivery = resourceOf('line', 'core/delivery');
+    const exported = (line: number, station: number): string =>
+      resourceHcl(CONFIGURATION, {
+        ...delivery,
+        definition: {
+          ...delivery.definition,
+          search: { ...delivery.definition.search, requestsPerDay: line },
+          stations: delivery.definition.stations.map((each) =>
+            each.search
+              ? { ...each, search: { ...each.search, requestsPerDay: station } }
+              : each,
+          ),
+        },
+      }).hcl;
+
+    expect(exported(3, 3)).not.toContain('requests_per_day');
+    expect(exported(4, 5)).toMatch(/^ {4}requests_per_day = 4$/m);
+    expect(exported(4, 5)).toMatch(/^ {6}requests_per_day = 5$/m);
+    expect(exported(5, 3)).toMatch(/^ {6}requests_per_day = 3$/m);
   });
 
   it('writes the default assignee of a line only when it names one', () => {

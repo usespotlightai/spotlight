@@ -62,6 +62,7 @@ const DELIVERY: LineDefinition = {
         agent: { harness: 'claude-code', effort: 'high' },
         iterations: 4,
         objective: 'cost',
+        requestsPerDay: 5,
       },
       tools: ['linear.comment', 'github.comment', 'catalog.web-search@1.1.0'],
       skills: ['grafana', 'catalog.research@1.0.0'],
@@ -104,6 +105,7 @@ const DELIVERY: LineDefinition = {
     period: '7d',
     onAlert: false,
     cooldown: '3d',
+    requestsPerDay: 4,
   },
   source: { repository: 'acme/platform', path: 'teams/core/delivery.tf' },
 };

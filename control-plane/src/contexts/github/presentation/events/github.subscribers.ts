@@ -1,5 +1,7 @@
+import type { PullRequestMergeability } from '@github/application/services/pull-request-mergeability.service';
 import type { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import type { WorkspaceConnections } from '@github/application/services/workspace-connections.service';
+import type { PullRequestBaseMoved } from '@github/domain/events/pull-request-base-moved.event';
 import type { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
 import type { WorkspaceDisconnected } from '@github/domain/events/workspace-disconnected.event';
 import {
@@ -15,7 +17,14 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 export const githubSubscribers = (
   sync: PullRequestSync,
   connections: WorkspaceConnections,
+  mergeability: PullRequestMergeability,
 ): readonly DomainEventSubscriber[] => [
+  subscribing<PullRequestBaseMoved>(
+    'github.check-mergeability-after-base-moved',
+    ['pull-request.base-moved'],
+    (event) => mergeability.check(event),
+    { callsOut: true },
+  ),
   subscribing<PullRequestRevertMerged>(
     'github.mark-reverted-pull-request',
     ['pull-request.revert-merged'],

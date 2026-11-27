@@ -142,14 +142,23 @@ export class TaskHandMoveResponseDto {
   })
   readonly skips: readonly string[];
 
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether the move sends the finished task back to this station, with a reason that the next run reads: an earlier work station, or one its station passes to',
+  })
+  readonly sendsBack: boolean;
+
   constructor(
     stationId: string,
     denial: string | null,
     skips: readonly string[],
+    sendsBack: boolean,
   ) {
     this.stationId = stationId;
     this.denial = denial;
     this.skips = skips;
+    this.sendsBack = sendsBack;
   }
 }
 

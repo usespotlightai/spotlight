@@ -73,6 +73,9 @@ export const handMoveHint = (
   if (move.denial) {
     return DENIALS[move.denial];
   }
+  if (move.sendsBack) {
+    return 'Sends it back with a reason';
+  }
 
   const skips = new Set(move.skips);
   const skipped = stations
@@ -93,6 +96,15 @@ export const handMoveDenial = (task: {
 
   return first && denials.every(Boolean) ? DENIALS[first] : null;
 };
+
+export const stopsRun = (
+  stations: readonly Placed[],
+  task: Task,
+  stationId: string,
+): boolean =>
+  task.progress === 'in-progress' &&
+  task.stationId !== stationId &&
+  stations.find((each) => each.id === stationId)?.kind === 'completed';
 
 type Station = Placed & { readonly name: string };
 
