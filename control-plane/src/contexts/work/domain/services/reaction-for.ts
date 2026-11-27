@@ -223,7 +223,10 @@ export const ReactionFor = {
     opens: OpensWith;
     request: ReviewRequest;
     payload: HappeningPayload;
+    // What the request says, which the line reads for a mention.
     anchor: Anchor | null;
+    // What the note of a review that takes the request carries: also the files that came with it.
+    noteAnchor: Anchor | null;
     branchTask: Task | null;
     pullRequestTask: Task | null;
     reviews: readonly Task[];
@@ -273,7 +276,7 @@ export const ReactionFor = {
             task: open,
             line: on.line,
             payload: input.payload,
-            anchor: input.anchor,
+            anchor: input.noteAnchor,
           }),
         }
       : { kind: 'opens', on };

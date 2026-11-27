@@ -374,6 +374,8 @@ const world = (input: {
     dispatched,
     stored: (id: TaskId) => stored.get(id.value),
     put: (task: Task) => stored.set(task.id.value, task),
+    transaction,
+    reviewLocks,
   };
 };
 
@@ -486,6 +488,24 @@ describe('ReactToHappenings, with a review request', () => {
     const { react, added } = world({ lines: [reviewing()] });
 
     await react(requested('mentioned', { body: '@octocat thoughts?' }));
+
+    expect(added).toHaveLength(0);
+  });
+
+  it('reads a mention only in what was said, not in the name of a file that came with it', async () => {
+    const { react, added } = world({ lines: [reviewing()] });
+
+    await react({
+      ...requested('mentioned'),
+      attachments: [
+        {
+          name: '@spotlight.png',
+          contentType: 'image/png',
+          size: 3,
+          fetch: async () => new Uint8Array([1, 2, 3]),
+        },
+      ],
+    });
 
     expect(added).toHaveLength(0);
   });
@@ -850,5 +870,43 @@ describe('ReactToHappenings, with a review request', () => {
       transient: true,
     });
     expect(saved.map((each) => each.id.value)).toEqual(['task_newer']);
+  });
+
+  it('closes the reviews of a pull request only once a review request of it lets go of the pull request', async () => {
+    const line = reviewing({ reviews: policy('mentioned') });
+    const older = finishedReview(line, 'task_older', new Date(0)).releaseMark(
+      Mark.review(PullRequestUrl.of(PULL)),
+    );
+    const newer = finishedReview(line, 'task_newer', new Date(1));
+    const { react, saved, transaction, reviewLocks } = world({
+      lines: [line],
+      tasks: [older, newer],
+    });
+    let letGo = () => {};
+    const requesting = new Promise<void>((resolve) => {
+      letGo = resolve;
+    });
+    let locked = () => {};
+    const holding = new Promise<void>((resolve) => {
+      locked = resolve;
+    });
+    const request = transaction.inTransaction(async () => {
+      await reviewLocks.lock(WorkspaceId.of('ws_1'), PullRequestUrl.of(PULL));
+      locked();
+      await requesting;
+    });
+    await holding;
+
+    const closing = react(closedUnmerged());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(saved).toEqual([]);
+
+    letGo();
+    await request;
+    await closing;
+    expect(saved.map((each) => each.id.value).sort()).toEqual([
+      'task_newer',
+      'task_older',
+    ]);
   });
 });

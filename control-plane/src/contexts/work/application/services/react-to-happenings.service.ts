@@ -219,6 +219,18 @@ export class ReactToHappenings implements HappeningReactionsPort {
     return held;
   }
 
+  // A close of the reviews of a pull request waits for a review request of it, and a request waits for the close, so that neither acts on reviews the other is changing.
+  private async lockReviewsClosedBy(
+    workspaceId: WorkspaceId,
+    happened: ReceivedHappening,
+  ): Promise<void> {
+    const closed = happened.payload.closedPullRequest ?? null;
+
+    if (closed && closesReviewsOf(happened.correlationKeys, closed)) {
+      await this.reviewLocks.lock(workspaceId, closed);
+    }
+  }
+
   // Each other review hears the close in a transaction of its own, under a key of its own.
   private async closeOtherReviews(
     workspaceId: WorkspaceId,
@@ -232,12 +244,14 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return false;
     }
 
-    const others = await this.transaction.inTransaction(async () =>
-      otherReviewsOf(
+    const others = await this.transaction.inTransaction(async () => {
+      await this.reviewLocks.lock(workspaceId, closed);
+
+      return otherReviewsOf(
         await correlatedTask(this.tasks, workspaceId, correlationKeys),
         await this.tasks.reviewsOf(workspaceId, closed),
-      ),
-    );
+      );
+    });
     let held = false;
 
     for (const other of others) {
@@ -256,6 +270,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
       }
 
       await this.transaction.inTransaction(async () => {
+        await this.reviewLocks.lock(workspaceId, closed);
+
         if (
           otherKey !== null &&
           !(await this.processed.markProcessed(
@@ -378,6 +394,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
       return null;
     }
+
+    await this.lockReviewsClosedBy(workspaceId, happened);
 
     const task = await correlatedTask(
       this.tasks,
@@ -545,14 +563,14 @@ export class ReactToHappenings implements HappeningReactionsPort {
     await this.reviewLocks.lock(workspaceId, request.pullRequest);
 
     const workspaceLines = await this.lines.ofWorkspace(workspaceId);
-    const anchor = anchorOf(happened, attachments);
     const answer = ReactionFor.reviewRequested({
       lines: teamId ? await this.lines.ofTeam(teamId) : workspaceLines,
       workspaceLines,
       opens: happened.opens,
       request,
       payload: happened.payload,
-      anchor,
+      anchor: happened.anchor,
+      noteAnchor: anchorOf(happened, attachments),
       branchTask: request.branch
         ? await this.findByBranch(workspaceId, request.branch)
         : null,

@@ -124,6 +124,7 @@ const requested = (
       state: 'raised',
     },
     anchor: over.anchor ?? null,
+    noteAnchor: over.anchor ?? null,
     branchTask: over.branchTask ?? null,
     pullRequestTask: over.pullRequestTask ?? null,
     reviews: over.reviews ?? [],
