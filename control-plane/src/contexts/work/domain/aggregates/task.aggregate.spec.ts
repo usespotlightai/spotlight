@@ -2384,6 +2384,27 @@ describe('Task, what it is doing', () => {
       );
     });
 
+    it('is sent back between work stations once its line finished it, and tells a person sent it back', () => {
+      const finished = at(HERE)
+        .assignRun(RUN, LINE)
+        .finishHere(RUN, LINE, { ...newNote, voice: Voice.station(RUN) });
+      finished.pullEvents();
+
+      const sentBack = finished.moveTo(
+        LINE,
+        StationId.of('station_2'),
+        TaskRank.of('m'),
+        newNote,
+        hand,
+      );
+
+      expect(sentBack.stationId).toEqual(StationId.of('station_2'));
+      expect(sentBack.finished).toBe(false);
+      expect(actsOf(sentBack)).toEqual([
+        { action: 'sent-back', by: 'user_2', after: 'run_1' },
+      ]);
+    });
+
     it('will not be moved out of completed', () => {
       const closed = moved(HERE, COMPLETED);
 

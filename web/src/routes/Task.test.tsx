@@ -15,6 +15,7 @@ const task = {
   attachments: [],
   createdAt: '2026-08-04T09:15:00.000Z',
   pullRequests: [],
+  sendsBackTo: [],
 };
 
 const worked = vi.fn((): unknown[] => []);
@@ -445,6 +446,43 @@ describe('Task', () => {
     expect(
       screen.getAllByRole('menuitemradio').map((each) => each.textContent),
     ).toEqual(['Backlog', 'Triage', 'Completed']);
+  });
+
+  it('sends a finished task back to an earlier station, with the reason the person gives', async () => {
+    const user = userEvent.setup();
+    listed.mockReturnValue([
+      {
+        ...task,
+        stationId: 'station_2',
+        finished: true,
+        sendsBackTo: ['station_1'],
+      },
+    ]);
+    renderAt('task_1');
+
+    await user.click(screen.getByRole('button', { name: /Station/ }));
+    await screen.findByRole('menu');
+
+    expect(
+      screen.getAllByRole('menuitemradio').map((each) => each.textContent),
+    ).toEqual(['Backlog', 'Triage', 'Spec', 'Completed']);
+
+    await user.click(screen.getByRole('menuitemradio', { name: 'Triage' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Reason' }),
+      'The pull request conflicts with main.',
+    );
+    await user.click(screen.getByRole('button', { name: 'Send back' }));
+
+    expect(moved).toHaveBeenCalledWith({
+      teamId: 'team_1',
+      lineId: 'line_1',
+      taskId: 'task_1',
+      revision: 2,
+      stationId: 'station_1',
+      afterTaskId: null,
+      reason: 'The pull request conflicts with main.',
+    });
   });
 
   it('offers nothing to move to once a task is completed', async () => {
