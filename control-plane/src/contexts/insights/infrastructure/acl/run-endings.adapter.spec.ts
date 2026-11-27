@@ -1,6 +1,28 @@
-import type { RunEnding } from '@insights/domain/value-objects/run-ending';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import {
+  RUN_ENDINGS,
+  type RunEnding,
+} from '@insights/domain/value-objects/run-ending';
 import { RunEndings } from '@insights/infrastructure/acl/run-endings.adapter';
+import { RUN_FAILURE_CODES } from '@shared-kernel/domain/value-objects/run-failure-code';
 import { describe, expect, it } from 'vitest';
+
+const BACKFILL = readFileSync(
+  join(
+    __dirname,
+    '../../../../../drizzle/20261127192637_insights_left_out_runs_and_chat_spend.sql',
+  ),
+  'utf8',
+);
+
+const WHEN = /WHEN "(ended_as|failure)" = '([^']+)' THEN '([^']+)'/g;
+
+const backfilled = (ending: RunEnding, failure: string | null): string | null =>
+  [...BACKFILL.matchAll(WHEN)].find(
+    ([, column, value]) => (column === 'ended_as' ? ending : failure) === value,
+  )?.[3] ?? null;
 
 describe('RunEndings', () => {
   const endings = new RunEndings();
@@ -32,4 +54,17 @@ describe('RunEndings', () => {
       expect(endings.outsideCauseOf({ ending, failure })).toBeNull();
     },
   );
+});
+
+describe('the backfill of run facts stored before Runs classified their endings', () => {
+  it('leaves out exactly the runs Runs would leave out', () => {
+    for (const ending of RUN_ENDINGS) {
+      for (const failure of [null, ...RUN_FAILURE_CODES]) {
+        expect(
+          backfilled(ending, failure),
+          `${ending} ${failure ?? 'no failure'}`,
+        ).toBe(new RunEndings().outsideCauseOf({ ending, failure }));
+      }
+    }
+  });
 });

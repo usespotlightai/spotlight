@@ -100,7 +100,13 @@ const talliesIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
   counted: CountedRuns,
+  byStation = true,
 ): Promise<readonly TallyRow[]> => {
+  const stationSets = byStation
+    ? sql`,
+        (${isCurrent}, ${runFact.stationId}),
+        (${isCurrent}, ${runFact.stationId}, ${day})`
+    : sql``;
   const result = await db.execute<TallyRow>(sql`
       select
         ${isCurrent} as is_current,
@@ -112,9 +118,7 @@ const talliesIn = async (
       from ${factsInPeriod(team, COUNTED[counted])}
       group by grouping sets (
         (${isCurrent}),
-        (${isCurrent}, ${day}),
-        (${isCurrent}, ${runFact.stationId}),
-        (${isCurrent}, ${runFact.stationId}, ${day})
+        (${isCurrent}, ${day})${stationSets}
       )
       having ${isCurrent} or grouping(${day}) = 1
     `);
@@ -207,7 +211,7 @@ export const teamCountsIn = async (
 ): Promise<WindowCounts> => {
   const tallies = new WindowTallies();
 
-  for (const row of await talliesIn(db, team, 'every-run')) {
+  for (const row of await talliesIn(db, team, 'every-run', false)) {
     if (row.all_stations === 1) {
       tallies.add(row);
     }
