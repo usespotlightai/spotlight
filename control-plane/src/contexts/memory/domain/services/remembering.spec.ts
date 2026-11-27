@@ -274,6 +274,20 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
       ).toEqual([[7], 0]);
     });
 
+    it('finds the command in a step that ran another kind first, such as a handover', () => {
+      const steps: Step[] = [
+        { index: 3, kind: 'remember', commands: [command('memory', 'Older.')] },
+        {
+          index: 7,
+          kind: 'handover',
+          commands: [command(null, 'Done.'), command('memory', BODY)],
+        },
+        { index: 9, kind: 'message', commands: [] },
+      ];
+
+      expect(citationOf(proposed({}, { steps }))).toEqual([[7], 1]);
+    });
+
     it('cites a remembering step whole where it shows no command of its kind', () => {
       expect(
         citationOf(

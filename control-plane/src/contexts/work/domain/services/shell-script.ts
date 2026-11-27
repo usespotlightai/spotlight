@@ -15,7 +15,7 @@ export interface ShellWord {
 /** A simple command of a script: the program it runs and its arguments, without redirections. */
 export interface ShellCommand {
   readonly words: readonly ShellWord[];
-  /** Where it ends before the first of its redirections, or at its last word. */
+  /** Where its last word ends, before any redirection or heredoc that follows it. */
   readonly end: number;
 }
 
@@ -68,18 +68,33 @@ const ANSI_C: Readonly<Record<string, string>> = {
 
 const DOUBLE_QUOTED_ESCAPES = new Set(['$', '`', '"', '\\']);
 
+const HEREDOC_ESCAPES = new Set(['$', '`', '\\']);
+
 const hexAt = (script: string, at: number, most: number): string =>
   /^[0-9A-Fa-f]*/.exec(script.slice(at, at + most))?.[0] ?? '';
 
+/** A heredoc of a command; its body is read once the line that opens it ends. */
 interface Heredoc {
   readonly delimiter: string;
   readonly tabs: boolean;
+  /** Whether its delimiter is quoted, so that the shell expands nothing in its body. */
+  readonly quoted: boolean;
+  body: string | null;
 }
 
 interface Read {
-  readonly commands: ShellCommand[];
+  /** The commands read, nested ones included, in the order the shell runs them. */
+  readonly commands: readonly ShellCommand[];
   readonly end: number;
 }
+
+interface Substitution {
+  /** What the substitution prints, where the script alone says so; null where the shell has to run it. */
+  readonly output: string | null;
+  readonly end: number;
+}
+
+const CAT = 'cat';
 
 /**
  * Reads a shell script the way a shell splits it into simple commands, without running anything: quotes and
@@ -89,6 +104,8 @@ interface Read {
 class ShellReader {
   private readonly commands: ShellCommand[] = [];
 
+  private readonly heredocs = new Map<ShellCommand, readonly Heredoc[]>();
+
   constructor(private readonly script: string) {}
 
   static commandsIn(script: string): readonly ShellCommand[] {
@@ -97,35 +114,38 @@ class ShellReader {
 
   private read(from: number, until: ')' | '`' | null): Read {
     const { script } = this;
+    const first = this.commands.length;
     let words: ShellWord[] = [];
-    let end: number | null = null;
     let target: 'file' | 'heredoc' | null = null;
     let tabs = false;
-    const heredocs: Heredoc[] = [];
+    let own: Heredoc[] = [];
+    const pending: Heredoc[] = [];
     let at = from;
 
     const finish = (): void => {
       const program = this.programOf(words);
-      const [first] = program;
       const last = program[program.length - 1];
 
-      if (first && last) {
-        this.commands.push({
-          words: program,
-          end: end !== null && end > first.start ? end : last.end,
-        });
+      if (last) {
+        const command = { words: program, end: last.end };
+        this.commands.push(command);
+        this.heredocs.set(command, own);
       }
       words = [];
-      end = null;
+      own = [];
       target = null;
     };
+    const read = (end: number): Read => ({
+      commands: this.commands.slice(first),
+      end,
+    });
 
     while (at < script.length) {
       const char = script.charAt(at);
 
       if (char === until) {
         finish();
-        return { commands: this.commands, end: at + 1 };
+        return read(at + 1);
       }
 
       if (char === ' ' || char === '\t') {
@@ -134,7 +154,7 @@ class ShellReader {
         at += 2;
       } else if (char === '\n') {
         finish();
-        at = this.pastHeredocs(at + 1, heredocs.splice(0));
+        at = this.pastHeredocs(at + 1, pending.splice(0));
       } else if (char === '#') {
         const newline = script.indexOf('\n', at);
         at = newline === -1 ? script.length : newline;
@@ -145,7 +165,6 @@ class ShellReader {
         const redirection = REDIRECTION.exec(script.slice(at))?.[0];
 
         if (redirection) {
-          end ??= words[words.length - 1]?.end ?? at;
           at += redirection.length;
 
           const operator = redirection.replace(/^\d+/, '');
@@ -175,7 +194,14 @@ class ShellReader {
         at = word.end;
 
         if (target === 'heredoc') {
-          heredocs.push({ delimiter: word.value, tabs });
+          const heredoc: Heredoc = {
+            delimiter: word.value,
+            tabs,
+            quoted: /['"\\]/.test(script.slice(word.start, word.end)),
+            body: null,
+          };
+          pending.push(heredoc);
+          own.push(heredoc);
         } else if (target === null) {
           words.push(word);
         }
@@ -184,7 +210,36 @@ class ShellReader {
     }
 
     finish();
-    return { commands: this.commands, end: at };
+    return read(at);
+  }
+
+  /**
+   * Reads a command substitution up to its closing parenthesis. What it prints is known only where it is `cat` of
+   * one heredoc, as an agent writes a long body; the shell drops the newlines it ends with. Inside double quotes the
+   * commands it runs are left out, as a command is never read from inside quotes.
+   */
+  private substitution(from: number, quoted: boolean): Substitution {
+    const first = this.commands.length;
+    const { commands, end } = this.read(from, ')');
+    const [only, ...more] = commands;
+    const [heredoc, ...others] = (only && this.heredocs.get(only)) ?? [];
+    const [program, ...rest] = only?.words ?? [];
+
+    if (quoted) {
+      this.commands.splice(first);
+    }
+
+    const output =
+      more.length === 0 &&
+      others.length === 0 &&
+      rest.length === 0 &&
+      program?.known &&
+      program.value === CAT &&
+      heredoc
+        ? heredoc.body
+        : null;
+
+    return { output: output?.replace(/\n+$/, '') ?? null, end };
   }
 
   private programOf(words: readonly ShellWord[]): ShellWord[] {
@@ -214,21 +269,61 @@ class ShellReader {
     let at = from;
 
     for (const heredoc of heredocs) {
-      while (at < script.length) {
+      const lines: string[] = [];
+      let closed = false;
+
+      while (at < script.length && !closed) {
         const newline = script.indexOf('\n', at);
         const lineEnd = newline === -1 ? script.length : newline;
-        const line = script.slice(at, lineEnd);
+        const raw = script.slice(at, lineEnd);
+        const line = heredoc.tabs ? raw.replace(/^\t+/, '') : raw;
         at = lineEnd + 1;
 
-        if (
-          (heredoc.tabs ? line.replace(/^\t+/, '') : line) === heredoc.delimiter
-        ) {
-          break;
+        closed = line === heredoc.delimiter;
+        if (!closed) {
+          lines.push(line);
         }
       }
+
+      heredoc.body = closed
+        ? this.heredocBody(
+            lines.map((each) => `${each}\n`).join(''),
+            heredoc.quoted,
+          )
+        : null;
     }
 
     return Math.min(at, script.length);
+  }
+
+  /** A heredoc's body as the command reads it: as written under a quoted delimiter, else null where it expands. */
+  private heredocBody(body: string, quoted: boolean): string | null {
+    if (quoted) {
+      return body;
+    }
+
+    let value = '';
+
+    for (let at = 0; at < body.length; at += 1) {
+      const char = body.charAt(at);
+      const next = body.charAt(at + 1);
+
+      if (char === '\\' && next === '\n') {
+        at += 1;
+      } else if (char === '\\' && HEREDOC_ESCAPES.has(next)) {
+        value += next;
+        at += 1;
+      } else if (
+        char === '`' ||
+        (char === '$' && (PARAMETER.test(next) || next === '{' || next === '('))
+      ) {
+        return null;
+      } else {
+        value += char;
+      }
+    }
+
+    return value;
   }
 
   private word(start: number, until: ')' | '`' | null): ShellWord {
@@ -266,7 +361,7 @@ class ShellReader {
         at = quoted.end;
       } else if (char === '$' && next === '(') {
         known = false;
-        at = this.read(at + 2, ')').end;
+        at = this.substitution(at + 2, false).end;
       } else if (char === '`') {
         known = false;
         at = this.read(at + 1, '`').end;
@@ -324,8 +419,10 @@ class ShellReader {
         value += next;
         at += 2;
       } else if (char === '$' && next === '(') {
-        known = false;
-        at = this.pastParenthesised(at + 2);
+        const substituted = this.substitution(at + 2, true);
+        value += substituted.output ?? '';
+        known &&= substituted.output !== null;
+        at = substituted.end;
       } else if (char === '$' && next === '{') {
         known = false;
         const close = script.indexOf('}', at);
@@ -344,31 +441,6 @@ class ShellReader {
     }
 
     return { value, known: false, end: script.length };
-  }
-
-  private pastParenthesised(from: number): number {
-    const { script } = this;
-    let depth = 1;
-    let quote: string | null = null;
-    let at = from;
-
-    for (; at < script.length && depth > 0; at += 1) {
-      const char = script.charAt(at);
-
-      if (char === '\\' && quote !== "'") {
-        at += 1;
-      } else if (quote) {
-        quote = char === quote ? null : quote;
-      } else if (char === '"' || char === "'") {
-        quote = char;
-      } else if (char === '(') {
-        depth += 1;
-      } else if (char === ')') {
-        depth -= 1;
-      }
-    }
-
-    return at;
   }
 
   private ansiC(from: number): {
@@ -407,6 +479,17 @@ class ShellReader {
             ? String.fromCodePoint(code)
             : `\\${escape}${digits}`;
         at += 2 + digits.length;
+      } else if (
+        escape === 'c' &&
+        at + 2 < script.length &&
+        script.charAt(at + 2) !== "'"
+      ) {
+        const control = script.charAt(at + 2);
+        value +=
+          control === '?'
+            ? '\x7f'
+            : String.fromCharCode(control.toUpperCase().charCodeAt(0) & 0x1f);
+        at += 3;
       } else if (/[0-7]/.test(escape)) {
         const digits = /^[0-7]{1,3}/.exec(script.slice(at + 1))?.[0] ?? '';
         value += String.fromCharCode(parseInt(digits, 8));

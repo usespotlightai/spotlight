@@ -62,15 +62,14 @@ interface Located {
 }
 
 /**
- * The step a proposal came from, and which of its commands made it. That is the latest remembering step with a
- * command of its kind that no earlier proposal of the run cites and that carried its body or reason exactly, else the
- * first such command of the latest step that has one, as where the body came from stdin. A step that shows no such
- * command is cited whole, as is the run's last step where no remembering step is left.
+ * The step a proposal came from, and which of its commands made it. That is the latest step with a command of the
+ * proposal's kind that no earlier proposal of the run cites and that carried its body or reason exactly, else the
+ * first such command of the latest step that has one, as where the body came from stdin; whatever else the step ran
+ * first, such as a handover. Where no step shows such a command, the latest remembering step not yet cited is cited
+ * whole, or else the run's last step.
  */
 const citationOf = (at: RememberedAt, carried: Carried): Citation => {
-  const remembering = at.steps
-    .filter((each) => each.kind === REMEMBERING_STEP)
-    .reverse();
+  const latestFirst = [...at.steps].reverse();
   const open = (step: RememberedStep) =>
     step.commands.flatMap((command, position) =>
       command.proposes === carried.proposes &&
@@ -78,7 +77,7 @@ const citationOf = (at: RememberedAt, carried: Carried): Citation => {
         ? [{ step: step.index, command: position, carrying: command.carrying }]
         : [],
     );
-  const candidates = remembering.flatMap(open);
+  const candidates = latestFirst.flatMap(open);
   const chosen =
     candidates.find((each) => each.carrying?.trim() === carried.text) ??
     candidates[0];
@@ -88,8 +87,10 @@ const citationOf = (at: RememberedAt, carried: Carried): Citation => {
   }
 
   const step =
-    remembering.find(
-      (each) => !at.cited.some((cited) => cited.steps.includes(each.index)),
+    latestFirst.find(
+      (each) =>
+        each.kind === REMEMBERING_STEP &&
+        !at.cited.some((cited) => cited.steps.includes(each.index)),
     ) ?? at.steps[at.steps.length - 1];
 
   if (!step) {

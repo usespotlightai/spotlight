@@ -260,6 +260,84 @@ describe('the spotlight commands a script ran', () => {
   });
 });
 
+describe('the spotlight commands a script ran, where the shell makes their prose', () => {
+  const ran = (script: string) =>
+    spotlightCommandsIn(script).map(({ argument, shown }) => ({
+      argument,
+      shown,
+    }));
+
+  it('receives a heredoc read by cat in a quoted substitution, and finds the commands after it', () => {
+    expect(
+      ran(
+        [
+          "spotlight remember --kind x --body \"$(cat <<'EOF'",
+          "Don't use make.",
+          'EOF',
+          ')" && spotlight remember --kind x --body "Second."',
+        ].join('\n'),
+      ),
+    ).toEqual([
+      {
+        argument: "Don't use make.",
+        shown: [
+          "spotlight remember --kind x --body \"$(cat <<'EOF'",
+          "Don't use make.",
+          'EOF',
+          ')"',
+        ].join('\n'),
+      },
+      {
+        argument: 'Second.',
+        shown: 'spotlight remember --kind x --body "Second."',
+      },
+    ]);
+  });
+
+  it('expands an unquoted heredoc only where nothing in it needs the shell', () => {
+    const body = (lines: readonly string[]) =>
+      ran(
+        [
+          'spotlight remember --kind x --body "$(cat <<-EOF',
+          ...lines,
+          '\tEOF',
+          ')"',
+        ].join('\n'),
+      ).map((each) => each.argument);
+
+    expect(body(['\tCosts \\$5 at \\\\ most.', ''])).toEqual([
+      'Costs $5 at \\ most.',
+    ]);
+    expect(body(['Lives in $HOME.'])).toEqual([null]);
+    expect(
+      ran(
+        'spotlight remember --kind x --body "$(cat <<\'EOF\' | tr a b\nx\nEOF\n)"',
+      ).map((each) => each.argument),
+    ).toEqual([null]);
+  });
+
+  it('shows a command whole where it redirects in the middle, without its trailing redirections', () => {
+    expect(
+      ran(
+        'spotlight remember --kind x 2>/dev/null --body "B" > out.txt 2>&1 <<\'EOF\'\nignored\nEOF',
+      ),
+    ).toEqual([
+      {
+        argument: 'B',
+        shown: 'spotlight remember --kind x 2>/dev/null --body "B"',
+      },
+    ]);
+  });
+
+  it('decodes the control characters of an ANSI-C quoted body', () => {
+    expect(
+      ran("spotlight remember --kind x --body $'a\\cAb\\c?c\\cz'").map(
+        (each) => each.argument,
+      ),
+    ).toEqual(['a\x01b\x7fc\x1a']);
+  });
+});
+
 describe('the script a tool step ran', () => {
   const argumentsOf = (input: string) =>
     reasoningIn({ kind: 'tool', text: 'Bash', input })?.commands.map(
@@ -285,6 +363,37 @@ describe('the script a tool step ran', () => {
     expect(argumentsOf(input.slice(0, input.indexOf('\\"quoted') + 1))).toEqual(
       [null],
     );
+  });
+
+  it('is the script of a shell argv even where the journal cut it short', () => {
+    const input = JSON.stringify(
+      {
+        command: [
+          'bash',
+          '-lc',
+          `spotlight forget M-1 --because "R" && spotlight remember --kind x --body "B" && echo ${'z'.repeat(5000)}`,
+        ],
+      },
+      null,
+      2,
+    ).slice(0, 4000);
+
+    expect(argumentsOf(input)).toEqual(['R', 'B']);
+    expect(
+      argumentsOf(
+        JSON.stringify(
+          {
+            command: [
+              'bash',
+              '-lc',
+              `spotlight remember --kind x --body "B" && spotlight remember --kind x --body "${'z'.repeat(5000)}"`,
+            ],
+          },
+          null,
+          2,
+        ).slice(0, 4000),
+      ),
+    ).toEqual(['B', null]);
   });
 
   it('is the argv of its input, run by a shell or on its own', () => {

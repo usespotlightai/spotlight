@@ -226,8 +226,11 @@ const jsonStringAt = (text: string, from: number): Read => {
   return { value, cutShort: true, end: text.length };
 };
 
-/** The strings of a JSON array up to its end, or each whole one before where the text was cut short. */
-const jsonStringsAt = (text: string, from: number): string[] => {
+/** The strings of a JSON array up to its end, or to where the text was cut short, the cut one as far as it goes. */
+const jsonStringsAt = (
+  text: string,
+  from: number,
+): { strings: string[]; cutShort: boolean } => {
   const strings: string[] = [];
   let at = from + 1;
 
@@ -235,17 +238,17 @@ const jsonStringsAt = (text: string, from: number): string[] => {
     if (text.charAt(at) === '"') {
       const read = jsonStringAt(text, at);
 
-      if (read.cutShort) {
-        break;
-      }
       strings.push(read.value);
+      if (read.cutShort) {
+        return { strings, cutShort: true };
+      }
       at = read.end;
     } else {
       at += 1;
     }
   }
 
-  return strings;
+  return { strings, cutShort: false };
 };
 
 const scriptOfCommand = (command: JsonValue | undefined): string | null => {
@@ -289,9 +292,12 @@ const shellOf = (text: string): Script => {
       return { script: read.value, cutShort: read.cutShort };
     }
 
-    return text.charAt(at) === '['
-      ? { script: scriptOfArgv(jsonStringsAt(text, at)), cutShort: false }
-      : whole;
+    if (text.charAt(at) !== '[') {
+      return whole;
+    }
+
+    const { strings, cutShort } = jsonStringsAt(text, at);
+    return { script: scriptOfArgv(strings), cutShort };
   }
 };
 
