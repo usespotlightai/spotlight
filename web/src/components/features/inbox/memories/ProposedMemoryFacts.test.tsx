@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 describe('ProposedMemoryFacts', () => {
-  it('names the active memory it may repeat', () => {
+  it('names the active memory it may repeat, and why', () => {
     render(
       <ProposedMemoryFacts
         memory={{
@@ -39,6 +39,7 @@ describe('ProposedMemoryFacts', () => {
             memoryId: 'memory_2',
             handle: 'M-2',
             body: 'Name each branch after its ticket.',
+            reason: 'Both name a branch after its ticket.',
           },
         }}
         editing={false}
@@ -53,6 +54,9 @@ describe('ProposedMemoryFacts', () => {
     expect(screen.getByText('M-2', { exact: false })).toBeVisible();
     expect(
       screen.getByText('Name each branch after its ticket.'),
+    ).toBeVisible();
+    expect(
+      screen.getByText('Both name a branch after its ticket.'),
     ).toBeVisible();
   });
 

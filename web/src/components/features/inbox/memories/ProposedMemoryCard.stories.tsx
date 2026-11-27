@@ -60,3 +60,23 @@ export const Retiring: StoryObj<typeof meta> = {};
 export const NoLongerApplies: StoryObj<typeof meta> = {
   args: { memory: { ...RETIRING, inactiveMemories: ['M-43'] } },
 };
+
+export const RepeatsAMemory: StoryObj<typeof meta> = {
+  args: {
+    memory: {
+      ...RETIRING,
+      body: 'npm ci fails in the sandbox on the better-sqlite3 node-gyp build; use npm ci --ignore-scripts.',
+      scope: 'team',
+      repository: null,
+      editable: true,
+      retires: null,
+      similarTo: {
+        memoryId: 'memory_2',
+        handle: 'M-2',
+        body: 'qa-tidepool: the runner image has no make/g++, so better-sqlite3 cannot build. Use `npm install --ignore-scripts` (better-sqlite3 still loads) until the image is fixed.',
+        reason:
+          'P-1 gives the same advice as M-2: skip the better-sqlite3 build scripts because the image cannot compile it.',
+      },
+    },
+  },
+};

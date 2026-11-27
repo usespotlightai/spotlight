@@ -5830,6 +5830,10 @@ export type SimilarMemoryResponseDto = {
   memoryId: string;
   handle: string;
   body: string;
+  /**
+   * Why the model found that the proposal repeats it
+   */
+  reason: string;
 };
 
 export type MemoryDecisionResponseDto = {
@@ -5904,7 +5908,7 @@ export type ProposedMemoryResponseDto = {
    */
   inactiveMemories: Array<string>;
   /**
-   * The active memory that says nearly the same and applies in the same place, so it may be a duplicate; null once decided
+   * The active memory that a model found the proposal repeats, applying in the same place, so it may be a duplicate; null while unchecked and once decided
    */
   similarTo: SimilarMemoryResponseDto | null;
   /**
@@ -6096,7 +6100,7 @@ export type RunProposalResponseDto = {
    */
   inactiveMemories: Array<string>;
   /**
-   * The active memory that says nearly the same and applies in the same place, so it may be a duplicate; null once decided
+   * The active memory that a model found the proposal repeats, applying in the same place, so it may be a duplicate; null while unchecked and once decided
    */
   similarTo: SimilarMemoryResponseDto | null;
   /**

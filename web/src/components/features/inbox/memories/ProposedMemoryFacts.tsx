@@ -77,10 +77,13 @@ export function ProposedMemoryFacts({
         <FactRow>
           <dt className={FACT_LABEL}>Similar to</dt>
           <dd className={FACT_VALUE}>
-            {memory.similarTo.handle}{' '}
-            <span className="text-muted-foreground">
-              {memory.similarTo.body}
-            </span>
+            <p>
+              {memory.similarTo.handle}{' '}
+              <span className="text-muted-foreground">
+                {memory.similarTo.body}
+              </span>
+            </p>
+            <p className="mt-1">{memory.similarTo.reason}</p>
           </dd>
         </FactRow>
       )}
