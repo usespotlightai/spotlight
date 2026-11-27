@@ -12,13 +12,14 @@ import { StopRunDialog } from '@/components/features/board/task/StopRunDialog';
 import { TaskDragOverlay } from '@/components/features/board/TaskDragOverlay';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
+import { useActiveCommands } from '@/hooks/useActiveCommands';
 import { useBoardDrag } from '@/hooks/useBoardDrag';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import { useCommands } from '@/hooks/useCommands';
 import { useListKeys } from '@/hooks/useListKeys';
 import type { LineResponseDto } from '@/lib/api';
 import { type BoardView, inView } from '@/lib/board';
-import { moveTargetFor, type Task } from '@/lib/task';
+import { moveOptionsFor, type Task } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
 const STATIONS_STORAGE_KEY = 'spotlight.collapsed-stations';
@@ -49,6 +50,7 @@ export function Board({
   const stations = useCollapsed(STATIONS_STORAGE_KEY);
   const rows = useRef<HTMLDivElement>(null);
   const moveTask = useMoveTask();
+  const commands = useActiveCommands();
   const drag = useBoardDrag({
     teamId,
     lineId: line.id,
@@ -60,7 +62,7 @@ export function Board({
   const shown = line.stations
     .map((station, place) => ({ station, place }))
     .filter(({ station }) => inView(view, station.kind));
-  const target = moveTargetFor(line.stations, tasks, selected);
+  const options = moveOptionsFor(line.stations, tasks, selected);
   const dragged = tasks.find((each) => each.id === drag.draggedId) ?? null;
   const stoppingAt = line.stations.find(
     (each) => each.id === drag.stopping?.landing.stationId,
@@ -71,17 +73,17 @@ export function Board({
       taken ? [...current, taskId] : current.filter((each) => each !== taskId),
     );
 
-  const moveSelected = () => {
-    if (!target) {
-      return;
-    }
+  const moveSelected = (stationId: string) => {
     for (const task of tasks.filter((each) => picked.has(each.id))) {
+      if (task.stationId === stationId) {
+        continue;
+      }
       moveTask.mutate({
         teamId,
         lineId: line.id,
         taskId: task.id,
         revision: task.revision,
-        stationId: target.id,
+        stationId,
         afterTaskId: null,
       });
     }
@@ -93,15 +95,11 @@ export function Board({
     selected.length > 0 ? () => onSelectedChange([]) : undefined,
   );
   useCommands(
-    target && selected.length > 0
-      ? [
-          {
-            id: 'task.station',
-            title: `Move to ${target.name}`,
-            run: moveSelected,
-          },
-        ]
-      : [],
+    options.map((option) => ({
+      id: option.command,
+      title: `Move to ${option.name}`,
+      run: () => moveSelected(option.id),
+    })),
   );
 
   return (
@@ -143,8 +141,9 @@ export function Board({
 
       <SelectionBar
         count={selected.length}
-        moveTo={target && { name: target.name, share: target.share }}
-        onMove={moveSelected}
+        onActions={() =>
+          commands.find((command) => command.id === 'palette.open')?.run()
+        }
         onClear={() => onSelectedChange([])}
       />
 

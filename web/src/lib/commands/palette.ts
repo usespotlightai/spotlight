@@ -38,6 +38,8 @@ const ICONS: Partial<Record<ShortcutId, LucideIcon>> = {
   'list.clear': X,
   'task.create': Plus,
   'task.station': Box,
+  'task.backlog': Archive,
+  'task.complete': Check,
   'task.assign': UserRound,
   'task.resume': Play,
   'task.delete': Trash,
@@ -46,10 +48,16 @@ const ICONS: Partial<Record<ShortcutId, LucideIcon>> = {
   'approval.approve': Check,
 };
 
+const onSelection = (command: Registered) =>
+  shortcutOf(command.id).onSelection === true;
+
 export const paletteActions = (
   commands: readonly Registered[],
 ): PaletteAction[] =>
-  commands
+  [
+    ...commands.filter(onSelection),
+    ...commands.filter((command) => !onSelection(command)),
+  ]
     .filter((command) => {
       const shortcut = shortcutOf(command.id);
 

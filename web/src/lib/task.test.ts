@@ -4,7 +4,7 @@ import {
   handMoveDenial,
   handMoveHint,
   mayLand,
-  moveTargetFor,
+  moveOptionsFor,
   placed,
   stopsRun,
   type Task,
@@ -199,41 +199,72 @@ describe('stopsRun', () => {
   });
 });
 
-describe('moveTargetFor', () => {
-  it('starts work waiting in the backlog at the first work station', () => {
+describe('moveOptionsFor', () => {
+  const names = (tasks: Task[], selected: string[]) =>
+    moveOptionsFor(stations, tasks, selected).map((each) => each.name);
+
+  it('offers the first work station and completed for work waiting in the backlog', () => {
     expect(
-      moveTargetFor(stations, [task('a', 'backlog', [allowed('spec')])], ['a'])
-        ?.name,
-    ).toBe('Spec');
+      names(
+        [task('a', 'backlog', [allowed('spec'), allowed('completed')])],
+        ['a'],
+      ),
+    ).toEqual(['Spec', 'Completed']);
   });
 
-  it('parks work further along back in the backlog', () => {
+  it('offers the backlog and completed for work further along', () => {
     expect(
-      moveTargetFor(
-        stations,
+      names(
         [
-          task('a', 'build', [allowed('backlog')]),
-          task('b', 'backlog', [allowed('backlog')]),
+          task('a', 'build', [allowed('backlog'), allowed('completed')]),
+          task('b', 'backlog', [allowed('completed')]),
         ],
         ['a', 'b'],
-      )?.name,
-    ).toBe('Backlog');
+      ),
+    ).toEqual(['Backlog', 'Completed']);
   });
 
-  it('offers nothing once a completed task is picked', () => {
+  it('offers nothing for a completed task', () => {
     expect(
-      moveTargetFor(
-        stations,
+      names(
         [
-          task('a', 'build', [allowed('backlog')]),
+          task('a', 'completed', [
+            denied('backlog', 'out-of-completed'),
+            denied('spec', 'out-of-completed'),
+          ]),
+        ],
+        ['a'],
+      ),
+    ).toEqual([]);
+  });
+
+  it('offers only completed once a completed task is picked with others', () => {
+    expect(
+      names(
+        [
+          task('a', 'build', [allowed('backlog'), allowed('completed')]),
           task('b', 'completed', [denied('backlog', 'out-of-completed')]),
         ],
         ['a', 'b'],
       ),
-    ).toBeNull();
+    ).toEqual(['Completed']);
+  });
+
+  it('leaves out a move the server denies', () => {
+    expect(
+      names(
+        [
+          task('a', 'spec', [
+            allowed('backlog'),
+            denied('completed', 'on-hold'),
+          ]),
+        ],
+        ['a'],
+      ),
+    ).toEqual(['Backlog']);
   });
 
   it('offers nothing until something is picked', () => {
-    expect(moveTargetFor(stations, [task('a', 'build')], [])).toBeNull();
+    expect(names([task('a', 'build')], [])).toEqual([]);
   });
 });

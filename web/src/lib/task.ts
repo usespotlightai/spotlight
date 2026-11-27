@@ -108,36 +108,49 @@ export const stopsRun = (
 
 type Station = Placed & { readonly name: string };
 
-export type MoveTarget = Station & { readonly share: number };
+type MoveCommand = 'task.backlog' | 'task.station' | 'task.complete';
 
-export const moveTargetFor = (
+export type MoveOption = Station & {
+  readonly command: MoveCommand;
+  readonly share: number;
+};
+
+export const moveOptionsFor = (
   stations: readonly Station[],
   tasks: readonly Task[],
   selected: readonly string[],
-): MoveTarget | null => {
-  const backlog = stations.find((each) => each.kind === 'backlog');
-  const start = stations.find((each) => each.kind === 'work');
+): MoveOption[] => {
   const chosen = new Set(selected);
   const picked = tasks.filter((each) => chosen.has(each.id));
 
-  if (!backlog || !start || picked.length === 0) {
-    return null;
+  if (picked.length === 0) {
+    return [];
   }
 
-  const waiting = picked.every((each) => each.stationId === backlog.id);
-  const station = waiting ? start : backlog;
+  const candidates: [MoveCommand, Station | undefined][] = [
+    ['task.backlog', stations.find((each) => each.kind === 'backlog')],
+    ['task.station', stations.find((each) => each.kind === 'work')],
+    ['task.complete', stations.find((each) => each.kind === 'completed')],
+  ];
 
-  if (!picked.every((each) => mayLand(each, station.id))) {
-    return null;
-  }
-
-  return {
-    ...station,
-    share: stationShare(
-      stations.findIndex((each) => each.id === station.id),
-      stations.length,
-    ),
-  };
+  return candidates.flatMap(([command, station]) =>
+    station &&
+    picked.some((each) => each.stationId !== station.id) &&
+    picked.every(
+      (each) => each.stationId === station.id || mayLand(each, station.id),
+    )
+      ? [
+          {
+            ...station,
+            command,
+            share: stationShare(
+              stations.findIndex((each) => each.id === station.id),
+              stations.length,
+            ),
+          },
+        ]
+      : [],
+  );
 };
 
 export const placed = (
