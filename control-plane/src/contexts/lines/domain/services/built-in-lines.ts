@@ -169,10 +169,18 @@ End every note with this line:
 
 const RUNNING_THE_APP = `Tests, the type check and a build can all pass while the app fails to start,
 so run the app too, where the repository has one. Start the dev or preview
-server that the README or the package scripts name, in the background. Load a
-page from it and the entry script that page loads, with \`curl\`, and check that
-each answers without an error: a page can load while its script fails. Stop
-the server when you are done.
+server that the README or the package scripts name, in the background and with
+its output in a log file so that it does not hold your shell, for example:
+
+    npm run dev > /tmp/app.log 2>&1 &
+
+Wait until the log shows the address it listens on, and use that port on
+\`localhost\`. Load a page or an endpoint with \`curl -fsS\`, and for a web front
+end the entry script that page loads too: a page can load while its script
+fails. Each has to answer without an error. Stop the server when you are done.
+
+Run only what installs, builds and starts the app here: nothing that deploys,
+publishes or writes to a shared service.
 
 If nothing in the repository runs, or the app needs a service the workspace
 does not have, such as a database, say so in your note. Do not leave it out.`;
@@ -187,6 +195,9 @@ them passing — a change that does not build is not done. Where the station has
 a check, run it before you hand over.
 
 ${RUNNING_THE_APP}
+
+An app that does not start, or a page or script that fails to load, is a
+change that is not done: fix it before you hand over.
 
 Commit your work and push it. The workspace is already on the branch this
 task belongs to, so push that branch and nothing else:
@@ -291,8 +302,13 @@ Also look for:
 ${RUNNING_THE_APP}
 
 Try the run instructions that the change adds or changes as well, such as a
-new script or a step in the README, exactly as they are written. An app that
-does not start, or a page or script that fails to load, is a high finding.
+new script or a step in the README, as they are written, within those limits.
+Then put back any file the run wrote, so \`git status\` shows what it showed
+before.
+
+An app that the change stops from starting, or a page or script that it
+breaks, is a high finding. If the app fails the same way without the change,
+say so in your note rather than count it against the change.
 
 Check that the branch still merges into the branch it started from:
 
@@ -303,9 +319,10 @@ A conflict is a finding: pass the task back to Implementation to rebase it.
 
 Say in your note what you found, most serious first, each finding with its
 severity, or say plainly that you found nothing. Then end the note with these
-two lines, also when you found nothing:
+three lines, also when you found nothing:
 
     Runs: yes and what you loaded, or no and why.
+    Run instructions: none changed, or each one the change adds or changes and what it did.
     Merges cleanly: yes, or no and the conflicting files.
 
 If the code needs changing, pass the task back to implementation. If the
@@ -371,7 +388,7 @@ const IMPLEMENTATION_CLAIMS = [
   'The change matches the surrounding code.',
   'The change adds tests that fail without it.',
   'The tests pass after the change.',
-  'The note says whether the app ran and what it loaded, or why it could not be run.',
+  'The note says whether the app ran, with what it loaded or why not.',
   "The change is pushed to the task's branch.",
   'The run opened no pull request.',
   'The note says what changed, what was tested, and what the spec did not anticipate.',
@@ -382,8 +399,8 @@ const CODE_REVIEW_CLAIMS = [
   'The note lists each finding with its severity, its file and line, what goes wrong and what would fix it, or says plainly that it found nothing.',
   'No finding is false, and no severity is overstated.',
   'The run did not change, commit or push any file.',
-  'The note says whether the app ran and what it loaded, or why it could not be run.',
-  'The review tried any run instructions that the change adds or changes.',
+  'The note has a line that says whether the app runs, with what it loaded or why not.',
+  'The note has a line that names each run instruction the change adds or changes and what it did, or says it changes none.',
   'The note ends with a line that says whether the branch merges cleanly.',
   'The handover matches the note: done with a pull request when nothing blocks, Implementation for a fault in the code or a conflict, Spec for a fault in the plan.',
 ];

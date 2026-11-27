@@ -98,7 +98,9 @@ describe('the built-in Delivery line', () => {
       const prompt = opening(key)?.agentPrompt?.value;
 
       expect(prompt).toMatch(/dev or preview\s+server/);
-      expect(prompt).toMatch(/Load a\s+page from it and the entry script/);
+      expect(prompt).toMatch(/Load a page or an endpoint/);
+      expect(prompt).toMatch(/the entry script that page loads/);
+      expect(prompt).toContain('curl -fsS');
       expect(prompt).toMatch(/say so in your note/);
     }
   });
@@ -108,22 +110,37 @@ describe('the built-in Delivery line', () => {
       /run instructions that the change adds\s+or changes/,
     );
     expect(opening('code-review')?.judge?.claims).toContain(
-      'The review tried any run instructions that the change adds or changes.',
+      'The note has a line that names each run instruction the change adds or changes and what it did, or says it changes none.',
     );
   });
 
   it('has code review end its note with whether the app runs', () => {
     expect(opening('code-review')?.agentPrompt?.value).toContain(
-      '    Runs: yes and what you loaded, or no and why.\n    Merges cleanly:',
+      '    Runs: yes and what you loaded, or no and why.\n    Run instructions: none changed, or each one the change adds or changes and what it did.\n    Merges cleanly:',
     );
   });
 
-  it('has the judges of implementation and code review check that the run said whether the app runs', () => {
-    for (const key of ['implementation', 'code-review']) {
-      expect(opening(key)?.judge?.claims).toContain(
-        'The note says whether the app ran and what it loaded, or why it could not be run.',
-      );
-    }
+  it('has the judges of implementation and code review check that the note says whether the app runs', () => {
+    expect(opening('implementation')?.judge?.claims).toContain(
+      'The note says whether the app ran, with what it loaded or why not.',
+    );
+    expect(opening('code-review')?.judge?.claims).toContain(
+      'The note has a line that says whether the app runs, with what it loaded or why not.',
+    );
+  });
+
+  it('tells implementation that an app that does not start is not done', () => {
+    expect(opening('implementation')?.agentPrompt?.value).toMatch(
+      /An app that does not start[\s\S]*is a\s+change that is not done/,
+    );
+  });
+
+  it('tells code review to leave the workspace as it found it after running the app, and to count only what the change breaks', () => {
+    const prompt = opening('code-review')?.agentPrompt?.value;
+
+    expect(prompt).toMatch(/put back any file the run wrote/);
+    expect(prompt).toMatch(/fails the same way without the change/);
+    expect(prompt).toMatch(/nothing that deploys,\s+publishes/);
   });
 });
 
