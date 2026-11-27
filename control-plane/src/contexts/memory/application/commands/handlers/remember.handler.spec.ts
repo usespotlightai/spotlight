@@ -7,14 +7,9 @@ import { MemoryReviews } from '@memory/application/services/memory-reviews.servi
 import { RunProposing } from '@memory/application/services/run-proposing.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
-import { Memory } from '@memory/domain/aggregates/memory.aggregate';
+import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
 import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
-import { MemoryBody } from '@memory/domain/value-objects/memory-body';
-import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
-import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
-import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
-import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -22,7 +17,6 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -45,23 +39,7 @@ const LEASED: LeasedRun = {
   trial: false,
 };
 
-const M2 = Memory.write({
-  id: MemoryId.of('memory_2'),
-  handle: MemoryHandle.of(2),
-  workspaceId: WORKSPACE,
-  kind: 'environment',
-  body: MemoryBody.of(
-    'The sandbox has no make, so npm ci fails compiling better-sqlite3.',
-  ),
-  scope: MemoryScope.of({ teamId: TEAM }),
-  provenance: null,
-  by: MemoryDecision.of({ by: UserId.of('user_ada'), at: NOW }),
-});
-
-const remembering = (
-  run: LeasedRun | null = LEASED,
-  team: readonly Memory[] = [],
-) => {
+const remembering = (run: LeasedRun | null = LEASED) => {
   const added: MemoryProposalSet[] = [];
   let ids = 0;
   const work = {
@@ -117,10 +95,8 @@ const remembering = (
     new MemoryReviews(
       work,
       { find: async () => null } as never,
-      {
-        findAll: async () => [],
-        ofTeam: async () => team,
-      } as unknown as MemoryRepository,
+      { findAll: async () => [] } as unknown as MemoryRepository,
+      { of: async () => null } as unknown as DuplicateCheckRepository,
     ),
   );
 
@@ -144,22 +120,6 @@ const remembering = (
 };
 
 describe('RememberHandler', () => {
-  it('names the active memory that the proposal nearly repeats', async () => {
-    const { remember, proposedAs } = remembering(LEASED, [M2]);
-
-    const proposed = await proposedAs(
-      await remember(
-        "In the sandbox, 'npm ci' fails compiling better-sqlite3 because make is missing.",
-      ),
-    );
-
-    expect(proposed.similarTo).toEqual({
-      memoryId: 'memory_2',
-      handle: 'M-2',
-      body: M2.body.value,
-    });
-  });
-
   it('opens the task’s set with what the run proposed to remember, which cites its step', async () => {
     const { added, remember, proposedAs } = remembering();
 

@@ -11,6 +11,7 @@ import { MemoryUpkeepSwept } from '@memory/domain/events/memory-upkeep-swept.eve
 import { UpkeepProposalApproved } from '@memory/domain/events/upkeep-proposal-approved.event';
 import { BriefingAbout } from '@memory/domain/value-objects/briefing-about.vo';
 import { ConsolidationRound } from '@memory/domain/value-objects/consolidation-round.vo';
+import { DuplicateVerdict } from '@memory/domain/value-objects/duplicate-verdict.vo';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
@@ -52,4 +53,5 @@ export const MEMORY_PAYLOAD_TYPES = [
   MemoryUpkeepSwept,
   MemoryUpkeepSettled,
   UpkeepProposalApproved,
+  DuplicateVerdict,
 ] as const;

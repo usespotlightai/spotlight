@@ -1,3 +1,4 @@
+import { DUPLICATE_CHECK_STATES } from '@memory/domain/aggregates/duplicate-check.aggregate';
 import { MEMORY_PROPOSAL_STATES } from '@memory/domain/entities/memory-proposal.entity';
 import { MEMORY_KINDS } from '@memory/domain/value-objects/memory-kind';
 import { MEMORY_SOURCES } from '@memory/domain/value-objects/memory-source';
@@ -218,5 +219,48 @@ export const memoryUpkeepSchedule = pgTable(
       sql`${table.addedSince} >= 0 and ${table.jobAttempts} >= 0`,
     ),
     index('memory_upkeep_schedule_due_idx').on(table.dueAt),
+  ],
+);
+
+export const duplicateCheckState = pgEnum(
+  'duplicate_check_state',
+  DUPLICATE_CHECK_STATES,
+);
+
+/** One verdict of a duplicate check: the proposal, the memory it repeats or null, and why. */
+export interface DuplicateVerdictColumn {
+  readonly proposal: string;
+  readonly repeats: string | null;
+  readonly reason: string;
+}
+
+export const duplicateCheck = pgTable(
+  'duplicate_check',
+  {
+    runId: text('run_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    taskId: text('task_id').notNull(),
+    setId: text('set_id').notNull(),
+    createdAt: timestamptz('created_at').notNull(),
+    state: duplicateCheckState('state').notNull().default('pending'),
+    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobDueAt: timestamptz('job_due_at'),
+    waitingSince: timestamptz('waiting_since'),
+    verdicts: jsonb('verdicts').$type<DuplicateVerdictColumn[]>().notNull(),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    check(
+      'duplicate_check_attempts_not_negative',
+      sql`${table.jobAttempts} >= 0`,
+    ),
+    index('duplicate_check_due_idx').on(
+      table.state,
+      table.jobDueAt,
+      table.createdAt,
+    ),
+    index('duplicate_check_task_idx').on(table.taskId),
+    index('duplicate_check_team_idx').on(table.teamId),
   ],
 );

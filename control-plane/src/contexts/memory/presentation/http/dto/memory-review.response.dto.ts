@@ -142,10 +142,18 @@ export class SimilarMemoryResponseDto {
   })
   readonly body: string;
 
+  @ApiProperty({
+    example:
+      'P-1 gives the same advice as M-2: skip the better-sqlite3 build scripts because the image cannot compile it.',
+    description: 'Why the model found that the proposal repeats it',
+  })
+  readonly reason: string;
+
   constructor(similar: SimilarMemoryDto) {
     this.memoryId = similar.memoryId;
     this.handle = similar.handle;
     this.body = similar.body;
+    this.reason = similar.reason;
   }
 }
 
@@ -219,7 +227,7 @@ export class ProposedMemoryResponseDto {
     type: SimilarMemoryResponseDto,
     nullable: true,
     description:
-      'The active memory that says nearly the same and applies in the same place, so it may be a duplicate; null once decided',
+      'The active memory that a model found the proposal repeats, applying in the same place, so it may be a duplicate; null while unchecked and once decided',
   })
   readonly similarTo: SimilarMemoryResponseDto | null;
 

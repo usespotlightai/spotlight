@@ -43,6 +43,8 @@ export interface SimilarMemoryDto {
   readonly memoryId: string;
   readonly handle: string;
   readonly body: string;
+  /** Why the model found that the proposal repeats it, in one sentence. */
+  readonly reason: string;
 }
 
 export interface ProposedMemoryDto {

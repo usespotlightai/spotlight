@@ -8,6 +8,7 @@ import { RunProposing } from '@memory/application/services/run-proposing.service
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
+import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
 import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -24,7 +25,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
 const RUN = RunId.of('run_1');
@@ -110,7 +111,6 @@ const forgetting = (
     } as unknown as MemoryRepository,
   );
 
-  const teamMemories = vi.fn(async () => (known ? [known] : []));
   const reading = new ReadProposedMemoryHandler(
     new RunnerMemoryLoader(work),
     {
@@ -121,14 +121,13 @@ const forgetting = (
       { find: async () => null } as never,
       {
         findAll: async () => (known ? [known] : []),
-        ofTeam: teamMemories,
       } as unknown as MemoryRepository,
+      { of: async () => null } as unknown as DuplicateCheckRepository,
     ),
   );
 
   return {
     added,
-    teamMemories,
     proposedAs: (memoryId: string) =>
       reading.execute(
         new ReadProposedMemoryQuery('run_1', 'runner_1', memoryId),
@@ -161,15 +160,6 @@ describe('ForgetHandler', () => {
         reason: 'The worker reloads its limits on deploy.',
       },
     });
-  });
-
-  it('compares no memory with a proposal to retire one', async () => {
-    const { forget, proposedAs, teamMemories } = forgetting();
-
-    const proposed = await proposedAs(await forget());
-
-    expect(proposed.similarTo).toBeNull();
-    expect(teamMemories).not.toHaveBeenCalled();
   });
 
   it('knows no memory of another handle', async () => {

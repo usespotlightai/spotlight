@@ -76,30 +76,57 @@ describe('MemoryProposal', () => {
     expect(stored('approved', null).comparable).toBe(false);
   });
 
-  it('names the active memory most like it that applies in the same place', () => {
+  it('is compared with the active memories of its team that apply where it applies', () => {
     const same = known(2, 'Name the branches after their ticket.');
+    const unlike = known(5, 'Restart the worker after each deploy.');
     const retired = known(4, 'Name branches after the ticket.').retire({
       by: UserId.of('user_ada'),
       reason: 'Gone.',
       at: NOW,
     });
-    const unlike = known(5, 'Restart the worker after each deploy.');
-    const proposal = stored('proposed', null);
-
-    expect(proposal.similarIn([unlike, retired, same])?.handle.value).toBe(
-      'M-2',
+    const otherTeam = known(
+      6,
+      'Name branches after the ticket.',
+      MemoryScope.of({ teamId: TeamId.of('team_2') }),
     );
-    expect(proposal.similarIn([unlike, retired])).toBeNull();
+    const handles = (memories: readonly Memory[]) =>
+      memories.map((each) => each.handle.value);
+
     expect(
-      proposal.similarIn([
-        known(
-          6,
-          'Name branches after the ticket.',
-          MemoryScope.of({ teamId: TeamId.of('team_2') }),
-        ),
-      ]),
-    ).toBeNull();
-    expect(stored('approved', null).similarIn([same])).toBeNull();
+      handles(
+        stored('proposed', null).candidatesIn([
+          same,
+          unlike,
+          retired,
+          otherTeam,
+        ]),
+      ),
+    ).toEqual(['M-2', 'M-5']);
+    expect(stored('approved', null).candidatesIn([same])).toEqual([]);
+    expect(stored('proposed', RETIRES).candidatesIn([same])).toEqual([]);
+  });
+
+  it('is not compared with itself or with the memory it supersedes', () => {
+    const superseded = known(2, 'Name branches after the ticket.');
+    const proposal = MemoryProposal.of({
+      id: MemoryId.of('memory_3'),
+      kind: 'preference',
+      body: MemoryBody.of('Name branches after the ticket and its title.'),
+      scope: MemoryScope.of({ teamId: TeamId.of('team_1') }),
+      provenance: MemoryProvenance.of({
+        taskId: TaskId.of('task_1'),
+        runId: RunId.of('run_1'),
+        steps: [],
+        notes: [1],
+      }),
+      source: 'run',
+      supersedes: superseded.id,
+      recordedAt: NOW,
+    });
+
+    expect(
+      proposal.candidatesIn([superseded, known(3, 'Itself, once approved.')]),
+    ).toEqual([]);
   });
 
   it('lapses an approved retirement and keeps who approved it', () => {

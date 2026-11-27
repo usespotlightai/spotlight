@@ -1,3 +1,4 @@
+import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
 import type {
   MemoryUpkeepRepository,
   MemoryUpkeepScheduleRepository,
@@ -12,6 +13,7 @@ export class DeleteTeamMemories {
     private readonly transaction: TransactionPort,
     private readonly upkeeps: MemoryUpkeepRepository,
     private readonly schedules: MemoryUpkeepScheduleRepository,
+    private readonly checks: DuplicateCheckRepository,
   ) {}
 
   async deleteForTeam(teamId: TeamId): Promise<void> {
@@ -43,6 +45,10 @@ export class DeleteTeamMemories {
 
     for (const upkeep of await this.upkeeps.ofTeam(teamId)) {
       await this.transaction.inTransaction(() => this.upkeeps.remove(upkeep));
+    }
+
+    for (const check of await this.checks.ofTeam(teamId)) {
+      await this.transaction.inTransaction(() => this.checks.remove(check));
     }
   }
 }
