@@ -109,7 +109,7 @@ vi.mock('@/hooks/api/useTasks', () => ({
   }),
 }));
 vi.mock('@/hooks/api/useAddTask', () => ({
-  useAddTask: () => ({ mutate: added }),
+  useAddTask: () => ({ mutateAsync: added }),
 }));
 vi.mock('@/hooks/api/useMoveTask', () => ({
   useMoveTask: () => ({ mutate: moved }),
