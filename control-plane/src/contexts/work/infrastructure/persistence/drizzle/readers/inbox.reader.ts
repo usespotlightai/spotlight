@@ -454,7 +454,9 @@ const requestsWhere = (
         narrowedTo,
       ),
     )
-    .orderBy(desc(orderedBy), desc(inboxRequest.id))
+    // Ties break by task as the grouped rows' cursors do, so a page that
+    // stops inside one instant picks up the rest of it on the next.
+    .orderBy(desc(orderedBy), desc(inboxRequest.taskId), desc(inboxRequest.id))
     .$dynamic();
 
   return limit === null ? query : query.limit(limit);
@@ -1025,7 +1027,9 @@ export class DrizzleInboxReader implements InboxReaderPort {
     const groups = [...tasks.values()].flatMap((found): Keyed[] => {
       const group = groupOf(found);
 
-      return group && !group.listedAsOpen && nonEmpty(group.resolutionKey)
+      // A resolved item is listed here though it is still unread, as it was
+      // before items were grouped; the web shows it once, where it is open.
+      return group?.item.resolved === true && nonEmpty(group.resolutionKey)
         ? [keyedAt(group.item, group.resolutionKey)]
         : [];
     });
