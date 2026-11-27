@@ -13,6 +13,7 @@ import {
 } from '@runs/application/ports/run-journals.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
@@ -74,7 +75,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
           taskId: dispatch.taskId,
           fingerprint: dispatch.stationFingerprint,
           config: dispatch.stationConfig,
-          briefedTask: dispatch.briefedTask,
+          repositories: dispatch.repositories,
           orderedAt: dispatch.orderedAt,
         })
         .from(dispatch)
@@ -117,17 +118,17 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       return null;
     }
 
-    const { briefedTask, orderedAt, ...ran } = row;
+    const { orderedAt, ...ran } = row;
 
     return {
       ...ran,
       taskId: row.taskId,
+      repositories: row.repositories.map((each) => Repository.of(each)),
       earlier: earlier.flatMap((each) => {
         const was = facts.get(each.runId);
         return was ? [RunReadingMapper.state(was.state, each.superseded)] : [];
       }),
       harness: run.harness.value,
-      reviewing: briefedTask?.reviewing ?? null,
       queuedAt: orderedAt,
       startedAt: run.spent.firstStartedAt,
       endedAt: run.endedAt,

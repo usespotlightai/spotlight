@@ -6,6 +6,7 @@ import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { repositoriesRunIn } from '@work/domain/services/task-checkouts';
 
 export class OrderTaskRun {
   constructor(
@@ -43,6 +44,7 @@ export class OrderTaskRun {
         driver: task.driverOf(event.runId),
       },
       configuredAs: ordered?.configuredAs ?? null,
+      repositories: line ? repositoriesRunIn(task, line) : [],
       toolsOnMarks: ordered?.toolsOnMarks ?? [],
       briefedTask: ordered?.briefedTask ?? null,
       briefing: ordered?.order.spec.briefing ?? null,

@@ -7,6 +7,7 @@ import type { ScopedRemoval } from '@insights/domain/repositories/scoped-removal
 import { runFilterOf } from '@insights/domain/services/run-filter';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
+import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
@@ -567,6 +568,36 @@ describe('run facts', () => {
     expect(rebuilt).toBe(1_205);
     expect(await factOf('run_gone')).toBeNull();
     expect(await allFacts()).toHaveLength(1_205);
+  });
+
+  it('counts the spend of the runs on one repository in one slice and one link', async () => {
+    await records.add(withUsageRecorded(ended('run_1', 'task_1')));
+    await records.add(withUsageRecorded(ended('run_2', 'task_2')));
+    const reader = new DrizzleInsightsReader(
+      new DrizzleReading(
+        database.db,
+        partial<Env>({
+          DATABASE_READ_TIMEOUT_MS: 15_000,
+        }),
+      ),
+    );
+
+    const { current } = await reader.costCounts({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      period: InsightsPeriod.of('7d', new Date(NOW)),
+    });
+
+    expect(
+      current.shares
+        .filter((each) => each.part === 'repository')
+        .map(({ key, amount, runs }) => ({ key, amount, runs })),
+    ).toEqual([{ key: 'acme/api', amount: 2.5, runs: 2 }]);
+    expect(
+      current.links
+        .filter((each) => each.target.kind === 'repository')
+        .map((each) => [each.target.key, each.amount]),
+    ).toEqual([['acme/api', 2.5]]);
   });
 
   it('stores how the run ended as its rules say, the size of its change, and whether it ran its config', async () => {

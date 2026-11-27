@@ -2,6 +2,7 @@ import { distinct } from '@shared-kernel/domain/distinct';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
@@ -35,6 +36,7 @@ interface DispatchState {
   readonly briefing: string | null;
   readonly briefedMemories: BriefedMemories;
   readonly configuredAs: StationConfig | null;
+  readonly repositories: readonly Repository[];
   readonly toolsOnMarks: readonly Tool[];
   readonly orderedAt: Date;
   readonly enqueued: boolean;
@@ -52,6 +54,7 @@ type Ordering = Pick<
   readonly briefedTask?: BriefedTask | null;
   readonly briefing?: string | null;
   readonly briefedMemories?: BriefedMemories;
+  readonly repositories?: readonly Repository[];
   readonly toolsOnMarks?: readonly Tool[];
   readonly now: Date;
 };
@@ -67,6 +70,19 @@ const problemOf = (state: DispatchState): string | null => {
 
   if (state.configuredAs && !station) {
     return 'records a station config but works at no station';
+  }
+
+  if (state.repositories.length > 0 && state.subject.kind !== 'task') {
+    return 'records the repositories its task checks out but works no task';
+  }
+
+  if (
+    state.repositories.some(
+      (each, at) =>
+        state.repositories.findIndex((other) => other.equals(each)) !== at,
+    )
+  ) {
+    return 'records a repository it checks out twice';
   }
 
   if (state.toolsOnMarks.length > 0 && state.subject.kind !== 'task') {
@@ -187,6 +203,7 @@ export class Dispatch extends EventRecorder {
       briefing: input.briefing ?? null,
       briefedMemories: input.briefedMemories ?? BriefedMemories.none(),
       configuredAs: input.configuredAs,
+      repositories: [...(input.repositories ?? [])],
       toolsOnMarks: input.toolsOnMarks ?? [],
       orderedAt: input.now,
       enqueued: false,
@@ -255,6 +272,11 @@ export class Dispatch extends EventRecorder {
 
   get configuredAs(): StationConfig | null {
     return this.state.configuredAs;
+  }
+
+  // The repositories its task's run checks out, each by its full owner/name.
+  get repositories(): readonly Repository[] {
+    return this.state.repositories;
   }
 
   get toolsOnMarks(): readonly Tool[] {

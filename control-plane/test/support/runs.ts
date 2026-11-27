@@ -46,6 +46,7 @@ export const aDispatch = (
     readonly stationId?: string;
     readonly chatId?: string;
     readonly superseded?: boolean;
+    readonly repositories?: readonly string[];
   },
 ): DispatchRow => {
   const superseded = input.superseded ?? false;
@@ -70,6 +71,7 @@ export const aDispatch = (
         }),
     detachedAt: superseded ? ending.endedAt : null,
     superseded,
+    repositories: input.repositories ?? [],
   };
 };
 

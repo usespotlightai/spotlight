@@ -1,10 +1,7 @@
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
-import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { FingerprintedConfig } from '@work/application/contracts/station-config.contract';
-import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import type {
   EndedStationRun,
@@ -17,7 +14,6 @@ import type {
 } from '@work/application/ports/station-runs.port';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import { runNumberAfter } from '@work/domain/services/station-run-number';
-import { repositoriesRanIn } from '@work/domain/services/task-checkouts';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 const PREVIEW_LIMIT = 300;
@@ -31,7 +27,6 @@ export class StationRuns implements StationRunsPort {
   constructor(
     private readonly reader: StationRunReaderPort,
     private readonly dispatches: DispatchRepository,
-    private readonly lines: LineMapsPort,
   ) {}
 
   async taskRunOf(runId: string): Promise<StationTaskRun | null> {
@@ -64,8 +59,7 @@ export class StationRuns implements StationRunsPort {
       return null;
     }
 
-    const { earlier, config, reviewing, ...run } = found;
-    const line = await this.lines.find(LineId.of(run.lineId));
+    const { earlier, config, ...run } = found;
 
     return {
       ...run,
@@ -74,11 +68,6 @@ export class StationRuns implements StationRunsPort {
       model: config?.model ?? null,
       effort: config?.effort ?? null,
       profileKey: config?.profile?.key ?? null,
-      repositories: repositoriesRanIn(
-        nonEmpty(reviewing) ? Repository.of(reviewing) : null,
-        config?.repositories.map((each) => each.name) ?? [],
-        line,
-      ),
       skills: config?.skills.map((each) => each.key) ?? [],
     };
   }

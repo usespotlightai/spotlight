@@ -2,6 +2,7 @@ import { DuplicateRepositoryError } from '@lines/domain/exceptions/duplicate-rep
 import { MixedRunnerImagesError } from '@lines/domain/exceptions/mixed-runner-images.error';
 import type { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
 import { distinct } from '@shared-kernel/domain/distinct';
+import { repositoryNameKey } from '@shared-kernel/domain/services/repository-names';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 
 export class LineRepositories {
@@ -11,13 +12,15 @@ export class LineRepositories {
   ) {}
 
   static of(entries: readonly LineRepositoryConfig[]): LineRepositories {
-    const names = new Set<string>();
+    const names = new Set<string | null>();
 
     for (const { repository } of entries) {
-      if (names.has(repository.name)) {
+      const key = repositoryNameKey(repository.name);
+
+      if (names.has(key)) {
         throw new DuplicateRepositoryError(repository.name);
       }
-      names.add(repository.name);
+      names.add(key);
     }
 
     const images = distinct(

@@ -124,6 +124,7 @@ const ran = async (
     parts = PARTS,
     state = 'completed',
     reviewing = null,
+    repositories = [],
     toolsOnMarks = [],
     at,
   }: {
@@ -131,6 +132,7 @@ const ran = async (
     parts?: StationConfigParts;
     state?: RunState;
     reviewing?: string | null;
+    repositories?: readonly string[];
     toolsOnMarks?: readonly string[];
     at: Date;
   },
@@ -183,6 +185,7 @@ const ran = async (
       orderedAt: at,
       endedAt: ended ? at : null,
       outcome: state === 'failed' ? 'failed' : 'completed',
+      repositories,
     }),
     toolsOnMarks,
   });
@@ -212,20 +215,23 @@ describe('the station config a run ran with', () => {
       stationId,
       taskId,
       fingerprint: 'a'.repeat(64),
-      reviewing: null,
+      repositories: [],
     });
   });
 
-  it('tells the repository a run that ended reviewed', async () => {
+  it('tells the repositories a run that ended checked out, each by its owner and name', async () => {
     const { stationId } = await lineOf('team_20');
     const { runId } = await ran(stationId, {
       reviewing: 'acme/web',
+      repositories: ['acme/web'],
       at: new Date(),
     });
 
-    expect(await stationRuns.endedRun(runId)).toMatchObject({
-      reviewing: 'acme/web',
-    });
+    expect(
+      (await stationRuns.endedRun(runId))?.repositories.map(
+        (each) => each.value,
+      ),
+    ).toEqual(['acme/web']);
   });
 
   it('tells the states of the task’s earlier runs at the station, to number its run by', async () => {

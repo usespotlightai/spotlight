@@ -200,6 +200,33 @@ describe('Dispatch', () => {
     ).toThrow(InvalidDispatchTransitionError);
   });
 
+  it('records the repositories its task checks out only for a task’s run, each once', () => {
+    const API = Repository.of('acme/api');
+
+    expect(
+      Dispatch.ordered({
+        ...ordering(),
+        repositories: [API],
+        order: runOrderOf(RUN),
+      }).repositories,
+    ).toEqual([API]);
+    expect(ordered().repositories).toEqual([]);
+    expect(() =>
+      Dispatch.ordered({
+        ...ordering(CHAT),
+        repositories: [API],
+        order: runOrderOf(RUN),
+      }),
+    ).toThrow(InvalidDispatchTransitionError);
+    expect(() =>
+      Dispatch.ordered({
+        ...ordering(),
+        repositories: [API, Repository.of('Acme/API')],
+        order: runOrderOf(RUN),
+      }),
+    ).toThrow(InvalidDispatchTransitionError);
+  });
+
   it('records a tool its task’s marks enabled once, and never one its station config lists', () => {
     const ISSUE = Tool.of('sentry.get-issue');
 
@@ -382,6 +409,7 @@ describe('Dispatch', () => {
       briefing: null,
       briefedMemories: BriefedMemories.none(),
       configuredAs: null,
+      repositories: [],
       toolsOnMarks: [],
       orderedAt: NOW,
       enqueued: true,
@@ -401,6 +429,13 @@ describe('Dispatch', () => {
     ).toThrow(InconsistentStateError);
     expect(() =>
       Dispatch.rehydrate({ ...stored, refused: 'withdrawn' }),
+    ).toThrow(InconsistentStateError);
+    expect(() =>
+      Dispatch.rehydrate({
+        ...stored,
+        subject: CHAT,
+        repositories: [Repository.of('acme/api')],
+      }),
     ).toThrow(InconsistentStateError);
   });
 });

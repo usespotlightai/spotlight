@@ -64,6 +64,10 @@ export const dispatch = pgTable(
       .default({ briefed: [], omitted: [] }),
     stationConfig: jsonb('station_config').$type<StationConfigParts>(),
     stationFingerprint: text('station_fingerprint'),
+    repositories: jsonb('repositories')
+      .$type<readonly string[]>()
+      .notNull()
+      .default([]),
     toolsOnMarks: jsonb('tools_on_marks')
       .$type<readonly string[]>()
       .notNull()

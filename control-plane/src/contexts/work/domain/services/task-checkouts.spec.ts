@@ -13,7 +13,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import {
   checkoutsOf,
   repositoriesForTask,
-  repositoriesRanIn,
+  repositoriesRunIn,
   repositoryForTaskNamed,
 } from '@work/domain/services/task-checkouts';
 import {
@@ -184,36 +184,50 @@ describe('the repositories a task works on', () => {
   });
 });
 
-describe('the repositories a run ran in', () => {
-  it('are named by owner and name, though the station config names each by name alone', () => {
-    expect(names(repositoriesRanIn(null, ['api', 'web'], LINE))).toEqual([
+describe('the repositories a run checks out, as Insights counts them', () => {
+  it('are named by owner and name for a run that works on the task', () => {
+    expect(names(repositoriesRunIn(added(), LINE))).toEqual([
       'acme/api',
       'acme/web',
     ]);
   });
 
-  it('are only the reviewed repository, named as a run that worked on it names it', () => {
-    expect(names(repositoriesRanIn(API, ['api', 'web'], LINE))).toEqual(
-      names(repositoriesRanIn(null, ['api'], LINE)),
+  it('name a repository the same way for a run that reviews it and a run that works on it', () => {
+    const review = reviewing('https://github.com/acme/api/pull/42');
+
+    expect(names(repositoriesRunIn(review, LINE))).toEqual(['acme/api']);
+    expect(names(repositoriesRunIn(review, LINE))).toEqual(
+      names(repositoriesRunIn(added(), LINE)).slice(0, 1),
     );
   });
 
-  it('are spelled as the line spells them', () => {
+  it('spell the reviewed repository as the line does', () => {
     expect(
-      names(repositoriesRanIn(Repository.of('ACME/Api'), [], LINE)),
+      names(
+        repositoriesRunIn(
+          reviewing('https://github.com/ACME/Api/pull/42'),
+          LINE,
+        ),
+      ),
     ).toEqual(['acme/api']);
-    expect(names(repositoriesRanIn(null, ['WEB', 'Acme/Api'], LINE))).toEqual([
-      'acme/web',
-      'acme/api',
-    ]);
   });
 
-  it('leave out a configured repository the line no longer has, and keep a reviewed one', () => {
-    expect(names(repositoriesRanIn(null, ['api', 'gone'], LINE))).toEqual([
-      'acme/api',
-    ]);
-    expect(
-      names(repositoriesRanIn(Repository.of('acme/other'), [], null)),
-    ).toEqual(['acme/other']);
+  it('are the reviewed repository on a line that declares none', () => {
+    const bare = lineMapOf({
+      id: LINE.id,
+      workspaceId: LINE.workspaceId,
+      teamId: LINE.teamId,
+      key: LINE.key,
+      name: LINE.name,
+      stations: LINE.stations,
+    });
+    const review = added().reviews(
+      PullRequestUrl.of('https://github.com/acme/other/pull/7'),
+      { outside: false },
+      bare,
+      new Date(0),
+    );
+
+    expect(names(repositoriesRunIn(review, bare))).toEqual(['acme/other']);
   });
 });
