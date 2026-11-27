@@ -3667,6 +3667,22 @@ export type TaskRunNotStartedResponseDto = {
   harness: string;
 };
 
+export type TaskHandMoveResponseDto = {
+  stationId: string;
+  /**
+   * Why a person may not move the task to this station: a completed task stays completed, only runs move a task between work stations, or the task is on hold for someone else. Null where the person may move it there.
+   */
+  denial: 'out-of-completed' | 'between-work-stations' | 'on-hold' | null;
+  /**
+   * The work stations that the move skips: the ones before this station, when the task starts from the backlog
+   */
+  skips: Array<string>;
+  /**
+   * Whether the move sends the finished task back to this station, with a reason that the next run reads: an earlier work station, or one its station passes to
+   */
+  sendsBack: boolean;
+};
+
 export type TaskResponseDto = {
   id: string;
   stationId: string;
@@ -3705,10 +3721,6 @@ export type TaskResponseDto = {
    */
   finished: boolean;
   /**
-   * The stations a person may send the task back to, with a reason: the work stations before its station on the line, and the ones its station passes to. Empty while the line has not finished the task.
-   */
-  sendsBackTo: Array<string>;
-  /**
    * The pull requests this task ended in, one for each repository, the first opened first
    */
   pullRequests: Array<string>;
@@ -3736,6 +3748,10 @@ export type TaskResponseDto = {
    * Why no run works the task at its station: Spotlight tried to start the station’s agent and could not. Null while a run works it, or when nothing tried
    */
   runNotStarted: TaskRunNotStartedResponseDto | null;
+  /**
+   * Each station of the line, and whether the caller may move the task there by hand. Empty where the task is on no line the caller reads.
+   */
+  handMoves: Array<TaskHandMoveResponseDto>;
 };
 
 export type TaskPageResponseDto = {

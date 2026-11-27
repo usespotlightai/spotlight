@@ -204,6 +204,14 @@ export class LineMap {
     ];
   }
 
+  skips(from: Station, to: Station): readonly Station[] {
+    return from.isBacklog && to.isAgentStation
+      ? this.stations.filter(
+          (each) => each.isAgentStation && each.position < to.position,
+        )
+      : [];
+  }
+
   passDenial(from: StationId, to: Station): PassDenial | null {
     if (to.id.equals(from)) {
       return 'already-there';

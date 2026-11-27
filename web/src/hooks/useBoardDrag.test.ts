@@ -26,6 +26,12 @@ const task = (over: Partial<Task> = {}) =>
     title: 'Fix the queue',
     progress: null,
     hold: null,
+    handMoves: stations.map(({ id }) => ({
+      stationId: id,
+      denial: null,
+      skips: [],
+      sendsBack: false,
+    })),
     ...over,
   }) as Task;
 

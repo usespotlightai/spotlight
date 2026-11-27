@@ -1,5 +1,5 @@
 import { ChevronsUpDown } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
@@ -17,10 +17,14 @@ import {
 } from '@/components/ui/tooltip';
 import { useCommands } from '@/hooks/useCommands';
 import { useMe } from '@/hooks/useMe';
-import type { StationResponseDto, TaskHoldResponseDto } from '@/lib/api';
+import type {
+  StationResponseDto,
+  TaskHandMoveResponseDto,
+  TaskHoldResponseDto,
+} from '@/lib/api';
 import { heldUntilResumed, lockedHold } from '@/lib/hold';
 import { stationShare } from '@/lib/station';
-import { movableByHand } from '@/lib/task';
+import { handMoveDenial, handMoveHint } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
 type Station = {
@@ -30,11 +34,54 @@ type Station = {
   readonly kind: StationResponseDto['kind'];
 };
 
+type StationOptionProps = {
+  station: Station;
+  share: number;
+  hint: string | null;
+  denied: boolean;
+};
+
+function StationOption({ station, share, hint, denied }: StationOptionProps) {
+  const nameId = useId();
+  const hintId = useId();
+
+  return (
+    <Tooltip disabled={!hint}>
+      <TooltipTrigger
+        render={
+          <DropdownMenuRadioItem
+            value={station.id}
+            disabled={denied}
+            aria-labelledby={nameId}
+            aria-describedby={hint ? hintId : undefined}
+            className="group/option data-disabled:pointer-events-auto"
+          />
+        }
+      >
+        <StationIcon
+          share={share}
+          color={station.color}
+          className="transition-[filter] group-focus/option:brightness-90"
+        />
+        <span id={nameId} className="truncate">
+          {station.name}
+        </span>
+        {hint && (
+          <span id={hintId} className="sr-only">
+            {hint}
+          </span>
+        )}
+      </TooltipTrigger>
+      {hint && <TooltipContent side="right">{hint}</TooltipContent>}
+    </Tooltip>
+  );
+}
+
 type StationSelectProps = {
   stations: readonly Station[];
   value: string;
   held: TaskHoldResponseDto | null;
-  sendsBackTo: readonly string[];
+  handMoves: readonly TaskHandMoveResponseDto[];
   onChange: (stationId: string) => void;
 };
 
@@ -42,7 +89,7 @@ export function StationSelect({
   stations,
   value,
   held,
-  sendsBackTo,
+  handMoves,
   onChange,
 }: StationSelectProps) {
   const shareOf = (stationId: string) =>
@@ -52,17 +99,20 @@ export function StationSelect({
     );
 
   const currentStation = stations.find((each) => each.id === value);
-  const sendsBack = new Set(sendsBackTo);
-  const offered = currentStation
-    ? stations.filter(
-        (each) => movableByHand(currentStation, each) || sendsBack.has(each.id),
-      )
-    : [];
+  const offered = stations.flatMap((station) => {
+    const move = handMoves.find((each) => each.stationId === station.id);
+
+    return move ? [{ station, move }] : [];
+  });
   const [open, setOpen] = useState(false);
   const me = useMe();
   const locked = lockedHold(held);
+  const stays = handMoveDenial({ stationId: value, handMoves });
+  const shown = stays
+    ? offered.filter(({ station }) => station.id === value)
+    : offered;
   useCommands(
-    offered.length > 1
+    shown.length > 1
       ? [
           {
             id: 'task.station',
@@ -124,19 +174,14 @@ export function StationSelect({
           value={value}
           onValueChange={(next) => onChange(String(next))}
         >
-          {offered.map((station) => (
-            <DropdownMenuRadioItem
+          {shown.map(({ station, move }) => (
+            <StationOption
               key={station.id}
-              value={station.id}
-              className="group/option"
-            >
-              <StationIcon
-                share={shareOf(station.id)}
-                color={station.color}
-                className="transition-[filter] group-focus/option:brightness-90"
-              />
-              <span className="truncate">{station.name}</span>
-            </DropdownMenuRadioItem>
+              station={station}
+              share={shareOf(station.id)}
+              hint={stays ?? handMoveHint(move, stations)}
+              denied={move.denial !== null}
+            />
           ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>

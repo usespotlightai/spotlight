@@ -64,10 +64,10 @@ const summaries: TaskSummary[] = [
 
 const asDto = ({ running: _running, ...summary }: TaskSummary) => ({
   ...summary,
+  handMoves: [],
   createdAt: summary.createdAt.toISOString(),
   waitingForYou: false,
   yourMessage: 'message',
-  sendsBackTo: [],
 });
 
 const reader = (result: TaskSummary[]): TaskReaderPort => ({
@@ -155,7 +155,9 @@ describe('ListTasksHandler', () => {
         ).execute(
           new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
         )
-      )?.items[0]?.sendsBackTo;
+      )?.items[0]?.handMoves.flatMap((each) =>
+        each.sendsBack ? [each.stationId] : [],
+      );
 
     await expect(sentBack(true)).resolves.toEqual([
       at('triage'),
@@ -323,5 +325,52 @@ describe('ListTasksHandler', () => {
       viewerDrives: false,
       viewerEnds: false,
     });
+  });
+
+  it('lists where a person may move each task by hand, as its line decides', async () => {
+    let next = 0;
+    const line = deliveryLineOf({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      newId: () => `station_${++next}`,
+    });
+    const at = (key: string) =>
+      line.stations.find((each) => each.key.value === key)?.id.value as string;
+    const moves = await new ListTasksHandler(
+      reader([{ ...summaries[0], stationId: at('implementation') }]),
+      seeing(),
+      { ofTeam: async () => [line] } as never,
+    ).execute(
+      new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
+    );
+
+    expect(moves?.items[0]?.handMoves).toEqual([
+      { stationId: at('backlog'), denial: null, skips: [], sendsBack: false },
+      {
+        stationId: at('triage'),
+        denial: 'between-work-stations',
+        skips: [],
+        sendsBack: false,
+      },
+      {
+        stationId: at('spec'),
+        denial: 'between-work-stations',
+        skips: [],
+        sendsBack: false,
+      },
+      {
+        stationId: at('implementation'),
+        denial: null,
+        skips: [],
+        sendsBack: false,
+      },
+      {
+        stationId: at('code-review'),
+        denial: 'between-work-stations',
+        skips: [],
+        sendsBack: false,
+      },
+      { stationId: at('completed'), denial: null, skips: [], sendsBack: false },
+    ]);
   });
 });

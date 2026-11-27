@@ -27,11 +27,6 @@ const finishedAtReview = (taskId: string) => {
           ...each,
           awaitingReview: null,
           finished: true,
-          sendsBackTo: [
-            'station_triage',
-            'station_spec',
-            'station_implementation',
-          ],
         }
       : each,
   );

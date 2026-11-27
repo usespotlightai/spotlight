@@ -11508,6 +11508,48 @@
           "harness"
         ]
       },
+      "TaskHandMoveResponseDto": {
+        "type": "object",
+        "properties": {
+          "stationId": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          },
+          "denial": {
+            "type": "string",
+            "enum": [
+              "out-of-completed",
+              "between-work-stations",
+              "on-hold",
+              null
+            ],
+            "nullable": true,
+            "example": "between-work-stations",
+            "description": "Why a person may not move the task to this station: a completed task stays completed, only runs move a task between work stations, or the task is on hold for someone else. Null where the person may move it there."
+          },
+          "skips": {
+            "example": [
+              "b2e6f9a1-4c3d-4e8f-a7b0-5d1c2e3f4a56"
+            ],
+            "description": "The work stations that the move skips: the ones before this station, when the task starts from the backlog",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sendsBack": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether the move sends the finished task back to this station, with a reason that the next run reads: an earlier work station, or one its station passes to"
+          }
+        },
+        "required": [
+          "stationId",
+          "denial",
+          "skips",
+          "sendsBack"
+        ]
+      },
       "TaskResponseDto": {
         "type": "object",
         "properties": {
@@ -11592,16 +11634,6 @@
             "type": "boolean",
             "description": "Whether the line finished the task. A message to a finished task sends it back to its station, unless it finished at the completed station."
           },
-          "sendsBackTo": {
-            "example": [
-              "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
-            ],
-            "description": "The stations a person may send the task back to, with a reason: the work stations before its station on the line, and the ones its station passes to. Empty while the line has not finished the task.",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "pullRequests": {
             "example": [
               "https://github.com/acme/widgets/pull/7"
@@ -11667,6 +11699,13 @@
                 "$ref": "#/components/schemas/TaskRunNotStartedResponseDto"
               }
             ]
+          },
+          "handMoves": {
+            "description": "Each station of the line, and whether the caller may move the task there by hand. Empty where the task is on no line the caller reads.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskHandMoveResponseDto"
+            }
           }
         },
         "required": [
@@ -11682,14 +11721,14 @@
           "waitingForYou",
           "yourMessage",
           "finished",
-          "sendsBackTo",
           "pullRequests",
           "createdBy",
           "assignee",
           "note",
           "source",
           "hold",
-          "runNotStarted"
+          "runNotStarted",
+          "handMoves"
         ]
       },
       "TaskPageResponseDto": {
