@@ -53,6 +53,7 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import type { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { SearchRequest } from '@replays/domain/value-objects/search-request.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationPath } from '@replays/domain/value-objects/station-path.vo';
@@ -140,7 +141,7 @@ export class StationChangeTests {
     const active = await this.searches.activeAtStation(stationId);
 
     if (active) {
-      return this.joinedOrEarlier(active, request, station);
+      return this.joinedOrEarlier(active, request, station, live.search);
     }
 
     const checked = await this.checked(request, live.block, station);
@@ -154,6 +155,7 @@ export class StationChangeTests {
     active: Search,
     request: StationChangeTestRequest,
     station: StationView,
+    policy: SearchPolicy,
   ): Promise<StationChangeTestOutcome> {
     const [seed] = await this.candidates.findMany([active.seed.candidateId]);
 
@@ -169,7 +171,7 @@ export class StationChangeTests {
 
     return (
       (await this.earlierAnswer(active, checked.proposal)) ??
-      this.joined(active, request, checked.proposal)
+      this.joined(active, request, checked.proposal, policy)
     );
   }
 
@@ -202,12 +204,15 @@ export class StationChangeTests {
           monthStartOf(now),
         ),
       ),
-      takesRequest: schedule.takesRequestOn(now),
+      takesRequest: schedule.takesRequestOn(now, policy.requestsPerDay),
       scores: live.scoring.judges || live.scoring.checksChanges,
     });
 
     if (refusal) {
-      return this.refused(refusal);
+      return this.refused(
+        refusal,
+        this.limitOf(policy.requestsPerDay, schedule.requestsResetAfter(now)),
+      );
     }
 
     await this.refreshing.refreshBefore(set.id);
@@ -256,7 +261,7 @@ export class StationChangeTests {
         iterations: ready.budget.iterations,
       };
     } catch (error) {
-      return this.afterFailedStart(error, request, station);
+      return this.afterFailedStart(error, request, station, policy);
     }
   }
 
@@ -264,12 +269,16 @@ export class StationChangeTests {
     error: unknown,
     request: StationChangeTestRequest,
     station: StationView,
+    policy: SearchPolicy,
   ): Promise<StationChangeTestOutcome> {
     if (error instanceof MonthlyCeilingReachedError) {
       return this.refused('monthly-ceiling');
     }
     if (error instanceof RequestLimitReachedError) {
-      return this.refused('request-limit');
+      return this.refused(
+        'request-limit',
+        this.limitOf(error.limit, error.resetsAt),
+      );
     }
     if (error instanceof UnsearchableRequestError) {
       return invalid(error.problems);
@@ -281,7 +290,7 @@ export class StationChangeTests {
     const active = await this.searches.activeAtStation(request.stationId);
 
     return active
-      ? this.joinedOrEarlier(active, request, station)
+      ? this.joinedOrEarlier(active, request, station, policy)
       : this.refused('search-running');
   }
 
@@ -289,6 +298,7 @@ export class StationChangeTests {
     seen: Search,
     request: StationChangeTestRequest,
     proposal: Proposal,
+    policy: SearchPolicy,
   ): Promise<StationChangeTestOutcome> {
     if (!seen.takesRequests) {
       return this.refused('search-running');
@@ -307,15 +317,16 @@ export class StationChangeTests {
       searchId: seen.id,
       request: candidate.id,
     };
-    const refusal = await this.requestCounted(
+    const refused = await this.requestCounted(
       stationId,
       seen.id,
       candidate.id,
       this.clock.now(),
+      policy.requestsPerDay,
     );
 
-    if (refusal) {
-      return this.refused(refusal);
+    if (refused) {
+      return refused;
     }
 
     try {
@@ -366,18 +377,24 @@ export class StationChangeTests {
     searchId: SearchId,
     request: CandidateId,
     at: Date,
-  ): Promise<StationChangeRefusal | null> {
+    requestsPerDay: number,
+  ): Promise<StationChangeTestOutcome | null> {
     return this.transaction.inTransaction(async () => {
       const schedule = await this.schedules.locked(stationId);
 
       if (!schedule) {
-        return 'no-replay-set' as const;
+        return this.refused('no-replay-set');
       }
-      if (!schedule.takesRequestOn(at)) {
-        return 'request-limit' as const;
+      if (!schedule.takesRequestOn(at, requestsPerDay)) {
+        return this.refused(
+          'request-limit',
+          this.limitOf(requestsPerDay, schedule.requestsResetAfter(at)),
+        );
       }
 
-      await this.schedules.save(schedule.requested({ searchId, request, at }));
+      await this.schedules.save(
+        schedule.requested({ searchId, request, at, requestsPerDay }),
+      );
 
       return null;
     });
@@ -482,6 +499,10 @@ export class StationChangeTests {
       name: proposal.name,
       requestedBy: proposal.requester,
     });
+  }
+
+  private limitOf(perDay: number, resetsAt: Date): RefusalDetail {
+    return { requestLimit: { perDay, resetsAt } };
   }
 
   private refused(

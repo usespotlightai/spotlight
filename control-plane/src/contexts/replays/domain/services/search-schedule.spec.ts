@@ -42,6 +42,7 @@ const policyOf = (over: Partial<Parameters<typeof SearchPolicy.of>[0]> = {}) =>
     iterations: null,
     repeats: null,
     objective: null,
+    requestsPerDay: 3,
     ...over,
   });
 

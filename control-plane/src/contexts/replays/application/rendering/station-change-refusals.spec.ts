@@ -21,6 +21,19 @@ describe('stationChangeRefusalReason', () => {
     );
   });
 
+  it('says when the request limit resets and which setting raises it', () => {
+    expect(
+      stationChangeRefusalReason('request-limit', NEXT_MONTH, {
+        requestLimit: {
+          perDay: 3,
+          resetsAt: new Date('2026-10-30T00:00:00.000Z'),
+        },
+      }),
+    ).toBe(
+      'The station took the most requested tests for today. Maximum requests a day: 3. The count resets at 2026-10-30 00:00 UTC. To allow more, set requests_per_day in the search block of the station or of the line in Terraform.',
+    );
+  });
+
   it('says how often the judge agreed with itself and which claims changed most, when it knows', () => {
     expect(
       stationChangeRefusalReason('judge-unstable', NEXT_MONTH, {
