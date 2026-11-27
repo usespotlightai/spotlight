@@ -1,4 +1,5 @@
 import { EditMemoryCommand } from '@memory/application/commands/edit-memory.command';
+import { RestoreTeamMemoryCommand } from '@memory/application/commands/restore-team-memory.command';
 import { RetireMemoryCommand } from '@memory/application/commands/retire-memory.command';
 import {
   type MemoryWriting,
@@ -206,6 +207,30 @@ export class TeamMemoryController {
   ): Promise<TeamMemoryDetailResponseDto> {
     await this.commandBus.execute<RetireMemoryCommand, void>(
       new RetireMemoryCommand(teamId, memoryId, user.id, text(body?.reason)),
+    );
+
+    return this.detailOf(teamId, memoryId, user.id);
+  }
+
+  @Post(':memoryId/restore')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'restoreTeamMemory',
+    summary: 'Brief a retired memory to runs again',
+  })
+  @ApiParam({ name: 'memoryId', type: String })
+  @ApiOkResponse({ type: TeamMemoryDetailResponseDto })
+  @ApiNotFoundResponse({ description: 'No such memory for this caller' })
+  @ApiConflictResponse({
+    description: 'It is not retired, or a newer memory replaced it',
+  })
+  async restore(
+    @Param('teamId') teamId: string,
+    @Param('memoryId') memoryId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TeamMemoryDetailResponseDto> {
+    await this.commandBus.execute<RestoreTeamMemoryCommand, void>(
+      new RestoreTeamMemoryCommand(teamId, memoryId, user.id),
     );
 
     return this.detailOf(teamId, memoryId, user.id);

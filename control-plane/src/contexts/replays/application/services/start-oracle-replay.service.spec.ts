@@ -11,6 +11,7 @@ import { StartOracleReplay } from '@replays/application/services/start-oracle-re
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import {
   aReplay,
+  aSearch,
   aSet,
   BY,
   candidateOf,
@@ -18,6 +19,7 @@ import {
   LIVE_FINGERPRINT,
   SEARCH_ID,
 } from '@replays/domain/replays.fake-spec';
+import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -33,6 +35,7 @@ const oracles = () =>
     memory.setRepository,
     memory.replayRepository,
     memory.candidateRepository,
+    memory.searchRepository,
     suppliers.configs,
     suppliers.dispatch,
     insights,
@@ -222,5 +225,27 @@ describe('StartOracleReplay', () => {
     expect(oracle.referenceReplayId?.value).toBe('replay_live');
     expect(oracle.searchId).toBeNull();
     expect(oracle.repeats).toBe(3);
+  });
+
+  it('keeps the answer of a search’s calibrating seed to the share its search planned for it, not what the seed may spend', async () => {
+    const search = aSearch({ calibrates: true });
+    const seedCeiling = search.plannedReplay(ReplayId.of('replay_seed'))
+      ?.ceiling.amount;
+
+    insights.accepted.add('original_0');
+    memory.searches.set(search.id.value, search);
+    await oracles().baselineEnded(
+      await finishedLive({
+        repeats: 3,
+        searchId: SEARCH_ID,
+        calibration: true,
+        ...(seedCeiling !== undefined ? { ceiling: seedCeiling } : {}),
+      }),
+    );
+
+    const [oracle] = oracleReplays();
+
+    expect(search.ceilingSplit.oracle.amount).toBeLessThan(seedCeiling ?? 0);
+    expect(oracle.ceiling.equals(search.ceilingSplit.oracle)).toBe(true);
   });
 });

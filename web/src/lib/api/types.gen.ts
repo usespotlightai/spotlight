@@ -4449,6 +4449,10 @@ export type OnboardingResponseDto = {
    */
   canSetUp: boolean;
   /**
+   * What keeps the viewer from starting a setup chat, the first that applies, as the start of one refuses it: needs-an-admin (the viewer is not a workspace owner or admin), code-unreachable (the GitHub App is not installed) or needs-egress (no host serves the workspace, and no push pool names an egress). Null when the viewer can start one
+   */
+  setupRefusal: 'needs-an-admin' | 'code-unreachable' | 'needs-egress' | null;
+  /**
    * Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts
    */
   viewerIsAdmin: boolean;
@@ -6045,6 +6049,10 @@ export type TeamMemoryDetailResponseDto = {
   runs: number;
   superseded: MemoryLinkResponseDto | null;
   successor: MemoryLinkResponseDto | null;
+  /**
+   * Whether a person can restore it: a person retired it and no newer memory replaced it
+   */
+  restorable: boolean;
 };
 
 export type RetireMemoryRequestDto = {
@@ -6183,6 +6191,10 @@ export type RecalledMemoryResponseDto = {
   runs: number;
   superseded: MemoryLinkResponseDto | null;
   successor: MemoryLinkResponseDto | null;
+  /**
+   * Whether a person can restore it: a person retired it and no newer memory replaced it
+   */
+  restorable: boolean;
   steps: Array<MemoryProvenanceStepResponseDto>;
   notes: Array<MemoryProvenanceNoteResponseDto>;
 };
@@ -21183,6 +21195,37 @@ export type RetireMemoryResponses = {
 };
 
 export type RetireMemoryResponse = RetireMemoryResponses[keyof RetireMemoryResponses];
+
+export type RestoreTeamMemoryData = {
+  body?: never;
+  path: {
+    teamId: string;
+    memoryId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/memories/{memoryId}/restore';
+};
+
+export type RestoreTeamMemoryErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such memory for this caller
+   */
+  404: unknown;
+  /**
+   * It is not retired, or a newer memory replaced it
+   */
+  409: unknown;
+};
+
+export type RestoreTeamMemoryResponses = {
+  200: TeamMemoryDetailResponseDto;
+};
+
+export type RestoreTeamMemoryResponse = RestoreTeamMemoryResponses[keyof RestoreTeamMemoryResponses];
 
 export type ReadRunMemoriesData = {
   body?: never;

@@ -14,14 +14,28 @@ import {
 } from '@/components/features/onboarding/SetupAbout';
 import { SetupStepsSkeleton } from '@/components/features/onboarding/SetupStepsSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
+import { Button } from '@/components/ui/button';
 import { useGitHub } from '@/hooks/api/useGitHub';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
-import type { SetupStepResponseDto } from '@/lib/api/types.gen';
+import type {
+  OnboardingResponseDto,
+  SetupStepResponseDto,
+} from '@/lib/api/types.gen';
 import { chatPath } from '@/lib/chat';
 import { nonEmpty } from '@/lib/non-empty';
 import { failed, loading } from '@/lib/query';
 import { runnersPath } from '@/lib/runner';
 import { cn } from '@/lib/utils';
+
+type SetupRefusal = NonNullable<OnboardingResponseDto['setupRefusal']>;
+
+type WaitingRefusal = Exclude<SetupRefusal, 'needs-an-admin'>;
+
+const SETUP_REFUSALS: Readonly<Record<WaitingRefusal, string>> = {
+  'code-unreachable': 'Install the GitHub App first.',
+  'needs-egress': 'Connect a host first.',
+};
 
 type SetupStepsProps = {
   teamId: string;
@@ -188,7 +202,13 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       );
     }
 
-    if (!onboarding.viewerIsAdmin) {
+    const refusal = onboarding.setupRefusal;
+
+    if (refusal === null) {
+      return <ConfigFolderForm slug={slug} teamId={teamId} />;
+    }
+
+    if (refusal === 'needs-an-admin') {
       return (
         <p className="text-muted-foreground text-sm leading-6">
           Only a workspace owner or admin can set up configuration as code.
@@ -196,9 +216,20 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       );
     }
 
-    return onboarding.canSetUp ? (
-      <ConfigFolderForm slug={slug} teamId={teamId} />
-    ) : null;
+    return (
+      <DisabledReasonTooltip reason={SETUP_REFUSALS[refusal]}>
+        {(describedBy) => (
+          <Button
+            size="sm"
+            disabled
+            aria-describedby={describedBy}
+            className={SETUP_CONTROL}
+          >
+            Continue in chat
+          </Button>
+        )}
+      </DisabledReasonTooltip>
+    );
   };
 
   const goAndDoIt = (step: SetupStepResponseDto): ReactNode => {

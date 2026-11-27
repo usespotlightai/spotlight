@@ -336,6 +336,42 @@ describe('Search', () => {
       ]);
     });
 
+    it('lets a seed that costs more than its share finish, and replays a waiting requested candidate after it', () => {
+      const runIds = searchRunIds();
+      const search = aSearch({
+        count: 8,
+        calibrates: true,
+        budget: SearchBudget.automatic({
+          ceiling: Money.ceiling(10, 'USD'),
+          iterations: null,
+          repeats: null,
+        }),
+      }).request(
+        SearchRequest.of({
+          candidateId: CandidateId.of('candidate_asked'),
+          name: CandidateName.searched('asked'),
+          requestedBy: UserId.of('user_asking'),
+        }),
+      );
+      const needed = usd(8 * 3 * 0.079);
+      const ceiling = search.plannedReplay(SEED)?.ceiling ?? usd(0);
+
+      expect(needed.isWithin(search.ceilingSplit.seed)).toBe(false);
+      expect(needed.isWithin(ceiling)).toBe(true);
+
+      const seeded = search.recordReplayEndState(
+        SEED,
+        'finished',
+        { spent: ceiling, unpriced: 0 },
+        NOW,
+        runIds,
+        true,
+      );
+
+      expect(seeded.current).toBe('searching');
+      expect(seeded.wantedIteration?.kind).toBe('request');
+    });
+
     it('ends, its ceiling reached, when its seed replay reached its ceiling', () => {
       const over = aSearch().recordReplayEndState(
         SEED,

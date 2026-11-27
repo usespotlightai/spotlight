@@ -356,7 +356,7 @@ export class Replay extends EventRecorder {
       live.basedOn.equals(candidate.basedOn) &&
       against.scoringHash === candidate.scoringHash &&
       against.repeats === oracle.repeats &&
-      against.ceiling.equals(oracle.ceiling) &&
+      oracle.ceiling.isWithin(against.ceiling) &&
       against.setId.equals(set.id) &&
       !against.id.equals(id) &&
       against.wholeSetOutsideSearch &&
