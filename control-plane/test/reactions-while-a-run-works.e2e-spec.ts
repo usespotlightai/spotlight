@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
+import { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
 import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import type { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
@@ -18,6 +19,7 @@ import { present } from '@shared-kernel/domain/present.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -277,7 +279,10 @@ beforeAll(async () => {
     by: changeActorIn(),
     workspaceId: team.workspaceId,
     teamId: team.teamId,
-    line: opening,
+    line: {
+      ...opening,
+      repositories: [LineRepositoryConfig.of(Repository.of('acme/widgets'))],
+    },
     harness: HarnessId.of('claude-code'),
     newId: () => randomUUID(),
   });

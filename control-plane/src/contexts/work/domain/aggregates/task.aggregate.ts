@@ -1162,6 +1162,32 @@ export class Task extends EventRecorder {
     return this.ownedPullRequest(url, at, line);
   }
 
+  recordBranchPullRequest(
+    pullRequest: { readonly url: PullRequestUrl; readonly open: boolean },
+    at: Date,
+    line: LineMap,
+  ): Task {
+    const { url } = pullRequest;
+    const repository = url.repository;
+
+    if (
+      !pullRequest.open ||
+      this.reviewing ||
+      !repository ||
+      !line.names(repository) ||
+      this.pullRequests.some((each) => each.equals(url))
+    ) {
+      return this;
+    }
+
+    return this.owning(url, at, line).addMessage({
+      line: null,
+      body: TaskNoteBody.branchPullRequest(url),
+      at,
+      voice: Voice.world(),
+    });
+  }
+
   private ownedPullRequest(url: PullRequestUrl, at: Date, line: LineMap): Task {
     if (
       url.repository !== null
@@ -1171,6 +1197,10 @@ export class Task extends EventRecorder {
       return this;
     }
 
+    return this.owning(url, at, line);
+  }
+
+  private owning(url: PullRequestUrl, at: Date, line: LineMap): Task {
     const opened = this.markedBy(Mark.pullRequest(url), at).with({
       ownedPullRequests: [
         ...this.ownedPullRequests,
@@ -1389,10 +1419,13 @@ export class Task extends EventRecorder {
   }
 
   pullRequestIn(repository: Repository): PullRequestUrl | null {
+    const inRepository = this.ownedPullRequests.filter(
+      (each) => each.url.repository?.equals(repository) ?? false,
+    );
+
     return (
-      this.pullRequests.find(
-        (each) => each.repository?.equals(repository) ?? false,
-      ) ?? null
+      (inRepository.find((each) => each.open) ?? firstOf(inRepository))?.url ??
+      null
     );
   }
 

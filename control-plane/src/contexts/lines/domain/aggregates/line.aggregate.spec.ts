@@ -275,12 +275,12 @@ describe('Line', () => {
       expect(named('Code Review')).toEqual(['Spec', 'Implementation']);
     });
 
-    it('lets one station end the line, and no other', () => {
+    it('lets Spec end a task that needs no change, and Code Review a finished one, and no other station', () => {
       const finishing = created()
         .stations.filter((each) => each.routes.ends)
         .map((each) => each.name.value);
 
-      expect(finishing).toEqual(['Code Review']);
+      expect(finishing).toEqual(['Spec', 'Code Review']);
     });
 
     it('rejects a route that lands off the line', () => {

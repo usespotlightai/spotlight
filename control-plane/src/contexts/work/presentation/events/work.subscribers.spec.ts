@@ -3,6 +3,10 @@ import {
   type PullRequestClosedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import {
+  PULL_REQUEST_UPDATED,
+  type PullRequestUpdatedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
+import {
   RUN_SUSPENDED,
   type RunSuspendedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/run-suspended.integration-event';
@@ -115,6 +119,54 @@ describe('workSubscribers', () => {
     expect(taking?.kinds).toEqual(['runs.run-suspended.v1']);
     expect(taking?.callsOut).toBe(true);
     expect(take).toHaveBeenCalledWith(RunId.of('run_1'), 2);
+  });
+
+  it('hands each update of a pull request, with its branch and whether it is open, to the task pull requests', async () => {
+    const updated = vi.fn(async () => {});
+    const tracking = workSubscribers(
+      partial<Reactions>({
+        taskPullRequests: partial<Reactions['taskPullRequests']>({ updated }),
+      }),
+    ).find((each) => each.name === 'work.track-pull-request-from-task-branch');
+    const updateOf = (
+      state: PullRequestUpdatedIntegrationEvent['state'],
+      branch: string | null,
+    ) =>
+      partial<PullRequestUpdatedIntegrationEvent>({
+        kind: PULL_REQUEST_UPDATED,
+        workspaceId: 'ws_1',
+        pullRequest: 'https://github.com/acme/api/pull/8',
+        repository: 'acme/api',
+        state,
+        branch,
+      });
+
+    await tracking?.handle(
+      updateOf('open', 'feat/retry-uploads-1a2b3c4d'),
+      anOutboxRecord(),
+    );
+    await tracking?.handle(
+      updateOf('closed', 'feat/retry-uploads-1a2b3c4d'),
+      anOutboxRecord(),
+    );
+    await tracking?.handle(updateOf('open', null), anOutboxRecord());
+
+    const url = PullRequestUrl.of('https://github.com/acme/api/pull/8');
+
+    expect(tracking?.kinds).toEqual([PULL_REQUEST_UPDATED]);
+    expect(updated.mock.calls).toEqual([
+      [
+        WorkspaceId.of('ws_1'),
+        { url, open: true },
+        'feat/retry-uploads-1a2b3c4d',
+      ],
+      [
+        WorkspaceId.of('ws_1'),
+        { url, open: false },
+        'feat/retry-uploads-1a2b3c4d',
+      ],
+      [WorkspaceId.of('ws_1'), { url, open: true }, null],
+    ]);
   });
 
   it('tells the setup chats of the workspace that a pull request closed', async () => {

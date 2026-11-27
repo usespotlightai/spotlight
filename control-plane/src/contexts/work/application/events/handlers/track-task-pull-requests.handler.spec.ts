@@ -1,14 +1,21 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
-import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
+import {
+  deliveryLineOf,
+  repositoryOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
@@ -22,6 +29,7 @@ const NOW = new Date('2026-11-11T10:00:00.000Z');
 const CLOSED_AT = new Date('2026-11-11T09:30:00.000Z');
 const API = PullRequestUrl.of('https://github.com/acme/api/pull/7');
 const DOCS = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
+const PERSONS = PullRequestUrl.of('https://github.com/acme/api/pull/8');
 
 let next = 0;
 const fresh = () => {
@@ -34,6 +42,7 @@ const line = deliveryLineOf({
   workspaceId: WORKSPACE,
   teamId: TeamId.of('team_1'),
   newId: fresh,
+  repositories: [repositoryOf(Repository.of('acme/api'))],
 });
 
 const owning = (...pullRequests: PullRequestUrl[]) =>
@@ -62,6 +71,10 @@ const tracking = (stored: readonly Task[]) => {
       stored.find((each) =>
         each.pullRequests.some((owned) => owned.equals(pullRequest)),
       ) ?? null,
+    findByCorrelation: async (_at: WorkspaceId, keys: CorrelationKeys) =>
+      stored.filter(
+        (each) => keys.branch !== null && each.branch.equals(keys.branch),
+      ),
     save: async (each: Task) => {
       saved.push(each);
     },
@@ -148,5 +161,119 @@ describe('TrackTaskPullRequests', () => {
     await handler.closed(WORKSPACE, DOCS, NOW, false);
 
     expect(saved).toEqual([]);
+  });
+
+  describe('when a pull request opens from the branch of a task', () => {
+    const closedOwner = () =>
+      owning(API).pullRequestClosed(API, NOW, NOTHING_HELD);
+
+    it('makes the open pull request the current one of the task, beside the closed one', async () => {
+      const owner = closedOwner();
+      const { handler, saved } = tracking([owner]);
+
+      await handler.updated(
+        WORKSPACE,
+        { url: PERSONS, open: true },
+        owner.branch.value,
+      );
+
+      expect(saved).toHaveLength(1);
+      expect(saved[0]?.pullRequests).toEqual([API, PERSONS]);
+      expect(saved[0]?.openPullRequests).toEqual([PERSONS]);
+      expect(saved[0]?.pullRequestStep(Repository.of('acme/api'))).toEqual({
+        kind: 'edit',
+        pullRequest: PERSONS,
+      });
+    });
+
+    it('gives the task the mark of the pull request, so that what happens on it reaches the task', async () => {
+      const owner = closedOwner();
+      const { handler, saved } = tracking([owner]);
+
+      await handler.updated(
+        WORKSPACE,
+        { url: PERSONS, open: true },
+        owner.branch.value,
+      );
+
+      expect(saved[0]?.holdsMark(Mark.pullRequest(PERSONS))?.since).toEqual(
+        NOW,
+      );
+    });
+
+    it('records the pull request in the activity of the task', async () => {
+      const owner = closedOwner();
+      const { handler, saved } = tracking([owner]);
+
+      await handler.updated(
+        WORKSPACE,
+        { url: PERSONS, open: true },
+        owner.branch.value,
+      );
+
+      const { notes } = present(saved[0]);
+      const added = itemAt(notes, notes.length - 1);
+      expect(added?.voice.isWorld).toBe(true);
+      expect(added?.body.value).toBe(
+        'Pull request https://github.com/acme/api/pull/8 is open from the branch of this task. It is now the pull request of the task.',
+      );
+      expect(saved[0]?.finished).toBe(owner.finished);
+      expect(
+        saved[0]
+          ?.pullEvents()
+          .filter((each) => each.kind === 'task.pull-request-opened'),
+      ).toMatchObject([{ url: PERSONS, teamId: line.teamId }]);
+    });
+
+    it('saves nothing for a pull request the task has, such as its own one reopened', async () => {
+      const owner = closedOwner();
+      const { handler, saved } = tracking([owner]);
+
+      await handler.updated(
+        WORKSPACE,
+        { url: API, open: true },
+        owner.branch.value,
+      );
+
+      expect(saved).toEqual([]);
+    });
+
+    it('saves nothing for a pull request in a repository that the line of the task does not name', async () => {
+      const owner = closedOwner();
+      const { handler, saved } = tracking([owner]);
+
+      await handler.updated(
+        WORKSPACE,
+        { url: DOCS, open: true },
+        owner.branch.value,
+      );
+
+      expect(saved).toEqual([]);
+    });
+
+    it('saves nothing for a pull request from the branch that is not open', async () => {
+      const owner = closedOwner();
+      const { handler, saved } = tracking([owner]);
+
+      await handler.updated(
+        WORKSPACE,
+        { url: PERSONS, open: false },
+        owner.branch.value,
+      );
+
+      expect(saved).toEqual([]);
+    });
+
+    it('saves nothing for a branch that no task works on', async () => {
+      const { handler, saved } = tracking([closedOwner()]);
+
+      await handler.updated(
+        WORKSPACE,
+        { url: PERSONS, open: true },
+        'feat/somebody-else',
+      );
+
+      expect(saved).toEqual([]);
+    });
   });
 });

@@ -209,6 +209,16 @@ describe('GitHubWebhookParser', () => {
       ).toMatchObject({ activity: 'opened', ignoredAsBot: false });
     });
 
+    it('reads no activity from a comment on an issue that is not a pull request', () => {
+      expect(
+        activity('issue_comment', {
+          action: 'created',
+          issue: { title: 'Uploads fail', user: { login: 'octocat' } },
+          comment: { body: '@spotlight have a look' },
+        }),
+      ).toBeNull();
+    });
+
     it('says what the pull request a comment was left on is', () => {
       expect(
         activity('issue_comment', {
