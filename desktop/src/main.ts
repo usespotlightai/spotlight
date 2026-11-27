@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   type MenuItemConstructorOptions,
@@ -35,6 +36,7 @@ import {
 import { grants } from './permissions';
 import { ErrorReporting } from './reporting';
 import { SettingsFile } from './settings';
+import { updateFeedOf } from './update-feed';
 import {
   type Bounds,
   DEFAULT_SIZE,
@@ -63,11 +65,50 @@ const settings = new SettingsFile(app.getPath('userData'));
 const windowState = new WindowStateFile(app.getPath('userData'));
 let origin = settings.origin();
 
+const feed = updateFeedOf(app.getVersion());
+if (feed) {
+  autoUpdater.setFeedURL(feed);
+}
+
 const checkForUpdates = () => {
   autoUpdater.checkForUpdatesAndNotify().catch((error: unknown) => {
     // oxlint-disable-next-line no-console -- the main process logs to its terminal
     console.warn('Spotlight could not check for updates', error);
   });
+};
+
+const updateCheckOutcome = async (): Promise<Electron.MessageBoxOptions> => {
+  try {
+    const result = await autoUpdater.checkForUpdatesAndNotify();
+
+    if (result?.isUpdateAvailable) {
+      return {
+        message: `Spotlight ${result.updateInfo.version} is downloading.`,
+        detail: 'Spotlight installs it when you quit.',
+      };
+    }
+
+    return {
+      message: 'Spotlight is up to date.',
+      detail: `Version ${app.getVersion()}`,
+    };
+  } catch (error) {
+    return {
+      type: 'warning',
+      message: 'Spotlight could not check for updates.',
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+};
+
+const checkForUpdatesNow = async () => {
+  const outcome = await updateCheckOutcome();
+  const window = frontWindow();
+  const options = { type: 'info' as const, ...outcome };
+
+  await (window
+    ? dialog.showMessageBox(window, options)
+    : dialog.showMessageBox(options));
 };
 
 const shown = (window: BrowserWindow) => {
@@ -456,7 +497,7 @@ const menu = (): MenuItemConstructorOptions[] => [
       {
         label: 'Check for Updates…',
         enabled: app.isPackaged,
-        click: checkForUpdates,
+        click: () => void checkForUpdatesNow(),
       },
       { type: 'separator' },
       { role: 'services' },
