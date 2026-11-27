@@ -1,6 +1,7 @@
 import { defaultFilter } from 'cmdk';
 import {
   Box,
+  CircleCheck,
   CircleDashed,
   Inbox,
   KeyRound,
@@ -40,6 +41,7 @@ export type CommandTarget = {
   readonly id: string;
   readonly label: string;
   readonly context?: string;
+  readonly keywords?: readonly string[];
   readonly icon: LucideIcon;
   readonly to: string;
 };
@@ -56,8 +58,14 @@ export type CommandSection = {
   readonly targets: readonly CommandTarget[];
 };
 
-export const commandKeywords = (target: CommandTarget): string[] =>
-  target.context ? [target.label, target.context] : [target.label];
+export const commandKeywords = (target: CommandTarget): string[] => [
+  target.label,
+  ...(target.context ? [target.context] : []),
+  ...(target.keywords ?? []),
+];
+
+const descriptionOf = (task: Task): string[] =>
+  task.description ? [task.description] : [];
 
 export const commandMatch = (
   _value: string,
@@ -140,10 +148,25 @@ export const taskTargets = (
       id: `task:${task.id}`,
       label: task.title,
       context: team.name,
+      keywords: descriptionOf(task),
       icon: CircleDashed,
       to: taskPath(slug, team.id, task.id),
     }));
 };
+
+export const completedTaskTargets = (
+  slug: string,
+  team: Team,
+  tasks: readonly Task[],
+): CommandTarget[] =>
+  tasks.map((task) => ({
+    id: `task:${task.id}`,
+    label: task.title,
+    context: team.name,
+    keywords: descriptionOf(task),
+    icon: CircleCheck,
+    to: taskPath(slug, team.id, task.id),
+  }));
 
 export const settingsTargets = (
   slug: string,

@@ -15,6 +15,7 @@ import {
 } from '@work/application/services/run-access.fake-spec';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
+import { TaskSearch } from '@work/domain/value-objects/task-search.vo';
 import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -186,6 +187,7 @@ describe('ListTasksHandler', () => {
 
     expect(tasks.listForTeam).toHaveBeenCalledWith(expect.anything(), {
       state: 'board',
+      search: null,
     });
   });
 
@@ -205,8 +207,39 @@ describe('ListTasksHandler', () => {
     expect(tasks.listForTeam).toHaveBeenCalledWith(expect.anything(), {
       state: 'completed-station',
       lineId: 'line_1',
+      search: null,
       page: FIRST_PAGE,
     });
+  });
+
+  it('asks the reader for the completed tasks that hold each word searched for', async () => {
+    const tasks = reader([]);
+
+    await new ListTasksHandler(tasks, seeing(), linesWhere()).execute(
+      new ListTasksQuery(
+        'team_1',
+        'user_1',
+        'completed-station',
+        null,
+        FIRST_PAGE,
+        ' Better-SQLite3  scaffold ',
+      ),
+    );
+
+    expect(tasks.listForTeam).toHaveBeenCalledWith(expect.anything(), {
+      state: 'completed-station',
+      lineId: null,
+      search: TaskSearch.of('better-sqlite3 scaffold'),
+      page: FIRST_PAGE,
+    });
+  });
+
+  it('refuses an empty search', async () => {
+    await expect(
+      new ListTasksHandler(reader([]), seeing(), linesWhere()).execute(
+        new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE, ' '),
+      ),
+    ).rejects.toThrow('Task search must not be empty.');
   });
 
   it('answers with an empty board rather than nothing', async () => {

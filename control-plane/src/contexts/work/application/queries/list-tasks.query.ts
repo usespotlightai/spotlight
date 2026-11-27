@@ -11,6 +11,7 @@ export class ListTasksQuery {
     readonly state: TaskListState,
     readonly lineId: string | null,
     readonly page: PageRequest,
+    readonly search: string | null = null,
   ) {}
 }
 

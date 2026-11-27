@@ -17308,6 +17308,10 @@ export type ListTasksData = {
      */
     limit?: number;
     /**
+     * Only the tasks whose title or description holds each word, in any case. At most 200 characters
+     */
+    search?: string;
+    /**
      * Only the tasks on this line
      */
     lineId?: string;
