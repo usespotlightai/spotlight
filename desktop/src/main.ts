@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   type MenuItemConstructorOptions,
@@ -35,6 +36,7 @@ import {
 import { grants } from './permissions';
 import { ErrorReporting } from './reporting';
 import { SettingsFile } from './settings';
+import { updateCheckOutcome, updateFeedOf } from './updates';
 import {
   type Bounds,
   DEFAULT_SIZE,
@@ -63,11 +65,25 @@ const settings = new SettingsFile(app.getPath('userData'));
 const windowState = new WindowStateFile(app.getPath('userData'));
 let origin = settings.origin();
 
+const feed = updateFeedOf(app.getVersion());
+if (feed) {
+  autoUpdater.setFeedURL(feed);
+}
+
 const checkForUpdates = () => {
   autoUpdater.checkForUpdatesAndNotify().catch((error: unknown) => {
     // oxlint-disable-next-line no-console -- the main process logs to its terminal
     console.warn('Spotlight could not check for updates', error);
   });
+};
+
+const checkForUpdatesNow = async () => {
+  const options = await updateCheckOutcome(autoUpdater, app.getVersion());
+  const window = frontWindow();
+
+  await (window
+    ? dialog.showMessageBox(window, options)
+    : dialog.showMessageBox(options));
 };
 
 const shown = (window: BrowserWindow) => {
@@ -456,7 +472,7 @@ const menu = (): MenuItemConstructorOptions[] => [
       {
         label: 'Check for Updates…',
         enabled: app.isPackaged,
-        click: checkForUpdates,
+        click: () => void checkForUpdatesNow(),
       },
       { type: 'separator' },
       { role: 'services' },
