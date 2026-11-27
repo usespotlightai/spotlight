@@ -29,20 +29,8 @@ export class CiSetup {
     readonly workflows: CiWorkflows,
   ) {}
 
-  // Whether the agent may push the workflow. When Spotlight could not read
-  // what the App may do, the agent tries.
   static workflowsUnder(grants: AppGrants): CiWorkflows {
     return grants.lacks('workflows') ? 'not-permitted' : 'permitted';
-  }
-
-  // A setup saved before Spotlight read the App's permissions briefed the
-  // agent to add the workflow.
-  static rehydrate(
-    input: Omit<Parameters<typeof CiSetup.of>[0], 'workflows'> & {
-      workflows?: CiWorkflows;
-    },
-  ): CiSetup {
-    return CiSetup.of({ ...input, workflows: input.workflows ?? 'permitted' });
   }
 
   static of(input: {

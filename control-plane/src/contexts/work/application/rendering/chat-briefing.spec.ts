@@ -598,6 +598,12 @@ describe('ChatBriefing', () => {
         // oxlint-disable-next-line no-template-curly-in-string -- GitHub Actions expression syntax
         'SPOTLIGHT_OIDC_TRUST: ${{ vars.SPOTLIGHT_APPLY_TRUST }}',
       );
+      expect(briefing).toContain(
+        'the person must add it as `.github/workflows/spotlight.yml` themselves, because the App may not. They can let the App change workflows by accepting its updated permissions on GitHub. Start from this, and add the `TF_VAR_` secrets that the variables need.',
+      );
+      expect(briefing).toContain(
+        'If the team keeps the state elsewhere, replace those two steps',
+      );
     });
 
     it('warns first when the default branch has no protection', () => {

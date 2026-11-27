@@ -42,19 +42,4 @@ describe('CiSetup', () => {
     ).toBe('not-permitted');
     expect(CiSetup.workflowsUnder(AppGrants.unread())).toBe('permitted');
   });
-
-  it('reads a setup saved before Spotlight read the App’s permissions as one that adds the workflow', () => {
-    const saved = {
-      defaultBranch: 'main',
-      defaultBranchProtected: true,
-      pullRequestsTrustId: 'trust_1',
-      defaultBranchTrustId: 'trust_2',
-      variables: 'written' as const,
-    };
-
-    expect(CiSetup.rehydrate(saved).workflows).toBe('permitted');
-    expect(
-      CiSetup.rehydrate({ ...saved, workflows: 'not-permitted' }).workflows,
-    ).toBe('not-permitted');
-  });
 });

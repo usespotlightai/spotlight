@@ -1,8 +1,6 @@
 export type AppGrant = 'workflows' | 'variables';
 
-// What the workspace's GitHub App may do beyond cloning and pushing code.
 export class AppGrants {
-  // The setup adds a GitHub Actions workflow and sets repository variables.
   static readonly SETUP_NEEDS: readonly AppGrant[] = ['workflows', 'variables'];
 
   private constructor(private readonly lacking: ReadonlySet<AppGrant>) {}
@@ -16,7 +14,6 @@ export class AppGrants {
     );
   }
 
-  // Spotlight could not read the grants, so it claims none is missing.
   static unread(): AppGrants {
     return new AppGrants(new Set());
   }

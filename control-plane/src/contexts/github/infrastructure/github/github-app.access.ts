@@ -26,9 +26,7 @@ const PERMISSIONS_FRESH_MS = 30_000;
 
 const PERMISSIONS_TIMEOUT_MS = 5_000;
 
-// A token without workflows is renewed sooner, so a replica that never reads
-// the permissions still picks up ones accepted on GitHub.
-const NARROW_TOKEN_MS = 5 * 60_000;
+const TOKEN_WITHOUT_WORKFLOWS_RENEWS_AFTER_MS = 5 * 60_000;
 
 type Minted = {
   token: string;
@@ -37,7 +35,7 @@ type Minted = {
   permissions: InstallationPermissions;
 };
 
-type Read = { permissions: InstallationPermissions; readAt: number };
+type Read = { permissions: InstallationPermissions | null; readAt: number };
 
 const GRANTED = z.record(z.string(), z.unknown());
 
@@ -56,6 +54,11 @@ export class GitHubAppAccess
   readonly #tokenCache = new Map<string, Minted>();
 
   readonly #permissionsCache = new Map<string, Read>();
+
+  readonly #permissionsReading = new Map<
+    string,
+    Promise<InstallationPermissions | null>
+  >();
 
   constructor(
     @Inject(ENV) private readonly env: Env,
@@ -94,29 +97,38 @@ export class GitHubAppAccess
       return read.permissions;
     }
 
-    const permissions = await this.readPermissions(installation);
+    const reading = this.#permissionsReading.get(installation.value);
 
-    if (!permissions) {
-      return null;
+    if (reading) {
+      return reading;
     }
+
+    const started = this.readAndRemember(installation).finally(() =>
+      this.#permissionsReading.delete(installation.value),
+    );
+    this.#permissionsReading.set(installation.value, started);
+
+    return started;
+  }
+
+  private async readAndRemember(
+    installation: GitHubInstallation,
+  ): Promise<InstallationPermissions | null> {
+    const permissions = await this.readPermissions(installation);
 
     this.#permissionsCache.set(installation.value, {
       permissions,
       readAt: Date.now(),
     });
 
-    // A token keeps the permissions it was minted with. Once someone accepts
-    // new ones on GitHub, mint a token that has them.
     const minted = this.#tokenCache.get(installation.value);
-    if (minted && permissions.grantsBeyond(minted.permissions)) {
+    if (permissions && minted && permissions.grantsBeyond(minted.permissions)) {
       this.#tokenCache.delete(installation.value);
     }
 
     return permissions;
   }
 
-  // Null when GitHub would not say: what the App may do only shapes what
-  // Spotlight tells people and agents, so it never stops their work.
   private async readPermissions(
     installation: GitHubInstallation,
   ): Promise<InstallationPermissions | null> {
@@ -169,7 +181,10 @@ export class GitHubAppAccess
 
     return minted.permissions.changesWorkflows()
       ? expiring
-      : Math.min(expiring, minted.mintedAt + NARROW_TOKEN_MS);
+      : Math.min(
+          expiring,
+          minted.mintedAt + TOKEN_WITHOUT_WORKFLOWS_RENEWS_AFTER_MS,
+        );
   }
 
   private async mint(installation: GitHubInstallation): Promise<Minted> {

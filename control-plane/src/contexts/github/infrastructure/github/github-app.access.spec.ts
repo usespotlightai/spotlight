@@ -211,4 +211,37 @@ describe('GitHubAppAccess', () => {
 
     await expect(access.credential(WORKSPACE)).resolves.toEqual(before);
   });
+
+  it('asks GitHub once for callers that ask at the same time', async () => {
+    const fetching = github({ current: { workflows: 'write' } });
+    const access = new GitHubAppAccess(env, installed());
+
+    const answers = await Promise.all([
+      access.of(WORKSPACE),
+      access.of(WORKSPACE),
+      access.of(WORKSPACE),
+    ]);
+
+    expect(answers).toEqual([
+      { workflows: true, variables: false },
+      { workflows: true, variables: false },
+      { workflows: true, variables: false },
+    ]);
+    expect(fetching).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits out a short while before asking again after GitHub would not say', async () => {
+    vi.useFakeTimers();
+    const fetching = vi.fn(async () => answer({}, false));
+    vi.stubGlobal('fetch', fetching);
+    const access = new GitHubAppAccess(env, installed());
+
+    await expect(access.of(WORKSPACE)).resolves.toBeNull();
+    await expect(access.of(WORKSPACE)).resolves.toBeNull();
+    expect(fetching).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(31_000);
+    await access.of(WORKSPACE);
+    expect(fetching).toHaveBeenCalledTimes(2);
+  });
 });

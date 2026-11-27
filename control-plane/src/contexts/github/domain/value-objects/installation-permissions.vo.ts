@@ -17,8 +17,6 @@ export class InstallationPermissions {
     );
   }
 
-  // GitHub refuses a push that adds, changes or deletes a file under
-  // .github/workflows/ without this permission.
   changesWorkflows(): boolean {
     return this.granted.get('workflows') === WRITE;
   }
@@ -27,8 +25,6 @@ export class InstallationPermissions {
     return this.granted.get('actions_variables') === WRITE;
   }
 
-  // Whether these grant something that Spotlight relies on and the other
-  // does not.
   grantsBeyond(other: InstallationPermissions): boolean {
     return (
       (this.changesWorkflows() && !other.changesWorkflows()) ||
