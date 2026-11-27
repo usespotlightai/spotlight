@@ -1,6 +1,10 @@
 import { RememberHandler } from '@memory/application/commands/handlers/remember.handler';
 import { RememberCommand } from '@memory/application/commands/remember.command';
-import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
+import type {
+  LeasedRun,
+  ReasonedStep,
+  WorkPort,
+} from '@memory/application/ports/work.port';
 import { ReadProposedMemoryHandler } from '@memory/application/queries/handlers/read-proposed-memory.handler';
 import { ReadProposedMemoryQuery } from '@memory/application/queries/read-proposed-memory.query';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
@@ -38,12 +42,14 @@ const LEASED: LeasedRun = {
   trial: false,
 };
 
-const ONE_COMMAND = [
+const ONE_COMMAND: readonly ReasonedStep[] = [
   {
     index: 4,
     kind: 'remember',
     text: 'spotlight remember',
-    commands: ['spotlight remember'],
+    commands: [
+      { proposes: 'memory', carrying: null, text: 'spotlight remember' },
+    ],
   },
 ];
 
@@ -130,17 +136,30 @@ describe('RememberHandler', () => {
       'spotlight remember --kind environment --body "npm ci fails in the sandbox; use npm ci --ignore-scripts."';
     const second =
       'spotlight remember --kind rationale --body "Uploads retry in the request."';
-    const { remember, proposedAs } = remembering(LEASED, [
+    const { added, remember, proposedAs } = remembering(LEASED, [
       {
         index: 4,
         kind: 'remember',
         text: first,
-        commands: [first, second],
+        commands: [
+          {
+            proposes: 'memory',
+            carrying:
+              'npm ci fails in the sandbox; use npm ci --ignore-scripts.',
+            text: first,
+          },
+          {
+            proposes: 'memory',
+            carrying: 'Uploads retry in the request.',
+            text: second,
+          },
+        ],
       },
     ]);
 
     const proposed = await proposedAs(await remember());
 
+    expect(added[0]?.proposals[0]?.provenance.command).toBe(1);
     expect(proposed.steps).toEqual([
       { index: 4, kind: 'remember', text: second },
     ]);

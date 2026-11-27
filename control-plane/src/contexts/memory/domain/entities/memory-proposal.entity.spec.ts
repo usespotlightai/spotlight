@@ -40,42 +40,55 @@ const stored = (
 describe('MemoryProposal', () => {
   const RETIRES = { memory: MemoryId.of('memory_old'), reason: 'Gone.' };
 
-  it('is made by the command of its step that carries its body, or its reason when it retires a memory', () => {
-    const commands = [
-      'spotlight remember --kind environment --body "npm ci fails in the sandbox; use npm ci --ignore-scripts."',
-      'spotlight remember --kind preference --body "Name branches after the ticket."',
-      "spotlight forget M-2 --because 'Gone.'",
-    ];
+  const STEP = {
+    index: 3,
+    kind: 'remember',
+    text: 'spotlight remember --kind preference --body "First."',
+    commands: [
+      {
+        proposes: 'memory' as const,
+        carrying: 'First.',
+        text: 'spotlight remember --kind preference --body "First."',
+      },
+      {
+        proposes: 'memory' as const,
+        carrying: 'Name branches after the ticket.',
+        text: 'spotlight remember --kind preference --body "Name branches after the ticket."',
+      },
+    ],
+  };
 
-    expect(stored('proposed', null).madeBy(commands)).toBe(commands[1]);
-    expect(stored('proposed', RETIRES).madeBy(commands)).toBe(commands[2]);
-    expect(stored('proposed', null).madeBy(commands.slice(0, 1))).toBeNull();
-    expect(stored('proposed', null).madeBy([])).toBeNull();
-  });
-
-  it('is made by a command that escapes the quotes of its body', () => {
-    const quoted = MemoryProposal.rehydrate({
-      id: MemoryId.of('memory_q'),
-      kind: 'preference' as const,
-      body: MemoryBody.of('Say "done" when done.'),
+  const citing = (command: number | null) =>
+    MemoryProposal.of({
+      id: MemoryId.of('memory_cited'),
+      kind: 'preference',
+      body: MemoryBody.of('Name branches after the ticket.'),
       scope: MemoryScope.of({ teamId: TeamId.of('team_1') }),
       provenance: MemoryProvenance.of({
         taskId: TaskId.of('task_1'),
         runId: RunId.of('run_1'),
         steps: [3],
         notes: [],
+        command,
       }),
-      source: 'run' as const,
+      source: 'run',
       supersedes: null,
-      retires: null,
       recordedAt: NOW,
-      state: 'proposed' as const,
-      decision: null,
     });
-    const command =
-      'spotlight remember --kind preference --body "Say \\"done\\" when done."';
 
-    expect(quoted.madeBy([command])).toBe(command);
+  it('shows as its source the command of its step that proposed it, even once approved with another body', () => {
+    const proposal = citing(1);
+
+    expect(proposal.sourceOf(STEP)).toBe(STEP.commands[1]?.text);
+    expect(proposal.approve(DECIDED, 'First.').sourceOf(STEP)).toBe(
+      STEP.commands[1]?.text,
+    );
+  });
+
+  it('shows the step as it reads where it names no command of it, or the step is another', () => {
+    expect(citing(null).sourceOf(STEP)).toBe(STEP.text);
+    expect(citing(1).sourceOf({ ...STEP, index: 4 })).toBe(STEP.text);
+    expect(citing(5).sourceOf(STEP)).toBe(STEP.text);
   });
 
   it('can be edited only while proposed, and never when it retires a memory', () => {

@@ -2,6 +2,7 @@ import type {
   RunContext,
   StationContext,
 } from '@memory/domain/value-objects/run-context';
+import type { RunStep } from '@memory/domain/value-objects/run-step';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -40,13 +41,7 @@ export interface RememberedTask {
   readonly fromOutside: boolean;
 }
 
-export interface ReasonedStep {
-  readonly index: number;
-  readonly kind: string;
-  readonly text: string;
-  /** Each spotlight command the step ran, alone, in order: more than one where one step ran several. */
-  readonly commands: readonly string[];
-}
+export type ReasonedStep = RunStep;
 
 export interface TaskNote {
   readonly position: number;

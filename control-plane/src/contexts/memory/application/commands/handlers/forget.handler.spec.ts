@@ -83,7 +83,9 @@ const forgetting = (
         index: 4,
         kind: 'remember',
         text: 'spotlight remember',
-        commands: ['spotlight remember'],
+        commands: [
+          { proposes: 'retirement', carrying: null, text: 'spotlight forget' },
+        ],
       },
     ],
     notesOf: async () => [],

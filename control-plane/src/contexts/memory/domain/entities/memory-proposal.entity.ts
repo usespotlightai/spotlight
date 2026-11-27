@@ -9,6 +9,7 @@ import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import type { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import type { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
+import type { RunStep } from '@memory/domain/value-objects/run-step';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -179,17 +180,9 @@ export class MemoryProposal {
       : [];
   }
 
-  /**
-   * Which of the commands a cited step ran made this proposal: the one that carries its body, or, for a retirement,
-   * its reason. Null where none does, such as a step that ran one command for another proposal only.
-   */
-  madeBy(commands: readonly string[]): string | null {
-    const carried = this.retires ? this.retires.reason : this.body.value;
-
-    return (
-      commands.find((each) => each.replaceAll('\\', '').includes(carried)) ??
-      null
-    );
+  /** What a person reads as its source in a step it cites: the command that proposed it, or the step as it reads. */
+  sourceOf(step: RunStep): string {
+    return this.provenance.sourceIn(step);
   }
 
   get fromOutside(): boolean {

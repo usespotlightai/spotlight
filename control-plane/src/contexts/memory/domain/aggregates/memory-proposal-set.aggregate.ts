@@ -11,6 +11,7 @@ import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.err
 import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
+import type { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -129,10 +130,11 @@ export class MemoryProposalSet extends EventRecorder {
     return this.proposals.some((each) => each.proposedIn(runId));
   }
 
-  stepsRemembered(runId: RunId): readonly number[] {
+  /** What each proposal of a run cites of its steps, so that the run's next proposal cites what is left. */
+  citedBy(runId: RunId): readonly MemoryProvenance[] {
     return this.proposals
       .filter((each) => each.provenance.runId.equals(runId))
-      .flatMap((each) => each.provenance.steps);
+      .map((each) => each.provenance);
   }
 
   private twinOf(proposal: MemoryProposal): MemoryProposal | null {

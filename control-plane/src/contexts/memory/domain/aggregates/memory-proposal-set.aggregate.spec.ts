@@ -77,7 +77,7 @@ const proposedByRun = (
         stationId: StationId.of('station_1'),
         repositories: [API],
       },
-      steps: [{ index: 3, kind: 'remember' }],
+      steps: [{ index: 3, kind: 'remember', commands: [] }],
       cited: [],
       fromOutside,
     },
@@ -313,7 +313,7 @@ describe('MemoryProposalSet', () => {
       expect(set.proposals.map((each) => each.id.value)).toEqual([
         'memory_remembered',
       ]);
-      expect(set.stepsRemembered(FIRST)).toEqual([3]);
+      expect(set.citedBy(FIRST).map((each) => each.steps)).toEqual([[3]]);
       expect(set.pullEvents()).toEqual([
         new MemoryReviewRequested(set.id, TASK, FIRST),
       ]);

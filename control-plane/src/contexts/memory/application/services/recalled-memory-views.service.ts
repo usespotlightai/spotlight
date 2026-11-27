@@ -24,9 +24,13 @@ export class RecalledMemoryViews {
 
     return {
       ...detail,
-      steps: (steps ?? []).filter((each) =>
-        provenance?.steps.includes(each.index),
-      ),
+      steps: (steps ?? [])
+        .filter((each) => provenance?.steps.includes(each.index))
+        .map((each) => ({
+          index: each.index,
+          kind: each.kind,
+          text: memory.sourceOf(each),
+        })),
       notes: await provenanceNotes(
         notes ?? [],
         provenance?.notes ?? [],

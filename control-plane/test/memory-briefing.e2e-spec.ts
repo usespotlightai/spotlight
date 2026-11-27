@@ -320,7 +320,7 @@ describe('briefing runs with what the team remembers', () => {
               stationId: StationId.of(BUILD),
               repositories: [API],
             },
-            steps: [{ index: 1, kind: 'remember' }],
+            steps: [{ index: 1, kind: 'remember', commands: [] }],
             cited: [],
             fromOutside: false,
           },

@@ -9,6 +9,10 @@ import type {
 } from '@memory/application/ports/work.port';
 import { MEMORY_FOLDER } from '@memory/domain/services/memory-folder';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
+import type {
+  StepCommand,
+  StepCommandProposal,
+} from '@memory/domain/value-objects/run-step';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -22,6 +26,12 @@ import type {
 import type { WorkTaskLookupPort } from '@work/application/ports/work-task-lookup.port';
 
 const MEMORY_FILES = { folder: MEMORY_FOLDER, extension: '.md' };
+
+const PROPOSES: Record<ReasonedCommand['name'], StepCommandProposal> = {
+  remember: 'memory',
+  forget: 'retirement',
+  handover: null,
+};
 
 export class Work implements WorkPort {
   constructor(
@@ -120,9 +130,11 @@ export class Work implements WorkPort {
         index: each.index,
         kind: each.kind,
         text: each.text,
-        commands: each.commands.map(
-          (command: ReasonedCommand) => command.shown,
-        ),
+        commands: each.commands.map((command): StepCommand => ({
+          proposes: PROPOSES[command.name],
+          carrying: command.argument,
+          text: command.shown,
+        })),
       })) ?? null
     );
   }

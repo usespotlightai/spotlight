@@ -63,7 +63,7 @@ export class MemoryReviews {
           .map((each) => ({
             index: each.index,
             kind: each.kind,
-            text: proposal.madeBy(each.commands) ?? each.text,
+            text: proposal.sourceOf(each),
           })),
         notes: await provenanceNotes(
           notes ?? [],

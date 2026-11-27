@@ -35,6 +35,37 @@ const remembered = (provenance: MemoryProvenance | null) =>
     }),
   });
 
+const FIRST = 'spotlight remember --kind rationale --body "Uploads are small."';
+const SECOND =
+  'spotlight remember --kind rationale --body "Retry uploads in the request."';
+
+const STEPS = [
+  { index: 1, kind: 'thought', text: 'A queue needs a worker.', commands: [] },
+  { index: 2, kind: 'message', text: 'Retrying in the request.', commands: [] },
+  {
+    index: 3,
+    kind: 'remember',
+    text: FIRST,
+    commands: [
+      { proposes: 'memory', carrying: 'Uploads are small.', text: FIRST },
+      {
+        proposes: 'memory',
+        carrying: 'Retry uploads in the request.',
+        text: SECOND,
+      },
+    ],
+  },
+];
+
+const citing = (command: number | null) =>
+  MemoryProvenance.of({
+    taskId: TaskId.of('task_1'),
+    runId: RunId.of('run_1'),
+    steps: [3],
+    notes: [],
+    command,
+  });
+
 const recalling = (memory: Memory) => {
   const lookedUp: string[] = [];
   const people: PeoplePort = {
@@ -45,10 +76,7 @@ const recalling = (memory: Memory) => {
     },
   };
   const work = {
-    reasoning: async () => [
-      { index: 1, kind: 'thought', text: 'A queue needs a worker.' },
-      { index: 2, kind: 'message', text: 'Retrying in the request.' },
-    ],
+    reasoning: async () => STEPS,
     notesOf: async () => [
       { position: 1, by: 'person', author: MAYA, text: 'Never queue it.' },
       { position: 2, by: 'world', author: null, text: 'FYI.' },
@@ -92,6 +120,22 @@ describe('RecalledMemoryViews', () => {
       ],
     });
     expect(lookedUp).toEqual(['user_maya']);
+  });
+
+  it('shows as its source the command of its step that proposed it, where the step proposed several', async () => {
+    const { recalled } = recalling(remembered(citing(1)));
+
+    expect((await recalled).steps).toEqual([
+      { index: 3, kind: 'remember', text: SECOND },
+    ]);
+  });
+
+  it('shows the step as it reads where the memory names none of its commands', async () => {
+    const { recalled } = recalling(remembered(citing(null)));
+
+    expect((await recalled).steps).toEqual([
+      { index: 3, kind: 'remember', text: FIRST },
+    ]);
   });
 
   it('cites nothing for a memory a person wrote outside any run', async () => {

@@ -11,6 +11,7 @@ import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -27,10 +28,26 @@ const TEAM = TeamId.of('team_1');
 const API = Repository.of('acme/api');
 const WEB = Repository.of('acme/web');
 
+type Step = RememberedAt['steps'][number];
+
+const command = (
+  proposes: 'memory' | 'retirement' | null,
+  carrying: string | null,
+) => ({ proposes, carrying, text: `spotlight … ${carrying ?? '-'}` });
+
+const citing = (step: number, position: number | null) =>
+  MemoryProvenance.of({
+    taskId: TaskId.of('task_1'),
+    runId: RunId.of('run_1'),
+    steps: [step],
+    notes: [],
+    command: position,
+  });
+
 const at = (
   change: {
-    steps?: readonly { index: number; kind: string }[];
-    cited?: readonly number[];
+    steps?: readonly Step[];
+    cited?: readonly MemoryProvenance[];
     fromOutside?: boolean;
   } = {},
 ): RememberedAt => ({
@@ -41,9 +58,9 @@ const at = (
     repositories: [API, WEB],
   },
   steps: change.steps ?? [
-    { index: 2, kind: 'message' },
-    { index: 7, kind: 'remember' },
-    { index: 9, kind: 'thought' },
+    { index: 2, kind: 'message', commands: [] },
+    { index: 7, kind: 'remember', commands: [] },
+    { index: 9, kind: 'thought', commands: [] },
   ],
   cited: change.cited ?? [],
   fromOutside: change.fromOutside ?? false,
@@ -139,16 +156,142 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
         {},
         {
           steps: [
-            { index: 3, kind: 'remember' },
-            { index: 8, kind: 'remember' },
+            { index: 3, kind: 'remember', commands: [] },
+            { index: 8, kind: 'remember', commands: [] },
           ],
-          cited: [8],
+          cited: [citing(8, null)],
         },
       ).provenance.steps,
     ).toEqual([3]);
     expect(
-      proposed({}, { steps: [{ index: 4, kind: 'message' }] }).provenance.steps,
+      proposed({}, { steps: [{ index: 4, kind: 'message', commands: [] }] })
+        .provenance.steps,
     ).toEqual([4]);
+  });
+
+  describe('choosing the command of its step that made it', () => {
+    const BODY = 'Uploads retry in the request, not from a queue.';
+    const citationOf = (proposal: {
+      provenance: { steps: readonly number[]; command: number | null };
+    }) => [proposal.provenance.steps, proposal.provenance.command];
+
+    it('is the command that carried its body, where one step proposed several', () => {
+      const step: Step = {
+        index: 7,
+        kind: 'remember',
+        commands: [command('memory', 'npm ci fails.'), command('memory', BODY)],
+      };
+
+      expect(citationOf(proposed({}, { steps: [step] }))).toEqual([[7], 1]);
+      expect(
+        citationOf(
+          proposed(
+            { body: 'npm ci fails.' },
+            { steps: [step], cited: [citing(7, 1)] },
+          ),
+        ),
+      ).toEqual([[7], 0]);
+    });
+
+    it('is the one whose body is exactly its own, not one that holds it', () => {
+      const step: Step = {
+        index: 7,
+        kind: 'remember',
+        commands: [
+          command('memory', `${BODY} Twice.`),
+          command('memory', BODY),
+        ],
+      };
+
+      expect(citationOf(proposed({}, { steps: [step] }))).toEqual([[7], 1]);
+    });
+
+    it('cites the same step with its next command for a second proposal of it, not an earlier step', () => {
+      const steps: Step[] = [
+        { index: 3, kind: 'remember', commands: [command('memory', 'Older.')] },
+        {
+          index: 7,
+          kind: 'remember',
+          commands: [command('memory', null), command('memory', null)],
+        },
+      ];
+
+      expect(citationOf(proposed({}, { steps }))).toEqual([[7], 0]);
+      expect(
+        citationOf(proposed({}, { steps, cited: [citing(7, 0)] })),
+      ).toEqual([[7], 1]);
+      expect(
+        citationOf(
+          proposed({}, { steps, cited: [citing(7, 0), citing(7, 1)] }),
+        ),
+      ).toEqual([[3], 0]);
+    });
+
+    it('takes the latest step whose command carried its body before a later one that carried none inline', () => {
+      const steps: Step[] = [
+        { index: 3, kind: 'remember', commands: [command('memory', BODY)] },
+        { index: 7, kind: 'remember', commands: [command('memory', null)] },
+      ];
+
+      expect(citationOf(proposed({}, { steps }))).toEqual([[3], 0]);
+      expect(citationOf(proposed({ body: 'From stdin.' }, { steps }))).toEqual([
+        [7],
+        0,
+      ]);
+    });
+
+    it('tells a memory from a retirement in one step', () => {
+      const steps: Step[] = [
+        {
+          index: 7,
+          kind: 'remember',
+          commands: [
+            command('retirement', 'Moved to Vitest.'),
+            command(null, 'Handed over.'),
+            command('memory', BODY),
+          ],
+        },
+      ];
+      const remembering = Remembering.of({
+        taskId: TaskId.of('task_1'),
+        runId: RunId.of('run_1'),
+        asOf: null,
+        isolated: false,
+        trial: false,
+      });
+
+      expect(citationOf(proposed({}, { steps }))).toEqual([[7], 2]);
+      expect(
+        citationOf(
+          remembering.retiringOf({
+            id: MemoryId.of('memory_2'),
+            memory: active(),
+            because: ' Moved to Vitest. ',
+            at: at({ steps }),
+            now: NOW,
+          }),
+        ),
+      ).toEqual([[7], 0]);
+    });
+
+    it('cites a remembering step whole where it shows no command of its kind', () => {
+      expect(
+        citationOf(
+          proposed(
+            {},
+            {
+              steps: [
+                {
+                  index: 7,
+                  kind: 'remember',
+                  commands: [command('retirement', 'Gone.')],
+                },
+              ],
+            },
+          ),
+        ),
+      ).toEqual([[7], null]);
+    });
   });
 
   it('rejects a memory from a run that has no steps yet', () => {

@@ -15,6 +15,10 @@ import {
 } from '@memory/domain/value-objects/memory-scope-level';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { StationContext } from '@memory/domain/value-objects/run-context';
+import type {
+  RunStep,
+  StepCommandProposal,
+} from '@memory/domain/value-objects/run-step';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -23,10 +27,7 @@ const REMEMBERING_STEP = 'remember';
 
 const DEFAULT_SCOPE: MemoryScopeLevel = 'line';
 
-interface RememberedStep {
-  readonly index: number;
-  readonly kind: string;
-}
+type RememberedStep = Pick<RunStep, 'index' | 'kind' | 'commands'>;
 
 export interface Remembered {
   readonly kind: string;
@@ -39,8 +40,20 @@ export interface Remembered {
 export interface RememberedAt {
   readonly runContext: StationContext;
   readonly steps: readonly RememberedStep[];
-  readonly cited: readonly number[];
+  /** What the run's earlier proposals cite of its steps. */
+  readonly cited: readonly MemoryProvenance[];
   readonly fromOutside: boolean;
+}
+
+interface Carried {
+  readonly proposes: Exclude<StepCommandProposal, null>;
+  /** The body of the memory, or the reason to retire one. */
+  readonly text: string;
+}
+
+interface Citation {
+  readonly step: number;
+  readonly command: number | null;
 }
 
 interface Located {
@@ -48,13 +61,36 @@ interface Located {
   readonly path: MemoryPath | null;
 }
 
-const citedStep = (at: RememberedAt): number => {
-  const cited = new Set(at.cited);
-  const remembering = at.steps.filter(
-    (each) => each.kind === REMEMBERING_STEP && !cited.has(each.index),
-  );
+/**
+ * The step a proposal came from, and which of its commands made it. That is the latest remembering step with a
+ * command of its kind that no earlier proposal of the run cites and that carried its body or reason exactly, else the
+ * first such command of the latest step that has one, as where the body came from stdin. A step that shows no such
+ * command is cited whole, as is the run's last step where no remembering step is left.
+ */
+const citationOf = (at: RememberedAt, carried: Carried): Citation => {
+  const remembering = at.steps
+    .filter((each) => each.kind === REMEMBERING_STEP)
+    .reverse();
+  const open = (step: RememberedStep) =>
+    step.commands.flatMap((command, position) =>
+      command.proposes === carried.proposes &&
+      !at.cited.some((each) => each.cites(step.index, position))
+        ? [{ step: step.index, command: position, carrying: command.carrying }]
+        : [],
+    );
+  const candidates = remembering.flatMap(open);
+  const chosen =
+    candidates.find((each) => each.carrying?.trim() === carried.text) ??
+    candidates[0];
+
+  if (chosen) {
+    return { step: chosen.step, command: chosen.command };
+  }
+
   const step =
-    remembering[remembering.length - 1] ?? at.steps[at.steps.length - 1];
+    remembering.find(
+      (each) => !at.cited.some((cited) => cited.steps.includes(each.index)),
+    ) ?? at.steps[at.steps.length - 1];
 
   if (!step) {
     throw new InvalidMemoryError(
@@ -62,7 +98,7 @@ const citedStep = (at: RememberedAt): number => {
     );
   }
 
-  return step.index;
+  return { step: step.index, command: null };
 };
 
 const checkedOut = (runContext: StationContext): string =>
@@ -161,12 +197,17 @@ export class Remembering {
       );
     }
 
+    const body = MemoryBody.of(remembered.body);
+
     return MemoryProposal.of({
       id,
       kind: parseMemoryKind(remembered.kind),
-      body: MemoryBody.of(remembered.body),
+      body,
       scope: scopeOf(remembered, at.runContext),
-      provenance: this.provenanceOf(at),
+      provenance: this.provenanceOf(at, {
+        proposes: 'memory',
+        text: body.value,
+      }),
       source: at.fromOutside ? 'outside' : 'run',
       supersedes: supersedes?.id ?? null,
       recordedAt: now,
@@ -192,18 +233,24 @@ export class Remembering {
       id,
       retired: memory,
       reason: input.because,
-      provenance: this.provenanceOf(at),
+      provenance: this.provenanceOf(at, {
+        proposes: 'retirement',
+        text: input.because.trim(),
+      }),
       source: at.fromOutside ? 'outside' : 'run',
       recordedAt: now,
     });
   }
 
-  private provenanceOf(at: RememberedAt): MemoryProvenance {
+  private provenanceOf(at: RememberedAt, carried: Carried): MemoryProvenance {
+    const citation = citationOf(at, carried);
+
     return MemoryProvenance.of({
       taskId: this.taskId,
       runId: this.runId,
-      steps: [citedStep(at)],
+      steps: [citation.step],
       notes: [],
+      command: citation.command,
     });
   }
 }

@@ -88,7 +88,7 @@ const proposing = async (
               stationId: StationId.of(team.stationId.value),
               repositories: [API],
             },
-            steps: [{ index: 5, kind: 'remember' }],
+            steps: [{ index: 5, kind: 'remember', commands: [] }],
             cited: [],
             fromOutside,
           },

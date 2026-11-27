@@ -33,7 +33,7 @@ import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 type Row = typeof memory.$inferSelect;
 
 const provenanceOf = (row: Row): MemoryProvenance | null => {
-  const { taskId, runId, steps, notes } = row;
+  const { taskId, runId, steps, notes, command } = row;
 
   if (taskId && runId && steps && notes) {
     return MemoryProvenance.of({
@@ -41,10 +41,11 @@ const provenanceOf = (row: Row): MemoryProvenance | null => {
       runId: RunId.of(runId),
       steps,
       notes,
+      command,
     });
   }
 
-  if (taskId || runId || steps || notes) {
+  if (taskId || runId || steps || notes || command !== null) {
     throw new InconsistentStateError(
       'memory',
       'has part of its provenance, but not all of it',
@@ -131,6 +132,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
           runId: added.provenance?.runId.value ?? null,
           steps: added.provenance ? [...added.provenance.steps] : null,
           notes: added.provenance ? [...added.provenance.notes] : null,
+          command: added.provenance?.command ?? null,
           source: added.source,
           approvedById: added.approval.by.value,
           approvedAt: added.approval.at,

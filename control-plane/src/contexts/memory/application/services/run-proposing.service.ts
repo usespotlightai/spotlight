@@ -119,7 +119,7 @@ export class RunProposing {
         remembering,
         teamId: proposing.teamId,
         id: proposing.id,
-        at: { ...proposing.at, cited: set.stepsRemembered(runId) },
+        at: { ...proposing.at, cited: set.citedBy(runId) },
         now: this.clock.now(),
       });
       const next = set.remember(proposal);

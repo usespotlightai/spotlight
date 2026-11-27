@@ -316,7 +316,7 @@ describe('recalling what the team remembers from inside a run', () => {
               stationId: StationId.of(BUILD),
               repositories: [Repository.of('acme/api')],
             },
-            steps: [{ index: 1, kind: 'remember' }],
+            steps: [{ index: 1, kind: 'remember', commands: [] }],
             cited: [],
             fromOutside: false,
           },

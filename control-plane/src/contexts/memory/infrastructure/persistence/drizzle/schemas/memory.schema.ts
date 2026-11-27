@@ -61,6 +61,7 @@ export const memoryProposal = pgTable(
     runId: text('run_id').notNull(),
     steps: jsonb('steps').$type<number[]>().notNull(),
     notes: jsonb('notes').$type<number[]>().notNull(),
+    command: integer('command'),
     source: memorySource('source').notNull(),
     supersedes: text('supersedes'),
     retires: text('retires'),
@@ -72,6 +73,7 @@ export const memoryProposal = pgTable(
   },
   (table) => [
     check('memory_proposal_position_not_negative', sql`${table.position} >= 0`),
+    check('memory_proposal_command_not_negative', sql`${table.command} >= 0`),
     check(
       'memory_proposal_lapses_only_a_retirement',
       sql`${table.state}::text <> 'lapsed' or ${table.retires} is not null`,
@@ -115,6 +117,7 @@ export const memory = pgTable(
     runId: text('run_id'),
     steps: jsonb('steps').$type<number[]>(),
     notes: jsonb('notes').$type<number[]>(),
+    command: integer('command'),
     source: memorySource('source').notNull(),
     supersedes: text('supersedes'),
     status: memoryStatus('status').notNull().default('active'),
@@ -128,6 +131,7 @@ export const memory = pgTable(
   },
   (table) => [
     uniqueIndex('memory_handle_idx').on(table.handle),
+    check('memory_command_not_negative', sql`${table.command} >= 0`),
     index('memory_superseded_by_idx').on(table.supersededBy),
     uniqueIndex('memory_supersedes_idx').on(table.supersedes),
     index('memory_status_idx').on(table.teamId, table.status, table.approvedAt),

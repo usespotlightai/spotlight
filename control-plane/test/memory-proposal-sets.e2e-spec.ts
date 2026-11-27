@@ -1,8 +1,11 @@
 import { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
+import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryProposalSetAlreadyOpenError } from '@memory/domain/exceptions/memory-proposal-set-already-open.error';
 import { MemoryProposalSetVersionConflictError } from '@memory/domain/exceptions/memory-proposal-set-version-conflict.error';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
+import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
+import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
@@ -18,6 +21,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -50,7 +54,12 @@ const newSet = () => {
   });
 };
 
-const proposal = (set: MemoryProposalSet, id: string, notes: number[] = []) =>
+const proposal = (
+  set: MemoryProposalSet,
+  id: string,
+  notes: number[] = [],
+  command: number | null = null,
+) =>
   MemoryProposal.of({
     id: MemoryId.of(`${set.id.value}_${id}`),
     kind: 'correction',
@@ -69,6 +78,7 @@ const proposal = (set: MemoryProposalSet, id: string, notes: number[] = []) =>
       runId: FIRST,
       steps: [5],
       notes,
+      command,
     }),
     source: 'run',
     supersedes: null,
@@ -130,6 +140,42 @@ describe('storing a task’s memory proposal set', () => {
     ]);
     expect(remembered?.provenance.steps).toEqual([5]);
     expect(remembered?.provenance.runId.equals(FIRST)).toBe(true);
+  });
+
+  it('keeps which command of its step made a proposal, and none where none was named', async () => {
+    const set = newSet();
+    await sets.add(
+      proposing(set, [
+        proposal(set, 'second', [], 1),
+        proposal(set, 'unnamed', [], null),
+      ]),
+    );
+
+    expect(
+      (await stored(set)).proposals.map((each) => each.provenance.command),
+    ).toEqual([1, null]);
+  });
+
+  it('keeps which command of its step made an approved memory', async () => {
+    const set = newSet();
+    const [made] = proposing(set, [proposal(set, 'made', [], 2)]).proposals;
+    if (!made) throw new Error('not proposed');
+    const approved = Memory.create({
+      id: MemoryId.of(`${set.id.value}_memory`),
+      handle: MemoryHandle.of(9_000 + next),
+      workspaceId: set.workspaceId,
+      kind: made.kind,
+      body: made.body,
+      scope: made.scope,
+      provenance: made.provenance,
+      source: made.source,
+      supersedes: null,
+      approval: MemoryDecision.of({ by: UserId.of('user_ada'), at: NOW }),
+    });
+
+    await memories.add(approved);
+
+    expect((await memories.find(approved.id))?.provenance?.command).toBe(2);
   });
 
   it('still reads a proposal that cites notes, as drafted ones did', async () => {

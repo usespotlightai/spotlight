@@ -193,6 +193,60 @@ describe('Memory', () => {
     ).toThrow(MemoryAlreadyRetiredError);
   });
 
+  it('shows as its source in a step the command that proposed it, or the step where it names none', () => {
+    const step = {
+      index: 4,
+      kind: 'remember',
+      text: 'spotlight remember --kind preference --body "Other."',
+      commands: [
+        {
+          proposes: 'memory' as const,
+          carrying: 'Other.',
+          text: 'spotlight remember --kind preference --body "Other."',
+        },
+        {
+          proposes: 'memory' as const,
+          carrying: 'Name branches after the ticket.',
+          text: 'spotlight remember --kind preference --body "Name branches after the ticket."',
+        },
+      ],
+    };
+    const approvedFrom = (command: number | null) =>
+      Memory.create({
+        id: NEW,
+        handle: MemoryHandle.of(1),
+        workspaceId: WorkspaceId.of('ws_1'),
+        kind: 'preference',
+        body: MemoryBody.of('Name branches after the ticket.'),
+        scope: MemoryScope.of({ teamId: TEAM }),
+        provenance: MemoryProvenance.of({
+          taskId: TaskId.of('task_1'),
+          runId: RunId.of('run_1'),
+          steps: [4],
+          notes: [],
+          command,
+        }),
+        source: 'run',
+        supersedes: null,
+        approval: MemoryDecision.of({ by: UserId.of('user_ada'), at: NOW }),
+      });
+
+    expect(approvedFrom(1).sourceOf(step)).toBe(step.commands[1]?.text);
+    expect(approvedFrom(null).sourceOf(step)).toBe(step.text);
+    expect(
+      Memory.write({
+        id: NEW,
+        handle: MemoryHandle.of(1),
+        workspaceId: WorkspaceId.of('ws_1'),
+        kind: 'preference',
+        body: MemoryBody.of('Name branches after the ticket.'),
+        scope: MemoryScope.of({ teamId: TEAM }),
+        provenance: null,
+        by: MemoryDecision.of({ by: UserId.of('user_ada'), at: NOW }),
+      }).sourceOf(step),
+    ).toBe(step.text);
+  });
+
   it('is corrected by a successor that keeps what it cites and becomes active to supersede it, leaving it untouched', () => {
     const original = created();
     original.pullEvents();
