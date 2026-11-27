@@ -8,16 +8,20 @@ import {
   storedBoardView,
 } from '@/lib/board';
 
-export function useBoardView(): [BoardView, (next: BoardView) => void] {
+export function useBoardView(
+  lineId: string | undefined,
+): [BoardView, (next: BoardView) => void] {
   const [params, setParams] = useSearchParams();
   const inUrl = params.get('view');
   const view: BoardView = BOARD_VIEWS.some((each) => each.id === inUrl)
     ? (inUrl as BoardView)
-    : storedBoardView();
+    : storedBoardView(lineId ?? '');
 
   useEffect(() => {
-    storeBoardView(view);
-  }, [view]);
+    if (lineId) {
+      storeBoardView(lineId, view);
+    }
+  }, [lineId, view]);
 
   return [view, (next) => setParams({ view: next })];
 }

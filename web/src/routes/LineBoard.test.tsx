@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
+import { WorkspaceContextMenu } from '@/components/shell/context-menu/WorkspaceContextMenu';
 import { LineBoard } from '@/routes/LineBoard';
 
 const line = {
@@ -522,10 +523,52 @@ describe('LineBoard', () => {
   });
 
   it('opens on the view last looked at, however it is reached', () => {
-    localStorage.setItem('spotlight.board-view', 'completed');
+    localStorage.setItem('spotlight.board-view.line_1', 'completed');
     renderAt('line_1');
 
     expect(named()).toEqual(['Completed']);
+  });
+
+  it('opens another line on its own view, not on the one last looked at elsewhere', async () => {
+    const user = userEvent.setup();
+    lined.mockReturnValue([line, { ...line, id: 'line_2', name: 'Review' }]);
+    const { unmount } = renderAt('line_1');
+
+    await user.click(screen.getByRole('button', { name: 'Backlog' }));
+    unmount();
+    renderAt('line_2');
+
+    expect(named()).not.toContain('Backlog');
+    expect(named()).toContain('Triage');
+  });
+
+  it('selects a task from its right-click menu', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/w/acme/team/team_1/lines/line_1']}>
+        <WorkspaceContextMenu slug="acme" onOpenTab={vi.fn()}>
+          <Routes>
+            <Route
+              path="/w/:slug/team/:teamId/lines/:lineId"
+              element={<LineBoard />}
+            />
+          </Routes>
+        </WorkspaceContextMenu>
+      </MemoryRouter>,
+    );
+
+    fireEvent.contextMenu(screen.getByText('Fix the queue'), {
+      clientX: 40,
+      clientY: 60,
+    });
+    await user.click(await screen.findByRole('menuitem', { name: 'Select' }));
+
+    expect(
+      screen.getByRole('checkbox', { name: 'Select Fix the queue' }),
+    ).toBeChecked();
+    expect(
+      document.querySelector('[data-slot="selection-bar"]'),
+    ).toBeInTheDocument();
   });
 
   it('drops the selection when the view changes under it', async () => {
