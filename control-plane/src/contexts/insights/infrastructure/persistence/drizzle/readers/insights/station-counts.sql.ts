@@ -102,6 +102,11 @@ const talliesIn = async (
   counted: CountedRuns,
   byStation = true,
 ): Promise<readonly TallyRow[]> => {
+  const stationColumns = byStation
+    ? sql`${runFact.stationId} as station_id,
+        grouping(${runFact.stationId})::int as all_stations,`
+    : sql`null::text as station_id,
+        1 as all_stations,`;
   const stationSets = byStation
     ? sql`,
         (${isCurrent}, ${runFact.stationId}),
@@ -110,9 +115,8 @@ const talliesIn = async (
   const result = await db.execute<TallyRow>(sql`
       select
         ${isCurrent} as is_current,
-        ${runFact.stationId} as station_id,
+        ${stationColumns}
         ${day} as day,
-        grouping(${runFact.stationId})::int as all_stations,
         grouping(${day})::int as all_days,
         ${tallyColumns}
       from ${factsInPeriod(team, COUNTED[counted])}
