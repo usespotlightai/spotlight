@@ -45,7 +45,8 @@ export function TimeToMergeByType({
               <span className="text-foreground">
                 {formatType(row.type)}{' '}
                 <span className="text-xs text-muted-foreground">
-                  {row.merged} merged
+                  {row.merged.spotlight} by Spotlight, {row.merged.people} by
+                  people
                 </span>
               </span>
               <span className="flex items-baseline gap-3 tabular-nums">
