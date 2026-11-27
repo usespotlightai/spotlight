@@ -69,7 +69,8 @@ export function GitHubRow({
             : 'Works in this team’s repositories'
       }
       need={
-        !connected && href && <GitHubAppLink href={href} installed={false} />
+        !connected &&
+        href && <GitHubAppLink slug={slug} href={href} installed={false} />
       }
     >
       <GitHubDetails

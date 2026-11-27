@@ -31,10 +31,11 @@ vi.mock('@/hooks/api/useGitHub', () => ({
 }));
 
 const connectInstallation = vi.fn();
+let installed: { id: string; account: string }[] = [];
 
 vi.mock('@/hooks/api/useGitHubInstallations', () => ({
   useGitHubInstallations: () => ({
-    data: [{ id: '42', account: 'acme' }],
+    data: installed,
     isPending: false,
     errorUpdateCount: 0,
   }),
@@ -44,7 +45,6 @@ vi.mock('@/hooks/api/useConnectGitHubInstallation', () => ({
   useConnectGitHubInstallation: () => ({
     mutate: connectInstallation,
     isPending: false,
-    isError: false,
   }),
 }));
 
@@ -121,6 +121,8 @@ beforeEach(() => {
   refetch.mockReset();
   githubState.data = { connected: false, installUrl: INSTALL };
   githubState.isPending = false;
+  installed = [];
+  connectInstallation.mockReset();
 });
 
 describe('SetupSteps', () => {
@@ -170,15 +172,22 @@ describe('SetupSteps', () => {
   });
 
   it('connects an installation that is already on GitHub, where GitHub would not send the person back', async () => {
+    installed = [{ id: '42', account: 'acme' }];
     onboardingState.data = onboarding();
     showing();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Connect acme' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Connect GitHub' }),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'acme' }),
+    );
 
     expect(connectInstallation).toHaveBeenCalledWith('42');
   });
 
   it('offers to configure the App once it is installed', async () => {
+    installed = [{ id: '42', account: 'acme' }];
     githubState.data = { connected: true, installUrl: INSTALL };
     onboardingState.data = onboarding({}, ['github']);
     showing();
@@ -194,11 +203,12 @@ describe('SetupSteps', () => {
       screen.queryByRole('link', { name: 'Install on GitHub' }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Connect acme' }),
+      screen.queryByRole('button', { name: 'Connect GitHub' }),
     ).not.toBeInTheDocument();
   });
 
   it('collapses a done step, keeping the next one open', () => {
+    installed = [{ id: '42', account: 'acme' }];
     githubState.data = { connected: true, installUrl: INSTALL };
     onboardingState.data = onboarding({}, ['github']);
     showing();

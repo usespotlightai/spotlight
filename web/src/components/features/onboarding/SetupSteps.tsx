@@ -2,7 +2,6 @@ import { Check, ChevronDown } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
-import { ExistingGitHubInstallations } from '@/components/features/integrations/ExistingGitHubInstallations';
 import { ConfigFolderForm } from '@/components/features/onboarding/ConfigFolderForm';
 import { InstallGitHubLink } from '@/components/features/onboarding/InstallGitHubLink';
 import {
@@ -204,16 +203,11 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const goAndDoIt = (step: SetupStepResponseDto): ReactNode => {
     if (step.key === 'github') {
       return (
-        <div className="flex flex-col items-start gap-3">
-          <InstallGitHubLink
-            slug={slug}
-            teamId={teamId}
-            className={SETUP_CONTROL}
-          />
-          {!github.data?.connected && (
-            <ExistingGitHubInstallations slug={slug} />
-          )}
-        </div>
+        <InstallGitHubLink
+          slug={slug}
+          teamId={teamId}
+          className={SETUP_CONTROL}
+        />
       );
     }
 
