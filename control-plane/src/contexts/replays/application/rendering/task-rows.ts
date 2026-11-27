@@ -65,7 +65,7 @@ const FAILURES: Readonly<Record<RunFailureCode, string>> = {
   superseded: 'a newer run replaced it',
 };
 
-const CHECK_SKIPS: Readonly<Record<CheckSkip, string>> = {
+export const CHECK_SKIPS: Readonly<Record<CheckSkip, string>> = {
   'no-base': 'the starting commit is missing',
   'no-checkout': 'the checkout is missing',
   'checkout-failed': 'the checkout failed',
