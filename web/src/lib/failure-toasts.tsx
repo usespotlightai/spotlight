@@ -1,8 +1,7 @@
 import { MutationCache } from '@tanstack/react-query';
 
 import { FailureDetail } from '@/components/shared/FailureDetail';
-import { messageOf } from '@/lib/error';
-import { failureHeadline, sentRequestOf } from '@/lib/request-failure';
+import { failureDebugLine, failureMessage } from '@/lib/request-failure';
 import { toast } from '@/lib/toast';
 
 declare module '@tanstack/react-query' {
@@ -11,23 +10,26 @@ declare module '@tanstack/react-query' {
   }
 }
 
-const toastFailure = (thrown: unknown) => {
-  const message = messageOf(thrown, '');
+type FailureToasts = {
+  // Shows the status and the request under the message. For development builds only.
+  debug: boolean;
+};
+
+const toastFailure = (thrown: unknown, { debug }: FailureToasts) => {
+  const line = debug ? failureDebugLine(thrown) : null;
 
   toast.add({
     type: 'error',
-    title: failureHeadline(thrown),
-    description: (
-      <FailureDetail message={message || null} sent={sentRequestOf(thrown)} />
-    ),
+    title: failureMessage(thrown),
+    description: line === null ? undefined : <FailureDetail line={line} />,
   });
 };
 
-export const failuresToasted = (): MutationCache =>
+export const failuresToasted = (options: FailureToasts): MutationCache =>
   new MutationCache({
     onError: (thrown, _variables, _context, mutation) => {
       if (!mutation.meta?.quiet) {
-        toastFailure(thrown);
+        toastFailure(thrown, options);
       }
     },
   });

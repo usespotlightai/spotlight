@@ -15,7 +15,7 @@ export function MockApplication({ at }: MockApplicationProps) {
   const [client] = useState(
     () =>
       new QueryClient({
-        mutationCache: failuresToasted(),
+        mutationCache: failuresToasted({ debug: import.meta.env.DEV }),
         defaultOptions: {
           queries: {
             staleTime: 30_000,
