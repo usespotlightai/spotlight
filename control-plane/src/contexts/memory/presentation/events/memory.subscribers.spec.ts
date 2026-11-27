@@ -15,6 +15,10 @@ import {
   DISPATCH_ENDED,
   type DispatchEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
+import {
+  TASK_TURN_AWAITED,
+  type TaskTurnAwaitedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-turn-awaited.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -103,6 +107,30 @@ describe('memory checking a run’s proposals for duplicates', () => {
       outcome: 'completed',
       failure: null,
       stopped: false,
+      handsOver: false,
+    };
+
+    await subscriber?.handle(event, anOutboxRecord());
+
+    expect(onRunEnded).toHaveBeenCalledWith({
+      id: RunId.of('run_7'),
+      taskId: TaskId.of('task_1'),
+    });
+  });
+
+  it('opens the duplicate check of a run once it waits for a person', async () => {
+    const onRunEnded = vi.fn(async () => {});
+    const subscriber = subscribers({ checking: { onRunEnded } }).find(
+      (each) =>
+        each.name ===
+        'memory.check-proposed-memories-for-duplicates-when-run-waits',
+    );
+    const event: TaskTurnAwaitedIntegrationEvent = {
+      kind: TASK_TURN_AWAITED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      runId: 'run_7',
+      attempt: 1,
       handsOver: false,
     };
 

@@ -33,6 +33,10 @@ import {
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import {
+  TASK_TURN_AWAITED,
+  type TaskTurnAwaitedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-turn-awaited.integration-event';
+import {
   TEAM_DELETED,
   type TeamDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
@@ -72,6 +76,15 @@ export const memorySubscribers = (
       checking.onRunEnded({
         id: RunId.of(event.runId),
         taskId: event.taskId ? TaskId.of(event.taskId) : null,
+      }),
+  ),
+  subscribing<TaskTurnAwaitedIntegrationEvent>(
+    'memory.check-proposed-memories-for-duplicates-when-run-waits',
+    [TASK_TURN_AWAITED],
+    (event) =>
+      checking.onRunEnded({
+        id: RunId.of(event.runId),
+        taskId: TaskId.of(event.taskId),
       }),
   ),
   subscribing<TaskDeletedIntegrationEvent>(

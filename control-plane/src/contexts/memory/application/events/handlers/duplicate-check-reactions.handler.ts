@@ -14,7 +14,10 @@ export class DuplicateCheckReactions {
     private readonly clock: ClockPort,
   ) {}
 
-  /** Opens the duplicate check of a run that ended having proposed memories to compare, once per run. */
+  /**
+   * Opens the duplicate check of a run that proposed memories to compare, once per run: when the run ends, or
+   * earlier, when it stops to wait for a person, who may review its proposals meanwhile.
+   */
   async onRunEnded(run: { id: RunId; taskId: TaskId | null }): Promise<void> {
     if (!run.taskId) {
       return;
