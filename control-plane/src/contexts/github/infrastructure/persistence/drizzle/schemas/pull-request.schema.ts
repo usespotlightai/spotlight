@@ -90,6 +90,7 @@ export const githubPullRequest = pgTable(
       .default([]),
     threads: jsonb('threads').$type<StoredThread[]>().notNull().default([]),
     revertedBy: text('reverted_by'),
+    mergeable: boolean('mergeable'),
     version: integer('version').notNull().default(0),
   },
   (table) => [

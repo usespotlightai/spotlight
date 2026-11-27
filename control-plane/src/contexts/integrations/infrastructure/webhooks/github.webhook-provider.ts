@@ -2,6 +2,10 @@ import { isOutsideAuthor } from '@github/application/contracts/author-associatio
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
 import type {
+  ConflictedPullRequest,
+  GitHubHappeningsPort,
+} from '@integrations/application/ports/github-happenings.port';
+import type {
   Delivered,
   HappeningDeclaration,
   WebhookProviderPort,
@@ -86,6 +90,11 @@ const RAISED: Readonly<Record<ReportedActivity, HappeningDeclaration>> = {
     label: 'Pull request closed unmerged',
     summary: 'The pull request was closed without being merged.',
   }),
+  conflicted: raised({
+    key: 'github.pull_request.conflicted',
+    label: 'Pull request conflicts',
+    summary: 'The pull request conflicts with its base branch.',
+  }),
 };
 
 const failedChecksOf = (event: PullRequestActivity): Happened['message'] => {
@@ -93,6 +102,10 @@ const failedChecksOf = (event: PullRequestActivity): Happened['message'] => {
 
   return nonEmpty(body) ? { body } : null;
 };
+
+const conflictOf = (conflict: ConflictedPullRequest): Happened['message'] => ({
+  body: `The pull request conflicts with ${conflict.base}. Rebase the branch on ${conflict.base} and push it.`,
+});
 
 const messageOf = (
   event: PullRequestActivity,
@@ -122,6 +135,14 @@ const factsOf = (event: PullRequestActivity): PullRequestActivityFacts => ({
 });
 
 type ReviewRequest = Extract<PullRequestHappening, { kind: 'review-request' }>;
+
+type ReportedHappening = Extract<PullRequestHappening, { kind: 'activity' }>;
+
+interface Report {
+  readonly message: Happened['message'];
+  readonly ourOwn: boolean;
+  readonly closedPullRequest: string | null;
+}
 
 const reviewRequested = (
   event: PullRequestActivity,
@@ -161,14 +182,29 @@ const reviewRequested = (
   };
 };
 
-type Reported = Extract<PullRequestHappening, { kind: 'activity' }>;
+const correlationOf = (
+  happening: ReportedHappening,
+): Happened['correlationKeys'] => {
+  const { pullRequest } = happening;
+
+  return happening.to === 'its-review' && pullRequest
+    ? {
+        branch: null,
+        marks: [{ kind: REVIEW_MARK, value: pullRequest.value }],
+      }
+    : {
+        branch: happening.branch,
+        marks: pullRequest
+          ? [{ kind: PULL_REQUEST_MARK, value: pullRequest.value }]
+          : [],
+      };
+};
 
 const reported = (
-  event: PullRequestActivity,
-  happening: Reported,
+  activity: ReportedActivity,
   correlationKeys: Happened['correlationKeys'],
+  report: Report,
 ): Happened => {
-  const { activity } = happening;
   const raising = RAISED[activity];
 
   return {
@@ -177,15 +213,10 @@ const reported = (
     answers: raising.answers,
     state: 'raised',
     correlationKeys,
-    message:
-      messageOf(event, happening.statesVerdict ? raising.summary : null) ??
-      failedChecksOf(event),
-    ourOwn: event.ignoredAsBot,
+    message: report.message,
+    ourOwn: report.ourOwn,
     opens: null,
-    closedPullRequest:
-      activity === 'merged' || activity === 'closed-unmerged'
-        ? (event.pullRequest ?? null)
-        : null,
+    closedPullRequest: report.closedPullRequest,
   };
 };
 
@@ -199,23 +230,20 @@ const happenedFrom = (
       : null;
   }
 
-  const { pullRequest } = happening;
+  const { activity } = happening;
 
-  return reported(
-    event,
-    happening,
-    happening.to === 'its-review' && pullRequest
-      ? {
-          branch: null,
-          marks: [{ kind: REVIEW_MARK, value: pullRequest.value }],
-        }
-      : {
-          branch: happening.branch,
-          marks: pullRequest
-            ? [{ kind: PULL_REQUEST_MARK, value: pullRequest.value }]
-            : [],
-        },
-  );
+  return reported(activity, correlationOf(happening), {
+    message:
+      messageOf(
+        event,
+        happening.statesVerdict ? RAISED[activity].summary : null,
+      ) ?? failedChecksOf(event),
+    ourOwn: event.ignoredAsBot,
+    closedPullRequest:
+      activity === 'merged' || activity === 'closed-unmerged'
+        ? (event.pullRequest ?? null)
+        : null,
+  });
 };
 
 const happenedIn = (event: PullRequestActivity): readonly Happened[] =>
@@ -225,7 +253,9 @@ const happenedIn = (event: PullRequestActivity): readonly Happened[] =>
     return happened ? [happened] : [];
   });
 
-export class GitHubWebhookProvider implements WebhookProviderPort {
+export class GitHubWebhookProvider
+  implements WebhookProviderPort, GitHubHappeningsPort
+{
   readonly key = 'github';
 
   readonly happenings: readonly HappeningDeclaration[] = [
@@ -234,6 +264,7 @@ export class GitHubWebhookProvider implements WebhookProviderPort {
     RAISED['changes-requested'],
     RAISED['checks-failed'],
     RAISED['closed-unmerged'],
+    RAISED.conflicted,
     REVIEW_REQUEST_RAISED.opened,
     REVIEW_REQUEST_RAISED.mentioned,
     REVIEW_REQUEST_RAISED.labelled,
@@ -259,5 +290,27 @@ export class GitHubWebhookProvider implements WebhookProviderPort {
 
   async read(delivered: Delivered): Promise<readonly Happened[]> {
     return (await this.github.activityIn(delivered)).flatMap(happenedIn);
+  }
+
+  conflicted(conflict: ConflictedPullRequest): readonly Happened[] {
+    return PullRequestHappenings.of({
+      activity: 'conflicted',
+      pullRequest: PullRequestUrl.of(conflict.pullRequest),
+      branch: conflict.branch,
+      labelled: false,
+      described: false,
+      body: null,
+      comment: null,
+    }).flatMap((happening) =>
+      happening.kind === 'activity'
+        ? [
+            reported(happening.activity, correlationOf(happening), {
+              message: conflictOf(conflict),
+              ourOwn: false,
+              closedPullRequest: null,
+            }),
+          ]
+        : [],
+    );
   }
 }

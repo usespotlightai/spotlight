@@ -88,6 +88,15 @@ const repository = (over: { open?: boolean; taken?: boolean } = {}) =>
     if (url.endsWith('/pulls/6')) {
       return answering(200, { state: 'open', merged: false });
     }
+    if (url.endsWith('/pulls/8')) {
+      return answering(200, {
+        state: 'open',
+        merged: false,
+        mergeable: false,
+        head: { ref: 'spotlight/task_8' },
+        base: { ref: 'main' },
+      });
+    }
     if (url.endsWith('/issues/3/comments')) {
       return answering(201, { id: 1 });
     }
@@ -323,6 +332,24 @@ describe('GitHubPullRequests', () => {
       expect(await pullRequests.statusOf(at(5))).toEqual({
         state: 'merged',
         closedAt: new Date('2026-10-28T10:00:00Z'),
+      });
+    });
+
+    it('says whether GitHub can merge it into its base, or does not know yet', async () => {
+      repository();
+      const pullRequests = new GitHubPullRequests(access);
+
+      expect(await pullRequests.mergeabilityOf(at(8))).toEqual({
+        state: 'open',
+        mergeable: false,
+        branch: 'spotlight/task_8',
+        base: 'main',
+      });
+      expect(await pullRequests.mergeabilityOf(at(6))).toEqual({
+        state: 'open',
+        mergeable: null,
+        branch: null,
+        base: null,
       });
     });
   });

@@ -4,6 +4,7 @@ import type {
   PullRequestAt,
   PullRequestEditing,
   PullRequestOpening,
+  PullRequestMergeabilityDto,
   PullRequestPort,
   PullRequestStatusDto,
 } from '@github/application/ports/pull-request.port';
@@ -39,7 +40,12 @@ interface Opened {
   readonly merged?: boolean;
   readonly merged_at?: string | null;
   readonly closed_at?: string | null;
-  readonly base?: { readonly repo?: { readonly full_name?: string } };
+  readonly mergeable?: boolean | null;
+  readonly head?: { readonly ref?: string };
+  readonly base?: {
+    readonly ref?: string;
+    readonly repo?: { readonly full_name?: string };
+  };
 }
 
 const openedOf = (opened: Opened | undefined): OpenedPullRequestDto | null => {
@@ -134,14 +140,7 @@ export class GitHubPullRequests implements PullRequestPort {
   }
 
   async statusOf(at: PullRequestAt): Promise<PullRequestStatusDto> {
-    const found = await answered<Opened>(
-      await call(
-        `${this.at(at.repository)}/pulls/${at.number}`,
-        await this.tokenFor(at.workspaceId),
-      ),
-      `GitHub would not return ${at.repository.value}#${at.number}`,
-    );
-
+    const found = await this.found(at);
     const state = pullRequestStateOf({
       state: found.state ?? null,
       merged: found.merged === true,
@@ -155,6 +154,21 @@ export class GitHubPullRequests implements PullRequestPort {
     return state === 'closed'
       ? { state, closedAt: dateOf(found.closed_at) }
       : { state, closedAt: null };
+  }
+
+  async mergeabilityOf(at: PullRequestAt): Promise<PullRequestMergeabilityDto> {
+    const found = await this.found(at);
+
+    return {
+      state: pullRequestStateOf({
+        state: found.state ?? null,
+        merged: found.merged === true,
+        mergedAt: found.merged_at ?? null,
+      }),
+      mergeable: typeof found.mergeable === 'boolean' ? found.mergeable : null,
+      branch: found.head?.ref ?? null,
+      base: found.base?.ref ?? null,
+    };
   }
 
   async close(at: PullRequestAt): Promise<void> {
@@ -256,6 +270,16 @@ export class GitHubPullRequests implements PullRequestPort {
     );
 
     return found.flatMap(associatedOf);
+  }
+
+  private async found(at: PullRequestAt): Promise<Opened> {
+    return answered<Opened>(
+      await call(
+        `${this.at(at.repository)}/pulls/${at.number}`,
+        await this.tokenFor(at.workspaceId),
+      ),
+      `GitHub would not return ${at.repository.value}#${at.number}`,
+    );
   }
 
   private async paged(

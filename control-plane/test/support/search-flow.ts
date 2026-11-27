@@ -229,6 +229,12 @@ const pullRequests: PullRequestPort = {
 
     return github.statuses.get(at.number) ?? { state: 'open', closedAt: null };
   },
+  mergeabilityOf: async () => ({
+    state: 'open',
+    mergeable: true,
+    branch: null,
+    base: null,
+  }),
   retarget: async () => {},
   close: async (at) => {
     if (github.failing) {

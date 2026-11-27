@@ -1,3 +1,5 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { isJsonObject } from '@shared-kernel/domain/json-value';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { StepKind } from '@work/domain/value-objects/step-kind';
 
@@ -20,6 +22,8 @@ type ReasoningKind =
 export interface Reasoning {
   readonly kind: ReasoningKind;
   readonly text: string;
+  /** Where in the text the spotlight command that the step ran starts; null where it ran none. */
+  readonly commandAt: number | null;
 }
 
 const REASONING_KINDS: Partial<Record<StepKind, ReasoningKind>> = {
@@ -30,7 +34,7 @@ const REASONING_KINDS: Partial<Record<StepKind, ReasoningKind>> = {
 
 const invoking = (command: string): RegExp =>
   new RegExp(
-    `(?:^\\s*\`?|&&|;|\\|\\||\\n|"command"\\s*:\\s*")\\s*${command.split(' ').join('\\s+')}\\b`,
+    `(?:^\\s*\`?|&&|;|\\|\\||\\n|"command"\\s*:\\s*")\\s*(${command.split(' ').join('\\s+')})\\b`,
   );
 
 const COMMANDS: readonly [RegExp, ReasoningKind][] = [
@@ -39,29 +43,40 @@ const COMMANDS: readonly [RegExp, ReasoningKind][] = [
   [invoking(FORGET_COMMAND), 'remember'],
 ];
 
-const firstIn = (text: string): ReasoningKind | null => {
-  const found = COMMANDS.flatMap(([invoked, kind]) => {
-    const at = invoked.exec(text)?.index;
-    return at === undefined ? [] : [{ at, kind }];
-  }).sort((one, other) => one.at - other.at);
+const shellOf = (text: string): string => {
+  try {
+    const read: unknown = JSON.parse(text);
 
-  return found[0]?.kind ?? null;
+    return isJsonObject(read) && typeof read.command === 'string'
+      ? read.command
+      : text;
+  } catch {
+    return text;
+  }
+};
+
+const firstIn = (text: string): Reasoning | null => {
+  const shell = shellOf(text);
+  const found = COMMANDS.flatMap(([invoked, kind]) => {
+    const match = invoked.exec(shell);
+    const command = match?.[1];
+
+    return match !== null && nonEmpty(command)
+      ? [{ at: match.index + match[0].length - command.length, kind }]
+      : [];
+  }).sort((one, other) => one.at - other.at);
+  const first = firstOf(found);
+
+  return first !== undefined
+    ? { kind: first.kind, text: shell, commandAt: first.at }
+    : null;
 };
 
 const commanded = (step: {
   readonly text: string;
   readonly input?: string | null;
-}): Reasoning | null => {
-  const titled = firstIn(step.text);
-  if (titled) {
-    return { kind: titled, text: step.text };
-  }
-
-  const inputKind = nonEmpty(step.input) ? firstIn(step.input) : null;
-  return inputKind && nonEmpty(step.input)
-    ? { kind: inputKind, text: step.input }
-    : null;
-};
+}): Reasoning | null =>
+  firstIn(step.text) ?? (nonEmpty(step.input) ? firstIn(step.input) : null);
 
 export const reasoningIn = (step: {
   readonly kind: StepKind;
@@ -77,5 +92,5 @@ export const reasoningIn = (step: {
   }
 
   const kind = REASONING_KINDS[step.kind];
-  return kind ? { kind, text: step.text } : null;
+  return kind ? { kind, text: step.text, commandAt: null } : null;
 };

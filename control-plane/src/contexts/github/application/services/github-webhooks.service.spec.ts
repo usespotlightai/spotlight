@@ -7,6 +7,7 @@ import type {
   WebhookEvent,
 } from '@github/application/ports/webhook-parser.port';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
+import type { PullRequestMergeability } from '@github/application/services/pull-request-mergeability.service';
 import type { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
@@ -110,6 +111,7 @@ const hooks = (
     failedInSuite: vi.fn(over.failedInSuite ?? (async () => [BUILD_FAILED])),
   } satisfies CheckRunsPort;
   const visibilities = { record: vi.fn(async () => {}) };
+  const mergeability = { baseMoved: vi.fn(async () => {}) };
   const sync = {
     updateDetails: vi.fn(async () => {}),
     reviewed: vi.fn(async () => {}),
@@ -135,9 +137,11 @@ const hooks = (
       logger,
       checkRuns,
       visibilities,
+      partial<PullRequestMergeability>(mergeability),
     ),
     checkRuns,
     visibilities,
+    mergeability,
     connections,
     sync,
     signature,
@@ -260,6 +264,39 @@ describe('GitHubWebhooks', () => {
       await service.activityIn(DELIVERY);
 
       expect(checkRuns.failedInSuite).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('receiving a push to the default branch', () => {
+    const PUSHED: WebhookEvent = {
+      kind: 'default-branch-pushed',
+      repository: 'acme/api',
+      branch: 'main',
+    };
+
+    it('records that the base of the open pull requests moved', async () => {
+      const { service, mergeability } = hooks({
+        installation: '158876513',
+        events: [PUSHED],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(mergeability.baseMoved).toHaveBeenCalledWith(
+        { installation: INSTALLED, workspaceId: WORKSPACE },
+        Repository.of('acme/api'),
+        'main',
+      );
+    });
+
+    it('hands over no activity for it, so reading the delivery waits on nothing', async () => {
+      const { service, mergeability } = hooks({
+        installation: '158876513',
+        events: [PUSHED],
+      });
+
+      expect(await service.activityIn(DELIVERY)).toEqual([]);
+      expect(mergeability.baseMoved).not.toHaveBeenCalled();
     });
   });
 

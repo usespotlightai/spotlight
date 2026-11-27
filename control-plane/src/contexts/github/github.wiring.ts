@@ -21,7 +21,10 @@ import { PULL_REQUEST_COMMENTS } from '@github/application/ports/pull-request-co
 import { PULL_REQUEST_REACTIONS } from '@github/application/ports/pull-request-reactions.port';
 import { PULL_REQUEST_REVIEWS } from '@github/application/ports/pull-request-reviews.port';
 import { PULL_REQUEST_SUMMARIES } from '@github/application/ports/pull-request-summaries.port';
-import { PULL_REQUESTS } from '@github/application/ports/pull-request.port';
+import {
+  PULL_REQUESTS,
+  type PullRequestPort,
+} from '@github/application/ports/pull-request.port';
 import {
   REPOSITORY_ACCESS,
   RepositoryAccessPort,
@@ -54,6 +57,7 @@ import { ReadGitHubQuery } from '@github/application/queries/read-github.query';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
 import { HookRedeliveries } from '@github/application/services/hook-redeliveries.service';
 import { Installations } from '@github/application/services/installations.service';
+import { PullRequestMergeability } from '@github/application/services/pull-request-mergeability.service';
 import { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import { RepositoryVisibilities } from '@github/application/services/repository-visibility.service';
 import { StoredPullRequestSummaries } from '@github/application/services/stored-pull-request-summaries.service';
@@ -134,6 +138,7 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       EventSubscribers,
       PullRequestSync,
       WorkspaceConnections,
+      PullRequestMergeability,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -141,10 +146,11 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       subscribers: EventSubscribers,
       sync: PullRequestSync,
       connections: WorkspaceConnections,
+      mergeability: PullRequestMergeability,
     ) => {
       types.register('github', GITHUB_PAYLOAD_TYPES);
       mappers.register(GITHUB_EVENT_MAPPERS);
-      subscribers.register(githubSubscribers(sync, connections));
+      subscribers.register(githubSubscribers(sync, connections, mergeability));
       return true;
     },
   },
@@ -182,6 +188,28 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
         transaction,
         clock,
         logger,
+      ),
+  },
+
+  {
+    provide: PullRequestMergeability,
+    inject: [
+      DrizzlePullRequests,
+      DrizzleGitHubConnections,
+      PULL_REQUESTS,
+      TRANSACTION,
+    ],
+    useFactory: (
+      pullRequests: DrizzlePullRequests,
+      connections: DrizzleGitHubConnections,
+      github: PullRequestPort,
+      transaction: TransactionPort,
+    ) =>
+      new PullRequestMergeability(
+        pullRequests,
+        connections,
+        github,
+        transaction,
       ),
   },
 
@@ -283,6 +311,7 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       LOGGER,
       CHECK_RUNS,
       RepositoryVisibilities,
+      PullRequestMergeability,
     ],
     useFactory: (
       parser: WebhookParserPort,
@@ -292,6 +321,7 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       logger: LoggerPort,
       checkRuns: CheckRunsPort,
       visibilities: RepositoryVisibilities,
+      mergeability: PullRequestMergeability,
     ) =>
       new GitHubWebhooks(
         parser,
@@ -301,6 +331,7 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
         logger,
         checkRuns,
         visibilities,
+        mergeability,
       ),
   },
 
