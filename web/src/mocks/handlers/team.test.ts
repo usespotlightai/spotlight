@@ -11,6 +11,7 @@ import {
   readChatJournal,
   readTeamMemory,
   remember,
+  restoreTeamMemory,
   retireMemory,
   sendChatMessage,
   startChat,
@@ -130,6 +131,24 @@ describe('the mock team memories', () => {
     expect(await memoryIds({ status: 'retired' })).toEqual(
       expect.arrayContaining(['memory_gone', 'memory_staging']),
     );
+  });
+
+  it('restores a memory a person retired', async () => {
+    const { data: retired } = await retireMemory({
+      path: { ...team, memoryId: 'memory_staging' },
+      body: { reason: 'Wrong.' },
+      throwOnError: true,
+    });
+    const { data: restored } = await restoreTeamMemory({
+      path: { ...team, memoryId: 'memory_staging' },
+      throwOnError: true,
+    });
+
+    expect(retired.restorable).toBe(true);
+    expect(restored.status).toBe('active');
+    expect(restored.retirement).toBeNull();
+    expect(restored.restorable).toBe(false);
+    expect(await memoryIds()).toContain('memory_staging');
   });
 
   it('takes a memory an agent requests to remember', async () => {

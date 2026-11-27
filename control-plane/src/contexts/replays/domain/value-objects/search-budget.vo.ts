@@ -25,6 +25,7 @@ const MIN_RUN = 0.01;
 export interface SearchCeilingSplit {
   readonly perRun: Money;
   readonly seed: Money;
+  readonly seedReplay: Money;
   readonly oracle: Money;
   readonly searchReplay: Money;
   readonly heldOutReplay: Money;
@@ -147,19 +148,30 @@ export class SearchBudget {
     }
 
     const agentRun = agentRuns.scaled(1, this.iterations);
+    const seed = perRun.scaled(seeded, 1);
+    const oracle = perRun.scaled(answered, 1);
+    const heldOutReserve = perRun.scaled(k * (heldOut + margin(heldOut)), 1);
+    const iteration = perRun
+      .scaled(k * (searched + margin(searched)), 1)
+      .plus(agentRun);
+    const seedRoom = perRun
+      .scaled(margin(seeded), 1)
+      .plus(oracle)
+      .plus(heldOutReserve)
+      .plus(iteration)
+      .leftUnder(this.ceiling);
 
     return {
       perRun,
-      seed: perRun.scaled(seeded, 1),
-      oracle: perRun.scaled(answered, 1),
+      seed,
+      seedReplay: seed.isWithin(seedRoom) ? seedRoom : seed,
+      oracle,
       searchReplay: perRun.scaled(searched, 1),
       heldOutReplay: perRun.scaled(heldOut, 1),
-      heldOutReserve: perRun.scaled(k * (heldOut + margin(heldOut)), 1),
+      heldOutReserve,
       agentRuns,
       agentRun,
-      iteration: perRun
-        .scaled(k * (searched + margin(searched)), 1)
-        .plus(agentRun),
+      iteration,
     };
   }
 

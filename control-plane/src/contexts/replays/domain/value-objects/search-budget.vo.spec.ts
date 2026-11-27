@@ -282,6 +282,54 @@ describe('SearchBudget', () => {
     ).toBe(false);
   });
 
+  it('lets its seed replay spend past its share what the search can spare while one iteration still fits after it', () => {
+    let checked = 0;
+
+    for (const { budget, split } of everyBudget()) {
+      for (const calibrates of [false, true]) {
+        if (!budget.affords(split, calibrates)) {
+          continue;
+        }
+
+        const ceilingSplit = budget.splitCeiling(split, calibrates);
+        const margin = Math.min(
+          budget.concurrency,
+          split.runs * budget.seedRepeats,
+        );
+        const seeded = ceilingSplit.seedReplay.plus(
+          ceilingSplit.perRun.scaled(margin, 1),
+        );
+
+        expect(ceilingSplit.seed.isWithin(ceilingSplit.seedReplay)).toBe(true);
+        expect(budget.allowsIteration(seeded, split, calibrates)).toBe(true);
+        expect(
+          seeded
+            .plus(ceilingSplit.oracle)
+            .plus(ceilingSplit.heldOutReserve)
+            .plus(ceilingSplit.iteration)
+            .isWithin(budget.ceiling),
+        ).toBe(true);
+        checked += 1;
+      }
+    }
+
+    expect(checked).toBeGreaterThan(2000);
+  });
+
+  it('lets a calibrating seed of 8 tasks that costs a little more than its share finish under the automatic budget', () => {
+    const budget = SearchBudget.automatic({
+      ceiling: Money.ceiling(10, 'USD'),
+      iterations: null,
+      repeats: null,
+    });
+    const ceilingSplit = budget.splitCeiling(splitOf(8), true);
+    const needed = Money.of(8 * 3 * 0.079, 'USD');
+
+    expect(ceilingSplit.seed.amount).toBeCloseTo(1.77, 2);
+    expect(needed.isWithin(ceilingSplit.seed)).toBe(false);
+    expect(needed.isWithin(ceilingSplit.seedReplay)).toBe(true);
+  });
+
   it('cannot afford a calibrating seed when its ceiling only covers a plain one', () => {
     const split = splitOf(13);
     const budgetOf = (ceiling: number) =>

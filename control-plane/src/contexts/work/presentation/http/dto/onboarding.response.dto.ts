@@ -2,7 +2,9 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   PROVISIONING_NAMES,
   type ProvisioningName,
+  SETUP_REFUSAL_NAMES,
   SETUP_STEP_KEYS,
+  type SetupRefusalName,
   type SetupStepDto,
 } from '@work/application/dto/onboarding.dto';
 
@@ -142,6 +144,16 @@ export class OnboardingResponseDto {
   readonly canSetUp: boolean;
 
   @ApiProperty({
+    enum: [...SETUP_REFUSAL_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'code-unreachable',
+    description:
+      'What keeps the viewer from starting a setup chat, the first that applies, as the start of one refuses it: needs-an-admin (the viewer is not a workspace owner or admin), code-unreachable (the GitHub App is not installed) or needs-egress (no host serves the workspace, and no push pool names an egress). Null when the viewer can start one',
+  })
+  readonly setupRefusal: SetupRefusalName | null;
+
+  @ApiProperty({
     description:
       'Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts',
   })
@@ -159,12 +171,14 @@ export class OnboardingResponseDto {
     provisioning: ProvisioningName,
     steps: readonly SetupStepResponseDto[],
     canSetUp: boolean,
+    setupRefusal: SetupRefusalName | null,
     viewerIsAdmin: boolean,
     setupChat: SetupChatResponseDto | null,
   ) {
     this.provisioning = provisioning;
     this.steps = steps;
     this.canSetUp = canSetUp;
+    this.setupRefusal = setupRefusal;
     this.viewerIsAdmin = viewerIsAdmin;
     this.setupChat = setupChat;
   }

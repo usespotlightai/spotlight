@@ -1,0 +1,1 @@
+ALTER TABLE "github_pull_request" ADD COLUMN "mergeable" boolean;

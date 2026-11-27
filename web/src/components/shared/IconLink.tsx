@@ -19,6 +19,7 @@ export function IconLink({ label, tip, to, children }: IconLinkProps) {
   return (
     <Tooltip>
       <TooltipTrigger
+        iconOnly
         render={
           <TrailLink to={to} aria-label={label} className={ICON_ACTION}>
             {children}

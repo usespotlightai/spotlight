@@ -135,7 +135,7 @@ describe('ConfigPullRequestBody', () => {
     );
   });
 
-  it('warns that the agreement of a judge cannot be measured yet when every run got one same verdict', () => {
+  it('warns that the agreement of a judge cannot be measured yet while people give every run the same verdict', () => {
     const body = ConfigPullRequestBody.of({
       ...FACTS,
       judge: JudgeCalibration.of({
@@ -147,7 +147,7 @@ describe('ConfigPullRequestBody', () => {
     });
 
     expect(body).toContain(
-      'Spotlight cannot yet measure how well the judge of the station agrees with people: on all 12 runs that have both verdicts, every verdict of the judge and of people was the same: all pass or all fail.',
+      'Spotlight cannot yet measure how well the judge of the station agrees with people: people gave the same verdict to all 12 runs that have both verdicts: all pass or all fail. Agreement shows when people pass some runs and send back others.',
     );
     expect(body).not.toContain('runs it needs');
   });

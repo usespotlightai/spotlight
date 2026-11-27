@@ -7,6 +7,7 @@ import { MemoryReviews } from '@memory/application/services/memory-reviews.servi
 import { RunProposing } from '@memory/application/services/run-proposing.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
+import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
 import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
@@ -95,6 +96,7 @@ const remembering = (run: LeasedRun | null = LEASED) => {
       work,
       { find: async () => null } as never,
       { findAll: async () => [] } as unknown as MemoryRepository,
+      { of: async () => null } as unknown as DuplicateCheckRepository,
     ),
   );
 

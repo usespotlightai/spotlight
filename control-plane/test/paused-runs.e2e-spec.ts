@@ -554,8 +554,9 @@ describe('a run that asks a person', () => {
     expect(await awaitedTurnsOf(runId)).toEqual([
       { runId, taskId, attempt: 1, handsOver: true },
     ]);
-    expect(await deliveredTo(runId)).toEqual([
+    expect((await deliveredTo(runId, TASK_TURN_AWAITED, 2)).sort()).toEqual([
       'change-review.signal-review-awaited',
+      'memory.check-proposed-memories-for-duplicates-when-run-waits',
     ]);
 
     await answered(taskId, 'The default one.');

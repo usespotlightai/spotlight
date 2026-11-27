@@ -3697,6 +3697,10 @@ export type TaskResponseDto = {
    */
   finished: boolean;
   /**
+   * The stations a person may send the task back to, with a reason: the work stations before its station on the line, and the ones its station passes to. Empty while the line has not finished the task.
+   */
+  sendsBackTo: Array<string>;
+  /**
    * The pull requests this task ended in, one for each repository, the first opened first
    */
   pullRequests: Array<string>;
@@ -4084,6 +4088,10 @@ export type MoveTaskRequestDto = {
    * The task it was dropped after. Left out for the top of the station.
    */
   afterTaskId?: string | null;
+  /**
+   * Why the person moves the task. It goes on the task, so the next run reads it.
+   */
+  reason?: string | null;
 };
 
 export type AssignTaskRequestDto = {
@@ -4449,6 +4457,10 @@ export type OnboardingResponseDto = {
    */
   canSetUp: boolean;
   /**
+   * What keeps the viewer from starting a setup chat, the first that applies, as the start of one refuses it: needs-an-admin (the viewer is not a workspace owner or admin), code-unreachable (the GitHub App is not installed) or needs-egress (no host serves the workspace, and no push pool names an egress). Null when the viewer can start one
+   */
+  setupRefusal: 'needs-an-admin' | 'code-unreachable' | 'needs-egress' | null;
+  /**
    * Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts
    */
   viewerIsAdmin: boolean;
@@ -4476,9 +4488,20 @@ export type GitHubConnectionStatusResponseDto = {
   installUrl: string | null;
 };
 
+export type GitHubInstallationResponseDto = {
+  /**
+   * The installation id that GitHub assigned
+   */
+  id: string;
+  /**
+   * The GitHub organisation or user the App is installed on
+   */
+  account: string;
+};
+
 export type ConnectGitHubRequestDto = {
   /**
-   * The installation GitHub named when it sent you back
+   * The installation GitHub named when it sent you back, or one from the installations list
    */
   installationId: string;
 };
@@ -5826,6 +5849,16 @@ export type RetiringResponseDto = {
   reason: string;
 };
 
+export type SimilarMemoryResponseDto = {
+  memoryId: string;
+  handle: string;
+  body: string;
+  /**
+   * Why the model found that the proposal repeats it
+   */
+  reason: string;
+};
+
 export type MemoryDecisionResponseDto = {
   by: string;
   name: string | null;
@@ -5897,6 +5930,10 @@ export type ProposedMemoryResponseDto = {
    * The handles of memories it retires that are no longer active, so it can no longer be approved; empty once decided
    */
   inactiveMemories: Array<string>;
+  /**
+   * The active memory that a model found the proposal repeats, applying in the same place, so it may be a duplicate; null while unchecked and once decided
+   */
+  similarTo: SimilarMemoryResponseDto | null;
   /**
    * Who approved or rejected it, and when
    */
@@ -6045,6 +6082,10 @@ export type TeamMemoryDetailResponseDto = {
   runs: number;
   superseded: MemoryLinkResponseDto | null;
   successor: MemoryLinkResponseDto | null;
+  /**
+   * Whether a person can restore it: a person retired it and no newer memory replaced it
+   */
+  restorable: boolean;
 };
 
 export type RetireMemoryRequestDto = {
@@ -6085,6 +6126,10 @@ export type RunProposalResponseDto = {
    * The handles of memories it retires that are no longer active, so it can no longer be approved; empty once decided
    */
   inactiveMemories: Array<string>;
+  /**
+   * The active memory that a model found the proposal repeats, applying in the same place, so it may be a duplicate; null while unchecked and once decided
+   */
+  similarTo: SimilarMemoryResponseDto | null;
   /**
    * Who approved or rejected it, and when
    */
@@ -6183,6 +6228,10 @@ export type RecalledMemoryResponseDto = {
   runs: number;
   superseded: MemoryLinkResponseDto | null;
   successor: MemoryLinkResponseDto | null;
+  /**
+   * Whether a person can restore it: a person retired it and no newer memory replaced it
+   */
+  restorable: boolean;
   steps: Array<MemoryProvenanceStepResponseDto>;
   notes: Array<MemoryProvenanceNoteResponseDto>;
 };
@@ -9234,7 +9283,7 @@ export type GainEstimateResponseDto = {
 
 export type ReplayCheckJudgeResponseDto = {
   /**
-   * qualified when the verdicts of the live judge agree with the verdicts of people well enough; unmeasured while too few runs have both verdicts, or while every verdict of the judge and of people is the same; failing when they do not agree well enough, or the claims of the judge cannot be read
+   * qualified when the verdicts of the live judge agree with the verdicts of people well enough; unmeasured while too few runs have both verdicts, or while people give every such run the same verdict; failing when they do not agree well enough, or the claims of the judge cannot be read
    */
   state: 'qualified' | 'unmeasured' | 'failing';
   /**
@@ -17677,7 +17726,7 @@ export type MoveTaskErrors = {
    */
   404: unknown;
   /**
-   * A person may only start a task from the backlog, park it back there, or close it
+   * A person may only start a task from the backlog, park it back there, close it, or send a finished task back to an earlier station
    */
   422: unknown;
 };
@@ -18355,6 +18404,32 @@ export type ConnectGitHubResponses = {
 };
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
+
+export type ListGitHubInstallationsData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/github/installations';
+};
+
+export type ListGitHubInstallationsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListGitHubInstallationsResponses = {
+  200: Array<GitHubInstallationResponseDto>;
+};
+
+export type ListGitHubInstallationsResponse = ListGitHubInstallationsResponses[keyof ListGitHubInstallationsResponses];
 
 export type GetPushKeyData = {
   body?: never;
@@ -21183,6 +21258,37 @@ export type RetireMemoryResponses = {
 };
 
 export type RetireMemoryResponse = RetireMemoryResponses[keyof RetireMemoryResponses];
+
+export type RestoreTeamMemoryData = {
+  body?: never;
+  path: {
+    teamId: string;
+    memoryId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/memories/{memoryId}/restore';
+};
+
+export type RestoreTeamMemoryErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such memory for this caller
+   */
+  404: unknown;
+  /**
+   * It is not retired, or a newer memory replaced it
+   */
+  409: unknown;
+};
+
+export type RestoreTeamMemoryResponses = {
+  200: TeamMemoryDetailResponseDto;
+};
+
+export type RestoreTeamMemoryResponse = RestoreTeamMemoryResponses[keyof RestoreTeamMemoryResponses];
 
 export type ReadRunMemoriesData = {
   body?: never;

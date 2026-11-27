@@ -938,7 +938,7 @@ describe('DispatchTask', () => {
     });
   });
 
-  it('lets the agent hand over nothing on a person’s turn', async () => {
+  it('lets the agent hand over on a person’s turn only to resume the line', async () => {
     const leon = UserId.of('user_1');
     const station = stations[1];
     const line = lineWith(station);
@@ -963,7 +963,11 @@ describe('DispatchTask', () => {
 
     await dispatch(station, taken);
 
-    expect(written(queued[0]).handover.options).toEqual([]);
+    expect(written(queued[0]).handover).toEqual({
+      options: [],
+      resumeOptions: ['triage', 'spec', 'done'],
+      noteLimit: 0,
+    });
   });
 
   it('does not offer a station nothing runs at', async () => {

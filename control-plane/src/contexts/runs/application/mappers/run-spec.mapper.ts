@@ -301,11 +301,17 @@ const parsedResume = (raw: unknown): RunResume => {
 
 const handoverOf = (raw: unknown) => {
   const input = objectAt(raw, 'what may be handed over to');
+  const resumeOptions = optionalListAt(
+    input.resumeOptions,
+    'what the line may resume at',
+    (each) => stringAt(each, 'what the line may resume at'),
+  );
 
   return {
     options: listAt(input.options, 'what may be handed over to', (each) =>
       stringAt(each, 'what may be handed over to'),
     ),
+    ...(resumeOptions ? { resumeOptions } : {}),
     noteLimit: numberAt(input.noteLimit, 'how long a note may be'),
   };
 };

@@ -9,7 +9,10 @@ import type {
   StationView,
 } from '@replays/application/ports/lines.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
-import { stationChangeRefusalReason } from '@replays/application/rendering/station-change-refusals';
+import {
+  type RefusalDetail,
+  stationChangeRefusalReason,
+} from '@replays/application/rendering/station-change-refusals';
 import type { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
 import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import type { PendingSearchSteps } from '@replays/application/services/pending-search-steps.service';
@@ -219,7 +222,7 @@ export class StationChangeTests {
     });
 
     if (ready.kind === 'skip') {
-      return this.refused(ready.reason);
+      return this.refused(ready.reason, ready);
     }
 
     const candidate = this.candidateOf(
@@ -481,13 +484,17 @@ export class StationChangeTests {
     });
   }
 
-  private refused(refusal: StationChangeRefusal): StationChangeTestOutcome {
+  private refused(
+    refusal: StationChangeRefusal,
+    detail?: RefusalDetail,
+  ): StationChangeTestOutcome {
     return {
       outcome: 'refused',
       code: refusal,
       reason: stationChangeRefusalReason(
         refusal,
         nextMonthStartOf(this.clock.now()),
+        detail,
       ),
     };
   }

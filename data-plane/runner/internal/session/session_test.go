@@ -438,6 +438,7 @@ type runOptions struct {
 	runID         string
 	briefing      string
 	handover      []string
+	resumeOptions []string
 	agentUser     *account.User
 	root          string
 	env           map[string]string
@@ -528,7 +529,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		Spec: protocol.Spec{
 			Command:       protocol.Command{Executable: executable, Protocol: settings.protocol, Env: settings.env},
 			Briefing:      settings.briefing,
-			Handover:      protocol.HandoverSpec{Options: settings.handover},
+			Handover:      protocol.HandoverSpec{Options: settings.handover, ResumeOptions: settings.resumeOptions},
 			Resume:        settings.resume,
 			Attachments:   settings.attachments,
 			Skills:        settings.skills,
@@ -1759,6 +1760,34 @@ func TestARunWithNowhereToHandOverIsNotReminded(t *testing.T) {
 
 	if got := prompts(t, written); len(got) != 1 {
 		t.Fatalf("the agent got %q", got)
+	}
+}
+
+func TestAPersonsTurnMayResumeTheLineWithoutAReminder(t *testing.T) {
+	written := run(t, harness(t, handingOverWhen("true"), "end_turn"), func(o *runOptions) {
+		o.briefing = "do what they ask"
+		o.resumeOptions = []string{"implementation", "review"}
+	})
+
+	if got := prompts(t, written); len(got) != 1 {
+		t.Fatalf("the agent got %q", got)
+	}
+	if handover := written.done.Handover; handover == nil || handover.Next != "review" {
+		t.Fatalf("handover %+v", handover)
+	}
+}
+
+func TestAPersonsTurnIsNotRemindedToResumeTheLine(t *testing.T) {
+	written := run(t, harness(t, handingOverWhen("false"), "end_turn"), func(o *runOptions) {
+		o.briefing = "do what they ask"
+		o.resumeOptions = []string{"implementation", "review"}
+	})
+
+	if got := prompts(t, written); len(got) != 1 {
+		t.Fatalf("the agent got %q", got)
+	}
+	if written.done == nil || written.done.Handover != nil {
+		t.Errorf("completion %+v", written.done)
 	}
 }
 

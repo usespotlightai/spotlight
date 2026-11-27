@@ -5,9 +5,9 @@ import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend
 import { WAIT_ROW_HEIGHT } from '@/components/features/insights/StationWaits';
 import { TileGroup } from '@/components/features/insights/TileGroup';
 import { ChartSkeleton } from '@/components/shared/skeleton/ChartSkeleton';
-import { DELIVERY_NOTE, WAITS_NOTE } from '@/lib/insights';
+import { DELIVERY_NOTE, DELIVERY_SCOPE, WAITS_NOTE } from '@/lib/insights';
 
-const DELIVERY = ['PRs opened', 'First reviews', 'PRs merged'];
+const DELIVERY = ['PRs opened', 'First human reviews', 'PRs merged'];
 
 const LEGEND = WAIT_SERIES.map(({ label, fill }) => ({ label, color: fill }));
 
@@ -30,7 +30,11 @@ export function FlowSkeleton({ stations }: { stations: number }) {
         </figure>
       </InsightsCardSkeleton>
 
-      <TileGroup title="Past the last station" tooltip={DELIVERY_NOTE}>
+      <TileGroup
+        title="Past the last station"
+        aside={DELIVERY_SCOPE}
+        tooltip={DELIVERY_NOTE}
+      >
         {DELIVERY.map((label) => (
           <InsightsTileSkeleton key={label} label={label} delta detail />
         ))}

@@ -51,7 +51,7 @@ export type MergeDay = {
 
 export type TypeMerge = {
   readonly type: PullRequestType;
-  readonly merged: number;
+  readonly merged: Readonly<Record<keyof ByAuthor, number>>;
   readonly toMerge: ByAuthor;
 };
 
@@ -341,7 +341,10 @@ export const shippingOf = (
   })),
   types: response.types.map((each) => ({
     type: each.type,
-    merged: each.merged,
+    merged: {
+      spotlight: each.toMerge.spotlight.count,
+      people: each.toMerge.people.count,
+    },
     toMerge: byAuthorOf(each.toMerge),
   })),
   slowestFirst: response.slowestFirst,
@@ -372,19 +375,21 @@ export const shippingOf = (
 });
 
 export const PIPELINE_NOTE =
-  'Time that merged pull requests spend in each stage, from task opened to merge, at the chosen percentile. Stages: each station the task ran at, awaiting review, in review, awaiting merge. Awaiting review ends at the first review by someone other than the author, or at any approval. Bots’ reviews count. Pick a type to see its own times.';
+  'Time that Spotlight’s merged pull requests spend in each stage, from task opened to merge, at the chosen percentile. Stages: each station the task ran at, awaiting review, in review, awaiting merge. Awaiting review ends at the first review by someone other than the author, or at any approval. Bots’ reviews count. Pick a type to see its own times.';
+
+export const SPOTLIGHT_AND_PEOPLE = 'Spotlight’s and people’s PRs';
 
 export const DEPTH_OVER_TIME_NOTE =
-  'Merged pull requests per week by review rounds. The line shows the total merged. If the lighter colours grow while the line rises, review is thinning.';
+  'Merged pull requests per week by review rounds: Spotlight’s, and people’s alone in repositories where Spotlight merged. The line shows the total merged. If the lighter colours grow while the line rises, review is thinning.';
 
 export const FIRST_REVIEW_NOTE =
-  'Time from when a pull request opens to its first human review, at the chosen percentile.';
+  'Time from when a pull request in the team’s repositories opens to its first human review, at the chosen percentile. Bots’ pull requests don’t count.';
 
 export const REVIEW_BOTS_NOTE =
-  'Bots that reviewed the team’s pull requests. Spotlight’s review tasks count. Resolved: share of their comments resolved before merge.';
+  'Bots that reviewed pull requests in the team’s repositories. Spotlight’s review tasks count. Resolved: share of their comments resolved before merge.';
 
 export const AWAITING_REVIEW_NOTE =
-  'Open pull requests with no human review yet, at each day’s end.';
+  'Open pull requests in the team’s repositories with no human review yet, at each day’s end. Bots’ pull requests don’t count.';
 
 export const HUMAN_REVIEWS_NOTE =
-  'Human reviews on the team’s pull requests per day.';
+  'Human reviews on pull requests in the team’s repositories, per day. Bots’ pull requests don’t count.';
