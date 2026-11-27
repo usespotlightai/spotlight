@@ -6,7 +6,6 @@ import { IncludedCommentReturned } from '@change-review/domain/events/included-c
 import { ReviewCommentDeleted } from '@change-review/domain/events/review-comment-deleted.event';
 import { ReviewCommentEdited } from '@change-review/domain/events/review-comment-edited.event';
 import { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
-import { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
@@ -56,22 +55,6 @@ const reacting = (stored: readonly ReviewComment[] = []) => {
 };
 
 describe('ReviewReactions', () => {
-  it('sends GitHub a post of its own for each comment on a whole file', async () => {
-    const { reactions, enqueue } = reacting();
-
-    await reactions.onPosted(
-      new ReviewPosted(REVIEW, WORKSPACE, TASK, [COMMENT]),
-    );
-
-    expect(enqueue).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: 'file',
-        subject: ReviewCommentId.of('comment_1'),
-      }),
-      NOW,
-    );
-  });
-
   it('queues a submitted review for GitHub', async () => {
     const { reactions, enqueue } = reacting();
 

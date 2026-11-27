@@ -619,7 +619,7 @@ describe('DeliverReviews', () => {
     );
   });
 
-  it('posts a review with its comments on lines, and sends each comment on a whole file in a post of its own', async () => {
+  it('posts one review with its verdict, its summary, its comments on lines and its comments on whole files', async () => {
     const onFile = ReviewComment.draft({
       id: ReviewCommentId.of('comment_3'),
       workspaceId: WORKSPACE,
@@ -635,8 +635,8 @@ describe('DeliverReviews', () => {
       taskId: TASK,
       repository: null,
       author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
-      verdict: 'comment',
-      body: '',
+      verdict: 'request-changes',
+      body: 'Two things',
       drafts: [draft('comment_1', 3), onFile],
       now: NOW,
     });
@@ -648,16 +648,21 @@ describe('DeliverReviews', () => {
 
     await delivered.service.deliverDue();
 
+    expect(delivered.github.submit).toHaveBeenCalledTimes(1);
     expect(delivered.github.submit).toHaveBeenCalledWith(
       expect.objectContaining({
+        verdict: 'request-changes',
+        body: 'Two things',
         comments: [expect.objectContaining({ line: 3 })],
+        onFiles: [{ path: 'src/a.ts', body: 'About the file' }],
       }),
     );
     expect(delivered.github.commentOnFile).not.toHaveBeenCalled();
     expect(delivered.reviews.get('review_1')?.pullEvents()).toContainEqual(
       expect.objectContaining({
-        kind: 'review.posted',
-        onFiles: [ReviewCommentId.of('comment_3')],
+        kind: 'review.included-comment-posted',
+        commentId: ReviewCommentId.of('comment_3'),
+        github: null,
       }),
     );
   });

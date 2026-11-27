@@ -83,6 +83,10 @@ export class GitHubReviewPosting implements ReviewPostingPort {
           startLine: comment.startLine,
           body: comment.body,
         })),
+        onFiles: input.onFiles.map((comment) => ({
+          path: comment.path,
+          body: comment.body,
+        })),
       }),
     );
 

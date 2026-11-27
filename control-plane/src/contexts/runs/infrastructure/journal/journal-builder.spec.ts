@@ -611,6 +611,31 @@ describe('JournalBuilder', () => {
       expect(seen[1]?.kind).toBe('message');
     });
 
+    it('keeps the start and the end of a long output, where a failed hook prints its error', () => {
+      const lines = Array.from(
+        { length: 100 },
+        (_, at) => `${String(at).padStart(3, '0')} ${'x'.repeat(45)}`,
+      );
+      const builder = listening(clock(0));
+      builder.take(began('setup', 's1', 1));
+      builder.take(
+        ended('setup', 2, {
+          id: 's1',
+          failed: true,
+          output: [...lines, 'sh: 1: make: not found'].join('\n'),
+        }),
+      );
+
+      expect(hooks(builder)[0]?.detail).toBe(
+        [
+          ...lines.slice(0, 20),
+          '… 23 lines omitted …',
+          ...lines.slice(43),
+          'sh: 1: make: not found',
+        ].join('\n'),
+      );
+    });
+
     it('keeps apart hooks that run at the same time', () => {
       const builder = listening(clock(0));
       builder.take(began('setup', 'web', 1));

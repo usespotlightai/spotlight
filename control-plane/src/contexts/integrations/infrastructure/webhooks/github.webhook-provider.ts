@@ -94,10 +94,13 @@ const failedChecksOf = (event: PullRequestActivity): Happened['message'] => {
   return nonEmpty(body) ? { body } : null;
 };
 
-const messageOf = (event: PullRequestActivity): Happened['message'] =>
+const messageOf = (
+  event: PullRequestActivity,
+  verdict: string | null = null,
+): Happened['message'] =>
   event.reviewComment
     ? {
-        body: event.reviewComment.body,
+        body: [verdict, event.reviewComment.body].filter(Boolean).join('\n\n'),
         path: event.reviewComment.path,
         from: event.reviewComment.from,
         to: event.reviewComment.to,
@@ -158,11 +161,14 @@ const reviewRequested = (
   };
 };
 
+type Reported = Extract<PullRequestHappening, { kind: 'activity' }>;
+
 const reported = (
   event: PullRequestActivity,
-  activity: ReportedActivity,
+  happening: Reported,
   correlationKeys: Happened['correlationKeys'],
 ): Happened => {
+  const { activity } = happening;
   const raising = RAISED[activity];
 
   return {
@@ -171,7 +177,9 @@ const reported = (
     answers: raising.answers,
     state: 'raised',
     correlationKeys,
-    message: messageOf(event) ?? failedChecksOf(event),
+    message:
+      messageOf(event, happening.statesVerdict ? raising.summary : null) ??
+      failedChecksOf(event),
     ourOwn: event.ignoredAsBot,
     opens: null,
     closedPullRequest:
@@ -195,7 +203,7 @@ const happenedFrom = (
 
   return reported(
     event,
-    happening.activity,
+    happening,
     happening.to === 'its-review' && pullRequest
       ? {
           branch: null,
