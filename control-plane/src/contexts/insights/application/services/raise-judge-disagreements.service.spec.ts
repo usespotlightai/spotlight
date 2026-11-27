@@ -9,6 +9,7 @@ import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { JudgeDisagreementVersionConflictError } from '@insights/domain/exceptions/judge-disagreement-version-conflict.error';
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
+import { PersonVerdict } from '@insights/domain/value-objects/person-verdict.vo';
 import { day, ownedRecordOf } from '@insights/insights.fake-spec';
 import {
   type Acted,
@@ -40,6 +41,7 @@ import {
 } from '@insights/runs.fake-spec';
 import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -373,6 +375,48 @@ describe('RaiseJudgeDisagreements', () => {
       const disagreement = firstOf([...disagreements.stored.values()]);
       expect(disagreement?.state).toBe('withdrawn');
       expect(disagreement?.withdrawnBecause).toBe('verdicts-agree');
+    });
+
+    it('asks again, of the person, once their recorded verdict disagrees with the judge after an earlier verdict agreed', async () => {
+      const { records, disagreements, raising, score, endedRun, added } =
+        await onTheTask();
+      const run = endedRun('run_1', 10);
+      await added(run);
+      await raising.scoreRecorded(recordedOf(score));
+      const changed = () =>
+        raising.outcomeChanged(
+          new RunOutcomeChanged(RunId.of('run_1'), WORKSPACE, score.location),
+        );
+      const verdict = (right: boolean) =>
+        PersonVerdict.of({
+          right,
+          reason: null,
+          by: ACTOR,
+          at: day('2026-09-30', 14),
+        });
+
+      const wrong = present(await records.of(RunId.of('run_1'))).recordVerdict(
+        verdict(false),
+      );
+      await records.save(wrong);
+      await changed();
+
+      expect(
+        [...disagreements.stored.values()].map((each) => each.state),
+      ).toEqual(['withdrawn']);
+
+      await records.save(
+        present(await records.of(RunId.of('run_1'))).recordVerdict(
+          verdict(true),
+        ),
+      );
+      await changed();
+      await changed();
+
+      const stored = [...disagreements.stored.values()];
+      expect(stored.map((each) => each.state)).toEqual(['withdrawn', 'open']);
+      expect(stored[1]?.labelFrom).toBe('marked-right');
+      expect(stored[1]?.askedOf).toEqual(ACTOR);
     });
 
     it('keeps the disagreement a merge opened, still asked of the team, once a person accepts the run', async () => {

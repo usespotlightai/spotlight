@@ -8,6 +8,7 @@ import { JudgeDisagreementWithdrawnError } from '@insights/domain/exceptions/jud
 import { ClaimAnswer } from '@insights/domain/value-objects/claim-answer.vo';
 import { NotMetAnswer } from '@insights/domain/value-objects/not-met-answer.vo';
 import { openDisagreement } from '@insights/judge-repair.fake-spec';
+import { NEXT_RUBRIC_VERSION } from '@insights/judging.fake-spec';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -394,6 +395,39 @@ describe('JudgeDisagreement', () => {
         labelFrom: 'accepted',
       }),
     ).toBeNull();
+  });
+
+  it('opens beside the disagreements of its run only where none stands at its claims and none asked about the same verdict', () => {
+    const merged = openDisagreement('run_1', { labelFrom: 'merged' });
+    const { rubricVersion } = merged;
+    const at = (
+      labelFrom: 'merged' | 'marked-right',
+      askedOf: UserId | null,
+    ) => ({
+      rubricVersion,
+      labelFrom,
+      askedOf,
+    });
+
+    expect(JudgeDisagreement.mayOpenBeside([], at('merged', null))).toBe(true);
+    expect(
+      JudgeDisagreement.mayOpenBeside([merged], at('marked-right', ADA)),
+    ).toBe(false);
+
+    const withdrawn = merged.withdraw(NOW, 'verdicts-agree');
+
+    expect(
+      JudgeDisagreement.mayOpenBeside([withdrawn], at('marked-right', ADA)),
+    ).toBe(true);
+    expect(
+      JudgeDisagreement.mayOpenBeside([withdrawn], at('merged', null)),
+    ).toBe(false);
+    expect(
+      JudgeDisagreement.mayOpenBeside([withdrawn], {
+        ...at('merged', null),
+        rubricVersion: NEXT_RUBRIC_VERSION,
+      }),
+    ).toBe(true);
   });
 
   it('disputes the claims the judge failed, and none where the judge passed', () => {

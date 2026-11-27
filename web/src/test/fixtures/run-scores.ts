@@ -33,6 +33,7 @@ export const runScoresOf = (
   personVerdict: null,
   implicitFrom: null,
   takesVerdict: true,
+  verdictTeaches: 'judge',
   agrees: null,
   judge: {
     claims: CLAIMS,

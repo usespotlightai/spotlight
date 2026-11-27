@@ -1,3 +1,4 @@
+import { NotActingOnTeamError } from '@insights/domain/exceptions/not-acting-on-team.error';
 import { TeamNotFoundError } from '@insights/domain/exceptions/team-not-found.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -21,6 +22,20 @@ export class ViewedTeam {
     }
 
     return new ViewedTeam(teamId, viewer.workspaceId, viewer.by);
+  }
+
+  static actingOn(
+    teamId: TeamId,
+    viewer: TeamViewer | null,
+    actsOnTeam: boolean,
+  ): ViewedTeam {
+    const viewed = ViewedTeam.onTeam(teamId, viewer);
+
+    if (!actsOnTeam) {
+      throw new NotActingOnTeamError(teamId.value);
+    }
+
+    return viewed;
   }
 
   covers(workspaceId: WorkspaceId, teamId: TeamId): boolean {

@@ -15,8 +15,8 @@ import {
   VERDICT_REASON_LABEL,
   VERDICT_RIGHT,
   VERDICT_SAVE_REASON,
-  VERDICT_TEACHES,
   VERDICT_WRONG,
+  verdictTeachingNote,
 } from '@/lib/judge';
 
 type RunVerdictControlProps = {
@@ -131,7 +131,7 @@ export function RunVerdictControl({ teamId, scores }: RunVerdictControlProps) {
         data-slot="run-verdict-teaches"
         className="text-muted-foreground text-xs"
       >
-        {VERDICT_TEACHES}
+        {verdictTeachingNote(scores.verdictTeaches)}
       </p>
     </div>
   );

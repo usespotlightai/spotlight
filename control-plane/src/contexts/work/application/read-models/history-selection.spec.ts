@@ -15,6 +15,7 @@ const outcome: RunResultShape = {
   checks: 'failed',
   humanAction: { kind: 'sent-back', at: '2026-09-30T11:00:00.000Z' },
   pullRequestState: 'merged',
+  peopleVerdict: { passes: false, from: 'sent-back' },
 };
 
 describe('history selection', () => {
@@ -37,6 +38,18 @@ describe('history selection', () => {
     }
 
     expect(turnedOut(outcome, 'completed')).toBe(false);
+    expect(turnedOut(outcome, 'marked-wrong')).toBe(false);
+  });
+
+  it('matches a run by the verdict a person recorded on it', () => {
+    const marked: RunResultShape = {
+      ...outcome,
+      humanAction: { kind: 'started', at: '2026-09-30T11:00:00.000Z' },
+      peopleVerdict: { passes: false, from: 'marked-wrong' },
+    };
+
+    expect(turnedOut(marked, 'marked-wrong')).toBe(true);
+    expect(turnedOut(marked, 'sent-back')).toBe(false);
     expect(turnedOut(null, 'failed')).toBe(false);
   });
 });

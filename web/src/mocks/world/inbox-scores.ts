@@ -217,6 +217,17 @@ const agreesOf = (
     ? judge.passes === labelPasses(labelFrom)
     : null;
 
+const verdictTeachesOf = (
+  judge: JudgeScoreResponseDto | null,
+  calibration: JudgeCalibrationResponseDto,
+): RunScores['verdictTeaches'] => {
+  if (calibration.hiddenReason === 'no-judge') {
+    return 'no-judge';
+  }
+
+  return judge ? 'judge' : 'unjudged-run';
+};
+
 const calibrationOf = (stationId: string): JudgeCalibrationResponseDto => {
   if (stationId === JUDGED_STATION) {
     return TRUSTED;
@@ -244,6 +255,7 @@ const scoresOf = (runId: string): RunScores => {
     personVerdict: null,
     implicitFrom: labelFrom,
     takesVerdict: run ? run.ending !== 'cancelled' : true,
+    verdictTeaches: verdictTeachesOf(judge, calibration),
     agrees: agreesOf(judge, labelFrom, calibration),
   };
 };
@@ -440,6 +452,7 @@ export const judgedScoresOf = (run: HistoryRun): RunScores => {
     personVerdict: null,
     implicitFrom: labelFrom,
     takesVerdict: run.ending !== 'cancelled',
+    verdictTeaches: verdictTeachesOf(judge, calibration),
     agrees: agreesOf(judge, labelFrom, calibration),
   };
 };

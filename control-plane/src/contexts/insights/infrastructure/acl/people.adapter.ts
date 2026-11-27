@@ -25,6 +25,10 @@ export class People implements PeoplePort {
       : null;
   }
 
+  async actsOnTeam(teamId: TeamId, principal: Principal): Promise<boolean> {
+    return (await this.access.accessOnTeam(teamId, principal)).actsOn;
+  }
+
   async namesOf(
     userIds: readonly string[],
   ): Promise<ReadonlyMap<string, string>> {

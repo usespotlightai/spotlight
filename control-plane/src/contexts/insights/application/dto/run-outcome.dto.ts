@@ -23,6 +23,8 @@ export interface RunOutcomeDto {
   readonly ending: RunEnding;
   readonly resolution: RunResolution;
   readonly labelFrom: LabelSource | null;
+  readonly peoplePass: boolean | null;
+  readonly verdictRecorded: boolean;
   readonly failure: string | null;
   readonly runNumber: number;
   readonly usage: RunUsageDto | null;
@@ -47,6 +49,8 @@ export const runOutcomeOf = (record: RunFact): RunOutcomeDto => {
     ending: record.ending,
     resolution: record.resolution,
     labelFrom: record.humanLabel?.from ?? null,
+    peoplePass: record.humanLabel?.passes ?? null,
+    verdictRecorded: record.personVerdict !== null,
     failure: end.failure,
     runNumber: end.runNumber,
     usage: usage

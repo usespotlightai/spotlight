@@ -109,6 +109,7 @@ const outcomeOf = (
   checks: null,
   humanAction: null,
   pullRequestState: null,
+  peopleVerdict: null,
 });
 
 const reading = ({

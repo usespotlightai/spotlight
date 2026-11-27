@@ -75,6 +75,7 @@ const outcomeOf = (run: HistoryRun): StationRunOutcomeResponseDto => ({
   ending: run.ending,
   resolution: runResolutionOf(run),
   labelFrom: labelOf(run),
+  verdictRecorded: false,
   failure: run.failure,
   runNumber: runNumberOf(run.runId),
   usage: usageOf(run),

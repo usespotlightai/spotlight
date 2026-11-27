@@ -47,10 +47,15 @@ const RESOLUTION_TONES: Record<StationRunOutcome['resolution'], OutcomeTone> = {
 export const outcomeTone = (run: StationRunOutcome): OutcomeTone =>
   RESOLUTION_TONES[run.resolution];
 
-export const resolutionLabel = (run: StationRunOutcome): string =>
-  run.resolution === 'other'
+export const resolutionLabel = (run: StationRunOutcome): string => {
+  if (run.verdictRecorded && run.labelFrom) {
+    return formatLabel(run.labelFrom);
+  }
+
+  return run.resolution === 'other'
     ? formatEnding(run.ending)
     : resolutionLabelOf(run.resolution);
+};
 
 const CHECKS: Record<NonNullable<StationRunOutcome['checks']>, string> = {
   passed: 'Checks passed',
@@ -61,20 +66,9 @@ const CHECKS: Record<NonNullable<StationRunOutcome['checks']>, string> = {
 export const formatChecks = (checks: StationRunOutcome['checks']): string =>
   checks ? CHECKS[checks] : '–';
 
-const MARKED: readonly StationRunOutcome['labelFrom'][] = [
-  'marked-right',
-  'marked-wrong',
-];
-
 export const formatHumanAction = (
-  run: Pick<StationRunOutcome, 'humanAction' | 'labelFrom'>,
-): string => {
-  if (run.labelFrom && MARKED.includes(run.labelFrom)) {
-    return formatLabel(run.labelFrom);
-  }
-
-  return run.humanAction ? humanActionLabelOf(run.humanAction.kind) : '–';
-};
+  action: StationRunOutcome['humanAction'],
+): string => (action ? humanActionLabelOf(action.kind) : '–');
 
 const PULL_REQUEST_STATES: Record<
   NonNullable<StationRunOutcome['pullRequestState']>,

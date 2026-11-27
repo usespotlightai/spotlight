@@ -1,8 +1,10 @@
 import type { RunOutcomeDto } from '@insights/application/dto/run-outcome.dto';
 import type { RunOutcomes } from '@insights/application/services/run-outcomes.service';
+import type { LabelSource } from '@insights/domain/value-objects/label-source';
 import type { RunHumanAction } from '@insights/domain/value-objects/person-action.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
+  PeopleVerdictSource,
   RunHumanActionKind,
   RunResultShape,
   RunResultsPort,
@@ -15,6 +17,15 @@ const HUMAN_ACTION_KINDS: Record<RunHumanAction, RunHumanActionKind> = {
   'sent-back': 'sent-back',
   'held-as-wrong': 'held-as-wrong',
   answered: 'answered',
+};
+
+const PEOPLE_VERDICT_SOURCES: Record<LabelSource, PeopleVerdictSource> = {
+  accepted: 'accepted',
+  'sent-back': 'sent-back',
+  merged: 'merged',
+  'held-as-wrong': 'held-as-wrong',
+  'marked-right': 'marked-right',
+  'marked-wrong': 'marked-wrong',
 };
 
 const shapeOf = (outcome: RunOutcomeDto): RunResultShape => ({
@@ -32,6 +43,13 @@ const shapeOf = (outcome: RunOutcomeDto): RunResultShape => ({
       }
     : null,
   pullRequestState: outcome.pullRequestState,
+  peopleVerdict:
+    outcome.labelFrom && outcome.peoplePass !== null
+      ? {
+          passes: outcome.peoplePass,
+          from: PEOPLE_VERDICT_SOURCES[outcome.labelFrom],
+        }
+      : null,
 });
 
 export class WorkRunOutcomes implements RunResultsPort {

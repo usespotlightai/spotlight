@@ -5483,6 +5483,31 @@
           "at"
         ]
       },
+      "HistoryPeopleVerdictResponseDto": {
+        "type": "object",
+        "properties": {
+          "passes": {
+            "type": "boolean",
+            "description": "Whether people passed the run"
+          },
+          "from": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "sent-back",
+              "merged",
+              "held-as-wrong",
+              "marked-right",
+              "marked-wrong"
+            ],
+            "description": "What gave people’s verdict: a verdict a person recorded on the run (marked right or wrong) comes first; otherwise an accept, a send back, a hold that ended with the reason The line got it wrong, or the merge of the task’s pull requests"
+          }
+        },
+        "required": [
+          "passes",
+          "from"
+        ]
+      },
       "RunOutcomeResponseDto": {
         "type": "object",
         "properties": {
@@ -5544,6 +5569,16 @@
               null
             ],
             "description": "The combined state of the task’s pull requests: open while one is open, merged when all merged, else closed"
+          },
+          "peopleVerdict": {
+            "nullable": true,
+            "description": "People’s verdict on the run, the one that teaches the station’s judge; none where nothing gives one",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HistoryPeopleVerdictResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -5553,7 +5588,8 @@
           "usage",
           "checks",
           "humanAction",
-          "pullRequestState"
+          "pullRequestState",
+          "peopleVerdict"
         ]
       },
       "FileChangeResponseDto": {

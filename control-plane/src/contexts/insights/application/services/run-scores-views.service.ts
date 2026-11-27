@@ -10,6 +10,7 @@ import type { StationFactsPort } from '@insights/application/ports/station-facts
 import type { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { UnknownRunError } from '@insights/domain/exceptions/unknown-run.error';
 import { visibleJudgeOf } from '@insights/domain/services/judge-verdict';
+import { verdictTeachingOf } from '@insights/domain/services/verdict-teaching';
 import type { Citation } from '@insights/domain/value-objects/citation.vo';
 import type { PersonVerdict } from '@insights/domain/value-objects/person-verdict.vo';
 import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
@@ -107,6 +108,7 @@ export class RunScoresViews {
         : null,
       implicitFrom: run.implicitLabel?.from ?? null,
       takesVerdict: run.takesVerdict,
+      verdictTeaches: verdictTeachingOf(scores, rubric ? rubricVersion : null),
       agrees: judge && label ? label.agreesWith(judge) : null,
     };
   }

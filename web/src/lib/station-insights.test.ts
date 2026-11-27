@@ -5,7 +5,6 @@ import {
   configFingerprint,
   countedColumnsOf,
   type FingerprintGroup,
-  formatHumanAction,
   hasRuns,
   outcomePartsOf,
   outcomeTone,
@@ -224,19 +223,17 @@ describe('outcomeTone', () => {
   });
 });
 
-describe('formatHumanAction', () => {
-  it('shows a verdict a person recorded on the run in place of the action people took', () => {
-    const started = {
-      kind: 'started',
-      at: '2026-10-02T09:00:00.000Z',
-    } as const;
+describe('resolutionLabel of a run a person recorded a verdict on', () => {
+  it('names the recorded verdict, and the resolution otherwise', () => {
+    const run = (verdictRecorded: boolean) =>
+      partial<StationRunOutcome>({
+        resolution: 'sent-back',
+        ending: 'completed',
+        labelFrom: verdictRecorded ? 'marked-wrong' : 'sent-back',
+        verdictRecorded,
+      });
 
-    expect(
-      formatHumanAction({ humanAction: started, labelFrom: 'merged' }),
-    ).toBe('Started');
-    expect(
-      formatHumanAction({ humanAction: started, labelFrom: 'marked-wrong' }),
-    ).toBe('Marked wrong');
-    expect(formatHumanAction({ humanAction: null, labelFrom: null })).toBe('–');
+    expect(resolutionLabel(run(true))).toBe('Marked wrong');
+    expect(resolutionLabel(run(false))).toBe('Sent back');
   });
 });

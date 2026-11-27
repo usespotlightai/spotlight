@@ -7,5 +7,7 @@ export const PEOPLE = Symbol('INSIGHTS_PEOPLE');
 export interface PeoplePort {
   viewerOf(teamId: TeamId, principal: Principal): Promise<TeamViewer | null>;
 
+  actsOnTeam(teamId: TeamId, principal: Principal): Promise<boolean>;
+
   namesOf(userIds: readonly string[]): Promise<ReadonlyMap<string, string>>;
 }

@@ -61,7 +61,7 @@ export const VERDICT_RIGHT = 'Right';
 
 export const VERDICT_WRONG = 'Wrong';
 
-export const VERDICT_CLEAR = 'Clear';
+export const VERDICT_CLEAR = 'Clear verdict';
 
 export const VERDICT_REASON_LABEL = 'What was wrong (optional)';
 
@@ -69,8 +69,18 @@ export const VERDICT_SAVE_REASON = 'Save reason';
 
 export const MAX_VERDICT_REASON = 2_000;
 
-export const VERDICT_TEACHES =
-  'Your verdict teaches this station’s judge. It counts in place of what people did with the run, and it never moves the task.';
+const VERDICT_TEACHES: Record<RunScores['verdictTeaches'], string> = {
+  judge:
+    'Your verdict teaches this station’s judge. It counts in place of what people did with the run, and it never moves the task.',
+  'unjudged-run':
+    'The judge did not check this run, so your verdict counts in Insights but does not teach the judge. It never moves the task.',
+  'no-judge':
+    'This station has no judge. Your verdict counts in Insights, and it never moves the task.',
+};
+
+export const verdictTeachingNote = (
+  teaches: RunScores['verdictTeaches'],
+): string => VERDICT_TEACHES[teaches];
 
 export const formatVerdictSource = (
   labelFrom: LabelSource,

@@ -123,6 +123,12 @@ export class StationRunOutcomeResponseDto {
   readonly labelFrom: string | null;
 
   @ApiProperty({
+    description:
+      'Whether a person recorded a verdict on the run, which then gives its resolution',
+  })
+  readonly verdictRecorded: boolean;
+
+  @ApiProperty({
     nullable: true,
     type: String,
     example: 'exited',
@@ -177,6 +183,7 @@ export class StationRunOutcomeResponseDto {
     this.ending = outcome.ending;
     this.resolution = outcome.resolution;
     this.labelFrom = outcome.labelFrom;
+    this.verdictRecorded = outcome.verdictRecorded;
     this.failure = outcome.failure;
     this.runNumber = outcome.runNumber;
     this.usage = outcome.usage

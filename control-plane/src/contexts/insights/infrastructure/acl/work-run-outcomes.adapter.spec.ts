@@ -1,6 +1,7 @@
 import { RunOutcomes } from '@insights/application/services/run-outcomes.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
+import { PersonVerdict } from '@insights/domain/value-objects/person-verdict.vo';
 import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.adapter';
 import { ownedRecordOf } from '@insights/insights.fake-spec';
 import { PullRequestRecordsInMemory } from '@insights/pull-requests.fake-spec';
@@ -49,6 +50,32 @@ describe('WorkRunOutcomes', () => {
       checks: 'passed',
       humanAction: { kind: 'accepted', at: AT.toISOString() },
       pullRequestState: 'open',
+      peopleVerdict: { passes: true, from: 'accepted' },
+    });
+  });
+
+  it('tells Work the verdict a person recorded on a run, in place of the action that moved it on', async () => {
+    const records = new RunRecordsInMemory();
+    await records.add(
+      endedRecord('run_1')
+        .recordAction(PersonAction.of('started', AT, UserId.of('user_actor')))
+        .recordVerdict(
+          PersonVerdict.of({
+            right: false,
+            reason: null,
+            by: UserId.of('user_ada'),
+            at: RECEIVED_AT,
+          }),
+        ),
+    );
+
+    const outcomes = await new WorkRunOutcomes(
+      new RunOutcomes(new StationFactsInMemory(records)),
+    ).of(['run_1'], null);
+
+    expect(outcomes.get('run_1')).toMatchObject({
+      humanAction: { kind: 'started' },
+      peopleVerdict: { passes: false, from: 'marked-wrong' },
     });
   });
 

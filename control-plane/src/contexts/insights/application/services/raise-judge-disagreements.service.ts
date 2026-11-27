@@ -167,7 +167,11 @@ export class RaiseJudgeDisagreements {
     if (
       !rubric ||
       !label ||
-      known.some((each) => each.rubricVersion === rubric.version)
+      !JudgeDisagreement.mayOpenBeside(known, {
+        rubricVersion: rubric.version,
+        labelFrom: label.from,
+        askedOf: label.by,
+      })
     ) {
       return;
     }

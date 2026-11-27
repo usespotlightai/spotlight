@@ -8,6 +8,7 @@ import { runFilterOf } from '@insights/domain/services/run-filter';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
+import { PersonVerdict } from '@insights/domain/value-objects/person-verdict.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -631,6 +632,46 @@ describe('run facts', () => {
     expect(await factOf('run_1')).toMatchObject({ resolution: 'accepted' });
     expect(await factOf('run_2')).toMatchObject({ resolution: 'moved-on' });
     expect(await factOf('run_3')).toMatchObject({ resolution: 'sent-back' });
+  });
+
+  it('stores a person’s verdict on a run whose pull request merged, resolves the run by it, and resolves it by the merge again once cleared', async () => {
+    await records.add(ended('run_1', 'task_1'));
+    await pullRequests.add(opened('task_1', TEAM));
+    await pullRequests.save(mergedOnGitHub(await pullRequestOf()));
+
+    expect(await factOf('run_1')).toMatchObject({ resolution: 'accepted' });
+
+    await records.save(
+      present(await records.of(RunId.of('run_1'))).recordVerdict(
+        PersonVerdict.of({
+          right: false,
+          reason: 'It planned the change.',
+          by: UserId.of('user_actor'),
+          at: at(0.4),
+        }),
+      ),
+    );
+
+    expect(await factOf('run_1')).toMatchObject({
+      resolution: 'sent-back',
+      personVerdictRight: false,
+      personVerdictReason: 'It planned the change.',
+      personVerdictBy: 'user_actor',
+      personVerdictAt: at(0.4),
+    });
+    expect(
+      present(await records.of(RunId.of('run_1'))).personVerdict,
+    ).toMatchObject({ right: false, reason: 'It planned the change.' });
+
+    await records.save(
+      present(await records.of(RunId.of('run_1'))).clearVerdict(),
+    );
+
+    expect(await factOf('run_1')).toMatchObject({
+      resolution: 'accepted',
+      personVerdictRight: null,
+      personVerdictBy: null,
+    });
   });
 
   it('follows a superseding, a pass and a dismissal received after the run ended', async () => {

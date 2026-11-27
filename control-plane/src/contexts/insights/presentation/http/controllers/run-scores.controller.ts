@@ -19,6 +19,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiBody,
   ApiConflictResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -100,10 +101,14 @@ export class RunScoresController {
     description:
       'The verdict has no right, the reason is not text, a reason is given for a run that was right, or the reason is over 2,000 characters',
   })
-  @ApiNotFoundResponse({ description: 'No such run for this caller' })
+  @ApiForbiddenResponse({
+    description: 'The caller sees the team but does not work on it',
+  })
+  @ApiNotFoundResponse({
+    description: 'No such finished run for this caller',
+  })
   @ApiConflictResponse({
-    description:
-      'The run has not finished, ended before it ran, or changed meanwhile',
+    description: 'The run ended before it ran, or changed meanwhile',
   })
   async recordVerdict(
     @Param('teamId') teamId: string,
@@ -131,7 +136,12 @@ export class RunScoresController {
       'Take back the verdict recorded on a run, so that what people’s actions say counts again',
   })
   @ApiOkResponse({ type: RunScoresResponseDto })
-  @ApiNotFoundResponse({ description: 'No such run for this caller' })
+  @ApiForbiddenResponse({
+    description: 'The caller sees the team but does not work on it',
+  })
+  @ApiNotFoundResponse({
+    description: 'No such finished run for this caller',
+  })
   @ApiConflictResponse({ description: 'The run changed meanwhile' })
   async clearVerdict(
     @Param('teamId') teamId: string,

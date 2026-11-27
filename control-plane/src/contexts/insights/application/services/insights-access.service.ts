@@ -14,6 +14,17 @@ export class InsightsAccess {
     return this.accessFor(teamId, PersonPrincipal.of(viewerId));
   }
 
+  async actingOn(teamId: TeamId, viewerId: UserId): Promise<ViewedTeam> {
+    const principal = PersonPrincipal.of(viewerId);
+    const viewer = await this.people.viewerOf(teamId, principal);
+
+    return ViewedTeam.actingOn(
+      teamId,
+      viewer,
+      viewer !== null && (await this.people.actsOnTeam(teamId, principal)),
+    );
+  }
+
   async accessFor(teamId: TeamId, principal: Principal): Promise<ViewedTeam> {
     return ViewedTeam.onTeam(
       teamId,

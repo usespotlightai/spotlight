@@ -2832,6 +2832,17 @@ export type HistoryHumanActionResponseDto = {
   at: string;
 };
 
+export type HistoryPeopleVerdictResponseDto = {
+  /**
+   * Whether people passed the run
+   */
+  passes: boolean;
+  /**
+   * What gave people’s verdict: a verdict a person recorded on the run (marked right or wrong) comes first; otherwise an accept, a send back, a hold that ended with the reason The line got it wrong, or the merge of the task’s pull requests
+   */
+  from: 'accepted' | 'sent-back' | 'merged' | 'held-as-wrong' | 'marked-right' | 'marked-wrong';
+};
+
 export type RunOutcomeResponseDto = {
   ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   failure: string | null;
@@ -2846,6 +2857,10 @@ export type RunOutcomeResponseDto = {
    * The combined state of the task’s pull requests: open while one is open, merged when all merged, else closed
    */
   pullRequestState: 'open' | 'merged' | 'closed' | null;
+  /**
+   * People’s verdict on the run, the one that teaches the station’s judge; none where nothing gives one
+   */
+  peopleVerdict: HistoryPeopleVerdictResponseDto | null;
 };
 
 export type FileChangeResponseDto = {
@@ -6494,6 +6509,10 @@ export type StationRunOutcomeResponseDto = {
    */
   labelFrom: 'accepted' | 'sent-back' | 'merged' | 'held-as-wrong' | 'marked-right' | 'marked-wrong' | null;
   /**
+   * Whether a person recorded a verdict on the run, which then gives its resolution
+   */
+  verdictRecorded: boolean;
+  /**
    * Why it failed, where it did
    */
   failure: string | null;
@@ -7058,6 +7077,10 @@ export type RunScoresResponseDto = {
    * Whether a person can record a verdict on the run: it ran to an end
    */
   takesVerdict: boolean;
+  /**
+   * What people’s verdict on the run teaches: judge where the station’s current claims judged the run, so the verdict counts towards the judge’s agreement; unjudged-run where they did not, so it counts in Insights only; no-judge where the station has no judge
+   */
+  verdictTeaches: 'judge' | 'unjudged-run' | 'no-judge';
   /**
    * Whether the judge’s verdict is people’s verdict; none where the judge’s verdict is hidden or the run has no people’s verdict
    */
@@ -21811,7 +21834,11 @@ export type ClearRunVerdictErrors = {
    */
   401: unknown;
   /**
-   * No such run for this caller
+   * The caller sees the team but does not work on it
+   */
+  403: unknown;
+  /**
+   * No such finished run for this caller
    */
   404: unknown;
   /**
@@ -21842,11 +21869,15 @@ export type RecordRunVerdictErrors = {
    */
   401: unknown;
   /**
-   * No such run for this caller
+   * The caller sees the team but does not work on it
+   */
+  403: unknown;
+  /**
+   * No such finished run for this caller
    */
   404: unknown;
   /**
-   * The run has not finished, ended before it ran, or changed meanwhile
+   * The run ended before it ran, or changed meanwhile
    */
   409: unknown;
   /**

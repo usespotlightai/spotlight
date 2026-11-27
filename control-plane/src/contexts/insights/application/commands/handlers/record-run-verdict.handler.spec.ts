@@ -11,6 +11,7 @@ import { RunScoresViews } from '@insights/application/services/run-scores-views.
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { TeamRunRecords } from '@insights/application/services/team-run-records.service';
 import { InvalidRunVerdictError } from '@insights/domain/exceptions/invalid-run-verdict.error';
+import { NotActingOnTeamError } from '@insights/domain/exceptions/not-acting-on-team.error';
 import { RunTakesNoVerdictError } from '@insights/domain/exceptions/run-takes-no-verdict.error';
 import { TeamNotFoundError } from '@insights/domain/exceptions/team-not-found.error';
 import { UnknownRunError } from '@insights/domain/exceptions/unknown-run.error';
@@ -44,6 +45,8 @@ const JUDGE: StationJudge = {
 };
 
 const PEOPLE: PeoplePort = {
+  actsOnTeam: async (_teamId, principal) =>
+    !principal.userId.equals(UserId.of('user_admin')),
   viewerOf: async (teamId, principal) =>
     teamId.equals(TeamId.of('team_1')) &&
     !principal.userId.equals(UserId.of('user_stranger'))
@@ -120,6 +123,7 @@ describe('RecordRunVerdictHandler', () => {
       personVerdict: null,
       implicitFrom: null,
       takesVerdict: true,
+      verdictTeaches: 'unjudged-run',
     });
 
     await line.mark(false, 'It planned the change, which is Spec’s job.');
@@ -190,5 +194,17 @@ describe('RecordRunVerdictHandler', () => {
     await expect(
       line.mark(false, null, 'user_ada', 'run_1', 'team_2'),
     ).rejects.toMatchObject({ kind: 'not-found' });
+  });
+
+  it('refuses a verdict from someone who can see the team but does not work on it', async () => {
+    const line = await marking();
+
+    await expect(line.mark(false, null, 'user_admin')).rejects.toMatchObject({
+      kind: 'not-allowed',
+      refusal: { name: NotActingOnTeamError.name },
+    });
+    await expect(line.clear('user_admin')).rejects.toMatchObject({
+      kind: 'not-allowed',
+    });
   });
 });

@@ -191,6 +191,7 @@ describe('ReadRunScoresHandler', () => {
 
     expect(scores.judged).toBe(true);
     expect(scores.judge).toBeNull();
+    expect(scores.verdictTeaches).toBe('judge');
     expect(scores.calibration).toMatchObject({
       qualified: false,
       hiddenReason: 'below-min-agreement',
@@ -203,6 +204,7 @@ describe('ReadRunScoresHandler', () => {
     expect(scores.calibration.qualified).toBe(true);
     expect(scores.judged).toBe(true);
     expect(scores.judge).toBeNull();
+    expect(scores.verdictTeaches).toBe('unjudged-run');
   });
 
   it('answers what people did with the run beside a judge that agrees with them', async () => {

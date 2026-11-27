@@ -1,4 +1,5 @@
 import type { JudgeCalibrationDto } from '@insights/application/dto/judge-calibration.dto';
+import type { VerdictTeaching } from '@insights/domain/services/verdict-teaching';
 import type { CitationKind } from '@insights/domain/value-objects/citation.vo';
 import type { LabelSource } from '@insights/domain/value-objects/label-source';
 
@@ -59,5 +60,6 @@ export interface RunScoresDto {
   readonly personVerdict: PersonVerdictDto | null;
   readonly implicitFrom: LabelSource | null;
   readonly takesVerdict: boolean;
+  readonly verdictTeaches: VerdictTeaching;
   readonly agrees: boolean | null;
 }

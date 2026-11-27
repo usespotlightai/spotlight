@@ -7,6 +7,8 @@ import type {
   RunnerHistoryDto,
 } from '@work/application/dto/runner-history.dto';
 import {
+  PEOPLE_VERDICT_SOURCES,
+  type PeopleVerdictSource,
   RUN_HUMAN_ACTION_KINDS,
   type RunHumanActionKind,
 } from '@work/application/ports/run-results.port';
@@ -81,6 +83,23 @@ export class HistoryHumanActionResponseDto {
   }
 }
 
+export class HistoryPeopleVerdictResponseDto {
+  @ApiProperty({ description: 'Whether people passed the run' })
+  readonly passes: boolean;
+
+  @ApiProperty({
+    enum: PEOPLE_VERDICT_SOURCES,
+    description:
+      'What gave people’s verdict: a verdict a person recorded on the run (marked right or wrong) comes first; otherwise an accept, a send back, a hold that ended with the reason The line got it wrong, or the merge of the task’s pull requests',
+  })
+  readonly from: PeopleVerdictSource;
+
+  constructor(from: { passes: boolean; from: PeopleVerdictSource }) {
+    this.passes = from.passes;
+    this.from = from.from;
+  }
+}
+
 export class RunOutcomeResponseDto {
   @ApiProperty({
     enum: [
@@ -123,6 +142,14 @@ export class RunOutcomeResponseDto {
   })
   readonly pullRequestState: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: () => HistoryPeopleVerdictResponseDto,
+    description:
+      'People’s verdict on the run, the one that teaches the station’s judge; none where nothing gives one',
+  })
+  readonly peopleVerdict: HistoryPeopleVerdictResponseDto | null;
+
   constructor(from: HistoryOutcome) {
     this.ending = from.ending;
     this.failure = from.failure;
@@ -133,6 +160,9 @@ export class RunOutcomeResponseDto {
       ? new HistoryHumanActionResponseDto(from.humanAction)
       : null;
     this.pullRequestState = from.pullRequestState;
+    this.peopleVerdict = from.peopleVerdict
+      ? new HistoryPeopleVerdictResponseDto(from.peopleVerdict)
+      : null;
   }
 }
 

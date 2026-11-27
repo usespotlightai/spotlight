@@ -11,6 +11,17 @@ export const RUN_HUMAN_ACTION_KINDS = [
 
 export type RunHumanActionKind = (typeof RUN_HUMAN_ACTION_KINDS)[number];
 
+export const PEOPLE_VERDICT_SOURCES = [
+  'accepted',
+  'sent-back',
+  'merged',
+  'held-as-wrong',
+  'marked-right',
+  'marked-wrong',
+] as const;
+
+export type PeopleVerdictSource = (typeof PEOPLE_VERDICT_SOURCES)[number];
+
 type RunEndingShape =
   | 'completed'
   | 'failed'
@@ -32,6 +43,10 @@ export interface RunResultShape {
     readonly at: string;
   } | null;
   readonly pullRequestState: 'open' | 'merged' | 'closed' | null;
+  readonly peopleVerdict: {
+    readonly passes: boolean;
+    readonly from: PeopleVerdictSource;
+  } | null;
 }
 
 export interface RunResultsPort {

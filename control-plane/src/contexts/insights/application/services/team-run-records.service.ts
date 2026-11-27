@@ -23,7 +23,7 @@ export class TeamRunRecords {
     runId: string;
     viewerId: string;
   }): Promise<RunRecordOnTeam> {
-    const access = await this.access.forTeam(
+    const access = await this.access.actingOn(
       TeamId.of(input.teamId),
       UserId.of(input.viewerId),
     );

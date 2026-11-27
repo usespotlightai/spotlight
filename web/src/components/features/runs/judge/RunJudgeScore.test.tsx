@@ -210,18 +210,29 @@ describe('RunJudgeScore', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('asks for people’s verdict on a run no judge checked, and says that it teaches the judge', async () => {
+  it('says that people’s verdict teaches the judge on a run the judge checked', () => {
+    showing();
+
+    expect(
+      screen.getByText(/Your verdict teaches this station’s judge/),
+    ).toBeInTheDocument();
+  });
+
+  it('asks for people’s verdict on a run no judge checked, and says it counts in Insights only', async () => {
     scores.mockReturnValue(
-      runScoresOf('run_1', 'task_1', { judged: false, judge: null }),
+      runScoresOf('run_1', 'task_1', {
+        judged: false,
+        judge: null,
+        verdictTeaches: 'unjudged-run',
+      }),
     );
     showing();
 
     expect(
       [...document.querySelectorAll('dt')].map((each) => each.textContent),
     ).toEqual(['People']);
-    expect(
-      screen.getByText(/Your verdict teaches this station’s judge/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/does not teach the judge/)).toBeInTheDocument();
+    expect(screen.queryByText(/Your verdict teaches/)).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Wrong' }));
 
@@ -283,7 +294,9 @@ describe('RunJudgeScore', () => {
       reason: 'It planned the change.',
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Clear verdict' }),
+    );
 
     expect(clear).toHaveBeenCalledWith({ teamId: 'team_1', runId: 'run_1' });
   });

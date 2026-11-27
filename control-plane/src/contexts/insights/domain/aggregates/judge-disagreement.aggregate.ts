@@ -110,6 +110,9 @@ const notMetRuleOf = (
   return null;
 };
 
+const sameAsked = (one: UserId | null, other: UserId | null): boolean =>
+  one === null ? other === null : other !== null && one.equals(other);
+
 export class JudgeDisagreement extends EventRecorder {
   private deleted = false;
 
@@ -321,6 +324,23 @@ export class JudgeDisagreement extends EventRecorder {
 
   get version(): number {
     return this.fields.version;
+  }
+
+  static mayOpenBeside(
+    known: readonly JudgeDisagreement[],
+    at: {
+      readonly rubricVersion: RubricVersion;
+      readonly labelFrom: LabelSource;
+      readonly askedOf: UserId | null;
+    },
+  ): boolean {
+    return !known.some(
+      (each) =>
+        each.rubricVersion === at.rubricVersion &&
+        (!each.isWithdrawn ||
+          (each.labelFrom === at.labelFrom &&
+            sameAsked(each.askedOf, at.askedOf))),
+    );
   }
 
   noLongerHoldsBecause(input: {

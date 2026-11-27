@@ -59,7 +59,7 @@ export function OutcomeRow({ run, to }: OutcomeRowProps) {
         {formatChecks(run.checks)}
       </NestedCell>
       <NestedCell heading="Human action" numeric={false}>
-        {formatHumanAction(run)}
+        {formatHumanAction(run.humanAction)}
       </NestedCell>
       <NestedCell heading="Pull request" numeric={false}>
         {formatPullRequestState(run.pullRequestState)}

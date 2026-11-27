@@ -12,6 +12,7 @@ const NOW = new Date('2026-10-01T15:00:00.000Z');
 const scopes = (onTeam: boolean) =>
   new TeamScopes(
     new InsightsAccess({
+      actsOnTeam: async () => onTeam,
       viewerOf: async () =>
         onTeam ? { workspaceId: WORKSPACE, by: UserId.of('user_ada') } : null,
       namesOf: async () => new Map(),

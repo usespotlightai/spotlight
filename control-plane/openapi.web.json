@@ -6636,11 +6636,14 @@
           "401": {
             "description": "No valid session"
           },
+          "403": {
+            "description": "The caller sees the team but does not work on it"
+          },
           "404": {
-            "description": "No such run for this caller"
+            "description": "No such finished run for this caller"
           },
           "409": {
-            "description": "The run has not finished, ended before it ran, or changed meanwhile"
+            "description": "The run ended before it ran, or changed meanwhile"
           },
           "422": {
             "description": "The verdict has no right, the reason is not text, a reason is given for a run that was right, or the reason is over 2,000 characters"
@@ -6685,8 +6688,11 @@
           "401": {
             "description": "No valid session"
           },
+          "403": {
+            "description": "The caller sees the team but does not work on it"
+          },
           "404": {
-            "description": "No such run for this caller"
+            "description": "No such finished run for this caller"
           },
           "409": {
             "description": "The run changed meanwhile"
@@ -17125,6 +17131,10 @@
             "nullable": true,
             "description": "What gave people’s verdict on the run, as on the run’s verdicts; null where nothing gives one"
           },
+          "verdictRecorded": {
+            "type": "boolean",
+            "description": "Whether a person recorded a verdict on the run, which then gives its resolution"
+          },
           "failure": {
             "type": "string",
             "nullable": true,
@@ -17195,6 +17205,7 @@
           "ending",
           "resolution",
           "labelFrom",
+          "verdictRecorded",
           "failure",
           "runNumber",
           "usage",
@@ -18485,6 +18496,15 @@
             "type": "boolean",
             "description": "Whether a person can record a verdict on the run: it ran to an end"
           },
+          "verdictTeaches": {
+            "type": "string",
+            "enum": [
+              "judge",
+              "unjudged-run",
+              "no-judge"
+            ],
+            "description": "What people’s verdict on the run teaches: judge where the station’s current claims judged the run, so the verdict counts towards the judge’s agreement; unjudged-run where they did not, so it counts in Insights only; no-judge where the station has no judge"
+          },
           "agrees": {
             "type": "boolean",
             "nullable": true,
@@ -18503,6 +18523,7 @@
           "personVerdict",
           "implicitFrom",
           "takesVerdict",
+          "verdictTeaches",
           "agrees"
         ]
       },
@@ -18516,6 +18537,7 @@
           "reason": {
             "type": "string",
             "nullable": true,
+            "maxLength": 2000,
             "description": "Why the run was wrong: only where it was wrong, optional, at most 2,000 characters"
           }
         },

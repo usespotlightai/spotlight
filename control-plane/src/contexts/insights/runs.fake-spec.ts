@@ -580,6 +580,7 @@ export const SET_UP = {
 
 export const NOBODY_ELSE: PeoplePort = {
   viewerOf: async () => null,
+  actsOnTeam: async () => false,
   namesOf: async () => new Map<string, string>(),
 };
 

@@ -7,6 +7,10 @@ import type {
   PersonVerdictDto,
   RunScoresDto,
 } from '@insights/application/dto/run-scores.dto';
+import {
+  VERDICT_TEACHINGS,
+  type VerdictTeaching,
+} from '@insights/domain/services/verdict-teaching';
 import { CITATION_KINDS } from '@insights/domain/value-objects/citation.vo';
 import { LABEL_SOURCES } from '@insights/domain/value-objects/label-source';
 import { MAX_VERDICT_REASON_CHARS } from '@insights/domain/value-objects/person-verdict.vo';
@@ -199,6 +203,7 @@ export class RecordRunVerdictRequestDto {
     type: String,
     nullable: true,
     required: false,
+    maxLength: MAX_VERDICT_REASON_CHARS,
     description: `Why the run was wrong: only where it was wrong, optional, at most ${MAX_VERDICT_REASON_CHARS.toLocaleString('en')} characters`,
   })
   readonly reason?: string | null;
@@ -267,6 +272,13 @@ export class RunScoresResponseDto {
   readonly takesVerdict: boolean;
 
   @ApiProperty({
+    enum: VERDICT_TEACHINGS,
+    description:
+      'What people’s verdict on the run teaches: judge where the station’s current claims judged the run, so the verdict counts towards the judge’s agreement; unjudged-run where they did not, so it counts in Insights only; no-judge where the station has no judge',
+  })
+  readonly verdictTeaches: VerdictTeaching;
+
+  @ApiProperty({
     type: Boolean,
     nullable: true,
     description:
@@ -288,6 +300,7 @@ export class RunScoresResponseDto {
       : null;
     this.implicitFrom = scores.implicitFrom;
     this.takesVerdict = scores.takesVerdict;
+    this.verdictTeaches = scores.verdictTeaches;
     this.agrees = scores.agrees;
   }
 }

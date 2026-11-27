@@ -345,6 +345,7 @@ beforeAll(async () => {
   });
   listing = new ReadStationInsightsHandler(
     new InsightsAccess({
+      actsOnTeam: async () => true,
       namesOf: async () => new Map(),
       viewerOf: async (_teamId, principal) =>
         principal.userId.equals(UserId.of('user_ada'))
