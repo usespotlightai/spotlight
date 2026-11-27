@@ -40,6 +40,8 @@ export interface ChatCiRow {
   readonly pullRequestsTrustId: string;
   readonly defaultBranchTrustId: string;
   readonly variables: 'written' | 'not-permitted';
+  // Chats set up before Spotlight read this were briefed to add the workflow.
+  readonly workflows?: 'permitted' | 'not-permitted';
 }
 
 export interface ChatSetupRow {

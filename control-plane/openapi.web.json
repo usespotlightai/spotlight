@@ -13639,6 +13639,20 @@
             "example": "code-unreachable",
             "description": "What keeps the viewer from starting a setup chat, the first that applies, as the start of one refuses it: needs-an-admin (the viewer is not a workspace owner or admin), code-unreachable (the GitHub App is not installed) or needs-egress (no host serves the workspace, and no push pool names an egress). Null when the viewer can start one"
           },
+          "missingPermissions": {
+            "type": "array",
+            "example": [
+              "workflows"
+            ],
+            "description": "The GitHub App permissions that the setup uses and the installation has not granted: workflows (to add the GitHub Actions workflow) and variables (to set the repository variables). The setup chat can still start, and its pull request leaves these for a person to add. Empty when the installation has them, or when Spotlight cannot tell",
+            "items": {
+              "type": "string",
+              "enum": [
+                "workflows",
+                "variables"
+              ]
+            }
+          },
           "viewerIsAdmin": {
             "type": "boolean",
             "description": "Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts"
@@ -13659,6 +13673,7 @@
           "steps",
           "canSetUp",
           "setupRefusal",
+          "missingPermissions",
           "viewerIsAdmin",
           "setupChat"
         ]

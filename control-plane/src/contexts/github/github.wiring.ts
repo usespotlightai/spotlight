@@ -12,6 +12,7 @@ import {
 import { GITHUB_APP } from '@github/application/ports/github-app.port';
 import { GITHUB_WEBHOOKS } from '@github/application/ports/github-webhooks.port';
 import { INSTALLATION_ADMINISTRATION } from '@github/application/ports/installation-administration.port';
+import { INSTALLATION_PERMISSIONS } from '@github/application/ports/installation-permissions.port';
 import { INSTALLATION_REPOSITORIES } from '@github/application/ports/installation-repositories.port';
 import {
   INSTALLATIONS,
@@ -392,6 +393,8 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
     useFactory: (env: Env, installations: InstallationsPort) =>
       new GitHubAppAccess(env, installations),
   },
+
+  { provide: INSTALLATION_PERMISSIONS, useExisting: REPOSITORY_ACCESS },
 
   {
     provide: GITHUB_APP,

@@ -67,6 +67,7 @@ import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { AppGrants } from '@work/domain/value-objects/app-grants.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -211,6 +212,7 @@ export const WORK_PAYLOAD_TYPES = [
   PushedHead,
   PullRequestTitle,
   CiSetup,
+  AppGrants,
   ConfigFolder,
   Mark,
   DiffSide,

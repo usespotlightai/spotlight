@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router';
 
 import { ConfigFolderForm } from '@/components/features/onboarding/ConfigFolderForm';
 import { InstallGitHubLink } from '@/components/features/onboarding/InstallGitHubLink';
+import { MissingAppPermissions } from '@/components/features/onboarding/MissingAppPermissions';
 import {
   SETUP_CONTROL,
   setupLinkClass,
@@ -205,7 +206,16 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
     const refusal = onboarding.setupRefusal;
 
     if (refusal === null) {
-      return <ConfigFolderForm slug={slug} teamId={teamId} />;
+      return (
+        <div className="flex flex-col gap-4">
+          <MissingAppPermissions
+            slug={slug}
+            teamId={teamId}
+            missing={onboarding.missingPermissions}
+          />
+          <ConfigFolderForm slug={slug} teamId={teamId} />
+        </div>
+      );
     }
 
     if (refusal === 'needs-an-admin') {

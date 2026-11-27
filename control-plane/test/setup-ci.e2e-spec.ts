@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  INSTALLATION_PERMISSIONS,
+  type InstallationPermissionsDto,
+  type InstallationPermissionsPort,
+} from '@github/application/ports/installation-permissions.port';
+import {
   REPOSITORY_SETTINGS,
   type RepositorySettingsPort,
   type VariablesWrite,
@@ -36,6 +41,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
   let protectedBranch: boolean;
   let variables: VariablesWrite;
   let subjectPrefix: string | undefined;
+  let granted: InstallationPermissionsDto | null;
   const written: Record<string, string>[] = [];
 
   const settings: RepositorySettingsPort = {
@@ -53,6 +59,10 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
       written.push({ ...put });
       return variables;
     },
+  };
+
+  const permissions: InstallationPermissionsPort = {
+    of: async () => granted,
   };
 
   const startingAs = (person: string, repository = 'acme/infra') =>
@@ -84,6 +94,8 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
       module
         .overrideProvider(REPOSITORY_SETTINGS)
         .useValue(settings)
+        .overrideProvider(INSTALLATION_PERMISSIONS)
+        .useValue(permissions)
         .overrideProvider(ACCESSIBLE_REPOSITORIES)
         .useValue({ isAccessible: async () => true }),
     );
@@ -103,6 +115,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
     protectedBranch = true;
     variables = 'written';
     subjectPrefix = undefined;
+    granted = { workflows: true, variables: true };
     written.length = 0;
     await db.insert(schema.runnerPool).values({
       id: randomUUID(),
@@ -193,6 +206,24 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
       viewerIsAdmin: false,
       setupRefusal: 'needs-an-admin',
     });
+  });
+
+  it('records whether the GitHub App may add the workflow, for the setup’s briefing', async () => {
+    const setUpWorkflows = async () =>
+      (
+        await db
+          .select()
+          .from(schema.chat)
+          .where(eq(schema.chat.workspaceId, workspaceId))
+      ).map((each) => each.setup?.ci?.workflows);
+
+    await startingAs(owner).expect(201);
+    expect(await setUpWorkflows()).toEqual(['permitted']);
+
+    await deleteChatsOf(db, workspaceId);
+    granted = { workflows: false, variables: true };
+    await startingAs(owner).expect(201);
+    expect(await setUpWorkflows()).toEqual(['not-permitted']);
   });
 
   it('keeps the same trusts when the setup runs again', async () => {

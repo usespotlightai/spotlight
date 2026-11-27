@@ -23,6 +23,7 @@ describe('CiSetup', () => {
         pullRequestsTrustId: '',
         defaultBranchTrustId: 'trust_2',
         variables: 'written',
+        workflows: 'permitted',
       }),
     ).toThrow(InconsistentStateError);
   });

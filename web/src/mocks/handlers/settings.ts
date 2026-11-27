@@ -115,6 +115,7 @@ const onboarding = (teamId: string): OnboardingResponseDto => ({
       : settingsWorld().fleet.hosts.length === 0
         ? 'needs-egress'
         : null,
+  missingPermissions: [],
   viewerIsAdmin: settingsWorld().viewerIsAdmin,
   setupChat: setupChatOf(teamId),
 });

@@ -10,6 +10,10 @@ export const SETUP_REFUSAL_NAMES = [
 
 export type SetupRefusalName = (typeof SETUP_REFUSAL_NAMES)[number];
 
+export const SETUP_PERMISSION_NAMES = ['workflows', 'variables'] as const;
+
+export type SetupPermissionName = (typeof SETUP_PERMISSION_NAMES)[number];
+
 export const PROVISIONING_NAMES = ['pending', 'done'] as const;
 
 export type ProvisioningName = (typeof PROVISIONING_NAMES)[number];
@@ -40,6 +44,7 @@ export interface OnboardingDto {
   readonly steps: readonly SetupStepDto[];
   readonly canSetUp: boolean;
   readonly setupRefusal: SetupRefusalName | null;
+  readonly missingPermissions: readonly SetupPermissionName[];
   readonly viewerIsAdmin: boolean;
   readonly setupChat: SetupChatDto | null;
 }

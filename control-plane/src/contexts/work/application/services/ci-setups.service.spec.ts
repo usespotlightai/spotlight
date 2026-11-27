@@ -1,3 +1,7 @@
+import type {
+  InstallationPermissionsDto,
+  InstallationPermissionsPort,
+} from '@github/application/ports/installation-permissions.port';
 import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { GitHubActionsTrustsPort } from '@identity/application/ports/github-actions-trusts.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -6,7 +10,13 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { CiSetups } from '@work/application/services/ci-setups.service';
 import { describe, expect, it, vi } from 'vitest';
 
-const settingUp = (variables: 'written' | 'not-permitted' = 'written') => {
+const settingUp = (
+  variables: 'written' | 'not-permitted' = 'written',
+  granted: InstallationPermissionsDto | null = {
+    workflows: true,
+    variables: true,
+  },
+) => {
   const settings = {
     defaultBranchOf: vi.fn(async () => ({
       name: 'trunk',
@@ -25,11 +35,20 @@ const settingUp = (variables: 'written' | 'not-permitted' = 'written') => {
       defaultBranch: { id: 'trust_apply', key: 'github-apply' },
     })),
   } satisfies GitHubActionsTrustsPort;
+  const permissions = {
+    of: vi.fn(async () => granted),
+  } satisfies InstallationPermissionsPort;
 
   return {
     settings,
     trusts,
-    ci: new CiSetups(settings, trusts, 'https://app.usespotlight.ai'),
+    permissions,
+    ci: new CiSetups(
+      settings,
+      trusts,
+      permissions,
+      'https://app.usespotlight.ai',
+    ),
   };
 };
 
@@ -99,5 +118,26 @@ describe('CiSetups', () => {
       defaultBranchTrustId: 'trust_apply',
       variables: 'not-permitted',
     });
+  });
+
+  it('records that the agent may add the workflow when the GitHub App may change workflows', async () => {
+    const { ci, permissions } = settingUp();
+
+    const set = await setUp(ci);
+
+    expect(set.workflows).toBe('permitted');
+    expect(permissions.of).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
+  });
+
+  it('records that the agent may not add the workflow when the GitHub App may not change workflows', async () => {
+    const { ci } = settingUp('written', { workflows: false, variables: true });
+
+    expect((await setUp(ci)).workflows).toBe('not-permitted');
+  });
+
+  it('lets the agent try the workflow when GitHub would not say what the App may do', async () => {
+    const { ci } = settingUp('written', null);
+
+    expect((await setUp(ci)).workflows).toBe('permitted');
   });
 });

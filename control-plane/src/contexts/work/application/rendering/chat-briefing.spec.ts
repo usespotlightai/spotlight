@@ -484,6 +484,7 @@ describe('ChatBriefing', () => {
             pullRequestsTrustId: 'trust_plan',
             defaultBranchTrustId: 'trust_apply',
             variables: 'written',
+            workflows: 'permitted',
             ...ci,
           }),
         ),
@@ -565,6 +566,35 @@ describe('ChatBriefing', () => {
     it('asks the person to add the variables when the GitHub App may not', () => {
       expect(brief(withCi({ variables: 'not-permitted' }))).toContain(
         '`SPOTLIGHT_PLAN_TRUST` = `trust_plan`, `SPOTLIGHT_APPLY_TRUST` = `trust_apply`',
+      );
+    });
+
+    it('tells the agent to add the workflow when the GitHub App may change workflows', () => {
+      const briefing = brief(withCi());
+
+      expect(briefing).toContain(
+        'Add `.github/workflows/spotlight.yml` at the repository root.',
+      );
+      expect(briefing).not.toContain('may not change workflows');
+    });
+
+    it('tells the agent not to push the workflow, but to put it in the pull request, when the GitHub App may not change workflows', () => {
+      const briefing = brief(withCi({ workflows: 'not-permitted' }));
+
+      expect(briefing).toContain(
+        'The GitHub App may not change workflows, so GitHub refuses a push that adds `.github/workflows/spotlight.yml`',
+      );
+      expect(briefing).toContain('Do not commit one, and do not try.');
+      expect(briefing).toContain(
+        'Put the workflow in the pull request description instead',
+      );
+      expect(briefing).toContain('accepting its updated permissions on GitHub');
+      expect(briefing).not.toContain(
+        'Add `.github/workflows/spotlight.yml` at the repository root.',
+      );
+      expect(briefing).toContain(
+        // oxlint-disable-next-line no-template-curly-in-string -- GitHub Actions expression syntax
+        'SPOTLIGHT_OIDC_TRUST: ${{ vars.SPOTLIGHT_APPLY_TRUST }}',
       );
     });
 

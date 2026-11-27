@@ -2,8 +2,10 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   PROVISIONING_NAMES,
   type ProvisioningName,
+  SETUP_PERMISSION_NAMES,
   SETUP_REFUSAL_NAMES,
   SETUP_STEP_KEYS,
+  type SetupPermissionName,
   type SetupRefusalName,
   type SetupStepDto,
 } from '@work/application/dto/onboarding.dto';
@@ -154,6 +156,15 @@ export class OnboardingResponseDto {
   readonly setupRefusal: SetupRefusalName | null;
 
   @ApiProperty({
+    enum: SETUP_PERMISSION_NAMES,
+    isArray: true,
+    example: ['workflows'],
+    description:
+      'The GitHub App permissions that the setup uses and the installation has not granted: workflows (to add the GitHub Actions workflow) and variables (to set the repository variables). The setup chat can still start, and its pull request leaves these for a person to add. Empty when the installation has them, or when Spotlight cannot tell',
+  })
+  readonly missingPermissions: readonly SetupPermissionName[];
+
+  @ApiProperty({
     description:
       'Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts',
   })
@@ -172,6 +183,7 @@ export class OnboardingResponseDto {
     steps: readonly SetupStepResponseDto[],
     canSetUp: boolean,
     setupRefusal: SetupRefusalName | null,
+    missingPermissions: readonly SetupPermissionName[],
     viewerIsAdmin: boolean,
     setupChat: SetupChatResponseDto | null,
   ) {
@@ -179,6 +191,7 @@ export class OnboardingResponseDto {
     this.steps = steps;
     this.canSetUp = canSetUp;
     this.setupRefusal = setupRefusal;
+    this.missingPermissions = missingPermissions;
     this.viewerIsAdmin = viewerIsAdmin;
     this.setupChat = setupChat;
   }

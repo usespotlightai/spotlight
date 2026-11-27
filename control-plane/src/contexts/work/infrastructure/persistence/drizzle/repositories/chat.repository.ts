@@ -154,6 +154,7 @@ const setupRow = (setup: ConfigFolder | null): ChatSetupRow | null =>
               pullRequestsTrustId: setup.ci.pullRequestsTrustId,
               defaultBranchTrustId: setup.ci.defaultBranchTrustId,
               variables: setup.ci.variables,
+              workflows: setup.ci.workflows,
             }
           : null,
       }
@@ -193,7 +194,12 @@ const toChat = (
           pullRequest: nonEmpty(row.setup.pullRequest)
             ? PullRequestUrl.of(row.setup.pullRequest)
             : null,
-          ci: row.setup.ci ? CiSetup.of(row.setup.ci) : null,
+          ci: row.setup.ci
+            ? CiSetup.of({
+                ...row.setup.ci,
+                workflows: row.setup.ci.workflows ?? 'permitted',
+              })
+            : null,
         })
       : null,
     messages: messages.map((each) => toMessage(each, attachments)),

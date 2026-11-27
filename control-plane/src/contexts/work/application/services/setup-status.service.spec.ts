@@ -1,3 +1,7 @@
+import type {
+  InstallationPermissionsDto,
+  InstallationPermissionsPort,
+} from '@github/application/ports/installation-permissions.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
@@ -9,6 +13,7 @@ import type {
 } from '@work/application/ports/chat-reader.port';
 import { SetupStatus } from '@work/application/services/setup-status.service';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
+import { AppGrants } from '@work/domain/value-objects/app-grants.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('123e4567-e89b-42d3-a456-426614174001');
@@ -21,9 +26,20 @@ type Options = {
   hosted?: boolean;
   platform?: boolean;
   chats?: readonly SetupChatView[];
+  granted?: InstallationPermissionsDto | null;
+};
+
+const PERMISSIONS = {
+  of: vi.fn<InstallationPermissionsPort['of']>(),
 };
 
 const read = (options: Options = {}) => {
+  PERMISSIONS.of.mockReset();
+  PERMISSIONS.of.mockResolvedValue(
+    options.granted === undefined
+      ? { workflows: true, variables: true }
+      : options.granted,
+  );
   const connections = partial<WorkspaceConnectionsPort>({
     isConnected: vi.fn().mockResolvedValue(options.connected ?? false),
   });
@@ -40,6 +56,7 @@ const read = (options: Options = {}) => {
 
   return new SetupStatus(
     connections,
+    PERMISSIONS,
     runners,
     chats,
     partial<ChatRepository>({}),
@@ -56,8 +73,32 @@ describe('SetupStatus', () => {
       },
       runners: { platform: false },
       hasEgressCapableRunner: false,
+      grants: AppGrants.unread(),
       chat: null,
     });
+  });
+
+  it('reads what the GitHub App may do once it is installed', async () => {
+    const status = await read({
+      connected: true,
+      granted: { workflows: false, variables: true },
+    });
+
+    expect(status.grants.missingForSetup()).toEqual(['workflows']);
+    expect(PERMISSIONS.of).toHaveBeenCalledWith(WORKSPACE);
+  });
+
+  it('asks GitHub nothing before the App is installed', async () => {
+    const status = await read({ connected: false });
+
+    expect(status.grants.missingForSetup()).toEqual([]);
+    expect(PERMISSIONS.of).not.toHaveBeenCalled();
+  });
+
+  it('claims nothing is missing when GitHub would not say what the App may do', async () => {
+    const status = await read({ connected: true, granted: null });
+
+    expect(status.grants.missingForSetup()).toEqual([]);
   });
 
   it('says whether the deployment gives the workspace platform runners', async () => {

@@ -9,6 +9,7 @@ import { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import type { SetupStatus } from '@work/application/services/setup-status.service';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { SETUP_STEPS, type SetupState } from '@work/domain/services/setup-list';
+import { AppGrants } from '@work/domain/value-objects/app-grants.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 type Options = {
@@ -19,6 +20,7 @@ type Options = {
   origin?: 'sign-up' | 'configuration';
   welcomed?: boolean;
   admin?: boolean;
+  grants?: AppGrants;
 };
 
 const nothing: SetupState = {
@@ -52,6 +54,7 @@ const handler = (options: Options = {}) => {
       state: { ...nothing, ...options.state },
       runners: { platform: false },
       hasEgressCapableRunner: options.hasEgressCapableRunner ?? false,
+      grants: options.grants ?? AppGrants.unread(),
       chat: options.chat ?? null,
     }),
   });
@@ -114,6 +117,30 @@ describe('OnboardingHandler', () => {
         hasEgressCapableRunner: false,
       }),
     ).resolves.toMatchObject({ canSetUp: false });
+  });
+
+  it('names the GitHub App permissions the setup uses and the installation lacks', async () => {
+    await expect(
+      read({ grants: AppGrants.of({ workflows: false, variables: false }) }),
+    ).resolves.toMatchObject({
+      missingPermissions: ['workflows', 'variables'],
+    });
+    await expect(
+      read({ grants: AppGrants.of({ workflows: false, variables: true }) }),
+    ).resolves.toMatchObject({ missingPermissions: ['workflows'] });
+    await expect(
+      read({ grants: AppGrants.of({ workflows: true, variables: true }) }),
+    ).resolves.toMatchObject({ missingPermissions: [] });
+  });
+
+  it('still lets the setup chat start when the App lacks a permission', async () => {
+    await expect(
+      read({
+        state: { connectedToGitHub: true },
+        hasEgressCapableRunner: true,
+        grants: AppGrants.of({ workflows: false, variables: false }),
+      }),
+    ).resolves.toMatchObject({ canSetUp: true, setupRefusal: null });
   });
 
   it('says what keeps the viewer from starting a setup chat, as SetupAdmission refuses it', async () => {
