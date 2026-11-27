@@ -1,5 +1,5 @@
 import { Check, ChevronDown } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useId, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { ConfigFolderForm } from '@/components/features/onboarding/ConfigFolderForm';
@@ -14,7 +14,6 @@ import {
 } from '@/components/features/onboarding/SetupAbout';
 import { SetupStepsSkeleton } from '@/components/features/onboarding/SetupStepsSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
-import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
 import { Button } from '@/components/ui/button';
 import { useGitHub } from '@/hooks/api/useGitHub';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
@@ -33,9 +32,30 @@ type SetupRefusal = NonNullable<OnboardingResponseDto['setupRefusal']>;
 type WaitingRefusal = Exclude<SetupRefusal, 'needs-an-admin'>;
 
 const SETUP_REFUSALS: Readonly<Record<WaitingRefusal, string>> = {
-  'code-unreachable': 'Install the GitHub App first.',
-  'needs-egress': 'Connect a host first.',
+  'code-unreachable':
+    'Install the GitHub App first: the setup chat reaches your code through it.',
+  'needs-egress': 'Connect a host first: the setup chat runs on one.',
 };
+
+function WaitingToSetUp({ refusal }: { refusal: WaitingRefusal }) {
+  const reasonId = useId();
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <Button
+        size="sm"
+        disabled
+        aria-describedby={reasonId}
+        className={SETUP_CONTROL}
+      >
+        Continue in chat
+      </Button>
+      <p id={reasonId} className="text-muted-foreground text-sm leading-6">
+        {SETUP_REFUSALS[refusal]}
+      </p>
+    </div>
+  );
+}
 
 type SetupStepsProps = {
   teamId: string;
@@ -216,20 +236,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       );
     }
 
-    return (
-      <DisabledReasonTooltip reason={SETUP_REFUSALS[refusal]}>
-        {(describedBy) => (
-          <Button
-            size="sm"
-            disabled
-            aria-describedby={describedBy}
-            className={SETUP_CONTROL}
-          >
-            Continue in chat
-          </Button>
-        )}
-      </DisabledReasonTooltip>
-    );
+    return <WaitingToSetUp refusal={refusal} />;
   };
 
   const goAndDoIt = (step: SetupStepResponseDto): ReactNode => {

@@ -95,6 +95,10 @@ const chat = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+const GITHUB_FIRST =
+  'Install the GitHub App first: the setup chat reaches your code through it.';
+const HOST_FIRST = 'Connect a host first: the setup chat runs on one.';
+
 const BODY = '1. Install the GitHub App. So Spotlight can read and write.';
 
 const showing = (resolved = false) =>
@@ -310,29 +314,40 @@ describe('SetupSteps', () => {
     expect(screen.getByText('Choose the config folder')).toBeInTheDocument();
   });
 
-  it('shows the setup disabled, with what to do first, until GitHub and a host are ready', () => {
+  it('shows the setup disabled, and says why, until GitHub is installed', () => {
     onboardingState.data = onboarding();
     showing();
 
-    expect(
-      screen.getByRole('button', { name: 'Continue in chat' }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole('button', { name: 'Continue in chat' }),
-    ).toHaveAccessibleDescription('Install the GitHub App first.');
+    const button = screen.getByRole('button', { name: 'Continue in chat' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(GITHUB_FIRST);
+    expect(screen.getByText(GITHUB_FIRST)).not.toHaveClass('sr-only');
     expect(screen.queryByText('Choose the config folder')).toBeNull();
   });
 
-  it('asks for a host first once GitHub is ready', () => {
+  it('says the setup waits for a host once GitHub is installed and no host is connected', () => {
+    onboardingState.data = onboarding({}, ['github']);
+    showing();
+
+    const button = screen.getByRole('button', { name: 'Continue in chat' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(HOST_FIRST);
+    expect(screen.getByText(HOST_FIRST)).not.toHaveClass('sr-only');
+    expect(screen.queryByText('Choose the config folder')).toBeNull();
+    expect(screen.queryByText(/egress/)).toBeNull();
+  });
+
+  it('asks for a host first while no runner can reach out, even with step 2 ticked', () => {
     onboardingState.data = onboarding(
       { canSetUp: false, setupRefusal: 'needs-egress' },
       ['github', 'harness'],
     );
     showing();
 
-    expect(
-      screen.getByRole('button', { name: 'Continue in chat' }),
-    ).toHaveAccessibleDescription('Connect a host first.');
+    const button = screen.getByRole('button', { name: 'Continue in chat' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(HOST_FIRST);
+    expect(screen.getByText(HOST_FIRST)).not.toHaveClass('sr-only');
     expect(screen.queryByText('Choose the config folder')).toBeNull();
     expect(screen.queryByText(/egress/)).toBeNull();
   });

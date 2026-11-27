@@ -145,6 +145,17 @@ describe('OnboardingHandler', () => {
     ).resolves.toMatchObject({ setupRefusal: null });
   });
 
+  it('says the setup waits for a host once the GitHub App is installed and no host is connected', async () => {
+    const onboarding = await read({ state: { connectedToGitHub: true } });
+
+    expect(onboarding).toMatchObject({
+      canSetUp: false,
+      setupRefusal: 'needs-egress',
+    });
+    expect(step(onboarding, 'github')?.done).toBe(true);
+    expect(step(onboarding, 'harness')?.done).toBe(false);
+  });
+
   it('says whether the viewer is an owner or admin, who alone may set up', async () => {
     await expect(read()).resolves.toMatchObject({ viewerIsAdmin: true });
     await expect(read({ admin: false })).resolves.toMatchObject({
