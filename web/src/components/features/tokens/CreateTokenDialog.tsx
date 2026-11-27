@@ -17,8 +17,8 @@ import {
   type CreatedWorkspaceToken,
   useCreateWorkspaceToken,
 } from '@/hooks/api/useCreateWorkspaceToken';
+import { messageOf } from '@/lib/error';
 import { nonEmpty } from '@/lib/non-empty';
-import { sanitizeSlug, slugify } from '@/lib/slug';
 import {
   expiryAfter,
   LIFETIMES,
@@ -27,8 +27,6 @@ import {
   type TokenLevel,
   USUAL_LIFETIME,
 } from '@/lib/token';
-
-const LONGEST_NAME = 64;
 
 const LONGEST_DESCRIPTION = 255;
 
@@ -56,7 +54,7 @@ export function CreateTokenDialog({
   const [grants, setGrants] = useState<ReadonlySet<TokenGrant>>(new Set());
   const [lifetime, setLifetime] = useState<string | null>(USUAL_LIFETIME);
 
-  const named = slugify(name);
+  const named = name.trim();
   const busy = create.isPending || create.isSuccess;
 
   const reset = () => {
@@ -132,11 +130,10 @@ export function CreateTokenDialog({
                 autoComplete="off"
                 spellCheck={false}
                 placeholder="terraform"
-                maxLength={LONGEST_NAME}
                 disabled={busy}
                 value={name}
                 onChange={(event) => {
-                  setName(sanitizeSlug(event.target.value));
+                  setName(event.target.value);
                   if (create.isError) create.reset();
                 }}
               />
@@ -182,6 +179,12 @@ export function CreateTokenDialog({
               />
             </div>
           </div>
+
+          {create.isError && (
+            <p role="alert" className="text-destructive text-xs">
+              {messageOf(create.error)}
+            </p>
+          )}
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" size="sm" />}>

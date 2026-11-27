@@ -19,6 +19,7 @@ import { ChatHeardFromTask } from '@work/domain/events/chat-heard-from-task.even
 import { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
 import { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
 import { ChatPullRequestOpened } from '@work/domain/events/chat-pull-request-opened.event';
+import { ChatResolved } from '@work/domain/events/chat-resolved.event';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
@@ -299,10 +300,14 @@ export class Chat extends EventRecorder {
     return this.currentRunId !== null;
   }
 
+  get keepsNoLiveWorkingCopy(): boolean {
+    return this.resolvedAt !== null && !this.running;
+  }
+
   resolve(by: UserId, at: Date): Chat {
     this.assertStarter(by);
 
-    return this.resolvedAt ? this : this.with({ resolvedAt: at, readAt: at });
+    return this.resolvedAt ? this : this.resolvedAs(at);
   }
 
   reopen(by: UserId, at: Date): Chat {
@@ -739,7 +744,23 @@ export class Chat extends EventRecorder {
       this.nothingWaits &&
       this.proposals.some(({ proposal }) => proposal.becameTask);
 
-    return answered ? this.with({ resolvedAt: at, readAt: at }) : this;
+    if (!answered) {
+      return this;
+    }
+
+    return this.resolvedAt
+      ? this.with({ resolvedAt: at, readAt: at })
+      : this.resolvedAs(at);
+  }
+
+  private resolvedAs(at: Date): Chat {
+    const resolved = this.with({ resolvedAt: at, readAt: at });
+
+    resolved.record(
+      new ChatResolved(this.id, this.workspaceId, this.startedBy, at),
+    );
+
+    return resolved;
   }
 
   private endRun(runId: RunId): Chat {

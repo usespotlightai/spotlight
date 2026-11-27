@@ -23,6 +23,7 @@ import { ChatHeardFromTask } from '@work/domain/events/chat-heard-from-task.even
 import { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
 import { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
 import { ChatPullRequestOpened } from '@work/domain/events/chat-pull-request-opened.event';
+import { ChatResolved } from '@work/domain/events/chat-resolved.event';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
@@ -1074,6 +1075,37 @@ describe('Chat', () => {
       expect(created.readAt).toEqual(LATER);
     });
 
+    it('says it was resolved, once, and keeps no live working copy while no run is in progress', () => {
+      const resolved = started().resolve(LEON, LATER);
+      const events = resolved.pullEvents();
+
+      expect(events).toContainEqual(
+        new ChatResolved(resolved.id, resolved.workspaceId, LEON, LATER),
+      );
+      expect(
+        resolved
+          .resolve(LEON, LATEST)
+          .pullEvents()
+          .filter((each) => each.kind === 'chat.resolved'),
+      ).toEqual([]);
+      expect(resolved.keepsNoLiveWorkingCopy).toBe(true);
+      expect(started().keepsNoLiveWorkingCopy).toBe(false);
+      expect(working().resolve(LEON, NOW).keepsNoLiveWorkingCopy).toBe(false);
+      expect(ended(working().resolve(LEON, NOW)).keepsNoLiveWorkingCopy).toBe(
+        false,
+      );
+    });
+
+    it('says it was resolved when the last open proposal became a task', () => {
+      const created = accepted(proposing());
+
+      expect(created.pullEvents()).toContainEqual(
+        new ChatResolved(created.id, created.workspaceId, LEON, LATER),
+      );
+      expect(created.running).toBe(true);
+      expect(ended(created).keepsNoLiveWorkingCopy).toBe(true);
+    });
+
     it('stays open while another proposal waits', () => {
       const twice = proposing().propose({
         runId: RunId.of('run_1'),
@@ -1415,6 +1447,7 @@ describe('Chat', () => {
           .proposalBecame(SECOND, TaskId.of('task_1'), LATER)
           .pullEvents(),
       ).toEqual([
+        new ChatResolved(accepted.id, WORKSPACE, LEON, LATER),
         new ProposalBecameTask(
           accepted.id,
           WORKSPACE,

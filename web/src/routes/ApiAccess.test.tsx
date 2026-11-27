@@ -15,6 +15,7 @@ const create =
     (input: unknown, options: { onSuccess: (data?: unknown) => void }) => void
   >();
 const revoke = vi.fn();
+const refusal = vi.fn<() => Error | null>();
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({ data: workspace() }),
@@ -57,7 +58,8 @@ vi.mock('@/hooks/api/useCreateWorkspaceToken', async (actual) => ({
     mutate: create,
     reset: vi.fn(),
     isPending: false,
-    isError: false,
+    isError: refusal() !== null,
+    error: refusal(),
   }),
 }));
 
@@ -107,6 +109,7 @@ describe('ApiAccess', () => {
     listed.mockReturnValue([]);
     failing.mockReturnValue(false);
     workspace.mockReturnValue({ id: 'workspace_acme', role: 'owner' });
+    refusal.mockReturnValue(null);
     for (const each of [refetch, requested, create, revoke]) {
       each.mockClear();
     }
@@ -203,7 +206,7 @@ describe('ApiAccess', () => {
   it('creates a token that configures and expires, unless told otherwise', async () => {
     const { person, dialog } = await openCreate();
 
-    await person.type(within(dialog).getByLabelText('Name'), 'Terraform CI');
+    await person.type(within(dialog).getByLabelText('Name'), 'terraform-ci');
     await person.click(
       within(dialog).getByRole('button', { name: 'Create token' }),
     );
@@ -243,6 +246,35 @@ describe('ApiAccess', () => {
         scopes: ['read', 'secrets'],
       }),
       expect.anything(),
+    );
+  });
+
+  it('keeps the name as it is typed, for Spotlight to check', async () => {
+    const { person, dialog } = await openCreate();
+    const name = within(dialog).getByLabelText('Name');
+
+    await person.type(name, 'Local Terraform!');
+    await person.click(
+      within(dialog).getByRole('button', { name: 'Create token' }),
+    );
+
+    expect(name).toHaveValue('Local Terraform!');
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Local Terraform!' }),
+      expect.anything(),
+    );
+  });
+
+  it('says why Spotlight refused the token', async () => {
+    refusal.mockReturnValue(
+      new Error(
+        'name: is lowercase words joined by dashes, at most 64 characters, as in ci',
+      ),
+    );
+    const { dialog } = await openCreate();
+
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(
+      'name: is lowercase words joined by dashes, at most 64 characters, as in ci',
     );
   });
 

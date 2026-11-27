@@ -25,6 +25,7 @@ export function useCreateWorkspaceToken(
 
   return useMutation({
     mutationKey: ['workspace-tokens', 'create'],
+    meta: { quiet: true },
     mutationFn: async (spec: TokenSpec): Promise<CreatedWorkspaceToken> => {
       const { data, error, response } = await createWorkspaceToken({
         path: { workspaceId: required(workspaceId) },

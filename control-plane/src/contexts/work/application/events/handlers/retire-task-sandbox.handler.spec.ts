@@ -4,13 +4,11 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
-import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const TASK = TaskId.of('task_1');
@@ -18,8 +16,6 @@ const TASK = TaskId.of('task_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 
 const STATION = StationId.of('station_done');
-
-const LINE = partial<LineMap>({});
 
 const KEY = WorkRequesters.taskWorkingCopyKey(TASK);
 
@@ -31,48 +27,32 @@ const finished = new TaskFinished(
 );
 
 const retiring = (
-  input: {
-    task?: { keepsNoLiveWorkingCopy: boolean } | null;
-    line?: LineMap | null;
-  } = {},
+  input: { task?: { keepsNoLiveWorkingCopy: boolean } | null } = {},
 ) => {
-  const keepsNoLiveWorkingCopyOn = vi.fn(
-    () => input.task?.keepsNoLiveWorkingCopy ?? false,
-  );
   const task =
     input.task === null
       ? null
-      : partial<Task>({ stationId: STATION, keepsNoLiveWorkingCopyOn });
-  const tasks = partial<TaskRepository>({
-    find: vi.fn(async () => task),
-  });
-  const lines = partial<LineMapsPort>({
-    findByStation: vi.fn(async () =>
-      input.line === undefined ? LINE : input.line,
-    ),
-  });
+      : partial<Task>({
+          keepsNoLiveWorkingCopy: input.task?.keepsNoLiveWorkingCopy ?? false,
+        });
+  const tasks = partial<TaskRepository>({ find: vi.fn(async () => task) });
   const sandboxes: SandboxRetirementPort = { retire: vi.fn(async () => {}) };
 
-  return {
-    handler: new RetireTaskSandbox(tasks, lines, sandboxes),
-    sandboxes,
-    keepsNoLiveWorkingCopyOn,
-  };
+  return { handler: new RetireTaskSandbox(tasks, sandboxes), sandboxes };
 };
 
 describe('RetireTaskSandbox', () => {
-  it('retires the sandbox of a task that keeps no live working copy on its line', async () => {
-    const { handler, sandboxes, keepsNoLiveWorkingCopyOn } = retiring({
+  it('retires the sandbox of a finished task, also one that waits at the end of its line for a merge', async () => {
+    const { handler, sandboxes } = retiring({
       task: { keepsNoLiveWorkingCopy: true },
     });
 
     await handler.onFinished(finished);
 
-    expect(keepsNoLiveWorkingCopyOn).toHaveBeenCalledWith(LINE);
     expect(sandboxes.retire).toHaveBeenCalledWith(WORKSPACE.value, KEY);
   });
 
-  it('keeps the sandbox of a finished task that can still reopen, or that reopened before the event came', async () => {
+  it('keeps the sandbox of a task that reopened before the event came', async () => {
     const { handler, sandboxes } = retiring({
       task: { keepsNoLiveWorkingCopy: false },
     });
