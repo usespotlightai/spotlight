@@ -1,5 +1,5 @@
 import { Check, ChevronDown } from 'lucide-react';
-import { type ReactNode, useId, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { ConfigFolderForm } from '@/components/features/onboarding/ConfigFolderForm';
@@ -14,6 +14,7 @@ import {
 } from '@/components/features/onboarding/SetupAbout';
 import { SetupStepsSkeleton } from '@/components/features/onboarding/SetupStepsSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
 import { Button } from '@/components/ui/button';
 import { useGitHub } from '@/hooks/api/useGitHub';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
@@ -138,7 +139,6 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const query = useOnboarding(teamId);
   const onboarding = query.data;
   const github = useGitHub(slug);
-  const refusalId = useId();
 
   if (slug && (loading(query) || loading(github))) {
     return <SetupStepsSkeleton about={about} />;
@@ -216,19 +216,18 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
     }
 
     return (
-      <div className="flex flex-col items-start gap-2">
-        <Button
-          size="sm"
-          disabled
-          aria-describedby={refusalId}
-          className={SETUP_CONTROL}
-        >
-          Continue in chat
-        </Button>
-        <p id={refusalId} className="text-muted-foreground text-sm leading-6">
-          {SETUP_REFUSALS[refusal]}
-        </p>
-      </div>
+      <DisabledReasonTooltip reason={SETUP_REFUSALS[refusal]}>
+        {(describedBy) => (
+          <Button
+            size="sm"
+            disabled
+            aria-describedby={describedBy}
+            className={SETUP_CONTROL}
+          >
+            Continue in chat
+          </Button>
+        )}
+      </DisabledReasonTooltip>
     );
   };
 

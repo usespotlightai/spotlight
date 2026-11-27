@@ -290,7 +290,9 @@ describe('SetupSteps', () => {
     );
     showing();
 
-    expect(screen.getByText('Connect a host first.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Continue in chat' }),
+    ).toHaveAccessibleDescription('Connect a host first.');
     expect(screen.queryByText('Choose the config folder')).toBeNull();
     expect(screen.queryByText(/egress/)).toBeNull();
   });
