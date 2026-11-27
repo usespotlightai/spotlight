@@ -44,7 +44,7 @@ export interface TaskRepository {
     pullRequest: PullRequestUrl,
   ): Promise<Task | null>;
 
-  // Every review of the pull request. Locks them until the transaction ends, and makes a second call for the same pull request wait for that, also when it has no review yet.
+  // Every task that reviews the pull request, on any line. Locks them until the transaction ends.
   reviewsOf(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,

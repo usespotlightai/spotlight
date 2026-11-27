@@ -281,7 +281,6 @@ describe('GitHubWebhookProvider', () => {
           author: 'octocat',
           outside: true,
           draft: false,
-          merged: false,
           branch: 'fix-uploads',
         },
       },

@@ -25,6 +25,7 @@ import type {
 } from '@work/application/ports/happening-reactions.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
+import type { PullRequestReviewLocksPort } from '@work/application/ports/pull-request-review-locks.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import {
@@ -48,7 +49,10 @@ import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
 import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { otherReviewsClosedAmong } from '@work/domain/services/mark-holders';
+import {
+  closesReviewsOf,
+  otherReviewsOf,
+} from '@work/domain/services/mark-holders';
 import { Placement } from '@work/domain/services/placement';
 import {
   movedTo,
@@ -128,6 +132,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     private readonly channels: ChannelChats,
     private readonly runs: RunFactsPort,
     private readonly teams: Pick<WorkAccess, 'membersOf'>,
+    private readonly reviewLocks: PullRequestReviewLocksPort,
   ) {}
 
   async react(
@@ -170,60 +175,85 @@ export class ReactToHappenings implements HappeningReactionsPort {
         : null;
       const happened = this.received(workspaceId, arrived);
 
-      if (
-        !happened ||
-        (key !== null && (await this.processed.wasProcessed(workspaceId, key)))
-      ) {
+      if (!happened) {
         continue;
       }
 
-      if (key !== null && (await this.heldByATurn(workspaceId, happened))) {
+      const reacted =
+        key !== null && (await this.processed.wasProcessed(workspaceId, key));
+
+      if (!reacted) {
+        if (key !== null && (await this.heldByATurn(workspaceId, happened))) {
+          held = true;
+          continue;
+        }
+
+        // Fetch outside the transaction, so that a slow service does not lock the task during the download.
+        const attachments = await this.storedAttachments(
+          workspaceId,
+          happened.attachments,
+        );
+
+        const answer = await this.transaction.inTransaction(async () =>
+          key === null ||
+          (await this.processed.markProcessed(
+            workspaceId,
+            key,
+            this.clock.now(),
+          ))
+            ? this.reactTo(workspaceId, teamId, happened, attachments)
+            : null,
+        );
+
+        if (answer) {
+          await this.channels.answer(answer);
+        }
+      }
+
+      // Also after the correlated task reacted, so that a redelivery reaches a review that a failure left open.
+      if (await this.closeOtherReviews(workspaceId, happened, key)) {
         held = true;
-        continue;
       }
-
-      // Fetch outside the transaction, so that a slow service does not lock the task during the download.
-      const attachments = await this.storedAttachments(
-        workspaceId,
-        happened.attachments,
-      );
-
-      const answer = await this.transaction.inTransaction(async () =>
-        key === null ||
-        (await this.processed.markProcessed(workspaceId, key, this.clock.now()))
-          ? this.reactTo(workspaceId, teamId, happened, attachments)
-          : null,
-      );
-
-      if (answer) {
-        await this.channels.answer(answer);
-      }
-
-      await this.closeOtherReviews(workspaceId, happened, attachments, key);
     }
 
     return held;
   }
 
-  // Each other review hears the close in a transaction of its own, under a key of its own, so that a redelivery reaches a review that a failure left open.
+  // Each other review hears the close in a transaction of its own, under a key of its own.
   private async closeOtherReviews(
     workspaceId: WorkspaceId,
     happened: ReceivedHappening,
-    attachments: readonly Attachment[],
     key: string | null,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const { correlationKeys } = happened;
     const closed = happened.payload.closedPullRequest ?? null;
-    const others = closed
-      ? otherReviewsClosedAmong(
-          correlationKeys,
-          await this.tasks.findByCorrelation(workspaceId, correlationKeys),
-          closed,
-        )
-      : [];
+
+    if (!closed || !closesReviewsOf(correlationKeys, closed)) {
+      return false;
+    }
+
+    const others = await this.transaction.inTransaction(async () =>
+      otherReviewsOf(
+        await correlatedTask(this.tasks, workspaceId, correlationKeys),
+        await this.tasks.reviewsOf(workspaceId, closed),
+      ),
+    );
+    let held = false;
 
     for (const other of others) {
       const otherKey = key === null ? null : `${key}\n${other.id.value}`;
+
+      if (
+        otherKey !== null &&
+        (await this.processed.wasProcessed(workspaceId, otherKey))
+      ) {
+        continue;
+      }
+
+      if (otherKey !== null && (await this.heldTask(other))) {
+        held = true;
+        continue;
+      }
 
       await this.transaction.inTransaction(async () => {
         if (
@@ -237,26 +267,30 @@ export class ReactToHappenings implements HappeningReactionsPort {
           return;
         }
 
-        const task = (
-          await this.tasks.findByCorrelation(workspaceId, correlationKeys)
-        ).find((each) => each.id.equals(other.id));
+        const task = (await this.tasks.reviewsOf(workspaceId, closed)).find(
+          (each) => each.id.equals(other.id),
+        );
 
+        // A close carries no files.
         if (task) {
-          await this.receivedBy(task, happened, attachments);
+          await this.receivedBy(task, happened, []);
         }
       });
     }
+
+    return held;
   }
 
   private async heldByATurn(
     workspaceId: WorkspaceId,
     happened: ReceivedHappening,
   ): Promise<boolean> {
-    const task = await correlatedTask(
-      this.tasks,
-      workspaceId,
-      happened.correlationKeys,
+    return this.heldTask(
+      await correlatedTask(this.tasks, workspaceId, happened.correlationKeys),
     );
+  }
+
+  private async heldTask(task: Task | null): Promise<boolean> {
     const run = task?.currentRunId
       ? firstOf(await this.runs.of([task.currentRunId]))
       : undefined;
@@ -506,6 +540,9 @@ export class ReactToHappenings implements HappeningReactionsPort {
       });
       return;
     }
+
+    // Before any other lock, so that two requests for the pull request take their locks in one order.
+    await this.reviewLocks.lock(workspaceId, request.pullRequest);
 
     const workspaceLines = await this.lines.ofWorkspace(workspaceId);
     const anchor = anchorOf(happened, attachments);

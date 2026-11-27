@@ -27,6 +27,7 @@ import type { Happened } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
+import type { PullRequestReviewLocksPort } from '@work/application/ports/pull-request-review-locks.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import type {
@@ -72,6 +73,8 @@ const TEAMMATES = {
 };
 
 const NO_RUNS = partial<RunFactsPort>({ of: async () => [] });
+
+const NO_REVIEW_LOCKS: PullRequestReviewLocksPort = { lock: async () => {} };
 
 const channels = partial<ChannelChats>({
   reached: async () => null,
@@ -275,6 +278,7 @@ const receive = (
     channels,
     NO_RUNS,
     TEAMMATES,
+    NO_REVIEW_LOCKS,
   ).react(
     WorkspaceId.of('ws_1'),
     null,
@@ -313,6 +317,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     );
     const happenings = [news(CHANGES_REQUESTED, 'Handle the empty case.')];
 
@@ -350,6 +355,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     );
     const happenings = [news(COMMENTED, 'Still retries.')];
 
@@ -376,6 +382,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     );
     const happenings = [news(COMMENTED, 'Still retries.')];
 
@@ -493,6 +500,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     expect(saved?.notes.map((each) => each.kind)).toEqual([
@@ -534,6 +542,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -597,6 +606,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -648,6 +658,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -729,6 +740,7 @@ describe('ReactToHappenings', () => {
         channels,
         NO_RUNS,
         TEAMMATES,
+        NO_REVIEW_LOCKS,
       ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     it('takes a reply that is only a file as the answer, and keeps the file', async () => {
@@ -795,6 +807,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -831,6 +844,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -890,6 +904,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -941,6 +956,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -1251,6 +1267,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(WorkspaceId.of('ws_1'), null, [news(MERGED, null)], 'received-as');
 
     expect(stored.findByCorrelation).toHaveBeenCalledWith(
@@ -1335,6 +1352,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
@@ -1424,6 +1442,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(byEmail).toHaveBeenCalledWith(
@@ -1510,6 +1529,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       { membersOf: async () => TeamMembers.of([]) },
+      NO_REVIEW_LOCKS,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(byEmail).toHaveBeenCalledWith(
@@ -1594,6 +1614,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(added?.assignee).toBeNull();
@@ -1681,6 +1702,7 @@ describe('ReactToHappenings', () => {
       channels,
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
@@ -1782,6 +1804,7 @@ describe('ReactToHappenings assigning a task it opens', () => {
           membersOf: async () =>
             TeamMembers.of([UserId.of('user_dev'), UserId.of('user_lead')]),
         },
+        NO_REVIEW_LOCKS,
       ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
       return added?.assignee?.value ?? null;
@@ -1884,6 +1907,7 @@ describe('ReactToHappenings with a word for a chat', () => {
       partial<ChannelChats>(chatting),
       NO_RUNS,
       TEAMMATES,
+      NO_REVIEW_LOCKS,
     );
 
     return { reactions, chatting, refusal };
@@ -2030,6 +2054,7 @@ describe('a happening for a task whose run’s turn is still being decided (R18)
         channels,
         runs,
         TEAMMATES,
+        NO_REVIEW_LOCKS,
       ),
     };
   };

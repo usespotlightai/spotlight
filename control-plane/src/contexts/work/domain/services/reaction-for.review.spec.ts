@@ -52,14 +52,14 @@ const lineOf = (role: LineRole, repositories: readonly string[] = []) =>
 const review = lineOf(LineRole.REVIEW);
 const delivery = lineOf(LineRole.DELIVERY, ['acme/api']);
 
-const taskOn = (line: LineMap) =>
+const taskOn = (line: LineMap, now = NOW) =>
   Task.add({
     line,
     // oxlint-disable-next-line typescript/no-non-null-assertion -- the built-in lines have an entry
     at: line.entry!.id,
     title: TaskTitle.of('Retry uploads'),
     rank: TaskRank.of('i'),
-    now: NOW,
+    now,
     newId: fresh,
   });
 
@@ -71,7 +71,7 @@ const noted = (body: string) => ({
 });
 
 const underwayOn = (line: LineMap, at = new Date(0)) =>
-  taskOn(line).reviews(PULL, { outside: false }, line, at);
+  taskOn(line, at).reviews(PULL, { outside: false }, line, at);
 
 const finishedOn = (line: LineMap) => {
   const run = RunId.of('run_1');
@@ -219,7 +219,7 @@ describe('ReactionFor, with a review request', () => {
     }
   });
 
-  it('keeps one open review of a pull request on a line, whichever review the lookup found first', () => {
+  it('keeps one open review of a pull request on a line, the newest, whichever review the lookup found first', () => {
     const older = finishedOn(review);
     const newer = underwayOn(review, new Date(1));
     const answer = requested({ reviews: [newer, older] });
@@ -240,6 +240,15 @@ describe('ReactionFor, with a review request', () => {
     );
 
     expect(requested({ reviews: [done] }).kind).toBe('opens');
+  });
+
+  it('finds the open review by the pull request it reviews, also where a review on another line took its mark', () => {
+    const open = underwayOn(review).releaseMark(Mark.review(PULL));
+
+    expect(requested({ reviews: [open] })).toMatchObject({
+      kind: 'reviewsAgain',
+      by: open,
+    });
   });
 
   it('opens a review on its own line, apart from a review of the same pull request on another', () => {

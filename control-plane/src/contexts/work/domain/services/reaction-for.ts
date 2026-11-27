@@ -3,11 +3,10 @@ import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { markHolderAmong } from '@work/domain/services/mark-holders';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import type { HappeningPayload } from '@work/domain/value-objects/happening-payload';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import { Mark } from '@work/domain/value-objects/mark.vo';
+import type { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { OpensWith } from '@work/domain/value-objects/opens-with';
 import type {
@@ -78,6 +77,19 @@ const spotlights = (
   (request.branch?.isSpotlights ?? false) ||
   branchTask !== null ||
   (pullRequestTask !== null && !pullRequestTask.reviewing);
+
+// By when it opened, not by its mark: a review of the pull request on another line can take the mark.
+const newestOf = (tasks: readonly Task[]): Task | null =>
+  tasks.reduce<Task | null>(
+    (newest, each) =>
+      newest === null ||
+      each.createdAt.getTime() > newest.createdAt.getTime() ||
+      (each.createdAt.getTime() === newest.createdAt.getTime() &&
+        each.id.value > newest.id.value)
+        ? each
+        : newest,
+    null,
+  );
 
 export const movedTo = (outcome: Outcome): StationId | null =>
   outcome.kind === 'moves' ? outcome.to.id : null;
@@ -248,8 +260,7 @@ export const ReactionFor = {
       return { kind: 'nothing' };
     }
 
-    const open = markHolderAmong(
-      Mark.review(pullRequest),
+    const open = newestOf(
       input.reviews.filter((each) => each.reviewsOpenOn(on.line, pullRequest)),
     );
 

@@ -1,7 +1,10 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
-import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
+import type {
+  RunFacts,
+  RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -22,7 +25,8 @@ import {
 } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
+import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
+import type { PullRequestReviewLocksPort } from '@work/application/ports/pull-request-review-locks.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { ChannelChats } from '@work/application/services/channel-chats.service';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
@@ -163,19 +167,29 @@ const requested = (
   };
 };
 
-// Holds a lock until the transaction that took it ends, as the database does.
+// Holds a lock until the transaction that took it ends, and undoes what a failed transaction marked processed, as the database does.
 const locking = () => {
   const held = new Map<string, Promise<void>>();
-  const scope = new AsyncLocalStorage<(() => void)[]>();
+  interface Scope {
+    readonly releases: (() => void)[];
+    readonly undos: (() => void)[];
+  }
+  const scope = new AsyncLocalStorage<Scope>();
 
   const transaction: TransactionPort = {
     inTransaction: async (work) => {
-      const releases: (() => void)[] = [];
+      const open: Scope = { releases: [], undos: [] };
 
       try {
-        return await scope.run(releases, work);
+        return await scope.run(open, work);
+      } catch (error) {
+        for (const undo of open.undos) {
+          undo();
+        }
+
+        throw error;
       } finally {
-        for (const release of releases) {
+        for (const release of open.releases) {
           release();
         }
       }
@@ -183,9 +197,9 @@ const locking = () => {
   };
 
   const lock = async (key: string): Promise<void> => {
-    const releases = scope.getStore();
+    const open = scope.getStore();
 
-    if (!releases) {
+    if (!open) {
       throw new Error('A lock needs a transaction.');
     }
 
@@ -203,10 +217,25 @@ const locking = () => {
         };
       }),
     );
-    releases.push(release);
+    open.releases.push(release);
   };
 
-  return { transaction, lock };
+  const processedKeys = new Set<string>();
+  const processed: ProcessedEventsPort = {
+    wasProcessed: async (at, key) => processedKeys.has(`${at.value}/${key}`),
+    markProcessed: async (at, key) => {
+      const marked = `${at.value}/${key}`;
+      const first = !processedKeys.has(marked);
+      processedKeys.add(marked);
+      if (first) {
+        scope.getStore()?.undos.push(() => processedKeys.delete(marked));
+      }
+      return first;
+    },
+    purgeBefore: async () => 0,
+  };
+
+  return { transaction, lock, processed };
 };
 
 const world = (input: {
@@ -215,6 +244,8 @@ const world = (input: {
   findByCorrelation?: (correlationKeys: CorrelationKeys) => Task | null;
   owning?: Task | null;
   tasks?: readonly Task[];
+  runs?: RunFactsPort;
+  failsToSaveOnce?: string;
 }) => {
   const workspaceLines = [
     ...input.lines,
@@ -226,7 +257,11 @@ const world = (input: {
   const stored = new Map<string, Task>(
     (input.tasks ?? []).map((each) => [each.id.value, each]),
   );
-  const { transaction, lock } = locking();
+  const { transaction, lock, processed } = locking();
+  let failing = input.failsToSaveOnce ?? null;
+  const reviewLocks: PullRequestReviewLocksPort = {
+    lock: (at, pullRequest) => lock(`${at.value}:${pullRequest.value}`),
+  };
   const holding = (correlationKeys: CorrelationKeys): Task[] =>
     [...stored.values()].filter(
       (each) =>
@@ -240,6 +275,11 @@ const world = (input: {
       stored.set(each.id.value, each);
     }),
     save: vi.fn(async (each: Task) => {
+      if (each.id.value === failing) {
+        failing = null;
+        throw new Error('The database went away.');
+      }
+
       saved.push(each);
       stored.set(each.id.value, each);
     }),
@@ -258,13 +298,11 @@ const world = (input: {
     ),
     owningPullRequest: vi.fn(async () => input.owning ?? null),
     reviewingPullRequest: vi.fn(async () => null),
-    reviewsOf: vi.fn(async (at: WorkspaceId, pullRequest: PullRequestUrl) => {
-      await lock(`${at.value}:${pullRequest.value}`);
-
-      return [...stored.values()].filter(
+    reviewsOf: vi.fn(async (_at: WorkspaceId, pullRequest: PullRequestUrl) =>
+      [...stored.values()].filter(
         (each) => each.reviewedPullRequest?.url.equals(pullRequest) ?? false,
-      );
-    }),
+      ),
+    ),
     holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
@@ -303,11 +341,12 @@ const world = (input: {
     { generate: () => fresh('task') },
     members,
     files,
-    processedEventsInMemory(),
+    processed,
     logger,
     channels,
-    NO_RUNS,
+    input.runs ?? NO_RUNS,
     TEAMMATES,
+    reviewLocks,
   );
 
   let deliveries = 0;
@@ -724,7 +763,10 @@ describe('ReactToHappenings, with a review request', () => {
 
   it('completes every review of a pull request closed without a merge, also an older one opened twice', async () => {
     const line = reviewing({ reviews: policy('mentioned') });
-    const older = finishedReview(line, 'task_older', new Date(0));
+    // The newer review took the review mark from the older one, as ReleaseTakenMarks does.
+    const older = finishedReview(line, 'task_older', new Date(0)).releaseMark(
+      Mark.review(PullRequestUrl.of(PULL)),
+    );
     const newer = finishedReview(line, 'task_newer', new Date(1));
     const { react, redeliver, saved, stored } = world({
       lines: [line],
@@ -742,5 +784,71 @@ describe('ReactToHappenings, with a review request', () => {
     for (const each of [older, newer]) {
       expect(stored(each.id)?.stationId.equals(line.completed.id)).toBe(true);
     }
+  });
+
+  it('closes, on a redelivery, a review that a failure left open after the newest review closed', async () => {
+    const line = reviewing({ reviews: policy('mentioned') });
+    const older = finishedReview(line, 'task_older', new Date(0)).releaseMark(
+      Mark.review(PullRequestUrl.of(PULL)),
+    );
+    const newer = finishedReview(line, 'task_newer', new Date(1));
+    const { react, redeliver, saved, stored } = world({
+      lines: [line],
+      tasks: [older, newer],
+      failsToSaveOnce: 'task_older',
+    });
+
+    await expect(react(closedUnmerged())).rejects.toThrow(
+      'The database went away.',
+    );
+    expect(stored(older.id)?.stationId.equals(line.completed.id)).toBe(false);
+
+    await redeliver(1, closedUnmerged());
+
+    expect(saved.map((each) => each.id.value)).toEqual([
+      'task_newer',
+      'task_older',
+    ]);
+    expect(stored(older.id)?.stationId.equals(line.completed.id)).toBe(true);
+  });
+
+  it('holds the close back from another review whose run is still deciding its turn', async () => {
+    const line = reviewing({ reviews: policy('mentioned') });
+    const run = RunId.of('run_turn');
+    const deciding = Task.add({
+      line,
+      // oxlint-disable-next-line typescript/no-non-null-assertion -- the review line has an entry
+      at: line.entry!.id,
+      title: TaskTitle.of('Retry uploads'),
+      rank: TaskRank.of('i'),
+      now: NOW,
+      newId: () => 'task_older',
+    })
+      .reviews(PullRequestUrl.of(PULL), { outside: false }, line, new Date(0))
+      .assignRun(run, line)
+      .releaseMark(Mark.review(PullRequestUrl.of(PULL)));
+    const newer = finishedReview(line, 'task_newer', new Date(1));
+    const { react, saved } = world({
+      lines: [line],
+      tasks: [deciding, newer],
+      runs: partial<RunFactsPort>({
+        of: async (ids) =>
+          ids.some((each) => each.equals(run))
+            ? [
+                partial<RunFacts>({
+                  runId: run,
+                  turn: 'pending',
+                  suspendedAt: new Date(NOW.getTime() - 60_000),
+                }),
+              ]
+            : [],
+      }),
+    });
+
+    await expect(react(closedUnmerged())).resolves.toMatchObject({
+      kind: 'failed',
+      transient: true,
+    });
+    expect(saved.map((each) => each.id.value)).toEqual(['task_newer']);
   });
 });

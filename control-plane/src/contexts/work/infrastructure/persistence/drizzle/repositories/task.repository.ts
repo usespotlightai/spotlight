@@ -866,11 +866,6 @@ export class DrizzleTaskRepository implements TaskRepository {
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
   ): Promise<readonly Task[]> {
-    // A row lock cannot hold off a review that does not exist yet. This lock holds off a second request for the same pull request.
-    await this.context.db.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${`pull-request-reviews:${workspaceId.value}:${pullRequest.value}`}, 0))`,
-    );
-
     const found = await this.context.db
       .select()
       .from(task)
