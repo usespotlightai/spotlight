@@ -51,6 +51,31 @@ describe('RunnerDefinitions', () => {
     ).toEqual(['labels.1']);
   });
 
+  it('advises how to write a pool key it refuses, under the key alone', () => {
+    const compiled = definitions.pool({ key: 'my-computer-1Dev Host' });
+
+    expect(
+      compiled.ok
+        ? []
+        : compiled.problems.map((each) => [dottedOf(each.field), each.reason]),
+    ).toEqual([
+      [
+        'key',
+        'Use lowercase letters, digits and dashes, such as dev-host (at most 64 characters).',
+      ],
+    ]);
+  });
+
+  it('advises how to write a label it refuses', () => {
+    const compiled = definitions.pool({ key: 'dev-host', labels: ['GPU'] });
+
+    expect(
+      compiled.ok ? [] : compiled.problems.map((each) => each.reason),
+    ).toEqual([
+      'Use lowercase letters, digits and dashes, such as vpc-internal (at most 64 characters).',
+    ]);
+  });
+
   describe('a pool', () => {
     const SECRET = `whsec_${Buffer.from('k'.repeat(32)).toString('base64')}`;
 

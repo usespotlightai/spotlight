@@ -1,9 +1,6 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
-import {
-  isSlug,
-  MAX_SLUG_LENGTH,
-} from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class Opening {
   private constructor(
@@ -17,17 +14,11 @@ export class Opening {
     const station = !nonEmpty(written) ? null : written;
 
     if (!isSlug(lineRole)) {
-      throw new InvalidIdentifierError(
-        'line role',
-        `is lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in delivery`,
-      );
+      throw InvalidIdentifierError.notSlug('line role', 'delivery');
     }
 
     if (station !== null && !isSlug(station)) {
-      throw new InvalidIdentifierError(
-        'station key',
-        `is lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in code-review`,
-      );
+      throw InvalidIdentifierError.notSlug('station key', 'code-review');
     }
 
     return new Opening(lineRole, station);

@@ -1,8 +1,5 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import {
-  isSlug,
-  MAX_SLUG_LENGTH,
-} from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 
 export class DefinedSkillKey {
@@ -12,10 +9,7 @@ export class DefinedSkillKey {
     const trimmed = raw.trim();
 
     if (!isSlug(trimmed)) {
-      throw new InvalidIdentifierError(
-        'skill',
-        `must be lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in spotlight-handover`,
-      );
+      throw InvalidIdentifierError.notSlug('skill', 'spotlight-handover');
     }
 
     return new DefinedSkillKey(SkillKey.of(trimmed));

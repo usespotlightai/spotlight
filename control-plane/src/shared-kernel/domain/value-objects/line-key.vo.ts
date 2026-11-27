@@ -1,8 +1,5 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import {
-  isSlug,
-  MAX_SLUG_LENGTH,
-} from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class LineKey {
   private readonly kind = 'line-key';
@@ -13,10 +10,7 @@ export class LineKey {
     const named = raw.trim();
 
     if (!isSlug(named)) {
-      throw new InvalidIdentifierError(
-        'line key',
-        `must be lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in default`,
-      );
+      throw InvalidIdentifierError.notSlug('line key', 'web-app');
     }
 
     return new LineKey(named);

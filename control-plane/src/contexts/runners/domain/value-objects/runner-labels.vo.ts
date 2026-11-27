@@ -1,8 +1,5 @@
 import { InvalidRunnerLabelError } from '@runners/domain/exceptions/invalid-runner-label.error';
-import {
-  isSlug,
-  MAX_SLUG_LENGTH,
-} from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class RunnerLabels {
   private readonly kind = 'runner-labels';
@@ -20,9 +17,7 @@ export class RunnerLabels {
       const label = each.trim();
 
       if (!isSlug(label)) {
-        throw new InvalidRunnerLabelError(
-          `must be lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in vpc-internal`,
-        );
+        throw InvalidRunnerLabelError.notSlug('vpc-internal');
       }
 
       if (values.includes(label)) {

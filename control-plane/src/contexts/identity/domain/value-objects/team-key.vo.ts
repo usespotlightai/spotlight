@@ -1,7 +1,6 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
   isSlug,
-  MAX_SLUG_LENGTH,
   slugify,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
@@ -14,10 +13,7 @@ export class TeamKey {
     const named = raw.trim();
 
     if (!isSlug(named)) {
-      throw new InvalidIdentifierError(
-        'team key',
-        `is lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in platform`,
-      );
+      throw InvalidIdentifierError.notSlug('team key', 'platform-team');
     }
 
     return new TeamKey(named);

@@ -4,10 +4,7 @@ import {
   HANDOVER_TO_A_PERSON,
   HANDOVER_TO_FINISH,
 } from '@shared-kernel/domain/value-objects/handover-word';
-import {
-  isSlug,
-  MAX_SLUG_LENGTH,
-} from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 const RESERVED: ReadonlyMap<string, string> = new Map([
   [HANDOVER_TO_A_PERSON, 'hand its task over to a person'],
@@ -23,10 +20,7 @@ export class StationKey {
     const named = raw.trim();
 
     if (!isSlug(named)) {
-      throw new InvalidIdentifierError(
-        'station key',
-        `must be lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in code-review`,
-      );
+      throw InvalidIdentifierError.notSlug('station key', 'code-review');
     }
 
     const reserved = RESERVED.get(named);
