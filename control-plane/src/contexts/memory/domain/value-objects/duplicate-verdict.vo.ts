@@ -1,3 +1,4 @@
+import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 
 const MAX_REASON = 500;
@@ -16,6 +17,10 @@ export class DuplicateVerdict {
     reason: string;
   }): DuplicateVerdict {
     const reason = input.reason.trim();
+
+    if (reason.length === 0) {
+      throw new InvalidMemoryError('says why', 'duplicate verdict');
+    }
 
     return new DuplicateVerdict(
       input.proposal,

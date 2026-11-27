@@ -1,10 +1,11 @@
 import type { ProposalComparerPort } from '@memory/application/ports/proposal-comparer.port';
 import { WakeDuplicateChecks } from '@memory/application/services/wake-duplicate-checks.service';
-import { DuplicateCheck } from '@memory/domain/aggregates/duplicate-check.aggregate';
+import type { DuplicateCheck } from '@memory/domain/aggregates/duplicate-check.aggregate';
 import { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { DuplicateCheckVersionConflictError } from '@memory/domain/exceptions/duplicate-check-version-conflict.error';
 import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
+import { checkFor } from '@memory/domain/services/duplicate-comparison';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
@@ -45,7 +46,7 @@ const SET = MemoryProposalSet.rehydrate({
   version: 1,
 });
 
-const waiting = DuplicateCheck.of({ runId: RUN, set: SET, now: NOW })
+const waiting = checkFor({ set: SET, runId: RUN, now: NOW })
   ?.leaseJob(NOW)
   .waitJob(NOW);
 

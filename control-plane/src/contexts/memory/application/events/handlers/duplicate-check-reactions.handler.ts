@@ -1,6 +1,6 @@
-import { DuplicateCheck } from '@memory/domain/aggregates/duplicate-check.aggregate';
 import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
 import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
+import { checkFor } from '@memory/domain/services/duplicate-comparison';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -22,7 +22,7 @@ export class DuplicateCheckReactions {
 
     const set = await this.sets.forTask(run.taskId);
     const check =
-      set && DuplicateCheck.of({ runId: run.id, set, now: this.clock.now() });
+      set && checkFor({ set, runId: run.id, now: this.clock.now() });
 
     if (!check) {
       return;
@@ -38,7 +38,9 @@ export class DuplicateCheckReactions {
   /** Removes the checks of a deleted task's runs, one at a time. */
   async onTaskDeleted(taskId: TaskId): Promise<void> {
     for (const check of await this.checks.ofTask(taskId)) {
-      await this.transaction.inTransaction(() => this.checks.remove(check));
+      await this.transaction.inTransaction(() =>
+        this.checks.save(check.delete()),
+      );
     }
   }
 }

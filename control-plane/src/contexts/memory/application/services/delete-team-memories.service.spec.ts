@@ -62,10 +62,17 @@ const deleting = (
   } as unknown as MemoryUpkeepScheduleRepository;
   const checksLeft = ['check_1'];
   const checks = {
-    ofTeam: async () => checksLeft.map((id) => ({ id })),
-    remove: async (check: { id: string }) => {
-      removed.push(check.id);
-      checksLeft.splice(checksLeft.indexOf(check.id), 1);
+    ofTeam: async () =>
+      checksLeft.map((id) => ({
+        id,
+        isDeleted: false,
+        delete: () => ({ id, isDeleted: true }),
+      })),
+    save: async (check: { id: string; isDeleted: boolean }) => {
+      if (check.isDeleted) {
+        removed.push(check.id);
+        checksLeft.splice(checksLeft.indexOf(check.id), 1);
+      }
     },
   } as unknown as DuplicateCheckRepository;
   const memories = {

@@ -1,11 +1,16 @@
 import type { WorkPort } from '@memory/application/ports/work.port';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
-import { DuplicateCheck } from '@memory/domain/aggregates/duplicate-check.aggregate';
+import type { DuplicateCheck } from '@memory/domain/aggregates/duplicate-check.aggregate';
 import { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
+import {
+  checkFor,
+  questionFor,
+  verdictsFrom,
+} from '@memory/domain/services/duplicate-comparison';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
@@ -25,7 +30,7 @@ const RUN = RunId.of('run_7');
 const TEAM = TeamId.of('team_1');
 const ADA = UserId.of('user_ada');
 const REASON =
-  'P-1 gives the same advice as M-2: skip the better-sqlite3 build scripts because the image cannot compile it.';
+  'It gives the same advice as M-2: skip the better-sqlite3 build scripts because the image cannot compile it.';
 
 const M2 = Memory.write({
   id: MemoryId.of('memory_2'),
@@ -69,11 +74,25 @@ const setOf = (proposal: MemoryProposal) =>
 
 const compared = (() => {
   const set = setOf(PROPOSAL);
-  const check = DuplicateCheck.of({ runId: RUN, set, now: NOW })?.leaseJob(NOW);
+  const question = questionFor({
+    set,
+    runId: RUN,
+    memories: [M2],
+    whereOf: () => 'the whole team',
+  });
+  const check = checkFor({ set, runId: RUN, now: NOW });
 
-  return check?.compared(check.comparing(set, [M2]), [
-    { proposal: PROPOSAL.id, sameAs: 'M-2', reason: REASON },
-  ]);
+  return (
+    question &&
+    check
+      ?.leaseJob(NOW)
+      .asking(question)
+      .compared(
+        verdictsFrom(question, [
+          { proposal: 'P-1', sameAs: 'M-2', reason: REASON },
+        ]),
+      )
+  );
 })();
 
 const reviewing = (input: {

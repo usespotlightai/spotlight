@@ -72,8 +72,10 @@ const reacting = (set: MemoryProposalSet | null) => {
     add: async (check: DuplicateCheck) => {
       stored.set(check.runId.value, check);
     },
-    remove: async (check: DuplicateCheck) => {
-      stored.delete(check.runId.value);
+    save: async (check: DuplicateCheck) => {
+      if (check.isDeleted) {
+        stored.delete(check.runId.value);
+      }
     },
   } as unknown as DuplicateCheckRepository;
 

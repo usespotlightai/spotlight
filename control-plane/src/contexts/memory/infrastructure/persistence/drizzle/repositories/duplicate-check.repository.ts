@@ -1,10 +1,15 @@
 import { DuplicateCheck } from '@memory/domain/aggregates/duplicate-check.aggregate';
 import { DuplicateCheckVersionConflictError } from '@memory/domain/exceptions/duplicate-check-version-conflict.error';
 import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
+import { DuplicateQuestion } from '@memory/domain/value-objects/duplicate-question.vo';
 import { DuplicateVerdict } from '@memory/domain/value-objects/duplicate-verdict.vo';
+import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
-import { duplicateCheck } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
+import {
+  duplicateCheck,
+  type DuplicateQuestionColumn,
+} from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
@@ -15,6 +20,49 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { and, asc, eq, isNull, lte, or } from 'drizzle-orm';
 
 type CheckRow = typeof duplicateCheck.$inferSelect;
+
+const questionOf = (
+  column: DuplicateQuestionColumn | null,
+): DuplicateQuestion | null =>
+  column &&
+  DuplicateQuestion.of({
+    proposals: column.proposals.map((each) => ({
+      ref: each.ref,
+      proposal: MemoryId.of(each.proposal),
+      kind: each.kind,
+      body: each.body,
+      where: each.where,
+      candidates: each.candidates.map((id) => MemoryId.of(id)),
+    })),
+    memories: column.memories.map((each) => ({
+      memory: MemoryId.of(each.memory),
+      handle: MemoryHandle.of(each.handle),
+      kind: each.kind,
+      body: each.body,
+      where: each.where,
+    })),
+  });
+
+const questionColumn = (
+  question: DuplicateQuestion | null,
+): DuplicateQuestionColumn | null =>
+  question && {
+    proposals: question.proposals.map((each) => ({
+      ref: each.ref,
+      proposal: each.proposal.value,
+      kind: each.kind,
+      body: each.body,
+      where: each.where,
+      candidates: each.candidates.map((id) => id.value),
+    })),
+    memories: question.memories.map((each) => ({
+      memory: each.memory.value,
+      handle: each.handle.number,
+      kind: each.kind,
+      body: each.body,
+      where: each.where,
+    })),
+  };
 
 const checkOf = (row: CheckRow): DuplicateCheck =>
   DuplicateCheck.rehydrate({
@@ -30,6 +78,7 @@ const checkOf = (row: CheckRow): DuplicateCheck =>
       nextAttemptAt: row.jobDueAt,
       waitingSince: row.waitingSince,
     }),
+    question: questionOf(row.question),
     verdicts: row.verdicts.map((each) =>
       DuplicateVerdict.of({
         proposal: MemoryId.of(each.proposal),
@@ -45,6 +94,7 @@ const checkColumns = (check: DuplicateCheck) => ({
   jobAttempts: check.job.attempts,
   jobDueAt: check.job.nextAttemptAt,
   waitingSince: check.job.waitingSince,
+  question: questionColumn(check.question),
   verdicts: check.verdicts.map((each) => ({
     proposal: each.proposal.value,
     repeats: each.repeats?.value ?? null,
@@ -105,6 +155,10 @@ export class DrizzleDuplicateCheckRepository implements DuplicateCheckRepository
   }
 
   async save(saved: DuplicateCheck): Promise<void> {
+    if (saved.isDeleted) {
+      return this.removed(saved);
+    }
+
     const written = await this.context.db
       .update(duplicateCheck)
       .set({ version: saved.version + 1, ...checkColumns(saved) })
@@ -121,7 +175,7 @@ export class DrizzleDuplicateCheckRepository implements DuplicateCheckRepository
     }
   }
 
-  async remove(removed: DuplicateCheck): Promise<void> {
+  private async removed(removed: DuplicateCheck): Promise<void> {
     const deleted = await this.context.db
       .delete(duplicateCheck)
       .where(

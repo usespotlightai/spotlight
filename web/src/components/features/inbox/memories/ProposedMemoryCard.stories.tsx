@@ -75,7 +75,7 @@ export const RepeatsAMemory: StoryObj<typeof meta> = {
         handle: 'M-2',
         body: 'qa-tidepool: the runner image has no make/g++, so better-sqlite3 cannot build. Use `npm install --ignore-scripts` (better-sqlite3 still loads) until the image is fixed.',
         reason:
-          'P-1 gives the same advice as M-2: skip the better-sqlite3 build scripts because the image cannot compile it.',
+          'It gives the same advice as M-2: skip the better-sqlite3 build scripts because the image cannot compile it.',
       },
     },
   },

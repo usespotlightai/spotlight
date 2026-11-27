@@ -1,5 +1,5 @@
 {
-  "id": "e8c9163a-43da-440f-87c7-63dedf00976d",
+  "id": "e3eb1eb4-59e0-4c40-ac95-772dff54b43f",
   "prevId": "10871cf8-13b2-4f18-b29e-610862e61ce0",
   "version": "7",
   "dialect": "postgresql",
@@ -10748,6 +10748,12 @@
         "waiting_since": {
           "name": "waiting_since",
           "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "question": {
+          "name": "question",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

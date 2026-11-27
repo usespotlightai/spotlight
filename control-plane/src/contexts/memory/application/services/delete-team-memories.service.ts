@@ -48,7 +48,9 @@ export class DeleteTeamMemories {
     }
 
     for (const check of await this.checks.ofTeam(teamId)) {
-      await this.transaction.inTransaction(() => this.checks.remove(check));
+      await this.transaction.inTransaction(() =>
+        this.checks.save(check.delete()),
+      );
     }
   }
 }

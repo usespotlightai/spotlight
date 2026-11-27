@@ -1,19 +1,20 @@
 import type { LinesPort } from '@memory/application/ports/lines.port';
 import type {
-  CandidateMemory,
-  ComparedProposal,
   ProposalComparerPort,
+  ProposalComparisonRequest,
 } from '@memory/application/ports/proposal-comparer.port';
 import { placeOf } from '@memory/application/services/memory-places';
-import type {
-  DuplicateCheck,
-  DuplicateComparison,
-  ReportedVerdict,
-} from '@memory/domain/aggregates/duplicate-check.aggregate';
+import type { DuplicateCheck } from '@memory/domain/aggregates/duplicate-check.aggregate';
+import type { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import { DuplicateCheckVersionConflictError } from '@memory/domain/exceptions/duplicate-check-version-conflict.error';
 import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
 import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
+import {
+  questionFor,
+  verdictsFrom,
+} from '@memory/domain/services/duplicate-comparison';
+import type { DuplicateQuestion } from '@memory/domain/value-objects/duplicate-question.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -25,12 +26,38 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const MAX_CHECKS_AT_ONCE = 2;
 
-const refOf = (at: number): string => `P-${at + 1}`;
+const requestOf = (
+  check: DuplicateCheck,
+  question: DuplicateQuestion,
+): ProposalComparisonRequest => {
+  const handles = new Map(
+    question.memories.map((each) => [each.memory.value, each.handle.value]),
+  );
+
+  return {
+    workspaceId: check.workspaceId.value,
+    run: check.runId,
+    proposals: question.proposals.map((each) => ({
+      ref: each.ref,
+      kind: each.kind,
+      body: each.body,
+      where: each.where,
+      candidates: each.candidates.map((id) => handles.get(id.value) ?? ''),
+    })),
+    memories: question.memories.map((each) => ({
+      handle: each.handle.value,
+      kind: each.kind,
+      body: each.body,
+      where: each.where,
+    })),
+  };
+};
 
 /**
  * Asks a model whether what a run proposed to remember repeats a memory of its team, once the run ended. The check
- * orders an assist session and waits while it works, outside any transaction; when the session fails, the check fails
- * and the proposals show no repeat.
+ * records its question and orders an assist session with it, then waits while the session works, outside any
+ * transaction, reading every answer against that question. When the session fails, the check fails and the proposals
+ * show no repeat. A check whose task's proposals are gone is removed.
  */
 export class MemoryDuplicateChecks implements PendingJobsPort {
   readonly name = 'Memory duplicate checks';
@@ -82,25 +109,21 @@ export class MemoryDuplicateChecks implements PendingJobsPort {
     return this.#loop.idle();
   }
 
-  private async checked(check: DuplicateCheck): Promise<DuplicateCheck> {
-    const set = await this.sets.forTask(check.taskId);
-    const comparing = check.comparing(
-      set,
-      await this.memories.ofTeam(check.teamId),
-    );
+  private async checked(leased: DuplicateCheck): Promise<DuplicateCheck> {
+    const set = await this.sets.forTask(leased.taskId);
 
-    if (comparing.length === 0) {
-      return check.compared([], []);
+    if (!set || !leased.isFor(set.id)) {
+      return leased.delete();
     }
 
-    const refs = new Map(
-      comparing.map(({ proposal }, at) => [refOf(at), proposal.id]),
-    );
-    const answer = await this.comparer.compare({
-      workspaceId: check.workspaceId.value,
-      run: check.runId,
-      ...(await this.described(check, comparing)),
-    });
+    const check = leased.question ? leased : await this.asked(leased, set);
+    const question = check?.question;
+
+    if (!check || !question) {
+      return leased.compared([]);
+    }
+
+    const answer = await this.comparer.compare(requestOf(check, question));
     const now = this.clock.now();
 
     if (answer.status === 'waiting') {
@@ -123,46 +146,37 @@ export class MemoryDuplicateChecks implements PendingJobsPort {
       return check.failed();
     }
 
-    return check.compared(
-      comparing,
-      answer.verdicts.flatMap((each): ReportedVerdict[] => {
-        const proposal = refs.get(each.proposal.trim().toUpperCase());
-
-        return proposal
-          ? [{ proposal, sameAs: each.sameAs, reason: each.reason }]
-          : [];
-      }),
-    );
+    return check.compared(verdictsFrom(question, answer.verdicts));
   }
 
-  private async described(
+  /**
+   * Records the question before the session is ordered with it, so every later attempt asks and reads the same, and
+   * returns the check as stored. Null when no proposal has a memory to compare with.
+   */
+  private async asked(
     check: DuplicateCheck,
-    comparing: readonly DuplicateComparison[],
-  ): Promise<{
-    proposals: ComparedProposal[];
-    memories: CandidateMemory[];
-  }> {
+    set: MemoryProposalSet,
+  ): Promise<DuplicateCheck | null> {
+    const memories = await this.memories.ofTeam(check.teamId);
     const lines = await this.lines.ofTeam(check.teamId);
-    const memories = new Map<string, CandidateMemory>();
+    const question = questionFor({
+      set,
+      runId: check.runId,
+      memories,
+      whereOf: (scope) => placeOf(scope, lines),
+    });
 
-    for (const memory of comparing.flatMap(({ candidates }) => candidates)) {
-      memories.set(memory.handle.value, {
-        handle: memory.handle.value,
-        kind: memory.kind,
-        body: memory.body.value,
-        where: placeOf(memory.scope, lines),
-      });
+    if (!question) {
+      return null;
     }
 
-    return {
-      proposals: comparing.map(({ proposal, candidates }, at) => ({
-        ref: refOf(at),
-        kind: proposal.kind,
-        body: proposal.body.value,
-        where: placeOf(proposal.scope, lines),
-        candidates: candidates.map((each) => each.handle.value),
-      })),
-      memories: [...memories.values()],
-    };
+    await this.checks.save(check.asking(question));
+    const stored = await this.checks.of(check.runId);
+
+    if (!stored?.question) {
+      throw new DuplicateCheckVersionConflictError(check.runId.value);
+    }
+
+    return stored;
   }
 }

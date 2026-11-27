@@ -234,6 +234,25 @@ export interface DuplicateVerdictColumn {
   readonly reason: string;
 }
 
+/** What a duplicate check asked the model: each proposal under its ref with its candidates, and the memories shown. */
+export interface DuplicateQuestionColumn {
+  readonly proposals: readonly {
+    readonly ref: string;
+    readonly proposal: string;
+    readonly kind: (typeof MEMORY_KINDS)[number];
+    readonly body: string;
+    readonly where: string;
+    readonly candidates: readonly string[];
+  }[];
+  readonly memories: readonly {
+    readonly memory: string;
+    readonly handle: number;
+    readonly kind: (typeof MEMORY_KINDS)[number];
+    readonly body: string;
+    readonly where: string;
+  }[];
+}
+
 export const duplicateCheck = pgTable(
   'duplicate_check',
   {
@@ -247,6 +266,7 @@ export const duplicateCheck = pgTable(
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamptz('job_due_at'),
     waitingSince: timestamptz('waiting_since'),
+    question: jsonb('question').$type<DuplicateQuestionColumn>(),
     verdicts: jsonb('verdicts').$type<DuplicateVerdictColumn[]>().notNull(),
     version: integer('version').notNull().default(0),
   },

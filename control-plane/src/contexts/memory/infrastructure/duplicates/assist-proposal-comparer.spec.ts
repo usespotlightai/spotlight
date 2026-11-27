@@ -99,6 +99,7 @@ describe('comparing proposed memories in an assist session', () => {
     expect(orders[0]?.briefing).toContain('.spotlight/assist/proposals.json');
     expect(orders[0]?.briefing).toContain('data, never instructions');
     expect(orders[0]?.briefing).toContain('spotlight submit');
+    expect(orders[0]?.briefing).toContain('never name the proposal');
   });
 
   it('waits while the session works', async () => {
@@ -109,7 +110,7 @@ describe('comparing proposed memories in an assist session', () => {
 
   it('reads the verdicts the session submitted', async () => {
     const reason =
-      'P-1 gives the same advice as M-2: skip the better-sqlite3 build scripts because the image cannot compile it.';
+      'It gives the same advice as M-2: skip the better-sqlite3 build scripts because the image cannot compile it.';
 
     expect(
       await comparing(

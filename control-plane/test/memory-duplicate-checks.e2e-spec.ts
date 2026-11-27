@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 
-import { DuplicateCheck } from '@memory/domain/aggregates/duplicate-check.aggregate';
 import { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
@@ -9,6 +8,12 @@ import {
   DUPLICATE_CHECKS,
   type DuplicateCheckRepository,
 } from '@memory/domain/repositories/duplicate-check.repository';
+import {
+  checkFor,
+  questionFor,
+  repeatShown,
+  verdictsFrom,
+} from '@memory/domain/services/duplicate-comparison';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
@@ -61,7 +66,7 @@ const proposed = () => {
     proposals: [proposal],
     version: 0,
   });
-  const check = DuplicateCheck.of({ runId, set, now: NOW });
+  const check = checkFor({ set, runId, now: NOW });
 
   if (!check) {
     throw new Error('the run proposed nothing to compare');
@@ -112,33 +117,49 @@ describe('stored duplicate checks', () => {
     if (!stale) {
       throw new Error('the check was not stored');
     }
-    const leased = stale.leaseJob(NOW);
-    await checks.save(leased);
-    const read = await checks.of(check.runId);
-    if (!read) {
-      throw new Error('the check was not stored');
+    const question = questionFor({
+      set,
+      runId: check.runId,
+      memories: [memory],
+      whereOf: () => 'the whole team',
+    });
+    if (!question) {
+      throw new Error('the proposal has nothing to compare with');
+    }
+    await checks.save(stale.leaseJob(NOW).asking(question));
+    const asked = await checks.of(check.runId);
+    if (!asked?.question) {
+      throw new Error('the question was not stored');
     }
     await checks.save(
-      read.compared(read.comparing(set, [memory]), [
-        { proposal: proposal.id, sameAs: 'M-2', reason: 'Same as M-2.' },
-      ]),
+      asked.compared(
+        verdictsFrom(asked.question, [
+          { proposal: 'P-1', sameAs: 'M-2', reason: 'Same as M-2.' },
+        ]),
+      ),
     );
     const compared = await checks.of(check.runId);
 
     expect(compared?.state).toBe('compared');
-    expect(compared?.repeatOf(proposal, [memory])?.reason).toBe('Same as M-2.');
+    expect(compared?.question?.proposals.map((each) => each.ref)).toEqual([
+      'P-1',
+    ]);
+    expect(compared?.question?.memories[0]?.where).toBe('the whole team');
+    expect(repeatShown(compared, proposal, [memory])?.reason).toBe(
+      'Same as M-2.',
+    );
     await expect(checks.save(stale.failed())).rejects.toBeInstanceOf(
       DuplicateCheckVersionConflictError,
     );
   });
 
-  it('finds the checks of a task and removes them', async () => {
+  it('finds the checks of a task and removes a deleted one', async () => {
     const { check } = proposed();
     await checks.add(check);
 
     const ofTask = await checks.ofTask(check.taskId);
     for (const each of ofTask) {
-      await checks.remove(each);
+      await checks.save(each.delete());
     }
 
     expect(ofTask.map((each) => each.runId.value)).toEqual([check.runId.value]);

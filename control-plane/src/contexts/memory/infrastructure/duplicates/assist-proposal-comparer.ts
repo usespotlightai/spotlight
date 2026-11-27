@@ -42,7 +42,7 @@ Compare each proposal only with the memories it lists:
 - A proposal that contradicts a memory, or updates it with something that is no longer the same, does not repeat it: say null.
 - When in doubt, say null.
 
-Give one verdict for every proposal. In "same_as" give the handle of the memory it repeats, or null. In "reason" say why in one plain sentence that names the handle, or why it repeats none.
+Give one verdict for every proposal. In "same_as" give the handle of the memory it repeats, or null. In "reason" say why in one plain sentence: a person reads it beside the proposal, so never name the proposal's ref (such as "P-1"); say "it" for the proposal, and name the memory by its handle, or say why it repeats none.
 
 Your working copy is a checkout from the run that made the proposals. You may read it to understand a proposal. Do not change, commit or push any file.
 

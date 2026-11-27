@@ -9,6 +9,7 @@ import { provenanceNotes } from '@memory/application/services/provenance-notes';
 import type { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import type { DuplicateCheckRepository } from '@memory/domain/repositories/duplicate-check.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
+import { repeatShown } from '@memory/domain/services/duplicate-comparison';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export class MemoryReviews {
@@ -42,7 +43,7 @@ export class MemoryReviews {
 
     const memories = await Promise.all(
       proposals.map(async (proposal): Promise<ProposedMemoryDto> => {
-        const repeat = check?.repeatOf(proposal, named) ?? null;
+        const repeat = repeatShown(check, proposal, named);
 
         return {
           id: proposal.id.value,

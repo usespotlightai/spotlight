@@ -1,9 +1,6 @@
-import type { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
-import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
-import type { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
-import { DuplicateVerdict } from '@memory/domain/value-objects/duplicate-verdict.vo';
-import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
+import type { DuplicateQuestion } from '@memory/domain/value-objects/duplicate-question.vo';
+import type { DuplicateVerdict } from '@memory/domain/value-objects/duplicate-verdict.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -22,25 +19,6 @@ export const DUPLICATE_CHECK_STATES = [
 
 export type DuplicateCheckState = (typeof DUPLICATE_CHECK_STATES)[number];
 
-/** A proposal of the run and the memories it is compared with: never empty. */
-export interface DuplicateComparison {
-  readonly proposal: MemoryProposal;
-  readonly candidates: readonly Memory[];
-}
-
-/** What a model said about one proposal: the handle of the memory it repeats, or none, and why. */
-export interface ReportedVerdict {
-  readonly proposal: MemoryId;
-  readonly sameAs: string | null;
-  readonly reason: string;
-}
-
-/** The memory a proposal repeats, as the check found it and as it stands now. */
-export interface Repeat {
-  readonly memory: Memory;
-  readonly reason: string;
-}
-
 interface CheckFields {
   readonly runId: RunId;
   readonly workspaceId: WorkspaceId;
@@ -50,46 +28,52 @@ interface CheckFields {
   readonly createdAt: Date;
   readonly state: DuplicateCheckState;
   readonly job: PendingJob;
+  readonly question: DuplicateQuestion | null;
   readonly verdicts: readonly DuplicateVerdict[];
   readonly version: number;
 }
 
-const handleOf = (raw: string): MemoryHandle | null => {
-  try {
-    return MemoryHandle.parse(raw);
-  } catch {
-    return null;
-  }
-};
+const verdictsFit = (
+  question: DuplicateQuestion | null,
+  verdicts: readonly DuplicateVerdict[],
+): boolean =>
+  verdicts.every(
+    (each, at) =>
+      question !== null &&
+      question.asked(each.proposal) &&
+      (each.repeats === null ||
+        question.compared(each.proposal, each.repeats)) &&
+      verdicts.findIndex((one) => one.isAbout(each.proposal)) === at,
+  );
 
 /**
  * Whether what a run proposed to remember repeats what the team already remembers. One per run that proposed a
- * memory; a model compares the proposals with their candidates once, and the verdicts it gives stay with the run.
+ * memory to compare. It records the question its session was ordered with, once, and keeps the verdicts the model
+ * gave about that question.
  */
 export class DuplicateCheck implements HasPendingJob<DuplicateCheck> {
+  private deleted = false;
+
   private constructor(private readonly c: CheckFields) {}
 
-  /** The check of a run that proposed memories to compare, due now; none when the run proposed nothing to compare. */
-  static of(input: {
+  static due(input: {
     runId: RunId;
-    set: MemoryProposalSet;
+    workspaceId: WorkspaceId;
+    teamId: TeamId;
+    taskId: TaskId;
+    setId: MemoryProposalSetId;
     now: Date;
-  }): DuplicateCheck | null {
-    const [first] = input.set.comparableIn(input.runId);
-
-    if (!first) {
-      return null;
-    }
-
+  }): DuplicateCheck {
     return new DuplicateCheck({
       runId: input.runId,
-      workspaceId: input.set.workspaceId,
-      teamId: first.scope.teamId,
-      taskId: input.set.taskId,
-      setId: input.set.id,
+      workspaceId: input.workspaceId,
+      teamId: input.teamId,
+      taskId: input.taskId,
+      setId: input.setId,
       createdAt: input.now,
       state: 'pending',
       job: PendingJob.fresh(),
+      question: null,
       verdicts: [],
       version: 0,
     });
@@ -103,10 +87,13 @@ export class DuplicateCheck implements HasPendingJob<DuplicateCheck> {
       );
     }
 
-    if (fields.state !== 'compared' && fields.verdicts.length > 0) {
+    if (
+      (fields.state !== 'compared' && fields.verdicts.length > 0) ||
+      !verdictsFit(fields.question, fields.verdicts)
+    ) {
       throw new InconsistentStateError(
         'duplicate check',
-        'has verdicts before it compared',
+        'has verdicts it did not ask for',
       );
     }
 
@@ -145,6 +132,11 @@ export class DuplicateCheck implements HasPendingJob<DuplicateCheck> {
     return this.c.job;
   }
 
+  /** What its session was asked, once it was ordered; null before. */
+  get question(): DuplicateQuestion | null {
+    return this.c.question;
+  }
+
   get verdicts(): readonly DuplicateVerdict[] {
     return this.c.verdicts;
   }
@@ -165,25 +157,9 @@ export class DuplicateCheck implements HasPendingJob<DuplicateCheck> {
     return this.hasPendingJob && this.c.job.isDue(now);
   }
 
-  /**
-   * The proposals of its run that are still compared, each with its candidates, leaving out a proposal with none.
-   * Nothing when the set is not the one the run proposed in, such as after the task was deleted.
-   */
-  comparing(
-    set: MemoryProposalSet | null,
-    memories: readonly Memory[],
-  ): readonly DuplicateComparison[] {
-    if (!set?.id.equals(this.c.setId)) {
-      return [];
-    }
-
-    return set
-      .comparableIn(this.c.runId)
-      .map((proposal) => ({
-        proposal,
-        candidates: proposal.candidatesIn(memories),
-      }))
-      .filter((each) => each.candidates.length > 0);
+  /** Whether it checks the proposals of this set: a set made anew for the task after its own was deleted is not. */
+  isFor(setId: MemoryProposalSetId): boolean {
+    return this.c.setId.equals(setId);
   }
 
   leaseJob(now: Date): DuplicateCheck {
@@ -220,45 +196,28 @@ export class DuplicateCheck implements HasPendingJob<DuplicateCheck> {
     return job === this.c.job ? this : this.with({ job });
   }
 
+  /** Records the question its session is ordered with. It asks once: a check that asked already keeps its question. */
+  asking(question: DuplicateQuestion): DuplicateCheck {
+    if (!this.hasPendingJob) {
+      throw new InvalidMemoryError('asks only while due', 'duplicate check');
+    }
+
+    return this.c.question ? this : this.with({ question });
+  }
+
   /**
-   * Records what the model said about the proposals it compared. A verdict counts only for a proposal it was asked
-   * about, and may name only a memory that was a candidate for that proposal: any other verdict, or a second one for
-   * the same proposal, is dropped, never trusted.
+   * Records what the model said, and is done. Each verdict is about a proposal it asked about, at most one per
+   * proposal, and names only a memory it compared that proposal with. With no question, it compared nothing.
    */
-  compared(
-    comparing: readonly DuplicateComparison[],
-    reported: readonly ReportedVerdict[],
-  ): DuplicateCheck {
+  compared(verdicts: readonly DuplicateVerdict[]): DuplicateCheck {
     if (!this.hasPendingJob) {
       return this;
     }
 
-    const verdicts: DuplicateVerdict[] = [];
-
-    for (const each of reported) {
-      const asked = comparing.find(({ proposal }) =>
-        proposal.id.equals(each.proposal),
-      );
-
-      if (!asked || verdicts.some((one) => one.isAbout(each.proposal))) {
-        continue;
-      }
-
-      const handle = each.sameAs === null ? null : handleOf(each.sameAs);
-      const repeats = handle
-        ? asked.candidates.find((memory) => memory.handle.equals(handle))
-        : undefined;
-
-      if (each.sameAs !== null && !repeats) {
-        continue;
-      }
-
-      verdicts.push(
-        DuplicateVerdict.of({
-          proposal: asked.proposal.id,
-          repeats: repeats?.id ?? null,
-          reason: each.reason,
-        }),
+    if (!verdictsFit(this.c.question, verdicts)) {
+      throw new InvalidMemoryError(
+        'records only verdicts about what it asked',
+        'duplicate check',
       );
     }
 
@@ -275,6 +234,11 @@ export class DuplicateCheck implements HasPendingJob<DuplicateCheck> {
     return this.failed();
   }
 
+  /** What the model said about the proposal, or null when the check holds no verdict on it. */
+  verdictFor(proposal: MemoryId): DuplicateVerdict | null {
+    return this.c.verdicts.find((each) => each.isAbout(proposal)) ?? null;
+  }
+
   /** The memories its verdicts say a proposal repeats. */
   get repeatedMemories(): readonly MemoryId[] {
     return this.c.verdicts.flatMap((each) =>
@@ -282,26 +246,14 @@ export class DuplicateCheck implements HasPendingJob<DuplicateCheck> {
     );
   }
 
-  /**
-   * The memory the proposal repeats, among the team's current memories: only while the proposal is still proposed,
-   * and that memory is still active and still one it is compared with.
-   */
-  repeatOf(
-    proposal: MemoryProposal,
-    memories: readonly Memory[],
-  ): Repeat | null {
-    const verdict = this.c.verdicts.find((each) => each.isAbout(proposal.id));
-    const repeats = verdict?.repeats;
+  get isDeleted(): boolean {
+    return this.deleted;
+  }
 
-    if (!verdict || !repeats) {
-      return null;
-    }
-
-    const memory = proposal
-      .candidatesIn(memories)
-      .find((each) => each.id.equals(repeats));
-
-    return memory ? { memory, reason: verdict.reason } : null;
+  delete(): DuplicateCheck {
+    const deleted = this.with({});
+    deleted.deleted = true;
+    return deleted;
   }
 
   private with(change: Partial<CheckFields>): DuplicateCheck {

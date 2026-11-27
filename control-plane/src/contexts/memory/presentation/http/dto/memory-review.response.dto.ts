@@ -144,7 +144,7 @@ export class SimilarMemoryResponseDto {
 
   @ApiProperty({
     example:
-      'P-1 gives the same advice as M-2: skip the better-sqlite3 build scripts because the image cannot compile it.',
+      'It gives the same advice as M-2: skip the better-sqlite3 build scripts because the image cannot compile it.',
     description: 'Why the model found that the proposal repeats it',
   })
   readonly reason: string;

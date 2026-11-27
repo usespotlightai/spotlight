@@ -15,9 +15,8 @@ export interface DuplicateCheckRepository {
   /** Adds a new check; a version conflict when the run has one already. */
   add(check: DuplicateCheck): Promise<void>;
 
+  /** Saves the check with a version check, removing it once it is deleted. */
   save(check: DuplicateCheck): Promise<void>;
-
-  remove(check: DuplicateCheck): Promise<void>;
 
   /** The next due check, locked for the caller's transaction and skipped by others. */
   nextDue(now: Date): Promise<DuplicateCheck | null>;

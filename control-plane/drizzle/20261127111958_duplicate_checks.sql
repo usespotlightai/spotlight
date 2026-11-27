@@ -10,6 +10,7 @@ CREATE TABLE "duplicate_check" (
 	"job_attempts" integer DEFAULT 0 NOT NULL,
 	"job_due_at" timestamp (3) with time zone,
 	"waiting_since" timestamp (3) with time zone,
+	"question" jsonb,
 	"verdicts" jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "duplicate_check_attempts_not_negative" CHECK ("duplicate_check"."job_attempts" >= 0)

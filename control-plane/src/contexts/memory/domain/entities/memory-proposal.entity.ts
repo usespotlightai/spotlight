@@ -183,24 +183,6 @@ export class MemoryProposal {
     return this.proposed && !this.retires;
   }
 
-  /**
-   * The memories it is compared with to see whether it repeats one: the active memories of its team that apply where
-   * it applies, other than itself and the memory it supersedes. None unless it is still proposed and retires nothing.
-   */
-  candidatesIn(memories: readonly Memory[]): readonly Memory[] {
-    if (!this.comparable) {
-      return [];
-    }
-
-    return memories.filter(
-      (memory) =>
-        memory.isActive &&
-        !memory.id.equals(this.id) &&
-        !(this.supersedes && memory.id.equals(this.supersedes)) &&
-        memory.scope.overlaps(this.scope),
-    );
-  }
-
   get fromOutside(): boolean {
     return this.source === 'outside';
   }

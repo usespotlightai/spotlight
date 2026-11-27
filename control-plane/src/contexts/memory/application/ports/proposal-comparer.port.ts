@@ -3,7 +3,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const PROPOSAL_COMPARER = Symbol('MEMORY_PROPOSAL_COMPARER');
 
-export interface ComparedProposal {
+interface ComparedProposal {
   /** A short name for the proposal in this request, like `P-1`. */
   readonly ref: string;
   readonly kind: string;
@@ -13,7 +13,7 @@ export interface ComparedProposal {
   readonly candidates: readonly string[];
 }
 
-export interface CandidateMemory {
+interface CandidateMemory {
   readonly handle: string;
   readonly kind: string;
   readonly body: string;
