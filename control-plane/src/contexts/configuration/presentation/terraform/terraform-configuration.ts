@@ -1,5 +1,6 @@
 import type {
   ExportableConfigurationDto,
+  ExportableProviderDto,
   ExportableResourceDto,
   ExportableWorkingCopies,
 } from '@configuration/application/dto/exportable-configuration.dto';
@@ -93,11 +94,7 @@ interface ModuleIndex {
   readonly secrets: ReadonlySet<string>;
 }
 
-const PROVIDER_SOURCE = 'usespotlightai/spotlight';
-
-const PROVIDER_VERSION = '0.1.0-rc.4';
-
-/** PROVIDER_VERSION has no requests_per_day, so the export writes it only where leaving it out would give the station another value. */
+/** The pinned provider has no requests_per_day, so the export writes it only where leaving it out would give the station another value. */
 const REQUESTS_PER_DAY = LINE_DEFINITION_SEARCH_DEFAULTS.requestsPerDay;
 
 const GITIGNORE = {
@@ -1128,22 +1125,25 @@ const renderedIn = (
   return chosen.map((each) => rendered(each, configuration, refer));
 };
 
-const PROVIDERS = block(
-  'terraform',
-  [],
-  [
-    block(
-      'required_providers',
-      [],
-      [
-        attribute(TERRAFORM_PROVIDER, {
-          source: PROVIDER_SOURCE,
-          version: PROVIDER_VERSION,
-        }),
-      ],
-    ),
-  ],
-);
+const providersOf = (provider: ExportableProviderDto): readonly HclBlock[] => [
+  block(
+    'terraform',
+    [],
+    [
+      block(
+        'required_providers',
+        [],
+        [
+          attribute(TERRAFORM_PROVIDER, {
+            source: provider.source,
+            version: provider.version,
+          }),
+        ],
+      ),
+    ],
+  ),
+  block('provider', [TERRAFORM_PROVIDER], [attribute('url', provider.url)]),
+];
 
 export const workspaceTerraform = (
   configuration: ExportableConfigurationDto,
@@ -1156,7 +1156,10 @@ export const workspaceTerraform = (
   const paths = [...new Set(all.map((each) => each.file))];
 
   return [
-    { path: TERRAFORM_FILE, content: formatHcl([PROVIDERS]) },
+    {
+      path: TERRAFORM_FILE,
+      content: formatHcl(providersOf(configuration.provider)),
+    },
     {
       path: IMPORTS_FILE,
       content: formatHcl(all.flatMap((each) => each.imports)),

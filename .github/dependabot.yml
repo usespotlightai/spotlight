@@ -56,6 +56,13 @@ updates:
         patterns: ["*"]
         update-types: [minor, patch]
 
+  - package-ecosystem: terraform
+    directory: /control-plane/src/contexts/configuration/infrastructure/terraform
+    commit-message:
+      prefix: "fix(deps)"
+    schedule:
+      interval: daily
+
   - package-ecosystem: github-actions
     directory: /
     commit-message:

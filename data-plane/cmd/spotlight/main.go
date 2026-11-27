@@ -77,6 +77,8 @@ const editorSessionNote = `This terminal is in the sandbox of a Spotlight task.
 Run spotlight login, spotlight ssh setup and the host commands on your own computer.
 Agent commands work only in a run. To see them: spotlight help --all`
 
+const overviewNext = "For the commands: spotlight help"
+
 func root(all bool) help.Root {
 	footer := []string{"Run spotlight <command> --help for flags and examples."}
 
@@ -94,7 +96,7 @@ func root(all bool) help.Root {
 			Summary:  "Spotlight command line: your login, editors, hosts for your runs, and replays.",
 			Sections: operatorSections,
 			Footer: append(footer,
-				"In a terminal, spotlight without a command opens a dashboard for this computer: your login, editors and host.",
+				"spotlight without a command shows what is set up on this computer: your logins, editors, host and version. In a terminal, it opens them in a dashboard.",
 				"Run spotlight help --all for the commands that agents use in a run.",
 				"Docs: "+help.DocsBase+"spotlight-command"),
 		}
@@ -115,6 +117,15 @@ func run(args []string, out, errs io.Writer) int {
 			fmt.Fprintln(errs, "spotlight:", err)
 			return 1
 		}
+		return 0
+	}
+	if len(args) == 0 && !inRun() {
+		if err := host.Overview(out, version); err != nil {
+			fmt.Fprintln(errs, "spotlight:", err)
+			return 1
+		}
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, overviewNext)
 		return 0
 	}
 	if len(args) == 0 {

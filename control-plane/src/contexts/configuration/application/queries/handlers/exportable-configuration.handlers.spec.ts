@@ -8,6 +8,7 @@ import type {
 } from '@configuration/application/ports/hook-configs.port';
 import type { IntegrationConfigsPort } from '@configuration/application/ports/integration-configs.port';
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
+import type { TerraformProviderPinPort } from '@configuration/application/ports/terraform-provider-pin.port';
 import { ResourceConfigurationHandler } from '@configuration/application/queries/handlers/resource-configuration.handler';
 import { WorkspaceConfigurationHandler } from '@configuration/application/queries/handlers/workspace-configuration.handler';
 import { ResourceConfigurationQuery } from '@configuration/application/queries/resource-configuration.query';
@@ -45,6 +46,11 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
+
+const PIN: TerraformProviderPinPort = {
+  source: 'usespotlightai/spotlight',
+  version: '0.1.0-rc.11',
+};
 
 const READ_TOKEN = TokenPrincipal.of({
   grant: { tokenKey: 'token_1' },
@@ -339,6 +345,8 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     secrets,
     runners,
     oidcTrusts,
+    PIN,
+    'https://app.dev.example/',
   );
 
   return {
@@ -376,6 +384,11 @@ describe('WorkspaceConfigurationHandler', () => {
 
     expect(configuration?.workspaceId).toBe('ws_1');
     expect(configuration?.workspaceSlug).toBe('acme');
+    expect(configuration?.provider).toEqual({
+      source: 'usespotlightai/spotlight',
+      version: '0.1.0-rc.11',
+      url: 'https://app.dev.example',
+    });
     expect(
       configuration?.resources
         .map((each) => `${each.kind} ${each.address}`)

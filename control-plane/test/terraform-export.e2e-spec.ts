@@ -1,10 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
 import type { ExportableResourceDto } from '@configuration/application/dto/exportable-configuration.dto';
+import { PinnedTerraformProvider } from '@configuration/infrastructure/terraform/pinned-terraform-provider';
 import { CONFIGURATION } from '@configuration/presentation/terraform/exportable-configuration.fake-spec';
 import { workspaceTerraform } from '@configuration/presentation/terraform/terraform-configuration';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
+import { ENV } from '@platform/config/config.constants';
+import { publicUrlOf } from '@platform/config/env';
+import type { Env } from '@platform/config/env.schema';
 import { blockOf } from '@platform/hcl/hcl-block.fake-spec';
 import {
   formattedByTerraform,
@@ -860,6 +864,11 @@ describe('the configuration the export spec renders (e2e)', () => {
       workspaceTerraform({
         workspaceId,
         workspaceSlug: workspaceId,
+        provider: {
+          source: 'usespotlightai/spotlight',
+          version: new PinnedTerraformProvider().version,
+          url: publicUrlOf(app.get<Env>(ENV)).replace(/\/+$/, ''),
+        },
         resources: [
           ...CONFIGURATION.resources.map((each) => {
             if (each.kind === 'workspace') {

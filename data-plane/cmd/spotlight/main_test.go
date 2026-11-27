@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"usespotlight.ai/data-plane/credentials"
 	"usespotlight.ai/data-plane/help"
 	"usespotlight.ai/data-plane/protocol"
 )
@@ -59,10 +62,62 @@ func TestEveryCommandHasASummaryAndUsage(t *testing.T) {
 	}
 }
 
-func TestBareSpotlightListsThePersonsCommands(t *testing.T) {
+func onAComputer(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv(credentials.DirVar, filepath.Join(home, "spotlight"))
+	t.Setenv("SPOTLIGHT_HOST_CONFIG", filepath.Join(home, "host.env"))
+	return home
+}
+
+func TestBareSpotlightShowsWhatIsSetUpOnThisComputer(t *testing.T) {
+	outsideARun(t)
+	onAComputer(t)
+	saved, err := credentials.Saved(os.Getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saved.Put("https://app.dev.example.com", credentials.Login{Token: "token", User: "person@example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := saved.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	code, out, errs := ran()
+	if code != 0 {
+		t.Fatalf("exit %d, printed\n%s%s", code, out, errs)
+	}
+	for _, want := range []string{
+		"Logged in to https://app.dev.example.com as person@example.com.",
+		"This computer has no host.",
+		"spotlight " + version + " is installed.",
+		"\n\nFor the commands: spotlight help\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("printed\n%s\nwant %q", out, want)
+		}
+	}
+	if strings.Contains(out, "Usage") || strings.Contains(out, "host init  ") {
+		t.Errorf("printed the commands:\n%s", out)
+	}
+}
+
+func TestBareSpotlightOnAComputerWithNothingSetUp(t *testing.T) {
+	outsideARun(t)
+	onAComputer(t)
+
+	code, out, errs := ran()
+	if code != 0 || !strings.Contains(out, "Not logged in.") || !strings.HasSuffix(out, "For the commands: spotlight help\n") {
+		t.Fatalf("exit %d, printed\n%s%s", code, out, errs)
+	}
+}
+
+func TestHelpListsThePersonsCommands(t *testing.T) {
 	outsideARun(t)
 
-	code, out, _ := ran()
+	code, out, _ := ran("help")
 	if code != 0 || !strings.Contains(out, "host init") || !strings.Contains(out, "token") || strings.Contains(out, "handover") {
 		t.Fatalf("exit %d, printed\n%s", code, out)
 	}
