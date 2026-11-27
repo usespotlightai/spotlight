@@ -27,6 +27,9 @@ export const valueNote = (secret: WorkspaceSecret): string =>
 export const awaitsValue = (secret: WorkspaceSecret): boolean =>
   secret.valueOrigin === 'awaiting';
 
+export const showsValueLabel = (secret: WorkspaceSecret): boolean =>
+  !(secret.settable && awaitsValue(secret));
+
 export const setValueLabel = (secret: WorkspaceSecret): string =>
   awaitsValue(secret) ? 'Set value' : 'Replace value';
 

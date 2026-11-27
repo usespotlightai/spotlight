@@ -54,13 +54,39 @@ describe('Secrets on the mock API', () => {
       (await rowOf('LINEAR_API_KEY')).queryByRole('button'),
     ).not.toBeInTheDocument();
     expect(
-      (await rowOf('STAGING_LOGIN_PASSWORD')).getByText('Awaiting a value'),
-    ).toBeVisible();
+      (await rowOf('STAGING_LOGIN_PASSWORD')).queryByText('Awaiting a value'),
+    ).not.toBeInTheDocument();
+    expect(
+      (await rowOf('STAGING_LOGIN_PASSWORD')).getByRole('button', {
+        name: 'Set value of STAGING_LOGIN_PASSWORD',
+      }),
+    ).toHaveAccessibleDescription(
+      'Runs that need this secret fail until a person sets its value.',
+    );
     expect(
       (await rowOf('STAGING_VIEWER_TOKEN')).getByRole('button', {
         name: 'Replace value of STAGING_VIEWER_TOKEN',
       }),
     ).toBeVisible();
+  });
+
+  it('says a secret awaits a value where the person may not set one', async () => {
+    server.use(
+      api.get('/workspaces/:slug/secrets', () =>
+        json(
+          settingsWorld().secrets.map((secret) => ({
+            ...secret,
+            settable: false,
+          })),
+        ),
+      ),
+    );
+    render(<MockApplication at={secretsPath(SLUG)} />);
+
+    const password = await rowOf('STAGING_LOGIN_PASSWORD');
+
+    expect(password.getByText('Awaiting a value')).toBeVisible();
+    expect(password.queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('says no run sends a secret while no runner pool has egress, and links to the runners', async () => {

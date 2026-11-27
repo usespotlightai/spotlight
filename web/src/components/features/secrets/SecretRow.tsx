@@ -1,4 +1,5 @@
 import { LockKeyhole, TriangleAlert } from 'lucide-react';
+import type { ComponentProps } from 'react';
 
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { PillButton } from '@/components/shared/PillButton';
@@ -14,6 +15,7 @@ import {
   allowsSandbox,
   SANDBOX_NOTE,
   setValueLabel,
+  showsValueLabel,
   UNREACHED_LABEL,
   unreachedNote,
   valueNote,
@@ -56,6 +58,23 @@ function Unreached({ slug, secret, note }: UnreachedProps) {
   );
 }
 
+type SetValueButtonProps = ComponentProps<typeof PillButton> & {
+  secret: WorkspaceSecret;
+  onSetValue: () => void;
+};
+
+function SetValueButton({ secret, onSetValue, ...props }: SetValueButtonProps) {
+  return (
+    <PillButton
+      {...props}
+      aria-label={`${setValueLabel(secret)} of ${secret.name}`}
+      onClick={onSetValue}
+    >
+      {setValueLabel(secret)}
+    </PillButton>
+  );
+}
+
 export function SecretRow({ slug, secret, onSetValue }: SecretRowProps) {
   const note = unreachedNote(secret);
 
@@ -78,27 +97,29 @@ export function SecretRow({ slug, secret, onSetValue }: SecretRowProps) {
             </WithTooltip>
           )}
 
-          <WithTooltip tooltip={valueNote(secret)}>
-            <span
-              className={cn(
-                'whitespace-nowrap text-xs tabular-nums',
-                awaitsValue(secret)
-                  ? 'text-amber-600 dark:text-amber-400'
-                  : 'text-muted-foreground',
-              )}
-            >
-              {describeValue(secret)}
-            </span>
-          </WithTooltip>
-
-          {secret.settable && (
-            <PillButton
-              aria-label={`${setValueLabel(secret)} of ${secret.name}`}
-              onClick={onSetValue}
-            >
-              {setValueLabel(secret)}
-            </PillButton>
+          {showsValueLabel(secret) && (
+            <WithTooltip tooltip={valueNote(secret)}>
+              <span
+                className={cn(
+                  'whitespace-nowrap text-xs tabular-nums',
+                  awaitsValue(secret)
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-muted-foreground',
+                )}
+              >
+                {describeValue(secret)}
+              </span>
+            </WithTooltip>
           )}
+
+          {secret.settable &&
+            (awaitsValue(secret) ? (
+              <WithTooltip tooltip={valueNote(secret)}>
+                <SetValueButton secret={secret} onSetValue={onSetValue} />
+              </WithTooltip>
+            ) : (
+              <SetValueButton secret={secret} onSetValue={onSetValue} />
+            ))}
         </div>
       </SettingsRow>
     </li>
