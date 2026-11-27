@@ -30,6 +30,7 @@ const evidenceOf = (runId: string, line: string): RunEvidence => ({
       lines: [line],
     },
   ],
+  blockedTools: [],
 });
 
 const ROUND = {

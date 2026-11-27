@@ -65,6 +65,7 @@ export class ChangeJudgments implements ChangeJudgmentsPort {
       reference: evidence.reference,
       guidanceRequested: order.guidanceRequested,
       effectsBlocked: order.effectsBlocked,
+      blockedTools: run.blockedTools,
     });
 
     if (answer.status === 'waiting') {

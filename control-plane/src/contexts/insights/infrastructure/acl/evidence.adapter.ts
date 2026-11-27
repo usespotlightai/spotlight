@@ -36,6 +36,7 @@ export class Evidence implements EvidencePort {
           header: each.header,
           lines: each.lines,
         })),
+        blockedTools: [...run.blockedTools],
       }
     );
   }

@@ -70,13 +70,19 @@ const briefed = (reviewing: Repository | null) =>
     openReviewComments: [],
   });
 
-const original = (repository: Repository | null): TrialOriginal => ({
+const original = (
+  ...repositories: readonly (Repository | null)[]
+): TrialOriginal => ({
   runId: RunId.of('run_1'),
   taskId: TaskId.of('task_1'),
   stationId: BUILD,
   archive: null,
   startedAt: new Date('2026-11-11T09:00:00.000Z'),
-  checkouts: [{ checkedOutAt: 'api', repository, commit: COMMIT }],
+  checkouts: repositories.map((repository) => ({
+    checkedOutAt: repository?.value ?? 'api',
+    repository,
+    commit: COMMIT,
+  })),
 });
 
 const reasonOf = (run: () => unknown): string | null => {
@@ -94,7 +100,7 @@ describe('trialPlanFor', () => {
   it('starts each checkout of the repository the original started, at its commit, with that repository’s setup', () => {
     const plan = trialPlanFor({
       original: original(FORK_API),
-      briefed: briefed(null),
+      briefed: briefed(FORK_API),
       candidate: LINE,
     });
 
@@ -105,10 +111,44 @@ describe('trialPlanFor', () => {
         branch: null,
         base: null,
         ref: COMMIT,
-        diffOf: 'worktree',
+        diffOf: 'commits',
         setup: null,
       },
     ]);
+  });
+
+  it('starts every repository of the line where the original started each of them', () => {
+    const plan = trialPlanFor({
+      original: original(FORK_API, ACME_API),
+      briefed: briefed(null),
+      candidate: LINE,
+    });
+
+    expect(plan.at.checkouts).toMatchObject([
+      { repository: FORK_API, diffOf: 'worktree', setup: null },
+      { repository: ACME_API, diffOf: 'worktree', setup: 'npm ci' },
+    ]);
+  });
+
+  it('refuses a run that started without a repository the candidate checks out, such as one from before the line had it', () => {
+    expect(
+      reasonOf(() =>
+        trialPlanFor({
+          original: original(),
+          briefed: briefed(null),
+          candidate: LINE,
+        }),
+      ),
+    ).toBe('repository-missing');
+    expect(
+      reasonOf(() =>
+        trialPlanFor({
+          original: original(FORK_API),
+          briefed: briefed(null),
+          candidate: LINE,
+        }),
+      ),
+    ).toBe('repository-missing');
   });
 
   it('refuses a checkout of a repository the candidate no longer has, or does not review', () => {

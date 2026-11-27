@@ -2,10 +2,12 @@ import type {
   RunFacts,
   RunFactsPort,
 } from '@runs/application/ports/run-facts.port';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TrialabilityMapper } from '@work/application/mappers/trialability.mapper';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import type {
   TaskRunFacts,
@@ -16,16 +18,37 @@ import type {
   TrialableRunSummary,
   TrialableRunsPort,
 } from '@work/application/ports/trialable-runs.port';
-import { trialBlockOf } from '@work/domain/services/trialability';
+import {
+  type TrialRepositories,
+  trialBlockOnLineOf,
+} from '@work/domain/services/trialability';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+
+const onLineOf = (
+  run: RunFacts | null,
+  ran: TaskRunFacts | null,
+  line: LineMap | null,
+): TrialRepositories | null =>
+  line && ran && run?.startedFrom
+    ? {
+        checkouts: TrialabilityMapper.checkoutsIn(
+          line,
+          run.startedFrom.checkouts,
+        ),
+        reviewing: ran.reviewing ? Repository.of(ran.reviewing) : null,
+        line,
+      }
+    : null;
 
 const summaryOf = (
   runId: string,
   workspaceId: string,
   run: RunFacts | null,
   ran: TaskRunFacts | null,
+  line: LineMap | null,
 ): TrialableRunSummary => {
   const inWorkspace = run?.workspaceId.value === workspaceId;
-  const block = trialBlockOf(
+  const block = trialBlockOnLineOf(
     run && {
       inWorkspace,
       taskId: ran ? TaskId.of(ran.taskId) : null,
@@ -36,6 +59,7 @@ const summaryOf = (
       briefed: ran?.briefed ?? false,
       taskExists: ran?.taskExists ?? false,
     },
+    onLineOf(run, ran, line),
   );
   const placed = inWorkspace ? run : null;
   const placedRun = placed ? ran : null;
@@ -59,6 +83,7 @@ export class TrialableRuns implements TrialableRunsPort {
     private readonly runs: RunFactsPort,
     private readonly trials: TrialFactsPort,
     private readonly stationRuns: StationRunReaderPort,
+    private readonly lines: LineMapsPort,
   ) {}
 
   async summaries(
@@ -69,13 +94,35 @@ export class TrialableRuns implements TrialableRunsPort {
     const facts = await this.runs.of(distinct.map((each) => RunId.of(each)));
     const ran = await this.trials.ofTaskRuns(distinct);
     const known = new Map(facts.map((each) => [each.runId.value, each]));
+    const lines = await this.linesAt([
+      ...new Set([...ran.values()].map((each) => each.stationId)),
+    ]);
 
-    return distinct.map((runId) =>
-      summaryOf(
+    return distinct.map((runId) => {
+      const task = ran.get(runId) ?? null;
+
+      return summaryOf(
         runId,
         workspaceId,
         known.get(runId) ?? null,
-        ran.get(runId) ?? null,
+        task,
+        task ? (lines.get(task.stationId) ?? null) : null,
+      );
+    });
+  }
+
+  private async linesAt(
+    stations: readonly string[],
+  ): Promise<ReadonlyMap<string, LineMap | null>> {
+    return new Map(
+      await Promise.all(
+        stations.map(
+          async (station) =>
+            [
+              station,
+              await this.lines.findByStation(StationId.of(station)),
+            ] as const,
+        ),
       ),
     );
   }

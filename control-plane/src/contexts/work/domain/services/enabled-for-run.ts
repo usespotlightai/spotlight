@@ -96,6 +96,10 @@ export const toolsForATrial = (
   described: readonly DeclaredTool[],
 ): DeclaredTool[] => described.filter((each) => each.callableInIsolatedRun);
 
+export const toolsBlockedInATrial = (
+  described: readonly DeclaredTool[],
+): DeclaredTool[] => described.filter((each) => !each.callableInIsolatedRun);
+
 export const skillsForTools = (
   described: readonly DeclaredTool[],
 ): SkillKey[] =>

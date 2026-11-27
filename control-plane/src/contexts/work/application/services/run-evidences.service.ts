@@ -5,12 +5,14 @@ import type {
 } from '@runs/application/ports/run-facts.port';
 import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
 import type {
   EvidencedRun,
   EvidencedStep,
   RunEvidencePort,
 } from '@work/application/ports/run-evidence.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import type { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
@@ -58,7 +60,8 @@ export class RunEvidences implements RunEvidencePort {
 
   async of(runId: string): Promise<EvidencedRun | null> {
     const run = await this.found(RunId.of(runId));
-    const task = run ? await this.taskOf(run) : null;
+    const dispatch = run ? await this.dispatches.find(run.runId) : null;
+    const task = dispatch ? await this.taskOf(dispatch) : null;
     const numbered = run
       ? this.readings.stepsThrough(
           await this.journals.attemptsOfRun(run.runId),
@@ -66,7 +69,7 @@ export class RunEvidences implements RunEvidencePort {
         )
       : null;
 
-    if (!run || !task || !numbered) {
+    if (!run || !dispatch || !task || !numbered) {
       return null;
     }
 
@@ -78,6 +81,10 @@ export class RunEvidences implements RunEvidencePort {
         numbered.map((each) => each.step),
         run.checkouts,
       ),
+      blockedTools:
+        dispatch.subject.kind === 'trial' && dispatch.order
+          ? RunOrdersMapper.blockedToolsOf(dispatch.order)
+          : [],
     };
   }
 
@@ -87,10 +94,10 @@ export class RunEvidences implements RunEvidencePort {
     return run ?? null;
   }
 
-  private async taskOf(run: RunFacts): Promise<TaskOfRun | null> {
-    const subject = (await this.dispatches.find(run.runId))?.subject;
+  private async taskOf(dispatch: Dispatch): Promise<TaskOfRun | null> {
+    const { subject } = dispatch;
 
-    if (subject?.kind === 'trial') {
+    if (subject.kind === 'trial') {
       const original = await this.dispatches.find(subject.basedOn);
       const briefed = original?.briefedTask;
 
@@ -104,7 +111,7 @@ export class RunEvidences implements RunEvidencePort {
     }
 
     const task =
-      subject?.kind === 'task' ? await this.tasks.find(subject.taskId) : null;
+      subject.kind === 'task' ? await this.tasks.find(subject.taskId) : null;
 
     return (
       task && {

@@ -44,6 +44,7 @@ const UNREPLAYABLE: Readonly<Record<UnreplayableReason, string>> = {
   'attachments-gone': 'the briefing files are gone',
   'answer-gone': 'the answer is gone',
   'repository-gone': 'the repository is not on the line',
+  'repository-missing': 'the run did not have a repository of the line',
   'not-at-the-station': 'the run was not at this station',
   'candidate-unfit': 'the candidate cannot run it',
   'cannot-start': 'the run could not start',
