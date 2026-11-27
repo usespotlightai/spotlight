@@ -36,7 +36,7 @@ import {
 import { grants } from './permissions';
 import { ErrorReporting } from './reporting';
 import { SettingsFile } from './settings';
-import { updateFeedOf } from './update-feed';
+import { updateCheckOutcome, updateFeedOf } from './updates';
 import {
   type Bounds,
   DEFAULT_SIZE,
@@ -77,34 +77,9 @@ const checkForUpdates = () => {
   });
 };
 
-const updateCheckOutcome = async (): Promise<Electron.MessageBoxOptions> => {
-  try {
-    const result = await autoUpdater.checkForUpdatesAndNotify();
-
-    if (result?.isUpdateAvailable) {
-      return {
-        message: `Spotlight ${result.updateInfo.version} is downloading.`,
-        detail: 'Spotlight installs it when you quit.',
-      };
-    }
-
-    return {
-      message: 'Spotlight is up to date.',
-      detail: `Version ${app.getVersion()}`,
-    };
-  } catch (error) {
-    return {
-      type: 'warning',
-      message: 'Spotlight could not check for updates.',
-      detail: error instanceof Error ? error.message : String(error),
-    };
-  }
-};
-
 const checkForUpdatesNow = async () => {
-  const outcome = await updateCheckOutcome();
+  const options = await updateCheckOutcome(autoUpdater, app.getVersion());
   const window = frontWindow();
-  const options = { type: 'info' as const, ...outcome };
 
   await (window
     ? dialog.showMessageBox(window, options)
