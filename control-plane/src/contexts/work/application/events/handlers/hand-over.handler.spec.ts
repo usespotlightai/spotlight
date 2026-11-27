@@ -265,12 +265,12 @@ describe('HandOver', () => {
     ]);
   });
 
-  it('puts the last words of a run without a handover to the person', async () => {
+  it('puts the last words of a run without a handover to the person, and says what it waits for', async () => {
     await handOver(run(false), tasks(), 'Here is a draft you can use.');
 
     expect(saved?.awaitingReview).toBe(true);
     expect(saved?.notes.map((each) => each.body.value)).toEqual([
-      'Here is a draft you can use.',
+      'The run finished without saying where the task should go next.\n\nHere is a draft you can use.',
     ]);
   });
 

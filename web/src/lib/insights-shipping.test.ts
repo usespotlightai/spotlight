@@ -295,8 +295,14 @@ describe('slowestFirst', () => {
   it('orders the types as the server ranked them at the percentile', () => {
     const merges = partial<InsightsShipping>({
       types: [
-        partial<TypeMerge>({ type: 'feature', merged: 3 }),
-        partial<TypeMerge>({ type: 'fix', merged: 1 }),
+        partial<TypeMerge>({
+          type: 'feature',
+          merged: { spotlight: 2, people: 1 },
+        }),
+        partial<TypeMerge>({
+          type: 'fix',
+          merged: { spotlight: 1, people: 0 },
+        }),
       ],
       slowestFirst: {
         p50: ['fix', 'feature'],

@@ -15,6 +15,9 @@ const bodyOf = (handover: Handover, fallback: string) =>
 const ownWords = (handover: Handover): TaskNoteBody | null =>
   handover.note === '' ? null : TaskNoteBody.of(handover.note);
 
+const UNROUTED =
+  'The run finished without saying where the task should go next.';
+
 const DENIALS: Record<PassDenial, (key: string) => string> = {
   'already-there': (key) =>
     `The run requested station "${key}". The task is already there.`,
@@ -136,14 +139,13 @@ export const HandoverFor = {
     if (lastWords !== null && lastWords.trim() !== '') {
       const said = TaskNoteBody.of(lastWords);
 
-      return ResolvedHandover.review(said, said);
+      return ResolvedHandover.review(
+        TaskNoteBody.of(`${UNROUTED}\n\n${said.value}`),
+        said,
+      );
     }
 
-    return ResolvedHandover.review(
-      TaskNoteBody.of(
-        'The run finished without saying where the task should go next.',
-      ),
-    );
+    return ResolvedHandover.review(TaskNoteBody.of(UNROUTED));
   },
 
   exhausted(attempts: number, failure: RunFailureCode): ResolvedHandover {

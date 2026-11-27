@@ -1347,17 +1347,14 @@ describe('Run', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('offers to answer the question right here, so the run carries on', () => {
+    it('offers to reply right here, so the run carries on', () => {
       runs.mockReturnValue([run({ state: 'suspended', review: PENDING })]);
 
       renderRun();
 
       expect(
         screen.getByRole('textbox', { name: 'Answer Implementation' }),
-      ).toHaveAttribute(
-        'aria-placeholder',
-        'Answer the question to continue the run…',
-      );
+      ).toHaveAttribute('aria-placeholder', 'Reply to continue the run…');
     });
 
     it('lets an approval be decided right here, through its inbox conversation', async () => {

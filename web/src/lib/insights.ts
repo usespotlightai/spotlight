@@ -1184,8 +1184,10 @@ export const TRUNCATED_TRACES =
 export const WAITS_NOTE =
   'Median time that tasks spend queued, running and in the inbox at each station. Stations show in the order they first ran.';
 
+export const DELIVERY_SCOPE = 'Spotlight’s PRs';
+
 export const DELIVERY_NOTE =
-  'Time from when a task opens to its pull request, first human review and merge. Each pull request of a task counts on its own. Times are medians; the slowest 10% shows on hover.';
+  'Spotlight’s pull requests: time from when a task opens to its pull request, first human review and merge. Each pull request of a task counts on its own. Times are medians; the slowest 10% shows on hover.';
 
 const SOME_STATIONS = 4;
 
