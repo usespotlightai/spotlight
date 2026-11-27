@@ -47,6 +47,11 @@ export const openIn = <
   return last !== undefined && stillOpen(last) ? last : null;
 };
 
+export const unreadIn = (
+  conversation: { readonly notes: readonly ReadableNote[] },
+  taskFinished: boolean,
+): boolean => !taskFinished && anyUnread(conversation.notes);
+
 export const listedAsOpen = <T>(
   conversation: {
     readonly from: T;
@@ -55,7 +60,9 @@ export const listedAsOpen = <T>(
   },
   taskFinished: boolean,
 ): boolean =>
-  stillOpen(conversation) ? !taskFinished : anyUnread(conversation.notes);
+  stillOpen(conversation)
+    ? !taskFinished
+    : unreadIn(conversation, taskFinished);
 
 export const reopenable = (
   from: NotePosition,

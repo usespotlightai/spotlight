@@ -19,24 +19,34 @@ import { StartSearch } from '@replays/application/services/start-search.service'
 import { StationChangeTests } from '@replays/application/services/station-change-tests.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import {
   aSearch,
   aSet,
   BY,
+  candidateOf,
+  endOf,
   JUDGE,
   LIVE_FINGERPRINT,
   LIVE_HASHES,
+  later,
+  measuresOf,
   NOW,
-  searchRunIds,
+  runIds,
   STATION,
+  searchRunIds,
+  slots,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { JudgeCalibration } from '@replays/domain/value-objects/judge-calibration';
+import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
+import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
@@ -194,6 +204,69 @@ const finished = (id: string, spent: number): Search =>
 const withSet = async (set: ReplaySet) => {
   memory.sets.clear();
   await memory.setRepository.add(set);
+};
+
+const verdictOf = (claimResults: readonly boolean[]) =>
+  JudgeVerdict.of({
+    claimResults,
+    claims: [...JUDGE.claims],
+    passThreshold: 1,
+    model: 'judge/model',
+    referenced: false,
+    reasons: [],
+    guidance: null,
+  });
+
+const PASSED = ChangeChecks.of([
+  {
+    repository: 'api',
+    state: 'passed',
+    skip: null,
+    failedAt: [],
+    spent: ModelSpent.of([], 0),
+  },
+]);
+
+const judgedTwice = async (
+  secondOf: (place: number) => readonly boolean[],
+): Promise<void> => {
+  const live = candidateOf(
+    'live',
+    'candidate_live',
+    JUDGE,
+    'npm test',
+    LIVE_FINGERPRINT,
+  );
+  const started = Replay.start({
+    id: ReplayId.of('replay_calibration'),
+    set: aSet(10).snapshot,
+    candidate: live.asReplayed,
+    baseline: false,
+    ceiling: Money.ceiling(100, 'USD'),
+    at: NOW,
+    by: BY,
+    repeats: 2,
+    calibration: true,
+  });
+  const reserved = started.reserving(slots(started.entries.length), runIds());
+  const judged = reserved.entries.reduce((built, entry) => {
+    const run = present(entry.run);
+
+    return built
+      .confirm(run, LIVE_FINGERPRINT, NOW)
+      .recordRunEnd(run, endOf('completed'))
+      .measure(run, measuresOf(1), later(61_000))
+      .recordReview(run, PASSED, null, later(62_000))
+      .recordVerdict(run, verdictOf([true, true]), later(63_000));
+  }, reserved);
+  const rejudged = judged.entries.reduce(
+    (built, entry, place) =>
+      built.recordRejudgment(present(entry.run), verdictOf(secondOf(place))),
+    judged,
+  );
+
+  await memory.candidateRepository.add(live);
+  await memory.replayRepository.add(rejudged);
 };
 
 beforeEach(async () => {
@@ -365,6 +438,18 @@ describe('StationChangeTests', () => {
     suppliers.insights.calibration = calibrationIn('unmeasured');
 
     expect(await asked()).toMatchObject({ outcome: 'started' });
+  });
+
+  it('refuses a station whose judge disagrees with itself, with how often it agreed and the claims that changed most', async () => {
+    scoring = JUDGED;
+    await judgedTwice((place) => [place !== 0, place >= 5]);
+
+    expect(await asked()).toMatchObject({
+      outcome: 'refused',
+      code: 'judge-unstable',
+      reason:
+        'The judge of the station does not give the same verdict twice for the same run. Calibration judged 20 runs twice, and the two verdicts agreed for 15 of them (75%). Spotlight needs at least 80%. The claims whose result changed most between the two verdicts: “It keeps the order of the jobs.” in 5 runs; “It drains the queue without dropping a job.” in 1 run. Please make the claims of the judge more exact.',
+    });
   });
 
   it('refuses while a config pull request of the station is open, or the last search has not given its result', async () => {

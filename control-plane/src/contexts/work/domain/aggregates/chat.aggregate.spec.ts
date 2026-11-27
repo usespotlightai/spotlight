@@ -34,6 +34,7 @@ import { ProposalBecameTask } from '@work/domain/events/proposal-became-task.eve
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { ProposalRestored } from '@work/domain/events/proposal-restored.event';
 import { ProposalsReplaced } from '@work/domain/events/proposals-replaced.event';
+import { SetupPullRequestMerged } from '@work/domain/events/setup-pull-request-merged.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
@@ -66,6 +67,7 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-14T09:00:00.000Z');
 const LATER = new Date('2026-09-14T09:05:00.000Z');
+const MERGED_AT = new Date('2026-09-14T10:00:00.000Z');
 const LATEST = new Date('2026-09-14T09:10:00.000Z');
 
 const LEON = UserId.of('user_1');
@@ -1365,6 +1367,40 @@ describe('Chat', () => {
 
       expect(again.setup?.pullRequest?.equals(URL)).toBe(true);
       expect(again.pullEvents()).toEqual([]);
+    });
+
+    it('resolves once its pull request is merged', () => {
+      const opened = settingUp().openSetup(RunId.of('run_1'), URL, LATER);
+      opened.pullEvents();
+
+      const merged = opened.setupPullRequestClosed(URL, true, MERGED_AT);
+
+      expect(merged.resolvedAt).toEqual(MERGED_AT);
+      expect(merged.unread).toBe(false);
+      expect(merged.pullEvents()).toEqual([
+        new SetupPullRequestMerged(merged.id, merged.workspaceId, LEON),
+      ]);
+    });
+
+    it('stays open while its pull request closes unmerged, or another one merges', () => {
+      const opened = settingUp().openSetup(RunId.of('run_1'), URL, LATER);
+
+      expect(opened.setupPullRequestClosed(URL, false, MERGED_AT)).toBe(opened);
+      expect(
+        opened.setupPullRequestClosed(
+          PullRequestUrl.of('https://github.com/acme/infra/pull/13'),
+          true,
+          MERGED_AT,
+        ),
+      ).toBe(opened);
+    });
+
+    it('resolves nothing before its pull request opens', () => {
+      const unopened = settingUp();
+
+      expect(unopened.setupPullRequestClosed(URL, true, MERGED_AT)).toBe(
+        unopened,
+      );
     });
   });
   describe('saying what changed', () => {
