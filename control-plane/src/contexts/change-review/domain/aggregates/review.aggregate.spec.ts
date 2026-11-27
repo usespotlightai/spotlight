@@ -213,7 +213,7 @@ describe('Review', () => {
     });
 
     expect(posted.pullEvents()).toEqual([
-      expect.objectContaining({ kind: 'review.posted', onFiles: [] }),
+      expect.objectContaining({ kind: 'review.posted' }),
       expect.objectContaining({
         kind: 'review.included-comment-posted',
         commentId: ReviewCommentId.of('comment_1'),
@@ -222,7 +222,38 @@ describe('Review', () => {
     ]);
   });
 
-  it('plans to post only the comments it contains that are on their way, lines in the review and files on their own', () => {
+  it('counts a comment on a whole file as posted in the review, with no post of its own', () => {
+    const review = submit({ drafts: [draftBy(ADA)] });
+    review.pullEvents();
+    const onFile = ReviewComment.draft({
+      id: ReviewCommentId.of('comment_2'),
+      workspaceId: WorkspaceId.of('workspace_1'),
+      taskId: TASK,
+      anchor: ReviewAnchor.onFile('src/a.ts'),
+      body: 'About the file',
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
+      now: NOW,
+    }).submittedIn(review.id);
+
+    const posted = review.postedAs({
+      githubId: 99,
+      verdictOnGitHub: 'comment',
+      comments: [onFile],
+      onLinesOnGitHub: [],
+      now: NOW,
+    });
+
+    expect(posted.pullEvents()).toEqual([
+      expect.objectContaining({ kind: 'review.posted' }),
+      expect.objectContaining({
+        kind: 'review.included-comment-posted',
+        commentId: ReviewCommentId.of('comment_2'),
+        github: null,
+      }),
+    ]);
+  });
+
+  it('plans to post only the comments it contains that are on their way, apart by lines and whole files', () => {
     const review = submit({ drafts: [draftBy(ADA)] });
     const onLines = draftBy(ADA, 'comment_1').submittedIn(review.id);
     const onFile = ReviewComment.draft({

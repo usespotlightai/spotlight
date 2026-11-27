@@ -21,12 +21,15 @@ export interface PostingTarget {
   readonly by: ReviewPoster;
 }
 
-interface LineReviewComment {
+interface FileReviewComment {
   readonly path: string;
+  readonly body: string;
+}
+
+interface LineReviewComment extends FileReviewComment {
   readonly side: ReviewSide;
   readonly line: number;
   readonly startLine: number | null;
-  readonly body: string;
 }
 
 export interface PostedReview {
@@ -41,6 +44,7 @@ export interface ReviewPostingPort {
       readonly verdict: ReviewVerdict;
       readonly body: string;
       readonly comments: readonly LineReviewComment[];
+      readonly onFiles: readonly FileReviewComment[];
     },
   ): Promise<PostedReview>;
 
