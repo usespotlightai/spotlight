@@ -7,6 +7,7 @@ import { TeamWorkAccess } from '@change-review/application/services/team-work-ac
 import { TeamMembershipRequiredError } from '@change-review/domain/exceptions/team-membership-required.error';
 import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
 import { UnknownReviewError } from '@change-review/domain/exceptions/unknown-review.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -28,53 +29,62 @@ const access = (
 ) =>
   new TeamWorkAccess(
     {
-      viewerOf: async () =>
-        over.member === false
-          ? null
-          : {
-              workspaceId: WORKSPACE,
-              teamId: TeamId.of('team_1'),
-              by: UserId.of('user_1'),
-            },
-      actsOnTeam: async () => over.actsOnTeam ?? over.member !== false,
-      find: async () => ({ name: 'Ada', image: null }),
+      viewerOf: () =>
+        Promise.resolve(
+          over.member === false
+            ? null
+            : {
+                workspaceId: WORKSPACE,
+                teamId: TeamId.of('team_1'),
+                by: UserId.of('user_1'),
+              },
+        ),
+      actsOnTeam: () =>
+        Promise.resolve(over.actsOnTeam ?? over.member !== false),
+      find: () => Promise.resolve({ name: 'Ada', image: null }),
     },
-    {
-      run: async (): Promise<RunForReview | null> =>
-        over.run === null
-          ? null
-          : {
-              id: RunId.of('run_1'),
-              workspaceId: WORKSPACE,
-              taskId: TaskId.of('task_1'),
-              checking: null,
-              working: false,
-              attempt: 1,
-              orderedAt: null,
-              decisions: false,
-              trial: false,
-              isolated: false,
-              checkouts: 1,
-              placement: RunnerPlacement.anywhere(),
-              ...over.run,
-            },
-      task: async (): Promise<ReviewedTask | null> =>
-        over.task === null
-          ? null
-          : {
-              id: TaskId.of('task_1'),
-              workspaceId: WORKSPACE,
-              teamId: TeamId.of('team_1'),
-              pullRequests: [],
-              openPullRequests: [],
-              reviewedPullRequest: null,
-              reviewing: false,
-              currentRunId: null,
-              ...over.task,
-            },
-      teamOfRun: async () =>
-        over.ranFor === undefined ? TeamId.of('team_1') : over.ranFor,
-    } as unknown as WorkPort,
+    partial<WorkPort>({
+      run: (): Promise<RunForReview | null> =>
+        Promise.resolve(
+          over.run === null
+            ? null
+            : {
+                id: RunId.of('run_1'),
+                workspaceId: WORKSPACE,
+                taskId: TaskId.of('task_1'),
+                checking: null,
+                working: false,
+                attempt: 1,
+                orderedAt: null,
+                decisions: false,
+                trial: false,
+                isolated: false,
+                checkouts: 1,
+                placement: RunnerPlacement.anywhere(),
+                ...over.run,
+              },
+        ),
+      task: (): Promise<ReviewedTask | null> =>
+        Promise.resolve(
+          over.task === null
+            ? null
+            : {
+                id: TaskId.of('task_1'),
+                workspaceId: WORKSPACE,
+                teamId: TeamId.of('team_1'),
+                pullRequests: [],
+                openPullRequests: [],
+                reviewedPullRequest: null,
+                reviewing: false,
+                currentRunId: null,
+                ...over.task,
+              },
+        ),
+      teamOfRun: () =>
+        Promise.resolve(
+          over.ranFor === undefined ? TeamId.of('team_1') : over.ranFor,
+        ),
+    }),
   );
 
 const reviewing = (over: Parameters<typeof access>[0] = {}) =>

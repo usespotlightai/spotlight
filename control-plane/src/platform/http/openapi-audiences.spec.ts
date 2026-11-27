@@ -4,6 +4,7 @@ import {
   documentsByAudience,
   type Route,
 } from '@platform/http/openapi-audiences';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const route = (
@@ -79,7 +80,7 @@ describe('audienceOf', () => {
 });
 
 describe('documentsByAudience', () => {
-  const document = {
+  const document = partial<OpenAPIObject>({
     openapi: '3.0.0',
     info: { title: 'test', version: '1' },
     tags: [{ name: 'lines' }, { name: 'runs' }],
@@ -112,7 +113,7 @@ describe('documentsByAudience', () => {
         Run: { type: 'object' },
       },
     },
-  } as unknown as OpenAPIObject;
+  });
 
   const routes = [
     route('/v1/resources/lines/{id}', 'workspace-token', 'resources'),
@@ -158,7 +159,7 @@ describe('documentsByAudience', () => {
     expect(documents.admin.components?.securitySchemes?.bearer).toMatchObject({
       type: 'http',
       scheme: 'bearer',
-      description: expect.stringContaining('SPOTLIGHT_ADMIN_TOKEN') as string,
+      description: expect.stringContaining('SPOTLIGHT_ADMIN_TOKEN') as unknown,
     });
     expect(documents.resources.components?.securitySchemes?.bearer).toEqual({
       type: 'http',

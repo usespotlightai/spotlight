@@ -90,7 +90,7 @@ const RAISED: Readonly<Record<ReportedActivity, HappeningDeclaration>> = {
 const failedChecksOf = (event: PullRequestActivity): Happened['message'] => {
   const body = failedChecksMessage(event.failedChecks);
 
-  return body ? { body } : null;
+  return body !== null && body !== '' ? { body } : null;
 };
 
 const messageOf = (event: PullRequestActivity): Happened['message'] =>
@@ -107,7 +107,10 @@ const messageOf = (event: PullRequestActivity): Happened['message'] =>
 
 const factsOf = (event: PullRequestActivity): PullRequestActivityFacts => ({
   activity: event.activity,
-  pullRequest: event.pullRequest ? PullRequestUrl.of(event.pullRequest) : null,
+  pullRequest:
+    event.pullRequest !== null && event.pullRequest !== ''
+      ? PullRequestUrl.of(event.pullRequest)
+      : null,
   branch: event.branch,
   labelled: event.label !== null && event.label !== '',
   described: event.details !== null,
@@ -230,8 +233,8 @@ export class GitHubWebhookProvider implements WebhookProviderPort {
 
   constructor(private readonly github: GitHubWebhooksPort) {}
 
-  async verifies(delivered: Delivered): Promise<boolean> {
-    return this.github.verifies(delivered);
+  verifies(delivered: Delivered): Promise<boolean> {
+    return Promise.resolve(this.github.verifies(delivered));
   }
 
   delivery(delivered: Delivered): string {

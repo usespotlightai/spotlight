@@ -27,6 +27,9 @@ import type {
   NetworkCallsPort,
   NetworkRequest,
 } from '@runs/application/ports/network-calls.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -85,13 +88,13 @@ const answering = (state: NetworkCallState) => {
   const queued: { request: NetworkRequest; expiresAt: Date }[] = [];
   const calls: NetworkCallsPort = {
     queue: vi.fn<NetworkCallsPort['queue']>(
-      async (_workspace, request, expiresAt) => {
+      (_workspace, request, expiresAt) => {
         queued.push({ request, expiresAt });
-        return 'call_1';
+        return Promise.resolve('call_1');
       },
     ),
-    stateOf: vi.fn(async () => state),
-    answered: vi.fn(async () => state),
+    stateOf: vi.fn(() => Promise.resolve(state)),
+    answered: vi.fn(() => Promise.resolve(state)),
   };
 
   return { calls, queued };
@@ -121,20 +124,23 @@ const sending = (
     },
   });
   const run = vi.fn();
-  const within = vi.fn(async (_workspace: string, work: () => unknown) =>
-    work(),
-  );
-  const take = vi.fn(async () => true);
+  const within = vi.fn();
+  const take = vi.fn(() => Promise.resolve(true));
   const limits = over.limits ?? { perSecond: 50, take };
   const runtime = new CompiledIntegrationRuntime(
     new IntegrationReader(new CelExpressionEngine(), operationsContaining()),
-    { run } as unknown as HttpOutbound,
+    partial<HttpOutbound>({ run }),
     clientsFrom(),
-    {} as OAuth2Exchange,
+    partial<OAuth2Exchange>({}),
     discoveringNothing(),
     callingNoServer(),
     limits,
-    { within } as unknown as WorkspaceOutboundScopePort,
+    partial<WorkspaceOutboundScopePort>({
+      within: (workspaceId, work) => {
+        within(workspaceId, work);
+        return work();
+      },
+    }),
     new NetworkOutbound(
       new RealHttpOutbound(allowingOutbound(['audit.internal'])),
       calls,
@@ -143,10 +149,10 @@ const sending = (
     noFiles,
   );
   const callAuth: CallAuth = {
-    workspace: async () => WorkspaceId.of('ws_1'),
+    workspace: () => Promise.resolve(WorkspaceId.of('ws_1')),
     connection: null,
-    credentials: new SpotlightCredentials(secrets.injection, async () =>
-      WorkspaceId.of('ws_1'),
+    credentials: new SpotlightCredentials(secrets.injection, () =>
+      Promise.resolve(WorkspaceId.of('ws_1')),
     ),
   };
 
@@ -171,7 +177,7 @@ describe('an action sent from the network', () => {
 
     await call('deployed');
 
-    const [{ request, expiresAt }] = queued as [(typeof queued)[number]];
+    const { request, expiresAt } = present(firstOf(queued));
     expect(request).toMatchObject({
       method: 'POST',
       url: 'https://audit.internal/records?team=delivery',
@@ -263,7 +269,7 @@ describe('an action sent from the network', () => {
 
   it('queues nothing when the workspace is over its rate limit', async () => {
     const { call, calls } = sending(answered(201, '{"id":"rec_1"}'), {
-      limits: { perSecond: 50, take: async () => false },
+      limits: { perSecond: 50, take: () => Promise.resolve(false) },
     });
 
     await expect(call('deployed')).rejects.toThrow(/more than 50 requests/);

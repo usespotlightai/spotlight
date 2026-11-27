@@ -4,14 +4,19 @@ import { decoded } from '@runs/infrastructure/journal/journalled';
 export const enforcementOf = (
   data: string | null | undefined,
 ): EgressEnforcement | null => {
-  if (!data) {
+  if (data === null || data === undefined || data === '') {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(decoded(data)) as { enforced?: unknown };
+    const parsed: unknown = JSON.parse(decoded(data));
 
-    if (typeof parsed.enforced !== 'boolean') {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      !('enforced' in parsed) ||
+      typeof parsed.enforced !== 'boolean'
+    ) {
       return null;
     }
 

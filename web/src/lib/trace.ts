@@ -34,7 +34,10 @@ export const laidOut = (
   trace: Trace,
 ): { left: number; width: number } => {
   const whole = Math.max(trace.ms, 1);
-  const from = trace.startedAt ? at(trace.startedAt) : at(node.startedAt);
+  const from =
+    trace.startedAt !== null && trace.startedAt !== ''
+      ? at(trace.startedAt)
+      : at(node.startedAt);
 
   return {
     left: ((at(node.startedAt) - from) / whole) * 100,
@@ -69,10 +72,16 @@ export const stepNodeAt = (run: TraceNode, place: number): TraceNode | null =>
 
 export const lastChangeTo = (run: TraceNode, path: string): TraceNode | null =>
   below(run)
-    .filter(
-      (node) =>
-        node.step?.change?.path && repoRelative(node.step.change.path) === path,
-    )
+    .filter((node) => {
+      const changed = node.step?.change?.path;
+
+      return (
+        changed !== undefined &&
+        changed !== null &&
+        changed !== '' &&
+        repoRelative(changed) === path
+      );
+    })
     .reduce<TraceNode | null>(
       (last, node) =>
         last && (last.place ?? -1) > (node.place ?? -1) ? last : node,
@@ -93,7 +102,7 @@ export const NAMES_PANE = {
   max: 640,
   initial: 320,
   label: 'Resize the names',
-  limit: (shown: HTMLElement) => {
+  limit: (shown: HTMLElement): number => {
     const room = shown.parentElement?.clientWidth ?? 0;
     return room * (room >= 448 ? 0.5 : 0.4);
   },

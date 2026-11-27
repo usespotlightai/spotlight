@@ -1,11 +1,11 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import { createServer, type IncomingHttpHeaders } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import type { INestApplication } from '@nestjs/common';
 import { EVENT_WEBHOOK_SUBSCRIBER } from '@platform/events/event-webhook';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { and, eq } from 'drizzle-orm';
 import {
   afterAll,
@@ -18,7 +18,9 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { parsedAs } from './support/body';
 import { eventually } from './support/eventually';
+import { addressOf } from './support/http-server';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -51,7 +53,7 @@ const receiving = async () => {
       const call: Call = {
         headers: request.headers,
         body,
-        sent: JSON.parse(body) as Call['sent'],
+        sent: parsedAs<Call['sent']>(body),
       };
       calls.push(call);
       const key = `${call.sent.type} ${String(call.sent.data.workspaceId)}`;
@@ -73,7 +75,7 @@ const receiving = async () => {
 
   return {
     server,
-    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/events`,
+    url: `http://127.0.0.1:${addressOf(server).port}/events`,
     calls,
     failing,
   };
@@ -103,15 +105,17 @@ describe('deployment event webhook (e2e)', () => {
     );
 
   const deliveryOf = async (eventId: string) => {
-    const [row] = await db
-      .select()
-      .from(schema.eventDelivery)
-      .where(
-        and(
-          eq(schema.eventDelivery.eventId, eventId),
-          eq(schema.eventDelivery.subscriber, EVENT_WEBHOOK_SUBSCRIBER),
+    const row = firstOf(
+      await db
+        .select()
+        .from(schema.eventDelivery)
+        .where(
+          and(
+            eq(schema.eventDelivery.eventId, eventId),
+            eq(schema.eventDelivery.subscriber, EVENT_WEBHOOK_SUBSCRIBER),
+          ),
         ),
-      );
+    );
 
     return row ?? null;
   };
@@ -162,16 +166,20 @@ describe('deployment event webhook (e2e)', () => {
   it('sends an integration event as one POST, signed per Standard Webhooks, with the id of its outbox record as webhook-id', async () => {
     await makeAdmin();
 
-    const [call] = await eventually(async () => {
-      const found = callsOf(ROLE_CHANGED);
-      return found.length > 0 ? found : null;
-    });
+    const call = firstOf(
+      await eventually(() => {
+        const found = callsOf(ROLE_CHANGED);
+        return Promise.resolve(found.length > 0 ? found : null);
+      }),
+    );
     const id = String(call?.headers['webhook-id']);
     const timestamp = String(call?.headers['webhook-timestamp']);
-    const [event] = await db
-      .select()
-      .from(schema.eventOutbox)
-      .where(eq(schema.eventOutbox.id, id));
+    const event = firstOf(
+      await db
+        .select()
+        .from(schema.eventOutbox)
+        .where(eq(schema.eventOutbox.id, id)),
+    );
 
     expect(call?.headers['webhook-signature']).toBe(
       `v1,${createHmac('sha256', KEY)
@@ -191,10 +199,12 @@ describe('deployment event webhook (e2e)', () => {
   it('sends integration events of every context, and no domain event', async () => {
     await makeAdmin();
 
-    const [call] = await eventually(async () => {
-      const found = callsOf(ROLE_CHANGED);
-      return found.length > 0 ? found : null;
-    });
+    const call = firstOf(
+      await eventually(() => {
+        const found = callsOf(ROLE_CHANGED);
+        return Promise.resolve(found.length > 0 ? found : null);
+      }),
+    );
 
     expect(call?.sent.data).toEqual({
       workspaceId,
@@ -210,10 +220,12 @@ describe('deployment event webhook (e2e)', () => {
     receiver.failing.set(`${ROLE_CHANGED} ${workspaceId}`, 1);
     await makeAdmin();
 
-    const [failed] = await eventually(async () => {
-      const found = callsOf(ROLE_CHANGED);
-      return found.length > 0 ? found : null;
-    });
+    const failed = firstOf(
+      await eventually(() => {
+        const found = callsOf(ROLE_CHANGED);
+        return Promise.resolve(found.length > 0 ? found : null);
+      }),
+    );
     const id = String(failed?.headers['webhook-id']);
     const retried = await eventually(async () => {
       const row = await deliveryOf(id);
@@ -252,10 +264,12 @@ describe('deployment event webhook (e2e)', () => {
     receiver.failing.set(`${ROLE_CHANGED} ${workspaceId}`, 2);
     await makeAdmin();
 
-    const [failed] = await eventually(async () => {
-      const found = callsOf(ROLE_CHANGED);
-      return found.length > 0 ? found : null;
-    });
+    const failed = firstOf(
+      await eventually(() => {
+        const found = callsOf(ROLE_CHANGED);
+        return Promise.resolve(found.length > 0 ? found : null);
+      }),
+    );
     const id = String(failed?.headers['webhook-id']);
     const at = and(
       eq(schema.eventDelivery.eventId, id),

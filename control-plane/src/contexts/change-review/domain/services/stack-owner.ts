@@ -9,7 +9,7 @@ export interface StackOwner {
 }
 
 export const assertOneOwner = (what: string, owner: StackOwner): void => {
-  if (owner.trial && owner.taskId) {
+  if (owner.trial === true && owner.taskId !== null) {
     throw new InconsistentStateError(
       what,
       'is a trial’s, yet belongs to a task',

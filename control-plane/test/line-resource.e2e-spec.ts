@@ -3,15 +3,14 @@ import { randomUUID } from 'node:crypto';
 import { claimsSource } from '@insights/infrastructure/persistence/drizzle/schemas/judge-repair.schema';
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { LineRoleTakenError } from '@lines/domain/exceptions/line-role-taken.error';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -29,6 +28,7 @@ import {
 } from 'vitest';
 
 import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { definitionOf } from './support/line-definition';
 import {
   conformsAsResource,
@@ -187,13 +187,15 @@ describe('a line, created through the resource API (e2e)', () => {
   const putTaskAt = async (lineId: string, key: string) => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     await app.get(EventDelivery).drain(2_000);
-    const [station] = await db
-      .select({ id: schema.station.id, workspaceId: schema.line.workspaceId })
-      .from(schema.station)
-      .innerJoin(schema.line, eq(schema.line.id, schema.station.lineId))
-      .where(
-        and(eq(schema.station.lineId, lineId), eq(schema.station.key, key)),
-      );
+    const station = firstOf(
+      await db
+        .select({ id: schema.station.id, workspaceId: schema.line.workspaceId })
+        .from(schema.station)
+        .innerJoin(schema.line, eq(schema.line.id, schema.station.lineId))
+        .where(
+          and(eq(schema.station.lineId, lineId), eq(schema.station.key, key)),
+        ),
+    );
 
     await db.insert(schema.task).values({
       id: randomUUID(),
@@ -410,7 +412,7 @@ describe('a line, created through the resource API (e2e)', () => {
       .set('Idempotency-Key', randomUUID())
       .set('Spotlight-Source-Commit', committed(FIRST))
       .send(judged(JUDGE, []));
-    const line = made.body as LineAnswer;
+    const line = bodyOf<LineAnswer>(made);
     const again = await served(app)
       .put(fixture.item(line.id))
       .set(TEST_USER_HEADER, fixture.admin)
@@ -421,7 +423,7 @@ describe('a line, created through the resource API (e2e)', () => {
     await served(app)
       .put(fixture.item(line.id))
       .set(TEST_USER_HEADER, fixture.admin)
-      .set('If-Match', `"${(again.body as LineAnswer).version}"`)
+      .set('If-Match', `"${bodyOf<LineAnswer>(again).version}"`)
       .set('Spotlight-Source-Commit', committed(LATER))
       .send(
         judged(
@@ -640,13 +642,13 @@ describe('a line, created through the resource API (e2e)', () => {
     const listed = await served(app)
       .get(`/api/teams/${teamId}/lines`)
       .set(TEST_USER_HEADER, fixture.admin);
-    const line = (
-      listed.body as {
+    const line = bodyOf<
+      {
         id: string;
         search: unknown;
         stations: { search: unknown }[];
       }[]
-    ).find((each) => each.id === made.body.id);
+    >(listed).find((each) => each.id === made.body.id);
 
     expect(plain.status).toBe(201);
     expect(plain.body.definition).not.toHaveProperty('search');
@@ -773,7 +775,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(made.status).toBe(201);
     expect(made.body.definition.source).toEqual(source);
     expect(
-      (listed.body as { id: string; source: unknown }[]).find(
+      bodyOf<{ id: string; source: unknown }[]>(listed).find(
         (each) => each.id === made.body.id,
       )?.source,
     ).toEqual(source);
@@ -885,7 +887,7 @@ describe('a line, created through the resource API (e2e)', () => {
   it('limits a role to one line per team even past the check before writing', async () => {
     const lines = app.get(DrizzleLineRepository);
     const teamId = fixture.workspaceId;
-    const opening = BUILT_IN_LINES.find((each) => each.role) as LineOpening;
+    const opening = present(BUILT_IN_LINES.find((each) => each.role));
     let next = 0;
     const newLine = (key: string) =>
       Line.create({

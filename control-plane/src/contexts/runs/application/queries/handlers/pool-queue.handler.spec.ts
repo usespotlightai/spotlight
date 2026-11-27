@@ -5,6 +5,7 @@ import type {
 import { PoolQueueHandler } from '@runs/application/queries/handlers/pool-queue.handler';
 import { PoolQueueQuery } from '@runs/application/queries/pool.queries';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -31,28 +32,30 @@ const queueOf = (
   running = 2,
   checks: readonly RunnerPlacement[] = [],
 ) => {
-  const unclaimedIn = vi.fn(async () => placements);
+  const unclaimedIn = vi.fn(() => Promise.resolve(placements));
 
   return {
     unclaimedIn,
     handler: new PoolQueueHandler(
       {
-        pulledWith: async (token: string | undefined, poolId: string) =>
-          token === 'pool-token' && poolId === POOL.poolId ? POOL : null,
-        offersIn: async () => ({ pools: [], hostOffers: [] }),
-        running: async () => running,
-        roomIn: async () => room,
+        pulledWith: (token: string | undefined, poolId: string) =>
+          Promise.resolve(
+            token === 'pool-token' && poolId === POOL.poolId ? POOL : null,
+          ),
+        offersIn: () => Promise.resolve({ pools: [], hostOffers: [] }),
+        running: () => Promise.resolve(running),
+        roomIn: () => Promise.resolve(room),
       } satisfies RunnerPoolsPort,
       { unclaimedIn },
       {
-        claimNext: vi.fn(async () => null),
-        claimReserved: vi.fn(async () => null),
+        claimNext: vi.fn(() => Promise.resolve(null)),
+        claimReserved: vi.fn(() => Promise.resolve(null)),
         unclaim: vi.fn(async () => {}),
-        renewLease: vi.fn(async () => 'renewed' as const),
-        isLeasedBy: vi.fn(async () => false),
-        waitingPlacements: vi.fn(async () => checks),
+        renewLease: vi.fn(() => Promise.resolve('renewed' as const)),
+        isLeasedBy: vi.fn(() => Promise.resolve(false)),
+        waitingPlacements: vi.fn(() => Promise.resolve(checks)),
       },
-      { now: () => NOW } as ClockPort,
+      partial<ClockPort>({ now: () => NOW }),
     ),
   };
 };

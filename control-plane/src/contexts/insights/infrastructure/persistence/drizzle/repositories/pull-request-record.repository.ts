@@ -18,6 +18,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -44,7 +45,11 @@ const toRecord = (row: PullRequestRow): PullRequestRecord =>
     pullRequest: PullRequestUrl.of(row.pullRequest),
     seen: seenOfRow(row),
     owner:
-      row.ownerTaskId && row.ownerTeamId && row.ownerOpenedAt
+      row.ownerTaskId !== null &&
+      row.ownerTaskId !== '' &&
+      row.ownerTeamId !== null &&
+      row.ownerTeamId !== '' &&
+      row.ownerOpenedAt
         ? {
             taskId: TaskId.of(row.ownerTaskId),
             teamId: TeamId.of(row.ownerTeamId),
@@ -105,9 +110,7 @@ const at = (workspaceId: WorkspaceId, pullRequest: PullRequestUrl) =>
   );
 
 @Injectable()
-export class DrizzlePullRequestRecordRepository
-  implements PullRequestRecordRepository
-{
+export class DrizzlePullRequestRecordRepository implements PullRequestRecordRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -118,11 +121,13 @@ export class DrizzlePullRequestRecordRepository
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
   ): Promise<PullRequestRecord | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(pullRequestRecord)
-      .where(at(workspaceId, pullRequest))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(pullRequestRecord)
+        .where(at(workspaceId, pullRequest))
+        .limit(1),
+    );
 
     return row ? toRecord(row) : null;
   }

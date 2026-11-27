@@ -1,10 +1,15 @@
 import type { WarmCheckout } from '@runs/domain/value-objects/warm-line.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 
+const setupOf = (checkout: WarmCheckout): string | null => {
+  const trimmed = checkout.setup?.trim();
+  return trimmed === undefined || trimmed === '' ? null : trimmed;
+};
+
 const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 export class WarmFingerprint {
-  private readonly kind = 'warm-fingerprint';
+  private readonly kind: string = 'warm-fingerprint';
 
   private constructor(readonly value: string) {}
 
@@ -23,7 +28,7 @@ export class WarmFingerprint {
         checkouts: setup.checkouts
           .map((each) => ({
             path: each.path,
-            setup: each.setup?.trim() || null,
+            setup: setupOf(each),
           }))
           .sort((a, b) => byText(a.path, b.path)),
         labelGroups: placement.labelGroups

@@ -18,7 +18,10 @@ export function useTaskTrail({
 }: TaskTrailParams): BreadcrumbSegment[] {
   const { data: workspace } = useWorkspace(slug);
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
-  const known = slug && teamId ? { slug, teamId } : null;
+  const known =
+    slug !== undefined && slug !== '' && teamId !== undefined && teamId !== ''
+      ? { slug, teamId }
+      : null;
 
   return [
     ...(team

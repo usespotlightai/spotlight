@@ -140,7 +140,9 @@ export class RunConnection {
       throw new InvalidRunConnectionError('port', 'must be from 1 to 65535');
     }
 
-    if (!CONNECTION_OUTCOMES.includes(parts.outcome as ConnectionOutcome)) {
+    const outcome = CONNECTION_OUTCOMES.find((each) => each === parts.outcome);
+
+    if (outcome === undefined) {
       throw new InvalidRunConnectionError(
         'outcome',
         `must be one of ${CONNECTION_OUTCOMES.join(', ')}`,
@@ -156,8 +158,6 @@ export class RunConnection {
       throw new InvalidRunConnectionError('status', 'must be from 100 to 599');
     }
 
-    const outcome = parts.outcome as ConnectionOutcome;
-
     if (parts.status !== null && outcome !== 'injected') {
       throw new InvalidRunConnectionError(
         'status',
@@ -165,10 +165,12 @@ export class RunConnection {
       );
     }
 
-    if (
-      parts.reason !== null &&
-      !(REASONS_OF[outcome] as readonly string[]).includes(parts.reason)
-    ) {
+    const reason =
+      parts.reason === null
+        ? null
+        : REASONS_OF[outcome].find((each) => each === parts.reason);
+
+    if (reason === undefined) {
       throw new InvalidRunConnectionError(
         'reason',
         REASONS_OF[outcome].length > 0
@@ -189,7 +191,7 @@ export class RunConnection {
       counted('ms', parts.ms),
       outcome,
       parts.status,
-      parts.reason as ConnectionReason | null,
+      reason,
       parts.at,
     );
   }

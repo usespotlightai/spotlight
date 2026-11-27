@@ -67,7 +67,7 @@ const decoded = (base64: string): string =>
   Buffer.from(base64, 'base64').toString('utf8');
 
 const shaOf = (answer: Sha, operation: string): string => {
-  if (!answer.sha) {
+  if (answer.sha === undefined || answer.sha === '') {
     throw new UpstreamError(operation, 'GitHub answered without a sha');
   }
 
@@ -112,10 +112,13 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       `GitHub would not return ${path} in ${repository.value}`,
     );
 
-    if (found.type === 'symlink' || (found.path && found.path !== path)) {
+    if (
+      found.type === 'symlink' ||
+      (found.path !== undefined && found.path !== '' && found.path !== path)
+    ) {
       throw new RepositoryFileUnwritableError(path);
     }
-    if (found.type !== 'file' || !found.sha) {
+    if (found.type !== 'file' || found.sha === undefined || found.sha === '') {
       return null;
     }
 
@@ -150,15 +153,16 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
     const prefix = directory ? `${directory}/` : '';
 
     return Promise.all(
-      (found.tree ?? []).flatMap((each) =>
-        each.type === 'blob' &&
-        each.mode === FILE_MODE &&
-        each.path?.startsWith(prefix) &&
-        each.sha
+      (found.tree ?? []).flatMap(({ type, mode, path, sha }) =>
+        type === 'blob' &&
+        mode === FILE_MODE &&
+        path?.startsWith(prefix) === true &&
+        sha !== undefined &&
+        sha !== ''
           ? [
               (async () => ({
-                path: each.path as string,
-                content: await this.blob(repository, each.sha as string, token),
+                path,
+                content: await this.blob(repository, sha, token),
               }))(),
             ]
           : [],
@@ -186,9 +190,11 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       `GitHub would not list the paths of ${repository.value} at ${ref}`,
     );
 
-    return found.truncated
+    return found.truncated === true
       ? null
-      : (found.tree ?? []).flatMap((each) => (each.path ? [each.path] : []));
+      : (found.tree ?? []).flatMap((each) =>
+          each.path !== undefined && each.path !== '' ? [each.path] : [],
+        );
   }
 
   async committed(
@@ -277,7 +283,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       );
       const entry = (listed.tree ?? []).find((each) => each.path === step);
 
-      if (!entry?.sha) {
+      if (entry?.sha === undefined || entry.sha === '') {
         return null;
       }
       if (at === steps.length - 1) {

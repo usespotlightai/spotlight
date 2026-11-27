@@ -7,6 +7,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { deleteRunnersOf } from './support/runners';
 import { requestedByChat } from './support/runs';
 import * as schema from './support/schema';
@@ -57,13 +58,13 @@ const claimed = async (runId: string): Promise<string> => {
     })
     .expect(200);
 
-  const assignment = (
+  const assignment = bodyOf<{ token: string; work: { run: { id: string } } }>(
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
       .send({ host: HOST, image: IMAGE })
-      .expect(200)
-  ).body as { token: string; work: { run: { id: string } } };
+      .expect(200),
+  );
 
   expect(assignment.work.run.id).toBe(runId);
 
@@ -131,7 +132,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 describe('a runner getting the secrets its run puts in the sandbox', () => {

@@ -1,3 +1,4 @@
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import { foldedVisits } from '@work/domain/services/folded-visits';
 import { describe, expect, it } from 'vitest';
@@ -50,14 +51,18 @@ describe('foldedVisits', () => {
   });
 
   it('takes the moving on as the closing note of a visit', () => {
-    const [plan, implementation] = foldedVisits(handedOn, new Set([5]));
+    const visits = foldedVisits(handedOn, new Set([5]));
+    const plan = firstOf(visits);
+    const implementation = itemAt(visits, 1);
 
     expect(plan?.closing?.position).toBe(2);
     expect(implementation?.closing?.position).toBe(4);
   });
 
   it('takes the answers of the visit', () => {
-    const [plan, implementation] = foldedVisits(handedOn, new Set([5]));
+    const visits = foldedVisits(handedOn, new Set([5]));
+    const plan = firstOf(visits);
+    const implementation = itemAt(visits, 1);
 
     expect(plan?.answers.map((note) => note.position)).toEqual([1]);
     expect(implementation?.answers).toEqual([]);
@@ -72,7 +77,7 @@ describe('foldedVisits', () => {
       ['implementation', 'message'],
     );
 
-    const [review] = foldedVisits(answeredTwice, new Set([4]));
+    const review = firstOf(foldedVisits(answeredTwice, new Set([4])));
 
     expect(review?.answers.map((note) => note.position)).toEqual([1, 2]);
   });
@@ -122,9 +127,11 @@ describe('foldedVisits', () => {
   });
 
   it('gives a visit no closing note when the task has not moved on', () => {
-    const [review] = foldedVisits(
-      trailOf(['review', 'asked'], ['plan', 'asked']),
-      new Set([1]),
+    const review = firstOf(
+      foldedVisits(
+        trailOf(['review', 'asked'], ['plan', 'asked']),
+        new Set([1]),
+      ),
     );
 
     expect(review?.closing).toBeNull();

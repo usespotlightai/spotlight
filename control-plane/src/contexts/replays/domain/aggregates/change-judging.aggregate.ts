@@ -48,7 +48,7 @@ export class ChangeJudging
     reference: RunId | null;
     now: Date;
   }): ChangeJudging {
-    if (input.reference?.equals(input.runId)) {
+    if (input.reference?.equals(input.runId) === true) {
       throw new InvalidJudgingError('must compare a change with another run’s');
     }
 

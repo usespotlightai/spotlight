@@ -31,7 +31,10 @@ export function startOpenTelemetry(env: NodeJS.ProcessEnv): boolean {
   Object.assign(env, exporters);
 
   started = new NodeSDK({
-    serviceName: env.OTEL_SERVICE_NAME ? undefined : SERVICE_NAME,
+    serviceName:
+      env.OTEL_SERVICE_NAME !== undefined && env.OTEL_SERVICE_NAME !== ''
+        ? undefined
+        : SERVICE_NAME,
     instrumentations: [
       new HttpInstrumentation({
         ignoreIncomingRequestHook: isProbe,

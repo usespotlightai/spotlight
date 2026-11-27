@@ -8,6 +8,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -77,13 +78,20 @@ const toProposal = (
           stationId: StationId.of(row.stationId),
         }),
         title: TaskTitle.of(row.title),
-        description: row.description
-          ? TaskDescription.of(row.description)
-          : null,
-        base: row.base ? Branch.of(row.base) : null,
+        description:
+          row.description !== null && row.description !== ''
+            ? TaskDescription.of(row.description)
+            : null,
+        base: row.base !== null && row.base !== '' ? Branch.of(row.base) : null,
         state: row.state,
-        taskId: row.taskId ? TaskId.of(row.taskId) : null,
-        decidedAt: row.decidedAt ? new Date(row.decidedAt) : null,
+        taskId:
+          row.taskId !== null && row.taskId !== ''
+            ? TaskId.of(row.taskId)
+            : null,
+        decidedAt:
+          row.decidedAt !== null && row.decidedAt !== ''
+            ? new Date(row.decidedAt)
+            : null,
       })
     : null;
 
@@ -112,8 +120,11 @@ const toMessage = (
     kind: row.kind,
     body: ChatMessageBody.of(row.body),
     at: row.at,
-    author: row.authorId ? UserId.of(row.authorId) : null,
-    runId: row.runId ? RunId.of(row.runId) : null,
+    author:
+      row.authorId !== null && row.authorId !== ''
+        ? UserId.of(row.authorId)
+        : null,
+    runId: row.runId !== null && row.runId !== '' ? RunId.of(row.runId) : null,
     attachments: attachments
       .filter((each) => each.messagePosition === row.position)
       .sort((a, b) => a.place - b.place)
@@ -133,9 +144,10 @@ const toMessage = (
         })
       : null,
     acknowledgedAt: row.acknowledgedAt,
-    acknowledgedBy: row.acknowledgedByRunId
-      ? RunId.of(row.acknowledgedByRunId)
-      : null,
+    acknowledgedBy:
+      row.acknowledgedByRunId !== null && row.acknowledgedByRunId !== ''
+        ? RunId.of(row.acknowledgedByRunId)
+        : null,
   });
 };
 
@@ -170,8 +182,12 @@ const toChat = (
     startedBy: UserId.of(row.startedById),
     title: ChatTitle.of(row.title),
     harness: HarnessId.of(row.harness),
-    model: row.model ? HarnessModel.of(row.model) : null,
-    effort: row.effort ? Effort.of(row.effort) : null,
+    model:
+      row.model !== null && row.model !== ''
+        ? HarnessModel.of(row.model)
+        : null,
+    effort:
+      row.effort !== null && row.effort !== '' ? Effort.of(row.effort) : null,
     repositories: row.repositories.map((each) => Repository.of(each)),
     targetStation: row.targetStation
       ? TargetStation.rehydrate({
@@ -188,9 +204,10 @@ const toChat = (
       ? ConfigFolder.rehydrate({
           repository: Repository.of(row.setup.repository),
           folder: row.setup.folder,
-          pullRequest: row.setup.pullRequest
-            ? PullRequestUrl.of(row.setup.pullRequest)
-            : null,
+          pullRequest:
+            row.setup.pullRequest !== null && row.setup.pullRequest !== ''
+              ? PullRequestUrl.of(row.setup.pullRequest)
+              : null,
           ci: row.setup.ci ? CiSetup.of(row.setup.ci) : null,
         })
       : null,
@@ -198,9 +215,18 @@ const toChat = (
     marks: marks.map((each) =>
       ChatMark.of(Mark.of(each.kind, each.value), each.finds),
     ),
-    currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
-    session: row.sessionId ? HarnessSession.of(row.sessionId) : null,
-    claimedBy: row.runnerId ? RunnerId.of(row.runnerId) : null,
+    currentRunId:
+      row.currentRunId !== null && row.currentRunId !== ''
+        ? RunId.of(row.currentRunId)
+        : null,
+    session:
+      row.sessionId !== null && row.sessionId !== ''
+        ? HarnessSession.of(row.sessionId)
+        : null,
+    claimedBy:
+      row.runnerId !== null && row.runnerId !== ''
+        ? RunnerId.of(row.runnerId)
+        : null,
     createdAt: row.createdAt,
     resolvedAt: row.resolvedAt,
     readAt: row.readAt,
@@ -349,11 +375,13 @@ export class DrizzleChatRepository implements ChatRepository {
   }
 
   async find(id: ChatId): Promise<Chat | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(chat)
-      .where(eq(chat.id, id.value))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(chat)
+        .where(eq(chat.id, id.value))
+        .limit(1),
+    );
 
     return found ? this.whole(found) : null;
   }
@@ -366,32 +394,39 @@ export class DrizzleChatRepository implements ChatRepository {
       return null;
     }
 
-    const [marked] = await this.context.db
-      .select({ chatId: chatMark.chatId })
-      .from(chatMark)
-      .where(
-        and(
-          eq(chatMark.workspaceId, workspaceId.value),
-          eq(chatMark.finds, true),
-          or(
-            ...correlationKeys.marks.map((mark) =>
-              and(eq(chatMark.kind, mark.kind), eq(chatMark.value, mark.value)),
+    const marked = firstOf(
+      await this.context.db
+        .select({ chatId: chatMark.chatId })
+        .from(chatMark)
+        .where(
+          and(
+            eq(chatMark.workspaceId, workspaceId.value),
+            eq(chatMark.finds, true),
+            or(
+              ...correlationKeys.marks.map((mark) =>
+                and(
+                  eq(chatMark.kind, mark.kind),
+                  eq(chatMark.value, mark.value),
+                ),
+              ),
             ),
           ),
-        ),
-      )
-      .limit(1);
+        )
+        .limit(1),
+    );
 
     if (!marked) {
       return null;
     }
 
-    const [found] = await this.context.db
-      .select()
-      .from(chat)
-      .where(eq(chat.id, marked.chatId))
-      .limit(1)
-      .for('update');
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(chat)
+        .where(eq(chat.id, marked.chatId))
+        .limit(1)
+        .for('update'),
+    );
 
     return found ? this.whole(found) : null;
   }

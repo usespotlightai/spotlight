@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
 import { WorkspaceTokenAlreadyIssuedError } from '@identity/domain/exceptions/workspace-token-already-issued.error';
@@ -195,11 +196,11 @@ export class DrizzleWorkspaceTokenRepository
   }
 
   private async one(where: SQL): Promise<WorkspaceToken | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(workspaceToken)
       .where(where)
-      .limit(1);
+      .limit(1));
 
     return found ? rehydrated(found) : null;
   }

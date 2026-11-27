@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 const TONES = {
   primary: 'var(--chart-primary)',
   muted: 'var(--muted-foreground)',
@@ -51,7 +52,7 @@ export function TileSparkline({
   label,
   values,
   tone = 'primary',
-}: TileSparklineProps) {
+}: TileSparklineProps): ReactElement {
   const ink = TONES[tone];
 
   return (

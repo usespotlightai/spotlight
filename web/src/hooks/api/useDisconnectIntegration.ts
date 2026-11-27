@@ -1,9 +1,15 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { connectionKeys } from '@/hooks/api/useIntegrationConnections';
 import { disconnectIntegration } from '@/lib/api';
 
-export function useDisconnectIntegration(teamId: string) {
+export function useDisconnectIntegration(
+  teamId: string,
+): UseMutationResult<void, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({

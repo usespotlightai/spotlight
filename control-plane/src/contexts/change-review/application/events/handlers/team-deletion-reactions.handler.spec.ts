@@ -1,11 +1,15 @@
 import { TeamDeletionReactions } from '@change-review/application/events/handlers/team-deletion-reactions.handler';
+import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
+import type { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -36,9 +40,10 @@ const owning = <T>(found: readonly T[]) => {
   return {
     removed,
     repository: {
-      ofTeam: vi.fn(async () => found),
-      remove: vi.fn(async (each: T) => {
+      ofTeam: vi.fn(() => Promise.resolve(found)),
+      remove: vi.fn((each: T) => {
         removed.push(each);
+        return Promise.resolve();
       }),
     },
   };
@@ -50,17 +55,25 @@ const deleting = (found: {
   stacks?: readonly string[];
 }) => {
   const checks = owning(found.checks ?? []);
-  const answers = owning(found.answers ?? []);
-  const stacks = owning(found.stacks ?? []);
+  const answers = owning(
+    (found.answers ?? []).map((id) =>
+      partial<QuestionAnswer>({ id: QuestionAnswerId.of(id) }),
+    ),
+  );
+  const stacks = owning(
+    (found.stacks ?? []).map((id) =>
+      partial<ChangeStack>({ id: ChangeStackId.of(id) }),
+    ),
+  );
 
   return {
     checks,
     answers,
     stacks,
     reactions: new TeamDeletionReactions(
-      checks.repository as unknown as StackCheckRepository,
-      answers.repository as unknown as QuestionAnswerRepository,
-      stacks.repository as unknown as ChangeStackRepository,
+      partial<StackCheckRepository>(checks.repository),
+      partial<QuestionAnswerRepository>(answers.repository),
+      partial<ChangeStackRepository>(stacks.repository),
       { now: () => NOW, sleep: async () => {} },
     ),
   };
@@ -77,8 +90,13 @@ describe('TeamDeletionReactions', () => {
     await deleted.reactions.removeStacks(TEAM);
 
     expect(deleted.answers.repository.ofTeam).toHaveBeenCalledWith(TEAM);
-    expect(deleted.answers.removed).toEqual(['answer_1']);
-    expect(deleted.stacks.removed).toEqual(['stack_1', 'stack_2']);
+    expect(deleted.answers.removed.map((each) => each.id.value)).toEqual([
+      'answer_1',
+    ]);
+    expect(deleted.stacks.removed.map((each) => each.id.value)).toEqual([
+      'stack_1',
+      'stack_2',
+    ]);
   });
 
   it('deletes a waiting trial check, so no runner is offered it again, and releases its reserved runner', async () => {

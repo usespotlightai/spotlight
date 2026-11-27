@@ -6,8 +6,10 @@ export const onHoldBy = (
   teamId: string,
   taskId: string,
   by: TaskPersonResponseDto,
-) => {
-  const [turn, ...before] = world().runs[taskId] ?? [];
+): void => {
+  const runs = world().runs[taskId] ?? [];
+  const turn = runs.at(0);
+  const before = runs.slice(1);
   if (turn) {
     world().runs[taskId] = [
       {

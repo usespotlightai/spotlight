@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
@@ -24,7 +26,7 @@ export function ChatPersonMessage({
   teamId,
   message,
   targetStation,
-}: ChatPersonMessageProps) {
+}: ChatPersonMessageProps): ReactElement {
   const images = message.attachments.filter((each) => drawn(each.contentType));
   const files = message.attachments.filter((each) => !drawn(each.contentType));
   const referenced =

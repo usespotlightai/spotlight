@@ -19,7 +19,7 @@ import type { ChangeStackRepository } from '@change-review/domain/repositories/c
 import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import {
   Diff,
   type DiffFile,
@@ -36,6 +36,7 @@ import {
   NO_INDEX,
   type SymbolIndex,
 } from '@change-review/domain/value-objects/symbol-index.vo';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
@@ -179,50 +180,56 @@ const generating = (
   };
 
   const stacks: ChangeStackRepository = {
-    add: async (stack) => {
+    add: (stack) => {
       steps.push(transacting ? 'add in transaction' : 'add');
       saved.push(stack);
       dispatched.push(...stack.pullEvents());
+      return Promise.resolve();
     },
-    save: async (stack) => {
+    save: (stack) => {
       saved.push(stack);
       dispatched.push(...stack.pullEvents());
+      return Promise.resolve();
     },
-    find: async (id) =>
-      [...saved].reverse().find((each) => each.id.equals(id)) ?? null,
-    nextDueJob: async () => null,
-    ofRun: async () => [],
-    ofTask: async (taskId) => {
+    find: (id) =>
+      Promise.resolve(
+        [...saved].reverse().find((each) => each.id.equals(id)) ?? null,
+      ),
+    nextDueJob: () => Promise.resolve(null),
+    ofRun: () => Promise.resolve([]),
+    ofTask: (taskId) => {
       if (transacting) {
         steps.push(`read ${taskId.value} in transaction`);
       }
 
-      return [
+      return Promise.resolve([
         ...new Map(
           saved
-            .filter((each) => each.taskId?.equals(taskId))
+            .filter((each) => each.taskId?.equals(taskId) === true)
             .map((each) => [each.id.value, each]),
         ).values(),
-      ];
+      ]);
     },
-    ofTeam: async () => [],
-    remove: async () => undefined,
+    ofTeam: () => Promise.resolve([]),
+    remove: () => Promise.resolve(),
   };
 
   const generator: ChangeStackGeneratorPort = {
-    generate: async (request) => {
+    generate: (request) => {
       requests.push(request);
       const answer = answers.shift();
 
-      if (!answer) {
-        throw new Error('Requested too often');
+      if (answer === undefined) {
+        return Promise.reject(new Error('Requested too often'));
       }
       if (answer === 'pending') {
-        return SESSION_WAITING;
+        return Promise.resolve(SESSION_WAITING);
       }
-      return 'failure' in answer
-        ? answer
-        : { status: 'drafted', cohorts: answer, usage };
+      return Promise.resolve(
+        'failure' in answer
+          ? answer
+          : { status: 'drafted', cohorts: answer, usage },
+      );
     },
   };
 
@@ -231,7 +238,7 @@ const generating = (
     generator,
     READER,
     READING,
-    { index: over.index ?? (async () => NO_INDEX) },
+    { index: over.index ?? (() => Promise.resolve(NO_INDEX)) },
     {
       stackingFor: async <T>(
         taskId: TaskId,
@@ -249,7 +256,7 @@ const generating = (
     { generate: over.ids ?? (() => 'stack-1') },
     {
       now: () => new Date('2026-09-16T10:00:00Z'),
-      sleep: async () => undefined,
+      sleep: () => Promise.resolve(),
     },
     over.logger ?? QUIET,
   );
@@ -514,7 +521,7 @@ describe('GenerateChangeStack', () => {
         },
       ]);
 
-      const ready = saved[saved.length - 1];
+      const ready = optionalItems(saved)[saved.length - 1];
       expect(ready?.state).toBe('ready');
       expect(ready?.cohorts.map((each) => each.kind)).toEqual([
         'change',
@@ -588,9 +595,9 @@ describe('GenerateChangeStack', () => {
         ],
       };
       const { generated, requests } = generating({
-        index: async (sources) => {
+        index: (sources) => {
           read.push(...sources.map((each) => `${each.side}:${each.path}`));
-          return index;
+          return Promise.resolve(index);
         },
       });
 
@@ -621,8 +628,8 @@ describe('GenerateChangeStack', () => {
     it('generates from the diff alone where the code cannot be parsed', async () => {
       const { generated, saved, requests } = generating({
         answers: [[cohort(['h1', 'h2'], LINKED_PATHS)]],
-        index: async () => {
-          throw new Error('no grammar');
+        index: () => {
+          return Promise.reject(new Error('no grammar'));
         },
       });
 
@@ -733,7 +740,7 @@ describe('RedraftChangeStack', () => {
       generated.generator,
       {
         now: () => new Date('2026-09-16T10:05:00Z'),
-        sleep: async () => undefined,
+        sleep: () => Promise.resolve(),
       },
       QUIET,
     );
@@ -742,7 +749,7 @@ describe('RedraftChangeStack', () => {
   };
 
   it('requests the layers again with what the check found, and takes the redrafted stack', async () => {
-    const [table, endpoint] = twoLayers.layers;
+    const [table, endpoint] = optionalItems(twoLayers.layers);
     const moved: ProposedCohort = {
       ...twoLayers,
       layers: [endpoint, table].flatMap((layer) => (layer ? [layer] : [])),
@@ -758,7 +765,7 @@ describe('RedraftChangeStack', () => {
       requests[1]?.redraft?.failed.map((each) => [each.cohort, each.layer]),
     ).toEqual([[0, 0]]);
 
-    const redrafted = saved[saved.length - 1];
+    const redrafted = optionalItems(saved)[saved.length - 1];
     expect(
       redrafted?.cohorts[0]?.layers.map((layer) =>
         layer.hunks.map((entry) => entry.hunk),
@@ -1017,10 +1024,7 @@ describe('for a task that had a stack before', () => {
   describe('pushed to the pull request', () => {
     const PUSHED = {
       ...TASK_RUN,
-      origin: StackOrigin.push(
-        CommitSha.parsed('b'.repeat(40)) as CommitSha,
-        Pusher.of('octocat'),
-      ),
+      origin: StackOrigin.push(commitSha('b'), Pusher.of('octocat')),
     };
 
     it('drafts in a session based on the newest run of the task', async () => {

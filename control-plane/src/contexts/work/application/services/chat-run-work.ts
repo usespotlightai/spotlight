@@ -53,13 +53,15 @@ export class ChatRunWork implements RunWork {
     );
   }
 
-  async repositoryNamed(
+  repositoryNamed(
     name: string,
     service: GitService,
   ): Promise<Repository | null> {
-    return service === 'git-receive-pack'
-      ? this.chat.pushableNamed(name)
-      : this.chat.repositoryNamed(name);
+    return Promise.resolve(
+      service === 'git-receive-pack'
+        ? this.chat.pushableNamed(name)
+        : this.chat.repositoryNamed(name),
+    );
   }
 
   readonly limitsPushes = true;
@@ -76,7 +78,7 @@ export class ChatRunWork implements RunWork {
       .defaultBranchNameOf(this.chat.workspaceId, repository)
       .catch(() => null);
 
-    if (!named) {
+    if (named === null || named === '') {
       return `Spotlight could not read the default branch of ${repository.value} from GitHub, so it cannot check this push. Push again in a minute.`;
     }
 
@@ -103,38 +105,40 @@ export class ChatRunWork implements RunWork {
 
   async pushed(): Promise<void> {}
 
-  async clearFor(declared: DeclaredTool): Promise<Cleared> {
+  clearFor(declared: DeclaredTool): Promise<Cleared> {
     const refusal = this.chat.toolRefusal(declared);
 
-    return refusal
-      ? { kind: 'dismissed', reason: ChatRefused.text(refusal) }
-      : { kind: 'approved', edited: null, returned: async () => {} };
+    return Promise.resolve(
+      refusal
+        ? { kind: 'dismissed', reason: ChatRefused.text(refusal) }
+        : { kind: 'approved', edited: null, returned: async () => {} },
+    );
   }
 
-  async askToConnect(
+  askToConnect(
     _declared: DeclaredTool,
     missing: ConnectionMissingDto,
   ): Promise<ConnectionAsked> {
-    return {
+    return Promise.resolve({
       kind: 'denied',
       reason: ChatRefused.text(
         this.chat.connectionAskRefusal(missing.integrationName),
       ),
-    };
+    });
   }
 
-  async clearPermission(): Promise<PermissionCleared> {
-    return 'dismissed';
+  clearPermission(): Promise<PermissionCleared> {
+    return Promise.resolve('dismissed');
   }
 
-  async toolContext(): Promise<ChatToolContext> {
-    return {
+  toolContext(): Promise<ChatToolContext> {
+    return Promise.resolve({
       kind: 'chat',
       runId: this.run.runId,
       workspaceId: this.chat.workspaceId,
       chatId: this.chat.id,
       teamId: this.chat.teamId,
       requester: this.chat.startedBy,
-    };
+    });
   }
 }

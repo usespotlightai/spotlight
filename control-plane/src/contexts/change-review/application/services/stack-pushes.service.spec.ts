@@ -24,7 +24,7 @@ import type { ChangeStackRepository } from '@change-review/domain/repositories/c
 import type { PushDiffRepository } from '@change-review/domain/repositories/push-diff.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha as sha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
@@ -32,6 +32,7 @@ import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -48,8 +49,6 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const TASK = TaskId.of('task_1');
 const PULL = 'https://github.com/acme/widgets/pull/7';
 const RUNNER = RunnerId.of('pooled_1');
-
-const sha = (digit: string) => CommitSha.parsed(digit.repeat(40)) as CommitSha;
 
 const DIFF = Diff.of([
   {
@@ -171,76 +170,86 @@ const pushing = (
   let conflicts = over.conflictsOnSave ?? 0;
   let stackReads = 0;
   const prepare = vi.fn(
-    async (source: StackSource, input: StackInput): Promise<PreparedStack> => {
+    (source: StackSource, input: StackInput): Promise<PreparedStack> => {
       if (over.refusingToPrepare) {
-        throw over.refusingToPrepare;
+        return Promise.reject(over.refusingToPrepare);
       }
-      return {
-        id: ChangeStackId.of('stack_new'),
-        source,
-        input,
-      } as PreparedStack;
+      return Promise.resolve(
+        partial<PreparedStack>({
+          id: ChangeStackId.of('stack_new'),
+          source,
+          input,
+        }),
+      );
     },
   );
   const start = vi.fn(
-    async (
+    (
       _prepared: PreparedStack,
       _taskStacks: readonly ChangeStack[],
     ): Promise<ChangeStack> => {
       steps.push(inTransaction ? 'start in transaction' : 'start');
       if (over.refusing) {
-        throw over.refusing;
+        return Promise.reject(over.refusing);
       }
-      return {} as ChangeStack;
+      return Promise.resolve(partial<ChangeStack>({}));
     },
   );
-  const locks = {
-    stackingFor: vi.fn(
-      async <T>(taskId: TaskId, work: () => Promise<T>): Promise<T> => {
-        inTransaction = true;
-        steps.push(`lock ${taskId.value} in transaction`);
-        try {
-          return await work();
-        } finally {
-          inTransaction = false;
-        }
-      },
-    ),
+  const locks: ChangeStackLocksPort = {
+    stackingFor: async <T>(
+      taskId: TaskId,
+      work: () => Promise<T>,
+    ): Promise<T> => {
+      inTransaction = true;
+      steps.push(`lock ${taskId.value} in transaction`);
+      try {
+        return await work();
+      } finally {
+        inTransaction = false;
+      }
+    },
   };
+  vi.spyOn(locks, 'stackingFor');
   const task = over.task === undefined ? TASK_WITH_PULL : over.task;
   let generated = 0;
 
-  const diffs = {
-    add: async (diff: PushDiff) => {
+  const diffs = partial<PushDiffRepository>({
+    add: (diff: PushDiff) => {
       if (over.adding) {
-        throw over.adding;
+        return Promise.reject(over.adding);
       }
       added.push(diff);
       stored.set(diff.id.value, diff);
+      return Promise.resolve();
     },
-    save: async (diff: PushDiff) => {
+    save: (diff: PushDiff) => {
       steps.push(inTransaction ? 'save in transaction' : 'save');
       if (conflicts > 0) {
         conflicts -= 1;
-        throw new PushDiffVersionConflictError(diff.id);
+        return Promise.reject(new PushDiffVersionConflictError(diff.id));
       }
       saved.push(diff);
       stored.set(diff.id.value, diff);
+      return Promise.resolve();
     },
-    find: async (id: PushDiffId) => {
+    find: (id: PushDiffId) => {
       steps.push(inTransaction ? 'find in transaction' : 'find');
-      return stored.get(id.value) ?? null;
+      return Promise.resolve(stored.get(id.value) ?? null);
     },
-    ofTask: async (taskId: TaskId) =>
-      [...stored.values()].filter((each) => each.taskId.equals(taskId)),
-  } as unknown as PushDiffRepository;
+    ofTask: (taskId: TaskId) =>
+      Promise.resolve(
+        [...stored.values()].filter((each) => each.taskId.equals(taskId)),
+      ),
+  });
 
-  const work = {
-    taskWithPullRequest: async () => task,
-    task: async () => task,
-    run: async (id: RunId) =>
-      (over.runs ?? []).find((each) => each.id.equals(id)) ?? null,
-  } as unknown as WorkPort;
+  const work = partial<WorkPort>({
+    taskWithPullRequest: () => Promise.resolve(task),
+    task: () => Promise.resolve(task),
+    run: (id: RunId) =>
+      Promise.resolve(
+        (over.runs ?? []).find((each) => each.id.equals(id)) ?? null,
+      ),
+  });
 
   return {
     added,
@@ -249,18 +258,26 @@ const pushing = (
     prepare,
     start,
     locks,
-    diff: (id: string) => stored.get(id) as PushDiff,
+    diff: (id: string): PushDiff => {
+      const found = stored.get(id);
+      if (found === undefined) {
+        throw new Error(`no push diff ${id} is stored`);
+      }
+      return found;
+    },
     pushes: new StackPushes(
       diffs,
-      {
-        ofTask: async () =>
-          (stackReads += 1) > 1 && over.stacksAtStart
-            ? over.stacksAtStart
-            : (over.stacks ?? []),
-      } as unknown as ChangeStackRepository,
+      partial<ChangeStackRepository>({
+        ofTask: () =>
+          Promise.resolve(
+            (stackReads += 1) > 1 && over.stacksAtStart
+              ? over.stacksAtStart
+              : (over.stacks ?? []),
+          ),
+      }),
       work,
-      { prepare, start } as unknown as GenerateChangeStack,
-      locks as unknown as ChangeStackLocksPort,
+      partial<GenerateChangeStack>({ prepare, start }),
+      locks,
       { generate: () => `diff_new_${(generated += 1)}` },
       { now: () => NOW, sleep: async () => {} },
     ),

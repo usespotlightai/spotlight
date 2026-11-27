@@ -35,7 +35,7 @@ const base64Of = (digest: ArchiveDigest): string =>
   Buffer.from(digest.sha256, 'hex').toString('base64');
 
 const digestOf = (head: HeadObjectCommandOutput): ArchiveDigest | null =>
-  head.ChecksumSHA256
+  head.ChecksumSHA256 !== undefined && head.ChecksumSHA256 !== ''
     ? ArchiveDigest.of(
         Buffer.from(head.ChecksumSHA256, 'base64').toString('hex'),
       )
@@ -104,7 +104,11 @@ export class S3WorkingCopyArchiveStore implements WorkingCopyArchiveStorePort {
 
     const digest = head ? digestOf(head) : null;
 
-    if (!head?.ContentLength || !digest) {
+    if (
+      head?.ContentLength === undefined ||
+      head.ContentLength === 0 ||
+      !digest
+    ) {
       return null;
     }
 

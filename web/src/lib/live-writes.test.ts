@@ -7,7 +7,10 @@ import { refreshAfterWrite, WRITE_WAIT_MS } from '@/lib/live-writes';
 
 const responded = (header?: string) =>
   new Response(null, {
-    headers: header ? { [LIVE_SEQUENCES_HEADER]: header } : {},
+    headers:
+      header !== undefined && header !== ''
+        ? { [LIVE_SEQUENCES_HEADER]: header }
+        : {},
   });
 
 const cached = () => {

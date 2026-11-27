@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { GitHubConnectionReaderPort } from '@github/application/ports/github-connection-reader.port';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import { githubConnection } from '@github/infrastructure/persistence/drizzle/schemas/github-connection.schema';
@@ -15,11 +16,11 @@ export class DrizzleGitHubConnectionReader
   async installationOf(
     workspaceId: WorkspaceId,
   ): Promise<GitHubInstallation | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select({ installationId: githubConnection.installationId })
       .from(githubConnection)
       .where(eq(githubConnection.workspaceId, workspaceId.value))
-      .limit(1);
+      .limit(1));
 
     return found ? GitHubInstallation.of(found.installationId) : null;
   }

@@ -1,7 +1,11 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { taskDecisionKeys } from '@/hooks/api/useTaskDecisions';
-import { disputeDecision } from '@/lib/api';
+import { disputeDecision, type TaskDecisionsResponseDto } from '@/lib/api';
 
 type DisputeDecisionInput = {
   teamId: string;
@@ -11,7 +15,11 @@ type DisputeDecisionInput = {
   reason: string;
 };
 
-export function useDisputeDecision() {
+export function useDisputeDecision(): UseMutationResult<
+  TaskDecisionsResponseDto,
+  Error,
+  DisputeDecisionInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

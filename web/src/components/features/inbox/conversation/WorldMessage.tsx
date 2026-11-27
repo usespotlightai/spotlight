@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { IntegrationLogo } from '@/components/features/integrations/IntegrationLogo';
@@ -30,7 +32,7 @@ export function WorldMessage({
   authors,
   source,
   deferredTo,
-}: WorldMessageProps) {
+}: WorldMessageProps): ReactElement {
   const from = source?.name ?? null;
   const signed = from !== null || authors.length > 0;
 
@@ -46,7 +48,11 @@ export function WorldMessage({
               keepLineBreaks
               initialValue={body}
               placeholder=""
-              ariaLabel={from ? `What came from ${from}` : 'What came in'}
+              ariaLabel={
+                from !== null && from !== ''
+                  ? `What came from ${from}`
+                  : 'What came in'
+              }
               className={cn('border-none bg-transparent p-0', signed && 'pr-7')}
             />
           </ExpandableText>
@@ -60,7 +66,7 @@ export function WorldMessage({
         className="absolute -top-2 -right-2"
       />
 
-      {deferredTo && (
+      {deferredTo !== null && deferredTo !== '' && (
         <p className="px-3 text-muted-foreground text-xs">
           Arrived during a run. If the run does not pass the task on, the task
           moves to {deferredTo} when the run ends.
@@ -88,7 +94,7 @@ function SourceAvatars({
   const label =
     authors.length === 0
       ? `From ${from}`
-      : from
+      : from !== null && from !== ''
         ? `${namesOf(authors)} wrote this in ${from}`
         : `${namesOf(authors)} wrote this`;
 

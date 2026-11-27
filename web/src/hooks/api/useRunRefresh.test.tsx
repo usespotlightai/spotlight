@@ -26,8 +26,10 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 );
 
 const keysOf = (spy: { mock: { calls: unknown[][] } }) =>
-  spy.mock.calls.map(
-    ([filters]) => (filters as { queryKey?: unknown } | undefined)?.queryKey,
+  spy.mock.calls.map(([filters]) =>
+    typeof filters === 'object' && filters !== null && 'queryKey' in filters
+      ? filters.queryKey
+      : undefined,
   );
 
 describe('the refresh of a live run', () => {

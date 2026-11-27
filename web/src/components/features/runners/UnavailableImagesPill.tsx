@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { COMPACT_PILL } from '@/components/features/runners/columns';
 import { Pill } from '@/components/shared/Pill';
@@ -18,7 +18,7 @@ export function UnavailableImagesPill({
   unavailable: readonly HostImageResponseDto[];
   children: ReactNode;
   className?: string;
-}) {
+}): ReactElement {
   return (
     <Tooltip>
       <TooltipTrigger

@@ -7,6 +7,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -102,7 +103,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('a workspace member who is not on the team', () => {
@@ -114,7 +115,7 @@ describe('a workspace member who is not on the team', () => {
 
     expect(answer.status).toBe(200);
     expect(
-      (answer.body as { items: { id: string }[] }).items.map((each) => each.id),
+      bodyOf<{ items: { id: string }[] }>(answer).items.map((each) => each.id),
     ).toContain(taskId);
   });
 
@@ -125,14 +126,14 @@ describe('a workspace member who is not on the team', () => {
       .set(TEST_USER_HEADER, BYSTANDER);
 
     expect(answer.status).toBe(200);
-    expect((answer.body as { id: string }).id).toBe(taskId);
+    expect(bodyOf<{ id: string }>(answer).id).toBe(taskId);
   });
 
   it('may not add a task, and is told why', async () => {
     const answer = await adding(BYSTANDER);
 
     expect(answer.status).toBe(403);
-    expect((answer.body as { message: string }).message).toContain(
+    expect(bodyOf<{ message: string }>(answer).message).toContain(
       'not a member of this team',
     );
   });
@@ -142,12 +143,10 @@ describe('a workspace member who is not on the team', () => {
 
     expect((await assigning(BYSTANDER, taskId)).status).toBe(403);
     expect(
-      (
-        (
-          await served(app)
-            .get(`${tasksOfTeam()}/${taskId}`)
-            .set(TEST_USER_HEADER, BYSTANDER)
-        ).body as { assignee: unknown }
+      bodyOf<{ assignee: unknown }>(
+        await served(app)
+          .get(`${tasksOfTeam()}/${taskId}`)
+          .set(TEST_USER_HEADER, BYSTANDER),
       ).assignee,
     ).toBeNull();
   });
@@ -157,12 +156,10 @@ describe('a workspace member who is not on the team', () => {
 
     expect((await moving(BYSTANDER, taskId)).status).toBe(403);
     expect(
-      (
-        (
-          await served(app)
-            .get(`${tasksOfTeam()}/${taskId}`)
-            .set(TEST_USER_HEADER, BYSTANDER)
-        ).body as { stationId: string }
+      bodyOf<{ stationId: string }>(
+        await served(app)
+          .get(`${tasksOfTeam()}/${taskId}`)
+          .set(TEST_USER_HEADER, BYSTANDER),
       ).stationId,
     ).toBe(team.stationId.value);
   });
@@ -194,7 +191,7 @@ describe('someone outside the workspace', () => {
 describe('a member of the team', () => {
   it('adds, assigns, moves and deletes the team’s tasks', async () => {
     const added = await adding(TEAMMATE);
-    const { id } = added.body as { id: string };
+    const { id } = bodyOf<{ id: string }>(added);
 
     expect(added.status).toBe(201);
     expect((await assigning(TEAMMATE, id)).status).toBe(200);
@@ -206,7 +203,7 @@ describe('a member of the team', () => {
 describe('a workspace admin who is not on the team', () => {
   it('adds, assigns, moves and deletes the team’s tasks', async () => {
     const added = await adding(ADMIN);
-    const { id } = added.body as { id: string };
+    const { id } = bodyOf<{ id: string }>(added);
 
     expect(added.status).toBe(201);
     expect((await assigning(ADMIN, id)).status).toBe(200);

@@ -13,7 +13,7 @@ const isSecureAddress = (raw: string): boolean => {
 };
 
 export class IntegrationLogo {
-  private readonly kind = 'integration-logo';
+  private readonly kind: string = 'integration-logo';
 
   static readonly SHAPE = `is a base64 data URI of an SVG, PNG, WebP or JPEG image, or an https address, in at most ${MAX_LENGTH} characters`;
 

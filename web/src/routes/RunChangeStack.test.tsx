@@ -9,7 +9,7 @@ import { RunChangeStack } from '@/routes/RunChangeStack';
 import { INVITATIONS, LARGE_FILE } from '@/test/fixtures/change-stack';
 
 const stacks = vi.fn<(...args: unknown[]) => unknown>();
-const stacksFailing = vi.fn();
+const stacksFailing = vi.fn<() => boolean | 404>();
 const refetchStacks = vi.fn();
 const review = vi.fn<(...args: unknown[]) => unknown>();
 const decided = vi.fn<(...args: unknown[]) => unknown>();
@@ -19,7 +19,8 @@ vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   useRunChangeStacks: () => ({
     data: stacks(),
     isPending: stacks() === undefined,
-    errorUpdateCount: stacksFailing() ? 1 : 0,
+    errorUpdateCount:
+      stacksFailing() === true || stacksFailing() === 404 ? 1 : 0,
     error: stacksFailing() === 404 ? { statusCode: 404 } : undefined,
     isFetching: false,
     refetch: refetchStacks,

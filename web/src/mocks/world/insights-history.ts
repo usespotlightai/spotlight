@@ -247,7 +247,11 @@ const callsOf = (draw: Draw, profile: Profile): ServerCalls[] =>
         failed,
         ms: around(draw, use.p50Ms),
         dismissed:
-          use.dismissible && chance(draw, 0.04) ? use.dismissible : null,
+          use.dismissible !== null &&
+          use.dismissible !== '' &&
+          chance(draw, 0.04)
+            ? use.dismissible
+            : null,
       };
     });
 
@@ -309,7 +313,10 @@ const makeRun = (
     model: profile.model,
     effort: version.effort,
     profileKey: null,
-    repositories: task.repository ? [task.repository] : [],
+    repositories:
+      task.repository !== null && task.repository !== ''
+        ? [task.repository]
+        : [],
     openedBy: task.openedBy,
     queuedAt: new Date(queuedAt).toISOString(),
     startedAt: new Date(startedAt).toISOString(),
@@ -332,7 +339,7 @@ const makeRun = (
           }
         : null,
     passed:
-      onward && outcome.to
+      onward && outcome.to !== null && outcome.to !== ''
         ? {
             to: outcome.to,
             at: new Date(
@@ -633,7 +640,9 @@ const runExperiment = (
   );
   const built = runs
     .slice(before)
-    .find((each) => each.stationId === 'station_build' && each.humanAction);
+    .find(
+      (each) => each.stationId === 'station_build' && each.humanAction !== null,
+    );
   if (built?.humanAction) {
     const reviewedAt = Date.parse(built.humanAction.at);
     task.pullRequest = pullRequestOf(
@@ -757,10 +766,7 @@ const pullRequestOfTask = (
     type: WORLD_TYPES[task.id] ?? 'feature',
     openedAt: Date.parse(opener.updatedAt),
     firstReviewAt: reviewer ? Date.parse(reviewer.updatedAt) : null,
-    closedAt:
-      merged && answeredAt !== null
-        ? answeredAt + MERGED_AFTER_ANSWER_MS
-        : null,
+    closedAt: merged ? answeredAt + MERGED_AFTER_ANSWER_MS : null,
     state: merged ? 'merged' : 'open',
     reviewRounds: reviewer ? 1 : 0,
     reviewComments: reviewer ? 1 : 0,
@@ -819,7 +825,7 @@ const worldRuns = (
       const endedAt = Date.parse(each.updatedAt);
       const startedAt = Date.parse(each.startedAt);
       const version = versionAt(profile, startedAt);
-      const later = taskRuns[at - 1];
+      const later = at > 0 ? taskRuns.at(at - 1) : undefined;
       const answeredAt = answerOf(each);
       const amount = RUN_STORIES[each.id]?.spend?.cost ?? null;
       history.push({
@@ -832,7 +838,10 @@ const worldRuns = (
         model: profile.model,
         effort: version.effort,
         profileKey: null,
-        repositories: record.repository ? [record.repository] : [],
+        repositories:
+          record.repository !== null && record.repository !== ''
+            ? [record.repository]
+            : [],
         openedBy: task.createdBy?.id ?? SAM.id,
         queuedAt: new Date(startedAt - 40_000).toISOString(),
         startedAt: each.startedAt,

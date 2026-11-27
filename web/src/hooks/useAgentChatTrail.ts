@@ -12,8 +12,13 @@ export function useAgentChatTrail(
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
   return [
-    ...(team && slug ? [teamCrumb(slug, team)] : []),
-    ...(slug && teamId
+    ...(team && slug !== undefined && slug !== ''
+      ? [teamCrumb(slug, team)]
+      : []),
+    ...(slug !== undefined &&
+    slug !== '' &&
+    teamId !== undefined &&
+    teamId !== ''
       ? [{ label: 'Agent', to: teamSectionPath(slug, teamId, 'agent') }]
       : []),
     { label: title ?? 'Chat' },

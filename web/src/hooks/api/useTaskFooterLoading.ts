@@ -9,7 +9,14 @@ export function useTaskFooterLoading(
   taskId: string | null | undefined,
   runStationId?: string | null,
 ): boolean {
-  const known = teamId && taskId ? taskId : undefined;
+  const known =
+    teamId !== undefined &&
+    teamId !== '' &&
+    taskId !== undefined &&
+    taskId !== null &&
+    taskId !== ''
+      ? taskId
+      : undefined;
   const task = useTask(teamId, known);
   const lines = useLines(teamId);
   const pullRequests = useTaskPullRequests(teamId, known);
@@ -19,7 +26,7 @@ export function useTaskFooterLoading(
     task.data.stationId !== runStationId;
   const taskRuns = useTaskRuns(teamId, movedOn ? known : undefined);
 
-  if (!known) {
+  if (known === undefined) {
     return false;
   }
 

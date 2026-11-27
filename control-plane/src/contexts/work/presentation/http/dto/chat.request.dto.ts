@@ -50,7 +50,7 @@ export class StartChatRequestDto {
     description:
       'What opens the chat. May be empty where files are attached or traces shared.',
   })
-  readonly body!: string;
+  readonly body?: string;
 
   @ApiPropertyOptional({
     type: String,
@@ -86,7 +86,7 @@ export class SendChatMessageRequestDto {
     example: 'Split it into two tasks.',
     description: 'May be empty where files are attached or traces shared.',
   })
-  readonly body!: string;
+  readonly body?: string;
 
   @ApiPropertyOptional({
     type: String,

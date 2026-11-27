@@ -12,7 +12,11 @@ import { FetchRunSecretsHandler } from '@runs/application/commands/handlers/fetc
 import { FetchSharedRunSecretsHandler } from '@runs/application/commands/handlers/fetch-shared-run-secrets.handler';
 import { EgressSecretFetches } from '@runs/application/services/egress-secret-fetches.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import {
+  claimer,
+  leaseEndOf,
+  orderedFor,
+} from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
@@ -21,6 +25,7 @@ import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { RunSecretFetch } from '@secrets/application/contracts/run-secret-fetch.contract';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -55,30 +60,31 @@ const leasedRun = (
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of(workspace),
     harness: HarnessId.of('dev'),
-    ...(over.spotlightApi
+    ...(over.spotlightApi === true
       ? orderedFor.conversing('chat_1')
       : orderedFor.spec()),
-    apiGrant: over.spotlightApi
-      ? RunApiGrant.of({
-          actingFor: 'user_1',
-          scopes: ['plan'],
-          lifetimeMs: 60 * 60 * 1_000,
-        })
-      : null,
+    apiGrant:
+      over.spotlightApi === true
+        ? RunApiGrant.of({
+            actingFor: 'user_1',
+            scopes: ['plan'],
+            lifetimeMs: 60 * 60 * 1_000,
+          })
+        : null,
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
       resume: {},
       injectedSecrets: over.injectedSecrets ?? ['LINEAR_API_KEY', 'GONE'],
-      ...(over.spotlightApi ? { spotlightApi: true } : {}),
+      ...(over.spotlightApi === true ? { spotlightApi: true } : {}),
     }),
   }).claim(claimer(RunnerId.of(by), workspace), NOW);
 
 const leaseExpiredRun = () => {
   const leased = leasedRun();
 
-  return leased.expireLease(leased.leaseExpiresAt as Date);
+  return leased.expireLease(leaseEndOf(leased));
 };
 
 const fetching = (
@@ -93,52 +99,59 @@ const fetching = (
   const revoked: string[] = [];
   const found = [run, after];
   const egress: RunnerEgressPort = {
-    authenticate: async (token) =>
-      token === 'egress-token' ? egressFor : null,
-    sharedWith: async (token) =>
-      token === 'shared-token' ? { egressId: 'egress_1' } : null,
-    authorizeRunner: async (through, credential) =>
-      through.egressId === 'egress_1' && credential === 'proxy-credential'
-        ? shared
-        : null,
-    runnerForConnectionRecords: async () => null,
+    authenticate: (token) =>
+      Promise.resolve(token === 'egress-token' ? egressFor : null),
+    sharedWith: (token) =>
+      Promise.resolve(
+        token === 'shared-token' ? { egressId: 'egress_1' } : null,
+      ),
+    authorizeRunner: (through, credential) =>
+      Promise.resolve(
+        through.egressId === 'egress_1' && credential === 'proxy-credential'
+          ? shared
+          : null,
+      ),
+    runnerForConnectionRecords: () => Promise.resolve(null),
   };
   const fetches = new EgressSecretFetches(
+    partial<RunRepository>({
+      findById: () =>
+        Promise.resolve((found.length > 1 ? found.shift() : found[0]) ?? null),
+    }),
     {
-      findById: async () =>
-        (found.length > 1 ? found.shift() : found[0]) ?? null,
-    } as unknown as RunRepository,
-    {
-      fetchSecrets: async (wanted) => {
+      fetchSecrets: (wanted) => {
         fetchesMade.push(wanted);
-        return FETCHED;
+        return Promise.resolve(FETCHED);
       },
       sealedFor: (sealed) =>
         `sealed(${sealed.name}=${sealed.value.revealed()})`,
     },
     {
-      leaseLost: async (lease) => {
+      leaseLost: (lease) => {
         lost.push(`${lease.workspaceId}/${lease.runId}#${lease.attempt}`);
+        return Promise.resolve();
       },
-      endedFor: async () => undefined,
+      endedFor: () => Promise.resolve(),
     },
     { hosts: () => ['storage.example.com'] },
     {
-      issueFor: async (wanted) => {
+      issueFor: (wanted) => {
         issued.push(wanted);
-        return { id: 'token_1', token: 'run-token' };
+        return Promise.resolve({ id: 'token_1', token: 'run-token' });
       },
-      revoke: async (workspaceId, tokenId) => {
+      revoke: (workspaceId, tokenId) => {
         revoked.push(`${workspaceId.value}/${tokenId}`);
+        return Promise.resolve();
       },
-      revokeFor: async (workspaceId, runId, attempt) => {
+      revokeFor: (workspaceId, runId, attempt) => {
         revoked.push(`${workspaceId.value}/${runId.value}#${String(attempt)}`);
+        return Promise.resolve();
       },
     },
-    { now: () => NOW } as ClockPort,
+    partial<ClockPort>({ now: () => NOW }),
     'app.example.com',
   );
-  const clock = { now: () => NOW } as ClockPort;
+  const clock = partial<ClockPort>({ now: () => NOW });
   const handler = new FetchRunSecretsHandler(egress, fetches, clock);
   const through = new FetchSharedRunSecretsHandler(egress, fetches, clock);
 
@@ -333,7 +346,7 @@ describe('FetchRunSecretsHandler', () => {
   it('revokes the token it issued when the run is cancelled while it fetches', async () => {
     const usingApi = () =>
       leasedRun('ws_1', RUNNER, { spotlightApi: true, injectedSecrets: [] });
-    const expired = usingApi().expireLease(usingApi().leaseExpiresAt as Date);
+    const expired = usingApi().expireLease(leaseEndOf(usingApi()));
     const { handler, revoked } = fetching(LEASED_RUN, usingApi(), expired);
 
     await expect(

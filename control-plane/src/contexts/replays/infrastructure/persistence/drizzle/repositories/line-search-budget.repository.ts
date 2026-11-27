@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { LineSearchBudget } from '@replays/domain/aggregates/line-search-budget.aggregate';
@@ -13,7 +14,7 @@ import {
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, type SQL } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type BudgetRow = typeof lineSearchBudget.$inferSelect;
 
@@ -50,7 +51,7 @@ export class DrizzleLineSearchBudgetRepository
   ) {}
 
   async locked(lineId: LineId, month: Date): Promise<LineSearchBudget | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(lineSearchBudget)
       .where(
@@ -59,7 +60,7 @@ export class DrizzleLineSearchBudgetRepository
           eq(lineSearchBudget.month, month),
         ),
       )
-      .for('update');
+      .for('update'));
 
     return found ? toBudget(found) : null;
   }
@@ -102,7 +103,7 @@ export class DrizzleLineSearchBudgetRepository
         eq(lineSearchBudget.lineId, saved.lineId.value),
         eq(lineSearchBudget.month, saved.month),
         eq(lineSearchBudget.version, saved.version),
-      ) as SQL;
+      );
       const written = saved.isDeleted
         ? await this.context.db
             .delete(lineSearchBudget)

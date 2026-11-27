@@ -71,11 +71,16 @@ export class MoveTaskHandler implements CommandHandlerPort<
         (each) => !each.id.equals(task.id),
       );
 
-      const after = command.afterTaskId
-        ? others.find((each) => each.id.value === command.afterTaskId)
-        : null;
+      const after =
+        command.afterTaskId !== null && command.afterTaskId !== ''
+          ? others.find((each) => each.id.value === command.afterTaskId)
+          : null;
 
-      if (command.afterTaskId && !after) {
+      if (
+        command.afterTaskId !== null &&
+        command.afterTaskId !== '' &&
+        !after
+      ) {
         throw new UnknownTaskError(command.afterTaskId);
       }
 

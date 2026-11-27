@@ -133,7 +133,7 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
       }),
     );
 
-    if (!ordered?.mayQueue) {
+    if (ordered?.mayQueue !== true) {
       await this.trials.withdraw(order.run);
       return unqueuedOf(ordered);
     }
@@ -150,7 +150,7 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
       );
     }
 
-    if (!(await this.decisions.find(order.run))?.mayQueue) {
+    if ((await this.decisions.find(order.run))?.mayQueue !== true) {
       await this.runs.cancel(order.run, STOPPED);
       return CANCELLED;
     }
@@ -167,7 +167,7 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
       ReplayRunDecision.decidedToCancel(run, owner),
     );
 
-    if (!decision?.mayQueue) {
+    if (decision?.mayQueue !== true) {
       return NEVER_QUEUED;
     }
 

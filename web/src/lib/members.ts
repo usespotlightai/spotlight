@@ -90,7 +90,9 @@ export const describeOutcomes = (outcomes: readonly InviteOutcome[]): string =>
     return count > 0 ? [`${count} ${label}`] : [];
   }).join(' · ') || 'Invites';
 
-export const describeTeams = (teams: readonly TeamReferenceResponseDto[]) =>
+export const describeTeams = (
+  teams: readonly TeamReferenceResponseDto[],
+): string =>
   teams.length === 0 ? 'No team' : teams.map((each) => each.name).join(', ');
 
 export const inviterNamed = (name: string | null | undefined): string =>

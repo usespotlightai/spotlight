@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import type { TipPlacement } from '@/hooks/useCursorTooltip';
 import { spentIn } from '@/lib/inbox';
@@ -14,7 +16,7 @@ export function ReplayedPointTip({
   point,
   currency,
   placement,
-}: ReplayedPointTipProps) {
+}: ReplayedPointTipProps): ReactElement {
   return (
     <ChartTip
       placement={placement}
@@ -27,7 +29,7 @@ export function ReplayedPointTip({
             `${formatShare(point.value)} of ${formatCount(point.scored)} scored ${point.scored === 1 ? 'run' : 'runs'}`,
           ],
           ['Cost per run', spentIn(point.cost, currency)],
-          ...(point.heldOut
+          ...(point.heldOut !== null && point.heldOut !== ''
             ? ([['Held out', point.heldOut]] as [string, string][])
             : []),
           ...(point.frontier

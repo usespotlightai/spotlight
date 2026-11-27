@@ -71,12 +71,17 @@ export const endOf = (
     return null;
   }
   if (
-    !row.teamId ||
-    !row.lineId ||
-    !row.stationId ||
-    !row.taskId ||
+    row.teamId === null ||
+    row.teamId === '' ||
+    row.lineId === null ||
+    row.lineId === '' ||
+    row.stationId === null ||
+    row.stationId === '' ||
+    row.taskId === null ||
+    row.taskId === '' ||
     !row.ending ||
-    !row.harness ||
+    row.harness === null ||
+    row.harness === '' ||
     !row.repositories ||
     !row.skills ||
     row.runNumber === null
@@ -161,7 +166,7 @@ export const answerOf = (
     );
   }
 
-  return answeredAt && answeredBy
+  return answeredAt && answeredBy !== null && answeredBy !== ''
     ? PersonAction.of('answered', answeredAt, UserId.of(answeredBy))
     : null;
 };
@@ -276,7 +281,7 @@ export const passOf = (
     );
   }
 
-  return row.passedTo && row.passedAt
+  return row.passedTo !== null && row.passedTo !== '' && row.passedAt
     ? StationPass.of(StationId.of(row.passedTo), row.passedAt)
     : null;
 };

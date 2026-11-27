@@ -86,10 +86,12 @@ export class ResolveToolForRun {
         personRule: null,
         missing: found.missing,
         defaultFor: (input) => resolved.defaultFor(input),
-        call: async () => {
-          throw new InconsistentStateError(
-            'integration tool',
-            `${tool.value} was called without the connection it acts with`,
+        call: () => {
+          return Promise.reject(
+            new InconsistentStateError(
+              'integration tool',
+              `${tool.value} was called without the connection it acts with`,
+            ),
           );
         },
       };

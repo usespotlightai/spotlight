@@ -10,18 +10,19 @@ import {
   type AssistSessionSettledIntegrationEvent,
 } from '@shared-kernel/application/integration-events/assist-session-settled.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 describe('memory receiving a settled assist session', () => {
   it('wakes the sweep that waits for the session', async () => {
     const settled = vi.fn(async () => {});
     const subscriber = memorySubscribers(
-      {} as DeleteMemoryProposalSet,
-      {} as DeleteTeamMemories,
-      {} as MemoryReactions,
-      {} as RecordRunMemoryUses,
-      {} as UpkeepReactions,
-      { settled } as unknown as WakeUpkeepSweeps,
+      partial<DeleteMemoryProposalSet>({}),
+      partial<DeleteTeamMemories>({}),
+      partial<MemoryReactions>({}),
+      partial<RecordRunMemoryUses>({}),
+      partial<UpkeepReactions>({}),
+      partial<WakeUpkeepSweeps>({ settled }),
     ).find((each) => each.kinds.includes(ASSIST_SESSION_SETTLED));
     const event: AssistSessionSettledIntegrationEvent = {
       kind: ASSIST_SESSION_SETTLED,

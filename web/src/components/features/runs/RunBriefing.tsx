@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
@@ -28,7 +28,7 @@ export function RunBriefing({
   closing,
   footer,
   pills,
-}: RunBriefingProps) {
+}: RunBriefingProps): ReactElement {
   const scroller = useStickToBottom<HTMLDivElement>();
   const { sidePanel } = useRunSidePanel();
 
@@ -39,7 +39,7 @@ export function RunBriefing({
       footer={
         <ComposerFooter>
           <div className="flex flex-col gap-0.5">
-            {pills && (
+            {Boolean(pills) && (
               <div className="flex max-w-full flex-wrap items-center gap-1">
                 {pills}
               </div>
@@ -61,9 +61,11 @@ export function RunBriefing({
           />
         </div>
 
-        {activity && <div className="mt-6 empty:hidden">{activity}</div>}
+        {Boolean(activity) && (
+          <div className="mt-6 empty:hidden">{activity}</div>
+        )}
 
-        {closing && <div className="mt-3">{closing}</div>}
+        {Boolean(closing) && <div className="mt-3">{closing}</div>}
       </div>
     </PaneScroller>
   );

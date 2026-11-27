@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import {
   MEMORY_COLUMNS,
@@ -39,7 +39,7 @@ export function TeamMemoryRow({
   lines,
   open,
   onOpenChange,
-}: TeamMemoryRowProps) {
+}: TeamMemoryRowProps): ReactElement {
   const { row, expanded, clamped, closing, toggle } = useRowExpansion({
     open,
     onOpenChange,

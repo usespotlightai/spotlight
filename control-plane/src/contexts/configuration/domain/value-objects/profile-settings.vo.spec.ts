@@ -13,6 +13,14 @@ const fromRaw = (native: Record<string, unknown>) =>
     env: {},
   });
 
+const isHarnessSettings = (
+  value: unknown,
+): value is { env: Record<string, string>; hooks: { run: string }[] } =>
+  typeof value === 'object' &&
+  value !== null &&
+  'env' in value &&
+  'hooks' in value;
+
 describe('ProfileSettings', () => {
   it('keeps native settings apart from the document they were written from', () => {
     const native = { 'claude-code': { env: { DEBUG: '1' } } };
@@ -27,10 +35,11 @@ describe('ProfileSettings', () => {
     const settings = fromRaw({
       'claude-code': { env: { DEBUG: '1' }, hooks: [{ run: 'lint' }] },
     });
-    const harness = settings.native['claude-code'] as {
-      env: Record<string, string>;
-      hooks: { run: string }[];
-    };
+    const harness = settings.native['claude-code'];
+
+    if (!isHarnessSettings(harness)) {
+      throw new Error('expected Claude Code settings');
+    }
 
     expect(() => {
       harness.env.DEBUG = '0';

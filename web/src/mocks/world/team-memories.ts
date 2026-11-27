@@ -27,7 +27,12 @@ const memory = (
       'id' | 'handle' | 'kind' | 'body' | 'approvedAt'
     >,
 ): TeamMemoryResponseDto => {
-  const scope = over.stationId ? 'station' : over.lineId ? 'line' : 'team';
+  const scope =
+    (over.stationId ?? '') !== ''
+      ? 'station'
+      : (over.lineId ?? '') !== ''
+        ? 'line'
+        : 'team';
 
   return {
     source: 'person',

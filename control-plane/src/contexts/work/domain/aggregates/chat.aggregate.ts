@@ -463,16 +463,17 @@ export class Chat extends EventRecorder {
       );
     }
 
-    const chosen = named?.trim() || null;
-    const repository = chosen
-      ? this.repositoryNamed(chosen)
-      : this.repositories.length === 1
-        ? (this.repositories[0] ?? null)
-        : null;
+    const chosen = (named?.trim() ?? '') || null;
+    const repository =
+      chosen !== null
+        ? this.repositoryNamed(chosen)
+        : this.repositories.length === 1
+          ? (this.repositories[0] ?? null)
+          : null;
 
     if (!repository) {
       throw new InvalidChatTransitionError(
-        chosen
+        chosen !== null
           ? `Chat ${this.id.value} has no checkout of ${chosen}. Its repositories are: ${this.repositories.map((each) => each.value).join(', ') || 'none'}.`
           : `Chat ${this.id.value} has ${this.repositories.length === 0 ? 'no repository' : 'more than one repository'}. Name the repository of the change with --repository.`,
       );
@@ -598,7 +599,7 @@ export class Chat extends EventRecorder {
   openSetup(runId: RunId, pullRequest: PullRequestUrl, at: Date): Chat {
     const setup = this.mayOpenSetupFrom(runId);
 
-    if (!pullRequest.repository?.equals(setup.repository)) {
+    if (pullRequest.repository?.equals(setup.repository) !== true) {
       throw new InvalidChatTransitionError(
         `Pull request ${pullRequest.value} is not in ${setup.repository.value}.`,
       );
@@ -742,7 +743,7 @@ export class Chat extends EventRecorder {
   }
 
   private endRun(runId: RunId): Chat {
-    return this.currentRunId?.equals(runId)
+    return this.currentRunId?.equals(runId) === true
       ? this.with({ currentRunId: null })
       : this;
   }
@@ -874,7 +875,7 @@ export class Chat extends EventRecorder {
   }
 
   proposalPositionFor(runId: RunId): MessagePosition {
-    if (!this.currentRunId?.equals(runId)) {
+    if (this.currentRunId?.equals(runId) !== true) {
       throw new InvalidChatTransitionError(
         `Only the run working chat ${this.id.value} can propose tasks.`,
       );

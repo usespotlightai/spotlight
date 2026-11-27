@@ -5,7 +5,7 @@ import { type RefObject, useEffect } from 'react';
 export function useEditorHandle(
   editorRef: RefObject<LexicalEditor | null>,
   editable: boolean,
-) {
+): void {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {

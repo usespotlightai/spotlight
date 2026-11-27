@@ -9,6 +9,7 @@ import { ReviewCommentId } from '@change-review/domain/value-objects/review-comm
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { DrizzleReviewCommentRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review-comment.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -45,7 +46,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 describe('storing review comments', () => {
@@ -84,7 +85,7 @@ describe('storing review comments', () => {
     const stored = await comments.find(reply.id);
 
     await comments.save(
-      (stored as ReviewComment).notPosted(
+      present(stored).notPosted(
         DeliveryFailure.of('github-rejected', 'Validation Failed'),
       ),
     );
@@ -107,7 +108,7 @@ describe('removing the review comments of a task', () => {
   it('removes a comment only at the version it was read', async () => {
     const comment = drafted('versioned', ReviewAnchor.onFile('src/e.ts'));
     await comments.add(comment);
-    const read = (await comments.find(comment.id)) as ReviewComment;
+    const read = present(await comments.find(comment.id));
     await comments.save(read.edited('Changed', UserId.of('user_ada'), NOW));
 
     await expect(comments.remove(read)).rejects.toThrow(

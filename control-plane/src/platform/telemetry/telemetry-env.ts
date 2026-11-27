@@ -6,7 +6,7 @@ export type Exporters = {
   readonly OTEL_LOGS_EXPORTER: 'none';
 };
 
-const present = (value: string | undefined): boolean =>
+const present = (value: string | undefined): value is string =>
   value !== undefined && value.trim() !== '';
 
 const exporterOf = (
@@ -14,7 +14,7 @@ const exporterOf = (
   endpoints: readonly (string | undefined)[],
 ): string => {
   if (present(chosen)) {
-    return chosen as string;
+    return chosen;
   }
 
   return endpoints.some(present) ? 'otlp' : 'none';

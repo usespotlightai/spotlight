@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { AgentPicker } from '@/components/features/stations/AgentPicker';
 
 type FixedAgentProps = {
@@ -11,7 +13,7 @@ type FixedAgentProps = {
     | undefined;
 };
 
-export function FixedAgent({ agent }: FixedAgentProps) {
+export function FixedAgent({ agent }: FixedAgentProps): ReactElement {
   return (
     <AgentPicker
       harness={agent?.harness ?? ''}

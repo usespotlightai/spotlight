@@ -75,13 +75,12 @@ const canonical = (value: unknown): unknown => {
   }
 
   if (value !== null && typeof value === 'object') {
+    const entries: [string, unknown][] = Object.entries(value);
+
     return Object.fromEntries(
-      Object.keys(value)
-        .sort(textOrder)
-        .map((key) => [
-          key,
-          canonical((value as Record<string, unknown>)[key]),
-        ]),
+      entries
+        .sort(([one], [other]) => textOrder(one, other))
+        .map(([key, each]) => [key, canonical(each)]),
     );
   }
 
@@ -159,15 +158,15 @@ const namedChanges = <T>(
     const was = earlier.find((each) => nameOf(each) === name);
     const now = later.find((each) => nameOf(each) === name);
 
-    if (!was && now) {
+    if (was === undefined && now !== undefined) {
       return [{ part, name, kind: 'added', was: null, now: shownOf(now) }];
     }
 
-    if (was && !now) {
+    if (was !== undefined && now === undefined) {
       return [{ part, name, kind: 'removed', was: shownOf(was), now: null }];
     }
 
-    if (was && now && !sameOf(was, now)) {
+    if (was !== undefined && now !== undefined && !sameOf(was, now)) {
       return [
         { part, name, kind: 'changed', was: shownOf(was), now: shownOf(now) },
       ];

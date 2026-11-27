@@ -23,7 +23,7 @@ const bounded = (
 };
 
 export class TrustedWorkload {
-  private readonly kind = 'trusted-workload' as const;
+  private readonly kind: string = 'trusted-workload';
 
   private constructor(
     readonly issuer: string,

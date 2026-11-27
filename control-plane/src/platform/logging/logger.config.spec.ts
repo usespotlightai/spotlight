@@ -1,10 +1,11 @@
 import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import { noteRefusal, type Refusal } from '@platform/http/refusal';
 import { buildLogging } from '@platform/logging/logger.config';
-import pinoHttp, { type Options } from 'pino-http';
+import { portOf } from '@platform/testing/port-of.fake-spec';
+import pinoHttp from 'pino-http';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 const SESSION_TOKEN = 'super-secret-session-token-value';
 const SESSION_COOKIE = `better-auth.session_token=${SESSION_TOKEN}`;
@@ -35,8 +36,11 @@ async function request(
     },
   );
 
-  const middleware =
-    through === 'auth' ? httpLogger : pinoHttp(params.pinoHttp as Options);
+  const options = params.pinoHttp;
+  if (options === undefined || Array.isArray(options) || 'write' in options) {
+    throw new Error('expected pino-http options');
+  }
+  const middleware = through === 'auth' ? httpLogger : pinoHttp(options);
 
   const server: Server = createServer();
   const responded = new Promise<void>((resolve) => {
@@ -64,7 +68,7 @@ async function request(
     await new Promise<void>((resolve) =>
       server.listen(0, '127.0.0.1', resolve),
     );
-    const { port } = server.address() as AddressInfo;
+    const port = portOf(server);
     await Promise.all([
       fetch(`http://127.0.0.1:${port}${path}`, { headers }),
       responded,
@@ -76,7 +80,9 @@ async function request(
   const raw = chunks.join('');
   return {
     raw,
-    lines: chunks.map((chunk) => JSON.parse(chunk) as Record<string, unknown>),
+    lines: chunks.map((chunk) =>
+      z.record(z.string(), z.unknown()).parse(JSON.parse(chunk)),
+    ),
   };
 }
 
@@ -100,6 +106,7 @@ describe('logger config', () => {
 
   it('logs method, path, status and duration for each request', async () => {
     const { lines } = await request('/api');
+    if (lines.length === 0) throw new Error('expected a log line');
     const completed = lines[lines.length - 1];
 
     expect(completed).toMatchObject({
@@ -107,7 +114,7 @@ describe('logger config', () => {
       path: '/api',
       res: { statusCode: 200 },
     });
-    expect(completed?.responseTime).toBeTypeOf('number');
+    expect(completed.responseTime).toBeTypeOf('number');
   });
 
   it('never writes the query string of a request', async () => {
@@ -158,7 +165,7 @@ describe('logger config', () => {
     ['the all-zero trace id', `00-${'0'.repeat(32)}-00f067aa0ba902b7-01`],
   ])('falls back to a generated id given %s', async (_name, traceparent) => {
     const { lines } = await request('/api', { traceparent });
-    const reqId = lines[0].reqId as string;
+    const reqId = lines[0].reqId;
 
     expect(reqId).toMatch(
       /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/,

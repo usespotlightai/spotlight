@@ -1,10 +1,27 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import {
+  type QueryKeyWithDataTag,
+  type UnusedSkipTokenOptions,
+  queryOptions,
+  useQuery,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
-import { getWorkspace } from '@/lib/api';
+import { getWorkspace, type WorkspaceResponseDto } from '@/lib/api';
+import { required } from '@/lib/required';
 import { setupStatusPollFor } from '@/lib/setup-status';
 
-export const workspaceQuery = (slug: string | undefined) =>
+type WorkspaceKey = ReturnType<typeof workspaceKeys.detail>;
+
+type WorkspaceQuery = UnusedSkipTokenOptions<
+  WorkspaceResponseDto | null,
+  Error,
+  WorkspaceResponseDto | null,
+  WorkspaceKey
+> &
+  QueryKeyWithDataTag<WorkspaceKey, WorkspaceResponseDto | null>;
+
+export const workspaceQuery = (slug: string | undefined): WorkspaceQuery =>
   queryOptions({
     queryKey: workspaceKeys.detail(slug),
     enabled: Boolean(slug),
@@ -13,7 +30,7 @@ export const workspaceQuery = (slug: string | undefined) =>
       setupStatusPollFor(query.state.data?.setupStatus),
     queryFn: async () => {
       const { data, response } = await getWorkspace({
-        path: { slug: slug as string },
+        path: { slug: required(slug) },
       });
 
       if (response?.status === 404) {
@@ -26,6 +43,8 @@ export const workspaceQuery = (slug: string | undefined) =>
     },
   });
 
-export function useWorkspace(slug: string | undefined) {
+export function useWorkspace(
+  slug: string | undefined,
+): UseQueryResult<WorkspaceResponseDto | null> {
   return useQuery(workspaceQuery(slug));
 }

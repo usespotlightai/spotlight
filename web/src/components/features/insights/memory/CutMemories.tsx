@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import {
   EDGE_INDENT,
@@ -22,7 +24,11 @@ type CutMemoriesProps = {
   memory: InsightsMemory;
 };
 
-export function CutMemories({ slug, teamId, memory }: CutMemoriesProps) {
+export function CutMemories({
+  slug,
+  teamId,
+  memory,
+}: CutMemoriesProps): ReactElement {
   const cut: readonly CutMemory[] = memory.cutThenRead;
 
   return (

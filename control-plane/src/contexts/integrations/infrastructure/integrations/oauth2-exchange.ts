@@ -5,18 +5,12 @@ import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbo
 import { sanitizedForCel } from '@platform/expressions/cel-variables';
 import type { Expression } from '@platform/expressions/expression-engine.port';
 import { value } from '@platform/expressions/readings';
+import { fieldOf } from '@platform/json/field-of';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 
 type Fetch = typeof globalThis.fetch;
 
 const ANSWERS_WITHIN_MS = 15_000;
-
-interface TokenResponse {
-  access_token?: string;
-  refresh_token?: string;
-  expires_in?: number;
-  scope?: string;
-}
 
 export class OAuth2Exchange {
   constructor(
@@ -61,11 +55,11 @@ export class OAuth2Exchange {
 
     const form = new URLSearchParams({ ...grant, client_id: client.id });
 
-    if (client.secret) {
+    if (client.secret !== null && client.secret !== '') {
       form.set('client_secret', client.secret);
     }
 
-    if (oauth2.resource) {
+    if (oauth2.resource !== null && oauth2.resource !== '') {
       form.set('resource', oauth2.resource);
     }
 
@@ -84,26 +78,30 @@ export class OAuth2Exchange {
       return null;
     }
 
-    const response = (await reply
-      .json()
-      .catch(() => null)) as TokenResponse | null;
+    const response: unknown = await reply.json().catch(() => null);
+    const accessToken = fieldOf(response, 'access_token');
 
-    if (!response?.access_token) {
+    if (typeof accessToken !== 'string' || accessToken === '') {
       return null;
     }
 
+    const expiresIn = fieldOf(response, 'expires_in');
     const expiresAt =
-      typeof response.expires_in === 'number'
-        ? new Date(this.clock.now().getTime() + response.expires_in * 1000)
+      typeof expiresIn === 'number'
+        ? new Date(this.clock.now().getTime() + expiresIn * 1000)
         : null;
 
-    const scopes = response.scope
-      ? response.scope.split(/[\s,]+/).filter(Boolean)
-      : [...oauth2.scopes];
+    const scope = fieldOf(response, 'scope');
+    const scopes =
+      typeof scope === 'string' && scope !== ''
+        ? scope.split(/[\s,]+/).filter(Boolean)
+        : [...oauth2.scopes];
+
+    const refreshToken = fieldOf(response, 'refresh_token');
 
     return OAuthTokens.of({
-      accessToken: response.access_token,
-      refreshToken: response.refresh_token ?? null,
+      accessToken,
+      refreshToken: typeof refreshToken === 'string' ? refreshToken : null,
       expiresAt,
       scopes,
       linkedAccount: identity

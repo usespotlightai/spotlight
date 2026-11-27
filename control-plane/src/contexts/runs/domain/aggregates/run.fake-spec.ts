@@ -1,4 +1,5 @@
 import type {
+  Run,
   RunClaimer,
   RunOrdered,
 } from '@runs/domain/aggregates/run.aggregate';
@@ -111,13 +112,14 @@ export const orderedFor = {
       }),
       policy: SPEC_POLICY,
       now: ORDERED_AT,
-      workingCopy: key
-        ? RunWorkingCopy.of({
-            key: WorkingCopyKey.of('workspace', key),
-            rejoinable: false,
-            restores: 'when-continuing',
-          })
-        : null,
+      workingCopy:
+        key !== null && key !== ''
+          ? RunWorkingCopy.of({
+              key: WorkingCopyKey.of('workspace', key),
+              rejoinable: false,
+              restores: 'when-continuing',
+            })
+          : null,
     };
   },
 
@@ -155,3 +157,19 @@ export const claimer = (
   workspaceId: WorkspaceId.of(workspace),
   source,
 });
+
+export const leaseEndOf = (run: Run): Date => {
+  if (run.leaseExpiresAt === null) {
+    throw new Error('expected a leased run');
+  }
+
+  return run.leaseExpiresAt;
+};
+
+export const workingCopyKeyOf = (run: Run): WorkingCopyKey => {
+  if (run.workingCopyKey === null) {
+    throw new Error('expected a run with a working copy');
+  }
+
+  return run.workingCopyKey;
+};

@@ -99,9 +99,10 @@ export class WorkspaceReader implements WorkspaceReaderPort {
     userId: UserId,
   ): Promise<WorkspaceDetail | null> {
     const id = await this.records.idForSlug(slug);
-    const workspace = id
-      ? await this.workspaces.find(WorkspaceId.of(id))
-      : null;
+    const workspace =
+      id !== null && id !== ''
+        ? await this.workspaces.find(WorkspaceId.of(id))
+        : null;
     const role = workspace?.roleOf(userId);
 
     if (

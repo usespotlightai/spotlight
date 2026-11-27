@@ -82,7 +82,7 @@ export const taskChangesPath = (
 ): string => {
   const at = `${taskPath(slug, teamId, taskId)}/changes`;
 
-  return repository
+  return repository !== null && repository !== ''
     ? `${at}?${new URLSearchParams({ repository }).toString()}`
     : at;
 };
@@ -136,7 +136,7 @@ export const layerAt = (
 ): LocatedLayer | null => {
   const layers = layersOf(stack);
 
-  return layers.find((each) => each.layer.id === id) ?? layers[0] ?? null;
+  return layers.find((each) => each.layer.id === id) ?? layers.at(0) ?? null;
 };
 
 export const filesOf = (stack: ChangeStack, layer: StackLayer): LayerFile[] => {
@@ -260,7 +260,9 @@ const REVISION_MARKS = {
   },
 } as const;
 
-export const revisionMarkOf = (layer: StackLayer) =>
+export const revisionMarkOf = (
+  layer: StackLayer,
+): (typeof REVISION_MARKS)[keyof typeof REVISION_MARKS] | null =>
   layer.revision && layer.revision.status !== 'unchanged'
     ? REVISION_MARKS[layer.revision.status]
     : null;

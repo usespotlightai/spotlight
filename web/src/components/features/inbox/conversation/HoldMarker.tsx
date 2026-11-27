@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import type { NoteResumptionResponseDto } from '@/lib/api';
 import type { Note } from '@/lib/inbox';
 
@@ -10,7 +12,7 @@ const WHERE_IT_WENT: Record<
   finish: () => 'It is completed.',
 };
 
-export function HoldMarker({ note }: { note: Note }) {
+export function HoldMarker({ note }: { note: Note }): ReactElement {
   const who = note.author?.name ?? 'Someone';
 
   if (note.form === 'held') {
@@ -35,11 +37,13 @@ export function HoldMarker({ note }: { note: Note }) {
         {who} resumed the line.
         {resumption && ` ${WHERE_IT_WENT[resumption.next](resumption.station)}`}
       </p>
-      {resumption?.summary && (
-        <p className="max-w-prose whitespace-pre-wrap text-foreground text-sm">
-          {resumption.summary}
-        </p>
-      )}
+      {resumption?.summary !== null &&
+        resumption?.summary !== undefined &&
+        resumption.summary !== '' && (
+          <p className="max-w-prose whitespace-pre-wrap text-foreground text-sm">
+            {resumption.summary}
+          </p>
+        )}
     </div>
   );
 }

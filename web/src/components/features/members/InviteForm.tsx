@@ -1,4 +1,4 @@
-import { type SubmitEvent, useState } from 'react';
+import { type ReactElement, type SubmitEvent, useState } from 'react';
 
 import { InviteEmailsField } from '@/components/features/members/InviteEmailsField';
 import { TeamsSelect } from '@/components/features/members/TeamsSelect';
@@ -37,7 +37,7 @@ export function InviteForm({
   teamIds,
   sending,
   onSend,
-}: InviteFormProps) {
+}: InviteFormProps): ReactElement {
   const [emails, setEmails] = useState('');
   const [checked, setChecked] = useState(false);
   const [role, setRole] = useState<InviteRole>(USUAL_INVITE_ROLE);
@@ -84,7 +84,13 @@ export function InviteForm({
             value={role}
             placeholder="Member"
             clearable={false}
-            onChange={(next) => next && setRole(next as InviteRole)}
+            onChange={(next) => {
+              const picked = INVITE_ROLES.find((each) => each.value === next);
+
+              if (picked !== undefined) {
+                setRole(picked.value);
+              }
+            }}
             disabled={sending}
             className={CONTROL}
           />

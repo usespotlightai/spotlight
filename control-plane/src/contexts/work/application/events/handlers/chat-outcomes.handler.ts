@@ -71,6 +71,8 @@ export class ChatOutcomes implements RunEndingReactions {
 
     const chat = await this.chats.find(chatId);
 
-    return chat?.hasCurrentRun(RunEndedFacts.runId(event)) ? chat : null;
+    return chat?.hasCurrentRun(RunEndedFacts.runId(event)) === true
+      ? chat
+      : null;
   }
 }

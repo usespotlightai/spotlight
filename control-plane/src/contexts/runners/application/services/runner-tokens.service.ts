@@ -13,7 +13,7 @@ export class RunnerTokens implements RunnerIdentityPort {
   ) {}
 
   async authenticate(token: string | undefined): Promise<RunnerId | null> {
-    if (!token) {
+    if (token === undefined || token === '') {
       return null;
     }
 
@@ -21,6 +21,6 @@ export class RunnerTokens implements RunnerIdentityPort {
       TokenHash.of(this.tokens.hash(token)),
     );
 
-    return found?.isAlive(this.clock.now()) ? found.id : null;
+    return found?.isAlive(this.clock.now()) === true ? found.id : null;
   }
 }

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { FixedAgent } from '@/components/features/stations/FixedAgent';
 import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
@@ -26,7 +28,7 @@ export function InboxComposer({
   teamId,
   runId,
   stoppable,
-}: InboxComposerProps) {
+}: InboxComposerProps): ReactElement {
   const answer = useAnswerInboxItem();
   const stop = useStopRun();
   const { line, station: currentStation } = useTaskStation(teamId, taskId);
@@ -49,7 +51,11 @@ export function InboxComposer({
           because={LINE_SETS_REPOSITORIES}
         />
       }
-      onStop={runId ? () => stop.mutate({ teamId, runId }) : undefined}
+      onStop={
+        runId !== null && runId !== ''
+          ? () => stop.mutate({ teamId, runId })
+          : undefined
+      }
       onSend={({ body, attachments, coAuthors, draftGeneration }, restore) =>
         answer.mutate(
           { slug, itemId, body, attachments, coAuthors, draftGeneration },

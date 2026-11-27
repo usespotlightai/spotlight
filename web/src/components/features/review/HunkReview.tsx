@@ -1,5 +1,5 @@
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
-import { useMemo, useState } from 'react';
+import { type ReactElement, useMemo, useState } from 'react';
 
 import { NewReviewComment } from '@/components/features/review/NewReviewComment';
 import { ReviewGutterPlus } from '@/components/features/review/ReviewGutterPlus';
@@ -24,7 +24,13 @@ type Annotated =
   | { readonly kind: 'thread'; readonly thread: ReviewThread }
   | { readonly kind: 'composer'; readonly spot: ReviewSpot };
 
-export function HunkReview({ file, hunk }: { file: DiffFile; hunk: DiffHunk }) {
+export function HunkReview({
+  file,
+  hunk,
+}: {
+  file: DiffFile;
+  hunk: DiffHunk;
+}): ReactElement {
   const reviewing = useReviewing();
   const patch = patchOf(file, hunk);
   const everyThread = reviewing?.threads;
@@ -78,20 +84,20 @@ export function HunkReview({ file, hunk }: { file: DiffFile; hunk: DiffHunk }) {
       patch={patch}
       annotations={annotations}
       renderAnnotation={({ metadata }) =>
-        metadata?.kind === 'thread' ? (
+        metadata.kind === 'thread' ? (
           <ReviewThreadCard
             thread={metadata.thread}
             onPointedAt={(pointing) =>
               setPointedAt(pointing ? rangeOf(metadata.thread.root) : null)
             }
-            appear={!firstSeen?.has(metadata.thread.root.id)}
+            appear={firstSeen?.has(metadata.thread.root.id) !== true}
           />
-        ) : metadata?.kind === 'composer' ? (
+        ) : (
           <NewReviewComment
             spot={metadata.spot}
             open={composingHere !== null}
           />
-        ) : null
+        )
       }
       gutter={(hovered) => <ReviewGutterPlus hovered={hovered} />}
       selected={

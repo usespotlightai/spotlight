@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { MenuPicker, type PickerOption } from '@/components/shared/MenuPicker';
 import { RANGES, rangeOf } from '@/lib/range';
 
@@ -9,7 +11,7 @@ export function RangePicker({
   value: string;
   onChange: (id: string) => void;
   ranges?: readonly PickerOption[];
-}) {
+}): ReactElement {
   return (
     <MenuPicker
       label="Time range"

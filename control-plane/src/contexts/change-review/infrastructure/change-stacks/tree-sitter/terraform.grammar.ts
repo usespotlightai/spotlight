@@ -6,6 +6,7 @@ import {
   named,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
 import { HCL_GRAMMAR_WASM } from '@platform/hcl/hcl.parse';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 const LABELLED: Readonly<Record<string, number>> = {
@@ -71,7 +72,9 @@ const addressOf = (block: Node): string => {
 };
 
 const traversal = (expression: Node): string[] => {
-  const [root, ...steps] = named(expression);
+  const nodes = named(expression);
+  const root = firstOf(nodes);
+  const steps = nodes.slice(1);
 
   if (root?.type !== 'variable_expr') {
     return [];
@@ -146,7 +149,7 @@ export const TERRAFORM_GRAMMAR: Grammar = {
     }
 
     const labels = named(node).filter((child) => child.type === 'string_lit');
-    const name = labels[(LABELLED[blockType(node)] ?? 0) - 1];
+    const name = itemAt(labels, (LABELLED[blockType(node)] ?? 0) - 1);
 
     return name && labels.length === LABELLED[blockType(node)] ? [name] : [];
   },
@@ -169,7 +172,7 @@ export const TERRAFORM_GRAMMAR: Grammar = {
     const specifier = moduleSource(node);
     const [name] = labelsOf(node);
 
-    return specifier && name
+    return specifier !== undefined && specifier !== '' && name
       ? [{ local: `module.${name}`, imported: '*', specifier }]
       : [];
   },

@@ -42,6 +42,9 @@ import {
 } from '@runs/application/ports/working-copy-archive-store.port';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -58,6 +61,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { changing } from './support/harness-events';
 import { keptSet } from './support/kept-sets';
@@ -91,69 +95,76 @@ const PREFERRED: Readonly<Record<string, 'win' | 'loss' | 'tie'>> = {
   'Drain queue third': 'tie',
 };
 
-const attachmentStore = {
-  received: async () => [],
-  stored: async () => true,
-  taken: async () => undefined,
-  open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
-} as unknown as AttachmentStorePort;
+const attachmentStore = partial<AttachmentStorePort>({
+  received: () => Promise.resolve([]),
+  stored: () => Promise.resolve(true),
+  taken: () => Promise.resolve(undefined),
+  open: () =>
+    Promise.resolve({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
+});
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: async (archive) => ({
-    url: `https://archives.test/${archive.id.value}`,
-    headers: {},
-  }),
-  stored: async (archive) =>
-    archive.location.kind === 'spotlight' ? archive.location : null,
-  grantDownload: async (archive) =>
-    `https://archives.test/${archive.id.value}?download`,
+  grantUpload: (archive) =>
+    Promise.resolve({
+      url: `https://archives.test/${archive.id.value}`,
+      headers: {},
+    }),
+  stored: (archive) =>
+    Promise.resolve(
+      archive.location.kind === 'spotlight' ? archive.location : null,
+    ),
+  grantDownload: (archive) =>
+    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
   remove: async () => {},
 };
 
 const generator: ChangeStackGeneratorPort = {
-  generate: async ({ diff }) => ({
-    status: 'drafted' as const,
-    usage: {
-      inputTokens: 1_000,
-      outputTokens: 100,
-      cost: { amount: 0.02, currency: 'USD' },
-    },
-    cohorts: [
-      {
-        kind: 'change',
-        title: 'Drain the queue',
-        intent: 'Drain it in order',
-        layers: [
-          {
-            title: 'Drain in order',
-            summary: 'Drains the queue oldest first',
-            dependsOn: [],
-            hunks: diff.hunks.map((each) => ({ hunk: each.id })),
-            notes: [
-              ...new Set(
-                diff.hunks.flatMap((each) => diff.fileOf(each.id)?.path ?? []),
-              ),
-            ].map((path) => ({ path, note: 'Drains the queue' })),
-            questions: [],
-          },
-        ],
+  generate: ({ diff }) =>
+    Promise.resolve({
+      status: 'drafted' as const,
+      usage: {
+        inputTokens: 1_000,
+        outputTokens: 100,
+        cost: { amount: 0.02, currency: 'USD' },
       },
-    ],
-  }),
+      cohorts: [
+        {
+          kind: 'change',
+          title: 'Drain the queue',
+          intent: 'Drain it in order',
+          layers: [
+            {
+              title: 'Drain in order',
+              summary: 'Drains the queue oldest first',
+              dependsOn: [],
+              hunks: diff.hunks.map((each) => ({ hunk: each.id })),
+              notes: [
+                ...new Set(
+                  diff.hunks.flatMap(
+                    (each) => diff.fileOf(each.id)?.path ?? [],
+                  ),
+                ),
+              ].map((path) => ({ path, note: 'Drains the queue' })),
+              questions: [],
+            },
+          ],
+        },
+      ],
+    }),
 };
 
 const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
   roundOf: () => null,
-  judge: async (request) => {
+  judge: (request) => {
     requests.push(request);
     const fast = request.hunks.some((each) =>
       each.lines.some((line) => line.includes(FAST)),
     );
     const cited = request.hunks.slice(0, 1).map((each) => each.id);
 
-    return {
+    return Promise.resolve({
       status: 'judged' as const,
       model: 'stub/judge',
       guidance: null,
@@ -164,7 +175,7 @@ const judge: JudgePort = {
           reasons: [{ text: `On "${claim}".`, steps: [], hunks: cited }],
         })),
       },
-    };
+    });
   },
 };
 
@@ -172,7 +183,7 @@ const pairRequests: SideBySideJudgeRequest[] = [];
 
 const pairJudge: SideBySideJudgePort = {
   roundOf: () => null,
-  judgePair: async (request) => {
+  judgePair: (request) => {
     pairRequests.push(request);
     const fastIsA = request.a.hunks.some((each) =>
       each.lines.some((line) => line.includes(FAST)),
@@ -185,7 +196,7 @@ const pairJudge: SideBySideJudgePort = {
           ? ('A' as const)
           : ('B' as const);
 
-    return {
+    return Promise.resolve({
       status: 'judged' as const,
       model: 'stub/pair-judge',
       verdict: {
@@ -197,7 +208,7 @@ const pairJudge: SideBySideJudgePort = {
           },
         ],
       },
-    };
+    });
   },
 };
 
@@ -363,29 +374,31 @@ interface Claimed {
 }
 
 const runOfStack = async (stackId: string): Promise<string> => {
-  const [stack] = await db
-    .select({ runId: schema.changeStack.runId })
-    .from(schema.changeStack)
-    .where(eq(schema.changeStack.id, stackId));
+  const stack = firstOf(
+    await db
+      .select({ runId: schema.changeStack.runId })
+      .from(schema.changeStack)
+      .where(eq(schema.changeStack.id, stackId)),
+  );
 
   return stack?.runId ?? '';
 };
 
 const claimed = async (): Promise<Claimed> => {
-  const assignment = (
-    await http()
-      .post('/api/hosts/claim')
-      .set('Authorization', `Bearer ${POOL_TOKEN}`)
-      .send({ host: HOST, image: IMAGE })
-      .expect(200)
-  ).body as {
+  const assignment = bodyOf<{
     token: string;
     work: {
       kind: 'run' | 'check';
       run: { id: string } | null;
       check: { stackId: string } | null;
     };
-  };
+  }>(
+    await http()
+      .post('/api/hosts/claim')
+      .set('Authorization', `Bearer ${POOL_TOKEN}`)
+      .send({ host: HOST, image: IMAGE })
+      .expect(200),
+  );
 
   return {
     token: assignment.token,
@@ -400,19 +413,23 @@ const claimed = async (): Promise<Claimed> => {
 };
 
 const entryOf = async (runId: string) => {
-  const [entry] = await db
-    .select()
-    .from(schema.replayEntry)
-    .where(eq(schema.replayEntry.runId, runId));
+  const entry = firstOf(
+    await db
+      .select()
+      .from(schema.replayEntry)
+      .where(eq(schema.replayEntry.runId, runId)),
+  );
 
   return entry;
 };
 
 const replayState = async (replayId: string) => {
-  const [row] = await db
-    .select({ state: schema.replay.state })
-    .from(schema.replay)
-    .where(eq(schema.replay.id, replayId));
+  const row = firstOf(
+    await db
+      .select({ state: schema.replay.state })
+      .from(schema.replay)
+      .where(eq(schema.replay.id, replayId)),
+  );
 
   return row?.state;
 };
@@ -541,7 +558,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('a replay at a station whose judge goes by claims', () => {
@@ -560,7 +577,7 @@ describe('a replay at a station whose judge goes by claims', () => {
 
     const started = await startedReplay(app, setId, { candidate, amount: 5 });
     const id = started.id;
-    const baselineId = started.baselineId as string;
+    const baselineId = present(started.baselineId);
     await eventually(async () => (await replayState(baselineId)) !== undefined);
 
     const both = [id, baselineId];
@@ -609,7 +626,9 @@ describe('a replay at a station whose judge goes by claims', () => {
           .select({ runId: schema.replayEntry.runId })
           .from(schema.replayEntry)
           .where(inArray(schema.replayEntry.replayId, both))
-      ).flatMap((each) => (each.runId ? [each.runId] : []));
+      ).flatMap((each) =>
+        each.runId !== null && each.runId !== '' ? [each.runId] : [],
+      );
 
     const workWaiting = async () => {
       const runs = await replayRunIds();
@@ -746,7 +765,9 @@ describe('a replay at a station whose judge goes by claims', () => {
         .select({ runId: schema.replayEntry.runId })
         .from(schema.replayEntry)
         .where(eq(schema.replayEntry.replayId, id))
-    ).flatMap((each) => (each.runId ? [each.runId] : []));
+    ).flatMap((each) =>
+      each.runId !== null && each.runId !== '' ? [each.runId] : [],
+    );
     expect(
       await db
         .select()

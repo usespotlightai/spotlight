@@ -1,4 +1,7 @@
-import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
+import type {
+  RunnerClaimant,
+  RunnerClaimantsPort,
+} from '@runners/application/ports/runner-claimants.port';
 import { RenewLeaseHandler } from '@runs/application/commands/handlers/renew-lease.handler';
 import { RenewLeaseCommand } from '@runs/application/commands/runner.commands';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
@@ -9,6 +12,7 @@ import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -38,17 +42,21 @@ const renewing = (reads: Run[], conflictsFirst = false) => {
   let conflicted = !conflictsFirst;
 
   const handler = new RenewLeaseHandler(
-    {
-      findById: async () => reads[Math.min(read++, reads.length - 1)],
-      save: async (run: Run) => {
+    partial<RunRepository>({
+      findById: () =>
+        Promise.resolve(reads[Math.min(read++, reads.length - 1)]),
+      save: (run: Run) => {
         if (!conflicted) {
           conflicted = true;
-          throw new RunVersionConflictError(run.id.value);
+          return Promise.reject(new RunVersionConflictError(run.id.value));
         }
         saved.push(run);
+        return Promise.resolve();
       },
-    } as unknown as RunRepository,
-    { claimantOf: async () => true } as unknown as RunnerClaimantsPort,
+    }),
+    partial<RunnerClaimantsPort>({
+      claimantOf: () => Promise.resolve(partial<RunnerClaimant>({})),
+    }),
     { now: () => NOW, sleep: async () => {} },
   );
 

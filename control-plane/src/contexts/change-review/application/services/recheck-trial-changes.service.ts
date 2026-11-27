@@ -27,7 +27,7 @@ export class RecheckTrialChanges implements TrialRechecksPort {
       const first = await this.checks.find(StackCheckId.first(stack));
 
       if (
-        !first?.runId?.equals(runId) ||
+        first?.runId?.equals(runId) !== true ||
         !first.recheckable ||
         (await this.checks.find(StackCheckId.recheckOf(stack)))
       ) {

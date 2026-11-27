@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import type { Joined } from '@/lib/integration';
 
@@ -5,7 +7,9 @@ type IntegrationPeopleProps = {
   joined: Joined;
 };
 
-export function IntegrationPeople({ joined }: IntegrationPeopleProps) {
+export function IntegrationPeople({
+  joined,
+}: IntegrationPeopleProps): ReactElement {
   const { connected, waiting } = joined;
 
   return (

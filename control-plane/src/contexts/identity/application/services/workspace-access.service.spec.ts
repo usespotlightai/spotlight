@@ -12,6 +12,7 @@ import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo'
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -58,22 +59,23 @@ const billing = teamOf('billing', ['owner_1']);
 
 const accessIn = (workspace: Workspace | null) => {
   const teams = {
-    ofWorkspace: vi.fn(async () => [platform, billing]),
-    find: vi.fn(
-      async (id: TeamId) =>
+    ofWorkspace: vi.fn(() => Promise.resolve([platform, billing])),
+    find: vi.fn((id: TeamId) =>
+      Promise.resolve(
         [platform, billing].find((each) => each.id.equals(id)) ?? null,
+      ),
     ),
   };
 
   return {
     teams,
     access: new WorkspaceAccess(
-      {} as WorkspaceRolesPort,
-      {
-        findBySlug: vi.fn(async () => workspace),
-        find: vi.fn(async () => workspace),
-      } as unknown as WorkspaceRepository,
-      teams as unknown as TeamRepository,
+      partial<WorkspaceRolesPort>({}),
+      partial<WorkspaceRepository>({
+        findBySlug: vi.fn(() => Promise.resolve(workspace)),
+        find: vi.fn(() => Promise.resolve(workspace)),
+      }),
+      partial<TeamRepository>(teams),
     ),
   };
 };

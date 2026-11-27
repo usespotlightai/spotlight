@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -41,7 +42,7 @@ const toStep = (stored: StoredPendingSearchStep): PendingSearchStep => ({
   replaced: stored.replaced && {
     lastStartedAt: dateOf(stored.replaced.lastStartedAt),
     lastSkip:
-      stored.replaced.lastSkipReason && stored.replaced.lastSkipAt
+      stored.replaced.lastSkipReason && stored.replaced.lastSkipAt !== null && stored.replaced.lastSkipAt !== ''
         ? {
             reason: stored.replaced.lastSkipReason,
             at: new Date(stored.replaced.lastSkipAt),
@@ -138,26 +139,26 @@ export class DrizzleStationSearchScheduleRepository
   ) {}
 
   async ofStation(stationId: StationId): Promise<StationSearchSchedule | null> {
-    const [found] = await this.where(
+    const found = firstOf(await this.where(
       eq(stationSearchSchedule.stationId, stationId.value),
-    );
+    ));
 
     return found ?? null;
   }
 
   async locked(stationId: StationId): Promise<StationSearchSchedule | null> {
-    const [found] = await this.where(
+    const found = firstOf(await this.where(
       eq(stationSearchSchedule.stationId, stationId.value),
       true,
-    );
+    ));
 
     return found ?? null;
   }
 
   async ofSet(setId: ReplaySetId): Promise<StationSearchSchedule | null> {
-    const [found] = await this.where(
+    const found = firstOf(await this.where(
       eq(stationSearchSchedule.setId, setId.value),
-    );
+    ));
 
     return found ?? null;
   }

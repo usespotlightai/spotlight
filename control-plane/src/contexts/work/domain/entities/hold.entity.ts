@@ -44,7 +44,7 @@ const problemOf = (state: HoldState): string | null => {
     return 'holds a move after it ended';
   }
 
-  if (state.heldMove?.equals(state.stationId)) {
+  if (state.heldMove?.equals(state.stationId) === true) {
     return 'holds a move to the station it is at';
   }
 
@@ -145,7 +145,7 @@ export class Hold {
   static rehydrate(state: HoldState): Hold {
     const problem = problemOf(state);
 
-    if (problem) {
+    if (problem !== null && problem !== '') {
       throw new InconsistentStateError('hold', problem);
     }
 
@@ -237,7 +237,7 @@ export class Hold {
       );
     }
 
-    if (this.state.from?.equals(runId)) {
+    if (this.state.from?.equals(runId) === true) {
       throw new InvalidHoldTransitionError(
         'cannot count the line run it held from as one of its turns',
       );

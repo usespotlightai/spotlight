@@ -36,7 +36,7 @@ export const guardedGuidanceOf = (
 ): string | null => {
   const text = judgeGuidanceOf(guidance);
 
-  if (!text || NUMBERED_CLAIM.test(text)) {
+  if (text === null || text === '' || NUMBERED_CLAIM.test(text)) {
     return null;
   }
 

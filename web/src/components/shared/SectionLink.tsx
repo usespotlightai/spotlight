@@ -1,5 +1,5 @@
 import { ChevronRight } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { SECTION_LINK } from '@/components/shared/section-link';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
@@ -11,7 +11,11 @@ type SectionLinkProps = {
   children: ReactNode;
 };
 
-export function SectionLink({ to, className, children }: SectionLinkProps) {
+export function SectionLink({
+  to,
+  className,
+  children,
+}: SectionLinkProps): ReactElement {
   return (
     <TrailLink to={to} className={cn(SECTION_LINK, className)}>
       {children}

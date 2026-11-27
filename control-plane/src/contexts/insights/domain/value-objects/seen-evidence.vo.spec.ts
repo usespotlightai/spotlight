@@ -1,5 +1,6 @@
 import { Citation } from '@insights/domain/value-objects/citation.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { describe, expect, it } from 'vitest';
 
 const hunkOf = (id: string, lines: readonly string[]) => ({
@@ -41,15 +42,15 @@ describe('SeenEvidence', () => {
       ],
     });
 
-    const [step] = seen.steps;
-    const [hunk] = seen.hunks;
+    const step = firstOf(seen.steps);
+    const hunk = firstOf(seen.hunks);
     expect(step?.kind.length).toBeLessThanOrEqual(102);
     expect(step?.tool?.length).toBeLessThanOrEqual(102);
     expect(step?.text.length).toBeLessThanOrEqual(2_002);
     expect(hunk?.path.length).toBeLessThanOrEqual(502);
     expect(hunk?.header.length).toBeLessThanOrEqual(202);
     expect(hunk?.lines).toHaveLength(20);
-    expect(hunk?.lines[0]?.length).toBeLessThanOrEqual(202);
+    expect(firstOf(hunk?.lines ?? [])?.length).toBeLessThanOrEqual(202);
   });
 
   it('clips the same way however often it is read back', () => {

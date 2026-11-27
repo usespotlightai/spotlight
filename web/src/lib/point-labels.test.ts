@@ -21,8 +21,8 @@ describe('placeLabels', () => {
       { key: 'one', text: 'one-comment-per-problem', x: 100, y: 100 },
     ]);
 
-    expect(live?.y).toBe(85);
-    expect(candidate?.y).toBe(127);
+    expect(live.y).toBe(85);
+    expect(candidate.y).toBe(127);
   });
 
   it('stacks a third label above the first once above and below are both taken', () => {
@@ -43,7 +43,7 @@ describe('placeLabels within the plot', () => {
       { left: 0, right: 400, top: 0, bottom: 300 },
     );
 
-    expect(label?.anchor).toBe('start');
+    expect(label.anchor).toBe('start');
   });
 
   it('keeps a label at the plot’s bottom edge above its point, off the axis', () => {
@@ -52,7 +52,7 @@ describe('placeLabels within the plot', () => {
       { left: 0, right: 400, top: 0, bottom: 300 },
     );
 
-    expect(label?.y).toBeLessThan(296);
+    expect(label.y).toBeLessThan(296);
   });
 
   it('keeps a label at the plot’s top edge below its point', () => {
@@ -61,7 +61,7 @@ describe('placeLabels within the plot', () => {
       { left: 0, right: 400, top: 0, bottom: 300 },
     );
 
-    expect(label?.y).toBeGreaterThan(4);
+    expect(label.y).toBeGreaterThan(4);
   });
 });
 
@@ -91,6 +91,6 @@ describe('placeLabels when the plot is crowded', () => {
       { key: 'b', text: 'opus', x: 100, y: 88 },
     ]);
 
-    expect(label?.y).toBe(127);
+    expect(label.y).toBe(127);
   });
 });

@@ -1,3 +1,4 @@
+import { fieldOf } from '@platform/json/field-of';
 import { DrizzleQueryError } from "drizzle-orm";
 
 export const UNIQUE_VIOLATION = "23505";
@@ -8,8 +9,21 @@ export const RESTRICT_VIOLATION = "23001";
 
 type Raised = { code?: string; constraint?: string } | null;
 
-const raisedBy = (error: unknown): Raised =>
-  ((error as { cause?: unknown } | null)?.cause ?? error) as Raised;
+const raisedBy = (error: unknown): Raised => {
+  const raised = fieldOf(error, "cause") ?? error;
+
+  if (typeof raised !== "object" || raised === null) {
+    return null;
+  }
+
+  const code = fieldOf(raised, "code");
+  const constraint = fieldOf(raised, "constraint");
+
+  return {
+    code: typeof code === "string" ? code : undefined,
+    constraint: typeof constraint === "string" ? constraint : undefined,
+  };
+};
 
 export const codeOf = (error: unknown): string | undefined =>
   raisedBy(error)?.code;

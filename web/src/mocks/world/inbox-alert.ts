@@ -79,7 +79,7 @@ const firingOf = (watch: Watch): AlertFiring | null => {
   }
 
   const crosses = (at: number) => {
-    const value = values[at];
+    const value = values.at(at);
     return (
       value !== null && value !== undefined && watch.crosses(value, baseline)
     );
@@ -98,7 +98,7 @@ const firingOf = (watch: Watch): AlertFiring | null => {
           changedAt,
         );
   const resolvedAt = values.findIndex((_, at) => at > fired && !crosses(at));
-  const run = runs[fired];
+  const run = fired >= 0 ? runs.at(fired) : undefined;
 
   if (!run) {
     return null;

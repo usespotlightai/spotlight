@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -10,7 +10,7 @@ export function DetailProperty({
   name: string;
   children: ReactNode;
   failed?: boolean;
-}) {
+}): ReactElement {
   return (
     <div className="-mx-2 flex h-7 items-center gap-3 rounded-md px-2 transition-colors hover:bg-accent">
       <dt className="w-28 shrink-0 truncate text-muted-foreground text-xs">

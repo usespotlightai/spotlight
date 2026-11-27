@@ -29,7 +29,7 @@ export class NotMetAnswer {
         'must name the claim that should have failed by its place, from 0',
       );
     }
-    if (input.shouldHaveFailed === null && !note) {
+    if (input.shouldHaveFailed === null && (note === null || note === '')) {
       throw new InvalidJudgeDisagreementError(
         'where the judge passed the run and no claim covers it, must say what was wrong',
       );

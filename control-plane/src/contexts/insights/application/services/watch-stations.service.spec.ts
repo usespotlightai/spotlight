@@ -3,8 +3,6 @@ import { deletionsInMemory } from '@insights/application/ports/deletions.fake-sp
 import type { LineSettingsPort } from '@insights/application/ports/line-settings.port';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { WatchStations } from '@insights/application/services/watch-stations.service';
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import type { StationAlertState } from '@insights/domain/aggregates/station-alert-state.aggregate';
 import { PullRequestRecordClosed } from '@insights/domain/events/pull-request-record-closed.event';
 import { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
@@ -22,6 +20,7 @@ import {
   StationFactsInMemory,
   WORKSPACE,
 } from '@insights/runs.fake-spec';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -42,8 +41,8 @@ const watching = (initially: readonly AlertRule[] | null) => {
   const deletions = deletionsInMemory();
   let next = 0;
   const lines: LineSettingsPort = {
-    teamRepositories: async () => [],
-    alertsAt: async () => alerts,
+    teamRepositories: () => Promise.resolve([]),
+    alertsAt: () => Promise.resolve(alerts),
   };
   const service = new WatchStations(
     lines,
@@ -73,7 +72,7 @@ const watching = (initially: readonly AlertRule[] | null) => {
     );
     const [ended] = record.pullEvents();
     await records.add(record);
-    await service.runEnded(ended as RunRecordEnded);
+    await service.runEnded(instanceOf(RunRecordEnded, ended));
   };
 
   const ended = async (hour: number) => {
@@ -83,7 +82,7 @@ const watching = (initially: readonly AlertRule[] | null) => {
     });
     const [event] = record.pullEvents();
     await records.add(record);
-    await service.runEnded(event as RunRecordEnded);
+    await service.runEnded(instanceOf(RunRecordEnded, event));
   };
 
   const actedOn = async (hour: number, action: 'accepted' | 'sent-back') => {
@@ -95,10 +94,14 @@ const watching = (initially: readonly AlertRule[] | null) => {
         UserId.of('user_actor'),
       ),
     );
-    const [event] = acted?.pullEvents() ?? [];
+    if (acted === undefined) {
+      throw new Error(`expected the run run_${hour}`);
+    }
+
+    const [event] = acted.pullEvents();
     expect(event).toBeInstanceOf(RunOutcomeChanged);
-    await records.save(acted as RunRecord);
-    await service.outcomeChanged(event as RunOutcomeChanged);
+    await records.save(acted);
+    await service.outcomeChanged(instanceOf(RunOutcomeChanged, event));
   };
 
   const closedPullRequest = async (hour: number, merged: boolean) => {
@@ -112,7 +115,7 @@ const watching = (initially: readonly AlertRule[] | null) => {
       .find((each) => each instanceof PullRequestRecordClosed);
     expect(event).toBeInstanceOf(PullRequestRecordClosed);
     await pullRequestRecords.add(closed);
-    await service.pullRequestClosed(event as PullRequestRecordClosed);
+    await service.pullRequestClosed(instanceOf(PullRequestRecordClosed, event));
   };
 
   const kinds = () => alertStates.raised.map((each) => each.kind);
@@ -340,6 +343,10 @@ describe('WatchStations', () => {
     await station.ran(1, 'sent-back');
     const stale = await station.alertStates.of(StationId.of('station_1'));
 
+    if (stale === null) {
+      throw new Error('expected the station alert state');
+    }
+
     const taskDeleted = DeletionScope.ofTask(WORKSPACE, TaskId.of('task_1'));
 
     for (const alertState of await station.alertStates.ofScope(
@@ -355,9 +362,7 @@ describe('WatchStations', () => {
 
     await expect(
       station.alertStates.save(
-        (stale as StationAlertState).check([], day('2026-09-30', 23), () =>
-          AlertId.of('alert_9'),
-        ),
+        stale.check([], day('2026-09-30', 23), () => AlertId.of('alert_9')),
       ),
     ).rejects.toBeInstanceOf(StationAlertStateVersionConflictError);
     expect(

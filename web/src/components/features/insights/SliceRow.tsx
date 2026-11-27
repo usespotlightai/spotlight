@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 type SliceRowProps = {
   fill: string;
@@ -14,7 +14,7 @@ export function SliceRow({
   slot,
   title,
   children,
-}: SliceRowProps) {
+}: SliceRowProps): ReactElement {
   return (
     <li data-slot={slot} className="flex items-start gap-2 text-xs">
       <span

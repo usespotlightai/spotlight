@@ -14,6 +14,7 @@ import {
   SECRET_INJECTION,
   type SecretInjectionPort,
 } from '@secrets/application/ports/secret-injection.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -32,6 +33,7 @@ import {
 } from 'vitest';
 
 import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { opened, recipient } from './support/sealing';
@@ -136,11 +138,11 @@ describe('an integration action sent from a host of the workspace (e2e)', () => 
     const attempt = await tool?.attempt(
       { text },
       {
-        workspace: async () => WorkspaceId.of(workspaceId),
+        workspace: () => Promise.resolve(WorkspaceId.of(workspaceId)),
         connection: null,
         credentials: new SpotlightCredentials(
           app.get<SecretInjectionPort>(SECRET_INJECTION),
-          async () => WorkspaceId.of(workspaceId),
+          () => Promise.resolve(WorkspaceId.of(workspaceId)),
         ),
       },
       null,
@@ -163,7 +165,7 @@ describe('an integration action sent from a host of the workspace (e2e)', () => 
         .send({ host: HOST });
 
       if (answer.status === 200) {
-        return answer.body as ClaimedCall;
+        return bodyOf<ClaimedCall>(answer);
       }
 
       expect(answer.status).toBe(204);
@@ -243,10 +245,12 @@ describe('an integration action sent from a host of the workspace (e2e)', () => 
     expect(call.secretsToken).toEqual(expect.any(String));
     expect(JSON.stringify(call)).not.toContain(VALUE);
 
-    const [stored] = await db
-      .select()
-      .from(schema.networkCall)
-      .where(eq(schema.networkCall.id, call.id));
+    const stored = firstOf(
+      await db
+        .select()
+        .from(schema.networkCall)
+        .where(eq(schema.networkCall.id, call.id)),
+    );
     expect(stored?.secrets).toEqual(['AUDIT_TOKEN']);
     expect(stored?.secretsTokenHash).not.toBe(call.secretsToken);
     expect(JSON.stringify(stored)).not.toContain(VALUE);

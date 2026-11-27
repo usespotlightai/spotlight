@@ -1,4 +1,4 @@
-import { use } from 'react';
+import { type ReactElement, use } from 'react';
 
 import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionCard } from '@/components/shared/DecisionCard';
@@ -22,7 +22,7 @@ export function CloseTaskSuggestion({
   teamId,
   station,
   closable: { line, task, completed },
-}: CloseTaskSuggestionProps) {
+}: CloseTaskSuggestionProps): ReactElement {
   const close = useCloseTask();
   const docked = use(DockedContext) !== null;
   const Action = docked ? DecisionButton : PillButton;

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ATTENTION_TITLE } from '@/components/features/stations/activity/attention';
 import { StationFailureReasons } from '@/components/features/stations/activity/StationFailureReasons';
 import { WorthImproving } from '@/components/features/stations/activity/WorthImproving';
@@ -25,7 +27,7 @@ export function StationAttention({
   station,
   at,
   period,
-}: StationAttentionProps) {
+}: StationAttentionProps): ReactElement {
   const compared = comparedPeriodOf(period);
   const targetStation = {
     lineId: line.id,

@@ -20,8 +20,11 @@ const DENIED_ERRORS = [
 ];
 
 export const deniedFor = (secret: string, error: unknown): DeniedSecret => {
-  if (DENIED_ERRORS.some((kind) => error instanceof kind)) {
-    return { secret, reason: (error as Error).message };
+  if (
+    error instanceof Error &&
+    DENIED_ERRORS.some((kind) => error instanceof kind)
+  ) {
+    return { secret, reason: error.message };
   }
 
   throw error;

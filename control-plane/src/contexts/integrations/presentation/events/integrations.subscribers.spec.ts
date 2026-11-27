@@ -16,13 +16,15 @@ import {
   type WorkspaceMemberAccessEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-member-access-ended.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ConnectionAsksPort } from '@work/application/ports/connection-asks.port';
 import { describe, expect, it, vi } from 'vitest';
 
-const connected = (owner: ConnectionOwner) =>
+const connected = (owner: ConnectionOwner): DomainEvent | undefined =>
   IntegrationConnection.connectFrom({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -38,14 +40,14 @@ const subscribersWith = (
   answer: ConnectionAsksPort['answer'],
 ) =>
   integrationsSubscribers(
-    {} as DeleteTeamIntegrations,
-    {} as LifecycleHookTriggers,
-    { execute } as unknown as RefreshIntegrationSpecHandler,
-    {} as InferOutputSchemas,
+    partial<DeleteTeamIntegrations>({}),
+    partial<LifecycleHookTriggers>({}),
+    partial<RefreshIntegrationSpecHandler>({ execute }),
+    partial<InferOutputSchemas>({}),
     { answer },
-    {} as IntegrationCursors,
-    {} as InboundDeliveryRetention,
-    {} as MemberConnections,
+    partial<IntegrationCursors>({}),
+    partial<InboundDeliveryRetention>({}),
+    partial<MemberConnections>({}),
   );
 
 const handledBy = async (
@@ -65,7 +67,7 @@ const handledBy = async (
 };
 
 const refreshSpecOn = async (owner: ConnectionOwner) => {
-  const execute = vi.fn(async () => undefined);
+  const execute = vi.fn(() => Promise.resolve(undefined));
 
   await handledBy(
     'integrations.refresh-spec-when-an-integration-connected',
@@ -78,7 +80,7 @@ const refreshSpecOn = async (owner: ConnectionOwner) => {
 };
 
 const asksAnsweredOn = async (owner: ConnectionOwner) => {
-  const answer = vi.fn(async () => undefined);
+  const answer = vi.fn(() => Promise.resolve(undefined));
 
   await handledBy(
     'integrations.answer-asks-to-connect',
@@ -118,14 +120,14 @@ describe('integrationsSubscribers', () => {
   it('disconnects a member once their access ends', async () => {
     const disconnect = vi.fn(async () => {});
     const subscriber = integrationsSubscribers(
-      {} as DeleteTeamIntegrations,
-      {} as LifecycleHookTriggers,
-      {} as RefreshIntegrationSpecHandler,
-      {} as InferOutputSchemas,
+      partial<DeleteTeamIntegrations>({}),
+      partial<LifecycleHookTriggers>({}),
+      partial<RefreshIntegrationSpecHandler>({}),
+      partial<InferOutputSchemas>({}),
       { answer: vi.fn() },
-      {} as IntegrationCursors,
-      {} as InboundDeliveryRetention,
-      { disconnect } as unknown as MemberConnections,
+      partial<IntegrationCursors>({}),
+      partial<InboundDeliveryRetention>({}),
+      partial<MemberConnections>({ disconnect }),
     ).find((each) => each.kinds.includes(WORKSPACE_MEMBER_ACCESS_ENDED));
 
     const ended: WorkspaceMemberAccessEndedIntegrationEvent = {

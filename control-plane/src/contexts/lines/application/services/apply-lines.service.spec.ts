@@ -15,6 +15,7 @@ import {
   type StationPlan,
 } from '@lines/domain/value-objects/line-plan.vo';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -111,25 +112,27 @@ const applying = (
   } = {},
 ) => {
   const existing = over.existing ?? line();
-  const save = vi.fn(async () => {});
-  const add = vi.fn(async () => {});
+  const save = vi.fn<LineRepository['save']>(() => Promise.resolve());
+  const add = vi.fn<LineRepository['add']>(() => Promise.resolve());
 
-  const lines = {
-    ofTeam: vi.fn(async () => over.teamLines ?? [existing]),
+  const lines = partial<LineRepository>({
+    ofTeam: vi.fn(() => Promise.resolve(over.teamLines ?? [existing])),
     save,
     add,
     find: vi.fn(),
-  } as unknown as LineRepository;
+  });
 
-  const tally = async (_save: LineSave, stationIds: readonly StationId[]) =>
-    stationIds.map((stationId) => ({
-      stationId,
-      tasks:
-        over.tasks?.[
-          existing.stations.find((each) => each.id.equals(stationId))?.key
-            .value ?? ''
-        ] ?? 0,
-    }));
+  const tally = (_save: LineSave, stationIds: readonly StationId[]) =>
+    Promise.resolve(
+      stationIds.map((stationId) => ({
+        stationId,
+        tasks:
+          over.tasks?.[
+            existing.stations.find((each) => each.id.equals(stationId))?.key
+              .value ?? ''
+          ] ?? 0,
+      })),
+    );
 
   const tallies = {
     lockedTaskCountsAt: vi.fn(tally),
@@ -168,7 +171,7 @@ describe('ApplyLines', () => {
 
     expect(save).toHaveBeenCalledTimes(1);
 
-    const [written] = save.mock.calls[0] as never as [Line];
+    const [written] = save.mock.calls[0];
 
     expect(written.name.value).toBe('Renamed');
   });
@@ -194,7 +197,7 @@ describe('ApplyLines', () => {
 
     await applied();
 
-    const [written] = save.mock.calls[0] as never as [Line];
+    const [written] = save.mock.calls[0];
 
     for (const each of written.stations) {
       expect(each.id.value).toBe(
@@ -250,7 +253,7 @@ describe('ApplyLines', () => {
 
     await applied();
 
-    expect(tallies.release).toHaveBeenCalledWith([going?.id]);
+    expect(tallies.release).toHaveBeenCalledWith([going.id]);
   });
 
   it('deletes a line once every station is released', async () => {
@@ -264,7 +267,7 @@ describe('ApplyLines', () => {
     expect(tallies.release).toHaveBeenCalledWith(
       existing.stations.map((each) => each.id),
     );
-    expect((save.mock.calls[0] as never as [Line])[0].isDeleted).toBe(true);
+    expect(save.mock.calls[0][0].isDeleted).toBe(true);
   });
 
   it('creates a line the team does not have from its definition', async () => {
@@ -279,7 +282,7 @@ describe('ApplyLines', () => {
     expect(save).not.toHaveBeenCalled();
     expect(add).toHaveBeenCalledTimes(1);
 
-    const [created] = add.mock.calls[0] as never as [Line];
+    const [created] = add.mock.calls[0];
 
     expect(created.key).toEqual(LineKey.of('release'));
     expect(created.teamId).toEqual(existing.teamId);
@@ -289,11 +292,11 @@ describe('ApplyLines', () => {
     const existing = line();
     const { add } = applying(asPlan(existing), { existing });
     const applier = new ApplyLines(
-      {
-        ofTeam: vi.fn(async () => [existing]),
+      partial<LineRepository>({
+        ofTeam: vi.fn(() => Promise.resolve([existing])),
         add,
-      } as unknown as LineRepository,
-      {} as StationDeletionGuardPort,
+      }),
+      partial<StationDeletionGuardPort>({}),
       { generate: () => 'new' },
     );
 
@@ -358,7 +361,7 @@ describe('ApplyLines', () => {
 
     await applied();
 
-    const [written] = save.mock.calls[0] as never as [Line];
+    const [written] = save.mock.calls[0];
 
     expect(
       written.stations.find((each) => each.key.value === 'handover')?.id.value,

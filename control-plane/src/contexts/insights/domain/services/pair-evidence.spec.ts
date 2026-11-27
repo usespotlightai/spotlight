@@ -1,4 +1,5 @@
 import { PairEvidence } from '@insights/domain/services/pair-evidence';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -36,9 +37,11 @@ describe('PairEvidence', () => {
   });
 
   it('grounds a reason on the hunks of either change, naming each by its own run', () => {
-    const [reason] = evidence('other-first').groundedReasons([
-      { text: 'B drains fast.', hunks: ['B:api/q.ts#1', 'A:api/q.ts#1'] },
-    ]);
+    const reason = firstOf(
+      evidence('other-first').groundedReasons([
+        { text: 'B drains fast.', hunks: ['B:api/q.ts#1', 'A:api/q.ts#1'] },
+      ]),
+    );
 
     expect(reason?.runHunks).toEqual(['api/q.ts#1']);
     expect(reason?.otherHunks).toEqual(['api/q.ts#1']);

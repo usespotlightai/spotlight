@@ -40,7 +40,7 @@ export class ArrivalDeliveries {
   }
 
   async pushed(item: ArrivedItem): Promise<void> {
-    if (!this.push.publicKey) {
+    if (this.push.publicKey === null || this.push.publicKey === '') {
       return;
     }
 
@@ -136,7 +136,7 @@ export class ArrivalDeliveries {
   ): Promise<NotificationDto | null> {
     const slug = await this.workspaces.slugOf(WorkspaceId.of(item.workspaceId));
 
-    if (!slug) {
+    if (slug === null || slug === '') {
       return null;
     }
 

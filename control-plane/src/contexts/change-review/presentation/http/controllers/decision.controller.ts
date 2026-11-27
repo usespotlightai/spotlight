@@ -5,6 +5,7 @@ import {
   DisputeDecisionRequestDto,
   TaskDecisionsResponseDto,
 } from '@change-review/presentation/http/dto/decision.response.dto';
+import { sentFields } from '@change-review/presentation/http/mappers/sent-fields';
 import {
   Body,
   Controller,
@@ -95,9 +96,9 @@ export class DecisionController {
         teamId,
         taskId,
         decisionId,
-        body.path ?? '',
+        sentFields(body).path ?? '',
         user.id,
-        body.reason ?? '',
+        sentFields(body).reason ?? '',
       ),
     );
 

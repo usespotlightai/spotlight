@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { AuthoredText } from '@/components/features/stations/config/AuthoredText';
 import { ImprovementProperties } from '@/components/features/stations/config/ImprovementProperties';
 import { LineProperties } from '@/components/features/stations/config/LineProperties';
@@ -67,7 +69,7 @@ const GROUPS_BEFORE_LINE = [
 export function StationConfigSkeleton({
   line,
   station,
-}: StationConfigSkeletonProps) {
+}: StationConfigSkeletonProps): ReactElement {
   const groups = line && station ? GROUPS_BEFORE_LINE : GROUPS;
 
   return (

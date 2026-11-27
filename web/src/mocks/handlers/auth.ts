@@ -1,7 +1,8 @@
-import { HttpResponse } from 'msw';
+import { HttpResponse, type StrictRequest } from 'msw';
 
 import type { DeviceStatus } from '@/lib/device';
 import { enteredUserCode } from '@/lib/device';
+import { entryOf } from '@/mocks/entry';
 import { api, json } from '@/mocks/http';
 import { devicesWorld } from '@/mocks/world/devices';
 
@@ -11,10 +12,12 @@ const invalidCode = () =>
     { status: 400 },
   );
 
+type DeviceDecision = { userCode: string };
+
 const decided =
   (status: DeviceStatus) =>
-  async ({ request }: { request: Request }) => {
-    const { userCode } = (await request.json()) as { userCode: string };
+  async ({ request }: { request: StrictRequest<DeviceDecision> }) => {
+    const { userCode } = await request.json();
     const code = enteredUserCode(userCode);
     const { codes } = devicesWorld();
 
@@ -33,10 +36,12 @@ export const authHandlers = [
     const code = enteredUserCode(
       new URL(request.url).searchParams.get('user_code') ?? '',
     );
-    const status = devicesWorld().codes[code];
+    const status = entryOf(devicesWorld().codes, code);
 
-    return status ? json({ user_code: code, status }) : invalidCode();
+    return status !== undefined
+      ? json({ user_code: code, status })
+      : invalidCode();
   }),
-  api.post('/auth/device/approve', decided('approved')),
-  api.post('/auth/device/deny', decided('denied')),
+  api.post<DeviceDecision>('/auth/device/approve', decided('approved')),
+  api.post<DeviceDecision>('/auth/device/deny', decided('denied')),
 ];

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { cn } from '@/lib/utils';
 
 type MemoryPlaceToggleProps = {
@@ -12,7 +14,7 @@ export function MemoryPlaceToggle({
   hidden,
   open,
   onToggle,
-}: MemoryPlaceToggleProps) {
+}: MemoryPlaceToggleProps): ReactElement {
   return (
     <button
       type="button"

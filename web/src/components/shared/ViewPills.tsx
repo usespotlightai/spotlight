@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, type ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { useTabStrip } from '@/hooks/useTabStrip';
@@ -21,7 +21,7 @@ export function ViewPills<T extends string>({
   current,
   onChange,
   className,
-}: ViewPillsProps<T>) {
+}: ViewPillsProps<T>): ReactElement {
   const strip = useRef<HTMLDivElement>(null);
   const fade = useTabStrip(strip, current);
 

@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router';
 
-export function useClearedParam(name: string) {
+export function useClearedParam(name: string): void {
   const [params, setParams] = useSearchParams();
   const value = params.get(name);
 
   useEffect(() => {
-    if (!value) {
+    if (value === null || value === '') {
       return;
     }
 

@@ -17,7 +17,7 @@ export const usesTeamAccount = (integration: Integration): boolean =>
   integration.connectionStatus !== 'not-required';
 
 const formatTools = ({ spec }: Integration): string | null => {
-  if (!spec || spec.problem) {
+  if (spec === null || (spec.problem !== null && spec.problem !== '')) {
     return null;
   }
 
@@ -32,7 +32,7 @@ export const formatUsedFor = (integration: Integration): string => {
       : 'Acts as the team';
   const tools = formatTools(integration);
 
-  return tools ? `${acting} · ${tools}` : acting;
+  return tools !== null && tools !== '' ? `${acting} · ${tools}` : acting;
 };
 
 const CONNECTION_PROBLEMS: Record<

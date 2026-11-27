@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { NewNote } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNote } from '@work/domain/entities/task-note.entity';
 import {
@@ -38,7 +39,7 @@ export const setupChatOf = <C extends SetupChatCandidate>(
 
   return (
     newestFirst.find((each) => each.pullRequest !== null) ??
-    newestFirst[0] ??
+    firstOf(newestFirst) ??
     null
   );
 };

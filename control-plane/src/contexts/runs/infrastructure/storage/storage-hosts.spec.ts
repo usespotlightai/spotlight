@@ -1,14 +1,15 @@
 import type { Env } from '@platform/config/env.schema';
 import { StorageHosts } from '@runs/infrastructure/storage/storage-hosts';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const env = (over: Partial<Env>): Env =>
-  ({
+  partial<Env>({
     S3_BUCKET: 'files',
     S3_REGION: 'eu-west-1',
     S3_FORCE_PATH_STYLE: false,
     ...over,
-  }) as Env;
+  });
 
 describe('StorageHosts', () => {
   it('allows the storage host that runners are sent to', () => {

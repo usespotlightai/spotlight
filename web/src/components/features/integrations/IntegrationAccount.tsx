@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 type IntegrationAccountProps = {
   linkedAccount: string | null;
@@ -14,7 +14,7 @@ export function IntegrationAccount({
   problem = null,
   purpose,
   action,
-}: IntegrationAccountProps) {
+}: IntegrationAccountProps): ReactElement {
   return (
     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
       <div className="flex min-w-0 flex-1 basis-24 flex-col">

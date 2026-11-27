@@ -1,11 +1,12 @@
+import type { ReactElement } from 'react';
 import { Navigate, useParams } from 'react-router';
 
 import { inboxPath } from '@/lib/inbox';
 
-export function WorkspaceIndex() {
+export function WorkspaceIndex(): ReactElement | null {
   const { slug } = useParams();
 
-  if (!slug) {
+  if (slug === undefined || slug === '') {
     return null;
   }
 

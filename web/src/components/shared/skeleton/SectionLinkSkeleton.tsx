@@ -1,7 +1,11 @@
 import { ChevronRight } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
-export function SectionLinkSkeleton({ children }: { children: ReactNode }) {
+export function SectionLinkSkeleton({
+  children,
+}: {
+  children: ReactNode;
+}): ReactElement {
   return (
     <span
       aria-hidden

@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { LABEL_ROOM } from '@/components/features/trace/view/TraceBar';
 import { INDENT } from '@/components/features/trace/view/TraceRow';
@@ -19,7 +20,7 @@ export function TraceRowSkeleton({
   name,
   left,
   width,
-}: TraceRowShape) {
+}: TraceRowShape): ReactElement {
   return (
     <li className="relative flex h-7 items-center rounded-md text-sm">
       <div

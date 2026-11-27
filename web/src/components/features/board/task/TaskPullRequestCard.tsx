@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { TaskPullRequestStateIcon } from '@/components/features/board/task/TaskPullRequestStateIcon';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { DiffStat } from '@/components/shared/DiffStat';
@@ -21,7 +23,7 @@ export function TaskPullRequestCard({
   pullRequest,
 }: {
   pullRequest: TaskPullRequest;
-}) {
+}): ReactElement {
   const { repository, number } = pullRequestOf(pullRequest.url);
   const {
     state,
@@ -38,7 +40,7 @@ export function TaskPullRequestCard({
   return (
     <div data-slot="pull-request-card" className="flex flex-col gap-2.5">
       <div className="flex flex-col gap-0.5">
-        {title && (
+        {title !== null && title !== '' && (
           <p className="font-medium text-foreground text-sm leading-snug">
             {title}
           </p>
@@ -48,9 +50,11 @@ export function TaskPullRequestCard({
         </p>
       </div>
 
-      {(author || updatedAt || changedFiles !== null) && (
+      {((author !== null && author !== '') ||
+        (updatedAt !== null && updatedAt !== '') ||
+        changedFiles !== null) && (
         <div className="flex items-center gap-2.5 whitespace-nowrap text-muted-foreground text-xs">
-          {author && (
+          {author !== null && author !== '' && (
             <span className="flex min-w-0 items-center gap-1">
               <PersonAvatar
                 person={{ name: author, image: authorImage }}
@@ -59,7 +63,9 @@ export function TaskPullRequestCard({
               <span className="truncate">{author}</span>
             </span>
           )}
-          {updatedAt && <span className="shrink-0">{since(updatedAt)}</span>}
+          {updatedAt !== null && updatedAt !== '' && (
+            <span className="shrink-0">{since(updatedAt)}</span>
+          )}
           {additions !== null && deletions !== null && (
             <DiffStat added={additions} removed={deletions} always />
           )}
@@ -71,7 +77,7 @@ export function TaskPullRequestCard({
         </div>
       )}
 
-      {state && named && (
+      {state && named !== null && named !== '' && (
         <span
           className={cn(
             'flex h-5 w-fit items-center gap-1 rounded-full px-2 text-xs',

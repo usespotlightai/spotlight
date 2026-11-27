@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { ChangeStackPage } from '@/components/features/changes/ChangeStackPage';
@@ -15,7 +16,7 @@ import { runPath } from '@/lib/run';
 import { TrailContext, useTrail } from '@/lib/trail';
 import { PublicChangeStack } from '@/routes/PublicChangeStack';
 
-export function RunChangeStack() {
+export function RunChangeStack(): ReactElement | null {
   const { slug, teamId, runId } = useParams();
   const stacks = useRunChangeStacks(teamId, runId);
   const found = useTeamRun(teamId, runId);
@@ -24,7 +25,14 @@ export function RunChangeStack() {
   const run = found.data;
   const { trail, forward } = useTrail(useChangeStackTrail(slug, teamId, run));
 
-  if (!slug || !teamId || !runId) {
+  if (
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === '' ||
+    runId === undefined ||
+    runId === ''
+  ) {
     return null;
   }
 

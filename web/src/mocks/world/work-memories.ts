@@ -128,18 +128,23 @@ const matches = (memory: TeamMemoryResponseDto, run: RunContext): boolean =>
 
 const contextOfRun = (runId: string): RunContext | undefined => {
   const past = historyRunOf(runId);
-  if (past?.startedAt) {
+  if (past !== undefined && past.startedAt !== null && past.startedAt !== '') {
     return { ...past, startedAt: past.startedAt };
   }
   const taskId = taskOfRun(runId);
-  const teamId = taskId ? teamOfTask(taskId) : undefined;
-  const run = taskId
+  const knownTask = taskId !== undefined && taskId !== '';
+  const teamId = knownTask ? teamOfTask(taskId) : undefined;
+  const run = knownTask
     ? world().runs[taskId]?.find((each) => each.id === runId)
     : undefined;
   const stationId = run?.station?.id ?? '';
   const lineId = lineOfStation(stationId)?.id;
 
-  return teamId && run && lineId
+  return teamId !== undefined &&
+    teamId !== '' &&
+    run &&
+    lineId !== undefined &&
+    lineId !== ''
     ? { teamId, lineId, stationId, repositories: [], startedAt: run.startedAt }
     : undefined;
 };

@@ -116,7 +116,7 @@ export const placed = (
   const rest = tasks.filter((each) => each.id !== taskId);
   const landed = { ...moving, stationId };
 
-  if (!afterTaskId) {
+  if (afterTaskId === null || afterTaskId === '') {
     const first = rest.findIndex((each) => each.stationId === stationId);
     const at = first === -1 ? rest.length : first;
     return [...rest.slice(0, at), landed, ...rest.slice(at)];

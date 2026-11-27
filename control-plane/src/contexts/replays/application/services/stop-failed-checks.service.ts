@@ -22,7 +22,7 @@ export class StopFailedChecks {
         (each) => each.replayId?.equals(event.replayId) ?? false,
       );
 
-      if (!replay?.isStoppable || !check) {
+      if (replay?.isStoppable !== true || !check) {
         return;
       }
 

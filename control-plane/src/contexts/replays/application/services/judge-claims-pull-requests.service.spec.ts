@@ -63,27 +63,28 @@ class PullRequestsInMemory implements JudgeClaimsPullRequestRepository {
   readonly stored = new Map<string, JudgeClaimsPullRequest>();
   readonly events: DomainEvent[] = [];
 
-  async add(pullRequest: JudgeClaimsPullRequest): Promise<void> {
+  add(pullRequest: JudgeClaimsPullRequest): Promise<void> {
     if (this.stored.has(pullRequest.revisionId)) {
-      throw new JudgeClaimsPullRequestVersionConflictError(
-        pullRequest.revisionId,
+      return Promise.reject(
+        new JudgeClaimsPullRequestVersionConflictError(pullRequest.revisionId),
       );
     }
     this.events.push(...pullRequest.pullEvents());
     this.stored.set(pullRequest.revisionId, pullRequest);
+    return Promise.resolve();
   }
 
-  async save(pullRequest: JudgeClaimsPullRequest): Promise<void> {
+  save(pullRequest: JudgeClaimsPullRequest): Promise<void> {
     const existing = this.stored.get(pullRequest.revisionId);
 
     if (!existing || existing.version !== pullRequest.version) {
-      throw new JudgeClaimsPullRequestVersionConflictError(
-        pullRequest.revisionId,
+      return Promise.reject(
+        new JudgeClaimsPullRequestVersionConflictError(pullRequest.revisionId),
       );
     }
     if (pullRequest.isDeleted) {
       this.stored.delete(pullRequest.revisionId);
-      return;
+      return Promise.resolve();
     }
     this.events.push(...pullRequest.pullEvents());
     this.stored.set(
@@ -102,23 +103,26 @@ class PullRequestsInMemory implements JudgeClaimsPullRequestRepository {
         version: pullRequest.version + 1,
       }),
     );
+    return Promise.resolve();
   }
 
-  async find(revisionId: string): Promise<JudgeClaimsPullRequest | null> {
-    return this.stored.get(revisionId) ?? null;
+  find(revisionId: string): Promise<JudgeClaimsPullRequest | null> {
+    return Promise.resolve(this.stored.get(revisionId) ?? null);
   }
 
-  async ofTeam(teamId: TeamId): Promise<readonly JudgeClaimsPullRequest[]> {
-    return [...this.stored.values()].filter((each) =>
-      each.station.teamId.equals(teamId),
+  ofTeam(teamId: TeamId): Promise<readonly JudgeClaimsPullRequest[]> {
+    return Promise.resolve(
+      [...this.stored.values()].filter((each) =>
+        each.station.teamId.equals(teamId),
+      ),
     );
   }
 
-  async nextDueJob(now: Date): Promise<JudgeClaimsPullRequest | null> {
-    return (
+  nextDueJob(now: Date): Promise<JudgeClaimsPullRequest | null> {
+    return Promise.resolve(
       [...this.stored.values()].find(
-        (each) => each.job?.isDue(now) && !each.job.exhausted,
-      ) ?? null
+        (each) => each.job?.isDue(now) === true && !each.job.exhausted,
+      ) ?? null,
     );
   }
 }
@@ -126,18 +130,19 @@ class PullRequestsInMemory implements JudgeClaimsPullRequestRepository {
 class JudgedLines extends FakeLines {
   claims: unknown = LIVE_CLAIMS;
 
-  override stationSettings = async () => ({
-    block: StationBlock.of({
-      key: 'build',
-      name: 'Build',
-      kind: 'work',
-      prompt: 'Build it.',
-      judge: { claims: this.claims, sample: 0.2 },
-    }),
-    threshold: null,
-    search: null,
-    agent: null,
-  });
+  override stationSettings = () =>
+    Promise.resolve({
+      block: StationBlock.of({
+        key: 'build',
+        name: 'Build',
+        kind: 'work',
+        prompt: 'Build it.',
+        judge: { claims: this.claims, sample: 0.2 },
+      }),
+      threshold: null,
+      search: null,
+      agent: null,
+    });
 }
 
 class FakeConfigs implements ConfigRepositoryPort {
@@ -146,32 +151,28 @@ class FakeConfigs implements ConfigRepositoryPort {
   failing: Error | null = null;
   failingOnce: Error | null = null;
 
-  async fileAt(_workspace: unknown, _repository: unknown, path: string) {
-    return {
+  fileAt(_workspace: unknown, _repository: unknown, path: string) {
+    return Promise.resolve({
       path,
       content: 'resource "spotlight_line" "x" {}\n',
       commit: 'c1',
-    };
+    });
   }
 
-  async filesUnder() {
-    return [];
+  filesUnder() {
+    return Promise.resolve([]);
   }
 
-  async committed(
-    _workspace: unknown,
-    _repository: unknown,
-    commit: ConfigCommit,
-  ) {
+  committed(_workspace: unknown, _repository: unknown, commit: ConfigCommit) {
     this.commits.push(commit);
     if (this.failing) {
-      throw this.failing;
+      return Promise.reject(this.failing);
     }
 
-    return 'commit_1';
+    return Promise.resolve('commit_1');
   }
 
-  async opened(
+  opened(
     _workspace: unknown,
     _repository: unknown,
     opening: ConfigPullRequestOpening,
@@ -180,19 +181,19 @@ class FakeConfigs implements ConfigRepositoryPort {
     if (this.failingOnce) {
       const failing = this.failingOnce;
       this.failingOnce = null;
-      throw failing;
+      return Promise.reject(failing);
     }
 
-    return {
+    return Promise.resolve({
       url: 'https://github.com/acme/platform/pull/9',
       number: 9,
       hostId: 109,
       repository: 'acme/platform',
-    };
+    });
   }
 
-  async statusOf() {
-    return { state: 'open' as const, closedAt: null };
+  statusOf() {
+    return Promise.resolve({ state: 'open' as const, closedAt: null });
   }
 
   async closed() {}
@@ -203,14 +204,14 @@ class FakeConfigs implements ConfigRepositoryPort {
 class FakeEditor implements StationSourceEditorPort {
   readonly edits: StationSourceEdit[] = [];
 
-  async edited(edit: StationSourceEdit) {
+  edited(edit: StationSourceEdit) {
     this.edits.push(edit);
 
-    return {
+    return Promise.resolve({
       ok: true as const,
       files: [{ path: 'teams/core/delivery.tf', content: 'edited\n' }],
       unchecked: [],
-    };
+    });
   }
 }
 

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { CacheUse } from '@/components/features/insights/CacheUse';
 import { CostSankey } from '@/components/features/insights/CostSankey';
 import { CostSkeleton } from '@/components/features/insights/CostSkeleton';
@@ -33,7 +35,12 @@ type CostTabProps = {
   names: StationNames;
 };
 
-export function CostTab({ slug, teamId, period, names }: CostTabProps) {
+export function CostTab({
+  slug,
+  teamId,
+  period,
+  names,
+}: CostTabProps): ReactElement {
   const cost = useInsightsCost(teamId, period);
   const harnesses = useHarnesses();
 

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import {
   type BreadcrumbSegment,
@@ -12,7 +12,10 @@ type InboxDetailLayoutProps = {
   children: ReactNode;
 };
 
-export function InboxDetailLayout({ trail, children }: InboxDetailLayoutProps) {
+export function InboxDetailLayout({
+  trail,
+  children,
+}: InboxDetailLayoutProps): ReactElement {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title={<Breadcrumbs segments={trail} />} />

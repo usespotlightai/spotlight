@@ -62,7 +62,14 @@ export class RecordRunEnding {
   async ended(event: RunEnded): Promise<void> {
     const { ending } = event;
 
-    if (!ending || !event.taskId || !event.stationId || !isLineWork(event)) {
+    if (
+      !ending ||
+      event.taskId === null ||
+      event.taskId === '' ||
+      event.stationId === null ||
+      event.stationId === '' ||
+      !isLineWork(event)
+    ) {
       return;
     }
 

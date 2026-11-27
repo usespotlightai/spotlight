@@ -4,19 +4,20 @@ import {
   RenewReviewWorkLeaseCommand,
 } from '@runs/application/commands/runner.commands';
 import { RunnerController } from '@runs/presentation/http/controllers/runner.controller';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 describe('RunnerController, taking a run’s completion', () => {
   it('passes on that its host stopped the run for running past its time', async () => {
     const sent: unknown[] = [];
     const controller = new RunnerController(
-      {
-        execute: async (command: unknown) => {
+      partial<CommandBus>({
+        execute: (command: unknown) => {
           sent.push(command);
-          return { waiting: false };
+          return Promise.resolve({ waiting: false });
         },
-      } as unknown as CommandBus,
-      {} as QueryBus,
+      }),
+      partial<QueryBus>({}),
     );
 
     await controller.complete('run_1', 'runner_1', {
@@ -41,13 +42,13 @@ describe('RunnerController, renewing the lease on check work', () => {
   const renewing = (answer: 'renewed' | 'stop') => {
     const sent: unknown[] = [];
     const controller = new RunnerController(
-      {
-        execute: async (command: unknown) => {
+      partial<CommandBus>({
+        execute: (command: unknown) => {
           sent.push(command);
-          return answer;
+          return Promise.resolve(answer);
         },
-      } as unknown as CommandBus,
-      {} as QueryBus,
+      }),
+      partial<QueryBus>({}),
     );
 
     return { controller, sent };

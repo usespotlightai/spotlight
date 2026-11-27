@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { useRef } from 'react';
+import { useRef, type ReactElement } from 'react';
 
 import { useTabIndicator } from '@/hooks/useTabIndicator';
 import { cn } from '@/lib/utils';
@@ -22,7 +22,7 @@ export function Segmented<T extends string>({
   segments,
   value,
   onChange,
-}: SegmentedProps<T>) {
+}: SegmentedProps<T>): ReactElement {
   const group = useRef<HTMLFieldSetElement>(null);
   const indicator = useTabIndicator(group, value);
 

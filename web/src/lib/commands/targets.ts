@@ -17,6 +17,7 @@ import type { LineResponseDto } from '@/lib/api';
 import { emailsPath } from '@/lib/emails';
 import { inboxPath } from '@/lib/inbox';
 import { membersPath } from '@/lib/members';
+import { keysOf } from '@/lib/one-of';
 import { isAdmin, type Role } from '@/lib/role';
 import { runnersPath } from '@/lib/runner';
 import {
@@ -32,7 +33,6 @@ import {
   linePath,
   TEAM_SECTIONS,
   type Team,
-  type TeamSectionId,
   teamSectionPath,
 } from '@/lib/team';
 
@@ -57,7 +57,9 @@ export type CommandSection = {
 };
 
 export const commandKeywords = (target: CommandTarget): string[] =>
-  target.context ? [target.label, target.context] : [target.label];
+  target.context !== undefined && target.context !== ''
+    ? [target.label, target.context]
+    : [target.label];
 
 export const commandMatch = (
   _value: string,
@@ -82,7 +84,7 @@ export const navigationTargets = (
 ): CommandTarget[] => [
   { id: 'inbox', label: 'Go to Inbox', icon: Inbox, to: inboxPath(slug) },
   ...teams.flatMap((team) =>
-    (Object.keys(TEAM_SECTIONS) as TeamSectionId[]).map((section) => ({
+    keysOf(TEAM_SECTIONS).map((section) => ({
       id: `team:${team.id}:${section}`,
       label: `Go to ${TEAM_SECTIONS[section].label}`,
       context: team.name,

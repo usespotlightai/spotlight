@@ -11,6 +11,7 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
@@ -47,7 +48,7 @@ const working = (
   queued: InboundDelivery[],
   react: (
     command: ReadDeliveryCommand,
-  ) => Promise<DeliveryFailure | null> = async () => null,
+  ) => Promise<DeliveryFailure | null> = () => Promise.resolve(null),
   { reclaimedMeanwhile = false } = {},
 ) => {
   const pending = [...queued];
@@ -64,16 +65,17 @@ const working = (
   const claimed = new Map<string, InboundDelivery>();
 
   const deliveries = {
-    add: vi.fn(async () => true),
-    claimCandidates: vi.fn(async (_now: Date, _max: number) => [...pending]),
-    current: vi.fn(
-      async (delivery: InboundDelivery) =>
-        claimed.get(delivery.id.value) ?? null,
+    add: vi.fn(() => Promise.resolve(true)),
+    claimCandidates: vi.fn((_now: Date, _max: number) =>
+      Promise.resolve([...pending]),
     ),
-    addressedTo: vi.fn(async () => []),
-    finishedBefore: vi.fn(async () => []),
+    current: vi.fn((delivery: InboundDelivery) =>
+      Promise.resolve(claimed.get(delivery.id.value) ?? null),
+    ),
+    addressedTo: vi.fn(() => Promise.resolve([])),
+    finishedBefore: vi.fn(() => Promise.resolve([])),
     remove: vi.fn(async () => {}),
-    save: vi.fn(async (delivery: InboundDelivery) => {
+    save: vi.fn((delivery: InboundDelivery) => {
       const { progress } = delivery;
 
       if (progress.kind === 'working') {
@@ -82,37 +84,40 @@ const working = (
           1,
         );
         claimed.set(delivery.id.value, delivery);
-        return;
+        return Promise.resolve();
       }
 
       if (reclaimedMeanwhile) {
-        throw new InboundDeliveryVersionConflictError(delivery.id.value);
+        return Promise.reject(
+          new InboundDeliveryVersionConflictError(delivery.id.value),
+        );
       }
 
       if (progress.kind === 'done') {
         done.push(delivery.id.value);
       } else if (progress.kind === 'failed') {
         failed.push({ id: delivery.id.value, because: delivery.failure });
-      } else if (progress.kind === 'pending') {
+      } else {
         retried.push({
           id: delivery.id.value,
           because: delivery.failure,
           at: progress.dueAt,
         });
       }
+
+      return Promise.resolve();
     }),
   } satisfies InboundDeliveryRepository;
 
-  const reacting = { execute: vi.fn(react) } as unknown as CommandHandlerPort<
-    ReadDeliveryCommand,
-    DeliveryFailure | null
-  >;
+  const reacting = partial<
+    CommandHandlerPort<ReadDeliveryCommand, DeliveryFailure | null>
+  >({ execute: vi.fn(react) });
 
   return {
     service: new ProcessDueDeliveries(
       deliveries,
       reacting,
-      { now: () => NOW } as ClockPort,
+      partial<ClockPort>({ now: () => NOW }),
       logger,
       telemetryInMemory(),
     ),
@@ -174,9 +179,8 @@ describe('ProcessDueDeliveries', () => {
   });
 
   it('puts a delivery that would not be read back to wait, and says why', async () => {
-    const { service, done, failed, retried } = working(
-      [waiting('d_1')],
-      async () => DeliveryFailure.transient('the line was read in pieces'),
+    const { service, done, failed, retried } = working([waiting('d_1')], () =>
+      Promise.resolve(DeliveryFailure.transient('the line was read in pieces')),
     );
 
     expect(await service.workOne()).toBe(true);
@@ -192,8 +196,8 @@ describe('ProcessDueDeliveries', () => {
   });
 
   it('waits longer each time the same delivery fails', async () => {
-    const { service, retried } = working([waiting('d_1', 3)], async () =>
-      DeliveryFailure.transient('nope'),
+    const { service, retried } = working([waiting('d_1', 3)], () =>
+      Promise.resolve(DeliveryFailure.transient('nope')),
     );
 
     await service.workOne();
@@ -204,7 +208,7 @@ describe('ProcessDueDeliveries', () => {
   it('gives a delivery up once it has had its attempts', async () => {
     const { service, failed, retried } = working(
       [waiting('d_1', DELIVERING.maxAttempts - 1)],
-      async () => DeliveryFailure.transient('still nope'),
+      () => Promise.resolve(DeliveryFailure.transient('still nope')),
     );
 
     await service.workOne();
@@ -214,8 +218,10 @@ describe('ProcessDueDeliveries', () => {
   });
 
   it('gives a delivery up at once when no retry would mend it', async () => {
-    const { service, failed, retried } = working([waiting('d_1')], async () =>
-      DeliveryFailure.permanent('names neither a branch nor a pull request'),
+    const { service, failed, retried } = working([waiting('d_1')], () =>
+      Promise.resolve(
+        DeliveryFailure.permanent('names neither a branch nor a pull request'),
+      ),
     );
 
     await service.workOne();
@@ -229,8 +235,8 @@ describe('ProcessDueDeliveries', () => {
   it('gives a delivery up at once when Spotlight itself fails on it', async () => {
     const { service, failed, retried, logger } = working(
       [waiting('d_1')],
-      async () => {
-        throw new Error('a bug');
+      () => {
+        return Promise.reject(new Error('a bug'));
       },
     );
 
@@ -248,10 +254,12 @@ describe('ProcessDueDeliveries', () => {
     let seen = 0;
     const { service, done, retried } = working(
       [waiting('d_1'), waiting('d_2')],
-      async () => {
+      () => {
         seen += 1;
 
-        return seen === 1 ? DeliveryFailure.transient('nope') : null;
+        return Promise.resolve(
+          seen === 1 ? DeliveryFailure.transient('nope') : null,
+        );
       },
     );
 
@@ -261,9 +269,13 @@ describe('ProcessDueDeliveries', () => {
   });
 
   it('leaves a delivery to the worker that claimed it again after the lease ran out', async () => {
-    const { service, logger } = working([waiting('d_1')], async () => null, {
-      reclaimedMeanwhile: true,
-    });
+    const { service, logger } = working(
+      [waiting('d_1')],
+      () => Promise.resolve(null),
+      {
+        reclaimedMeanwhile: true,
+      },
+    );
 
     expect(await service.workOne()).toBe(true);
     expect(logger.warn).toHaveBeenCalledWith(

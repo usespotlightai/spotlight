@@ -22,7 +22,8 @@ import { LineLoader } from '@work/application/services/line-loader.service';
 import { LineResuming } from '@work/application/services/line-resuming.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
+import { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
+import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
@@ -97,11 +98,11 @@ const landedAt = (stationId: string) =>
 const dispatched: { harness: string; priority: number; brief: string }[] = [];
 
 const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
-  runIdFor: async ({ task, line }) => {
+  runIdFor: ({ task, line }) => {
     const station = line.stationAt(task.stationId);
 
     if (!station?.harness) {
-      return null;
+      return Promise.resolve(null);
     }
     dispatched.push({
       harness: station.harness.value,
@@ -118,7 +119,7 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
         sandboxEnv: [],
       }),
     });
-    return runId === null ? null : RunId.of(runId);
+    return Promise.resolve(runId === null ? null : RunId.of(runId));
   },
 });
 
@@ -127,31 +128,33 @@ let saved: Task | undefined;
 const tasks = (found: Task | null = taskAt()) =>
   ({
     add: vi.fn(),
-    save: vi.fn(async (task: Task) => {
+    save: vi.fn((task: Task) => {
       saved = task;
+
+      return Promise.resolve();
     }),
-    find: vi.fn(async () => found),
+    find: vi.fn(() => Promise.resolve(found)),
     remove: vi.fn(),
-    placementsAt: vi.fn(async () => []),
-    findByCorrelation: vi.fn(async () => []),
-    owningPullRequest: vi.fn(async () => null),
-    reviewingPullRequest: vi.fn(async () => null),
-    holdingMark: vi.fn(async () => []),
-    settingUpFor: vi.fn(async () => null),
-    settingUpIn: vi.fn(async () => []),
-    settingUp: vi.fn(async () => []),
-    withTurnAnsweredBetween: vi.fn(async () => []),
-    awaitingConnection: vi.fn(async () => []),
-    startingFrom: vi.fn(async () => []),
-    onBranch: vi.fn(async () => null),
+    placementsAt: vi.fn(() => Promise.resolve([])),
+    findByCorrelation: vi.fn(() => Promise.resolve([])),
+    owningPullRequest: vi.fn(() => Promise.resolve(null)),
+    reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
+    holdingMark: vi.fn(() => Promise.resolve([])),
+    settingUpFor: vi.fn(() => Promise.resolve(null)),
+    settingUpIn: vi.fn(() => Promise.resolve([])),
+    settingUp: vi.fn(() => Promise.resolve([])),
+    withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
+    awaitingConnection: vi.fn(() => Promise.resolve([])),
+    startingFrom: vi.fn(() => Promise.resolve([])),
+    onBranch: vi.fn(() => Promise.resolve(null)),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = (found: LineMap | null = line()) =>
   ({
-    find: vi.fn(async () => found),
-    findByStation: vi.fn(async () => found),
-    ofWorkspace: vi.fn(async () => []),
-    ofTeam: vi.fn(async () => []),
+    find: vi.fn(() => Promise.resolve(found)),
+    findByStation: vi.fn(() => Promise.resolve(found)),
+    ofWorkspace: vi.fn(() => Promise.resolve([])),
+    ofTeam: vi.fn(() => Promise.resolve([])),
     candidate: vi.fn(),
   }) satisfies LineMapsPort;
 
@@ -178,7 +181,12 @@ const move = (
     transaction,
     dispatch(),
     clock,
-    new LineResuming(stored, { of: async () => [] }, dispatch(), clock),
+    new LineResuming(
+      stored,
+      { of: () => Promise.resolve([]) },
+      dispatch(),
+      clock,
+    ),
   ).execute(
     new MoveTaskCommand(
       teamId,
@@ -244,8 +252,8 @@ describe('MoveTaskHandler', () => {
       saved
         ?.pullEvents()
         .map((each) =>
-          each.kind === 'task.run-detached' || each.kind === 'task.run-assigned'
-            ? [each.kind, (each as TaskRunDetached).runId.value]
+          each instanceof TaskRunDetached || each instanceof TaskRunAssigned
+            ? [each.kind, each.runId.value]
             : [each.kind],
         ),
     ).toEqual([

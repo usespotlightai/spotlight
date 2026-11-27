@@ -1,11 +1,15 @@
 import { ChevronDown, Plus } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { StationIconSkeleton } from '@/components/features/board/column/StationIconSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 
-export function StationSectionSkeleton({ children }: { children: ReactNode }) {
+export function StationSectionSkeleton({
+  children,
+}: {
+  children: ReactNode;
+}): ReactElement {
   return (
     <section className="relative flex flex-col">
       <header className="sticky top-0 z-10 mx-1.5 flex h-9 shrink-0 select-none items-center gap-2 rounded-md bg-accent px-3">

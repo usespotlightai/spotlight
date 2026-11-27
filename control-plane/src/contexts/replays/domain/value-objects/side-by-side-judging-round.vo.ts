@@ -3,7 +3,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 /** One try at judging two runs' changes side by side. A try that failed and is retried is a new round with new sessions. */
 export class SideBySideJudgingRound {
-  private readonly kind = 'side-by-side-judging-round';
+  private readonly kind: string = 'side-by-side-judging-round';
 
   private constructor(
     readonly runId: RunId,

@@ -81,8 +81,14 @@ export class HarnessCommands implements HarnessCommandsPort {
     }
 
     const command = this.launch.commandFor(HarnessId.of(choice.harness), {
-      model: choice.model ? HarnessModel.of(choice.model) : null,
-      effort: choice.effort ? Effort.of(choice.effort) : null,
+      model:
+        choice.model !== null && choice.model !== ''
+          ? HarnessModel.of(choice.model)
+          : null,
+      effort:
+        choice.effort !== null && choice.effort !== ''
+          ? Effort.of(choice.effort)
+          : null,
     });
 
     return command

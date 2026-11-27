@@ -13,12 +13,21 @@ export function useChangeStackTrail(
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
   return [
-    ...(team && slug ? [teamCrumb(slug, team)] : []),
-    ...(run && slug && teamId
+    ...(team && slug !== undefined && slug !== ''
+      ? [teamCrumb(slug, team)]
+      : []),
+    ...(run &&
+    slug !== undefined &&
+    slug !== '' &&
+    teamId !== undefined &&
+    teamId !== ''
       ? [
           {
             label: run.taskTitle ?? 'Run',
-            to: run.taskId ? taskPath(slug, teamId, run.taskId) : undefined,
+            to:
+              run.taskId !== null && run.taskId !== ''
+                ? taskPath(slug, teamId, run.taskId)
+                : undefined,
           },
           {
             label: run.station?.name ?? 'Run',

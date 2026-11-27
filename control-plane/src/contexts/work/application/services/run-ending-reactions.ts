@@ -72,7 +72,9 @@ export const RunsTranslation = {
   },
 
   session(session: string | null): HarnessSession | null {
-    return session ? HarnessSession.of(session) : null;
+    return session !== null && session !== ''
+      ? HarnessSession.of(session)
+      : null;
   },
 };
 
@@ -98,7 +100,9 @@ export const RunEndedFacts = {
   },
 
   claimedBy(event: RunEndedIntegrationEvent): RunnerId | null {
-    return event.claimedBy ? RunnerId.of(event.claimedBy) : null;
+    return event.claimedBy !== null && event.claimedBy !== ''
+      ? RunnerId.of(event.claimedBy)
+      : null;
   },
 
   ending(event: RunEndedIntegrationEvent): DispatchEnding {

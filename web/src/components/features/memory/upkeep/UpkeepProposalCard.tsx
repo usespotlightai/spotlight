@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { type ReactElement, useRef } from 'react';
 import { Link } from 'react-router';
 
 import { DecisionButton } from '@/components/shared/DecisionButton';
@@ -32,7 +32,7 @@ export function UpkeepProposalCard({
   proposal,
   pending,
   onDecide,
-}: UpkeepProposalCardProps) {
+}: UpkeepProposalCardProps): ReactElement {
   const card = useRef<HTMLElement>(null);
   const decided = useFocusAfterDecision(card, `${proposal.state}:${pending}`);
   const open = proposal.state === 'pending';
@@ -88,7 +88,7 @@ export function UpkeepProposalCard({
             </dd>
           </FactRow>
         ))}
-        {proposal.body && (
+        {proposal.body !== null && proposal.body !== '' && (
           <FactRow>
             <dt className={FACT_LABEL}>Merged</dt>
             <dd className={FACT_VALUE}>{proposal.body}</dd>

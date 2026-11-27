@@ -1,8 +1,11 @@
+import type { ReactElement } from 'react';
 type RetirementLapsedNoteProps = {
   inactive: string[];
 };
 
-export function RetirementLapsedNote({ inactive }: RetirementLapsedNoteProps) {
+export function RetirementLapsedNote({
+  inactive,
+}: RetirementLapsedNoteProps): ReactElement | null {
   if (inactive.length === 0) return null;
   return (
     <p className="pt-2 text-muted-foreground text-sm">

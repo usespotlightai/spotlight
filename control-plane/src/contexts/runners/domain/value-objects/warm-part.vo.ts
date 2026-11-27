@@ -46,10 +46,13 @@ export class WarmPart {
     return new WarmPart(
       input.lineId,
       input.placement,
-      input.checkouts.map((each) => ({
-        path: each.path.trim(),
-        setup: each.setup?.trim() || null,
-      })),
+      input.checkouts.map((each) => {
+        const setup = each.setup?.trim();
+        return {
+          path: each.path.trim(),
+          setup: setup === undefined || setup === '' ? null : setup,
+        };
+      }),
       input.fingerprint,
     );
   }

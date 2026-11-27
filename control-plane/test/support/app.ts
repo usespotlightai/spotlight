@@ -1,5 +1,3 @@
-import type { Server } from 'node:http';
-
 import {
   SESSION_READER,
   type SessionReaderPort,
@@ -11,12 +9,13 @@ import { parseEnv } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { AutoSearches } from '@replays/application/services/auto-searches.service';
-import request, { type Response } from 'supertest';
+import request, { type Agent, type Response } from 'supertest';
 
 import { AppModule } from '@/app.module';
 import { APP_OPTIONS, configureApp } from '@/app.setup';
 
 import { clonedDatabase, dropDatabaseLater } from './database';
+import { httpServerOf } from './http-server';
 
 export const TEST_USER_HEADER = 'x-test-user';
 
@@ -33,14 +32,16 @@ export interface Problem {
 }
 
 const sessionsFromHeader: SessionReaderPort = {
-  read: async (headers): Promise<AuthenticatedUser | null> => {
+  read: (headers): Promise<AuthenticatedUser | null> => {
     const id = headers[TEST_USER_HEADER];
 
-    return typeof id === 'string'
-      ? { id, email: `${id}@example.com`, name: id }
-      : null;
+    return Promise.resolve(
+      typeof id === 'string'
+        ? { id, email: `${id}@example.com`, name: id }
+        : null,
+    );
   },
-  readBearer: async () => null,
+  readBearer: () => Promise.resolve(null),
 };
 
 const startingSearches = new WeakMap<INestApplication, () => Promise<void>>();
@@ -78,7 +79,7 @@ export const openApp = async (
     ? databases.get(options.sharingDatabaseOf)
     : undefined;
 
-  if (options.sharingDatabaseOf && !shared) {
+  if (options.sharingDatabaseOf && (shared === undefined || shared === '')) {
     throw new Error('Share the database of an app opened with openApp');
   }
 
@@ -103,7 +104,7 @@ export const openApp = async (
   app.close = async () => {
     await closed();
 
-    if (!shared) {
+    if (shared === undefined || shared === '') {
       dropDatabaseLater(env.DATABASE_URL);
     }
   };
@@ -115,8 +116,8 @@ export const openApp = async (
   return app;
 };
 
-export const served = (app: INestApplication) => {
-  const server = app.getHttpServer() as Server;
+export const served = (app: INestApplication): Agent => {
+  const server = httpServerOf(app);
 
   if (!server.listening) {
     throw new Error('Open the app with openApp, which serves it on 127.0.0.1');

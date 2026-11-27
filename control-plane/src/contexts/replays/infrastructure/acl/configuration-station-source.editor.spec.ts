@@ -21,9 +21,9 @@ describe('ConfigurationStationSourceEditor', () => {
   it('asks Configuration to change only the fields a search may change', async () => {
     const asked: StationSourceEditRequest[] = [];
     const edits: StationSourceEditsPort = {
-      edited: async (request) => {
+      edited: (request) => {
         asked.push(request);
-        return { ok: true, files: [], unchecked: [] };
+        return Promise.resolve({ ok: true, files: [], unchecked: [] });
       },
     };
 
@@ -35,16 +35,17 @@ describe('ConfigurationStationSourceEditor', () => {
 
   it('names a failure in the config pull request’s own terms', async () => {
     const edits: StationSourceEditsPort = {
-      edited: async () => ({
-        ok: false,
-        failure: {
-          code: 'unparsable',
-          message: 'The file does not parse.',
-          attribute: null,
-          expression: null,
-          wanted: null,
-        },
-      }),
+      edited: () =>
+        Promise.resolve({
+          ok: false,
+          failure: {
+            code: 'unparsable',
+            message: 'The file does not parse.',
+            attribute: null,
+            expression: null,
+            wanted: null,
+          },
+        }),
     };
 
     const answer = await new ConfigurationStationSourceEditor(edits).edited(

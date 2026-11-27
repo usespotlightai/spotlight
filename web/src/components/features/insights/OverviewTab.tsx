@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
@@ -25,7 +27,12 @@ type OverviewTabProps = {
   names: StationNames;
 };
 
-export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
+export function OverviewTab({
+  slug,
+  teamId,
+  period,
+  names,
+}: OverviewTabProps): ReactElement {
   const overview = useInsightsOverview(teamId, period);
 
   if (loading(overview)) {

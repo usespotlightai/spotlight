@@ -26,7 +26,7 @@ export function useRunThread(
 export function useRunThread(
   run: TeamRun | undefined,
   reported: RunNotes | undefined,
-) {
+): RunThread<LatestRun | null> {
   const latest = useLatestRun(run, reported);
   const inFlight = useMessagesInFlight([run?.id ?? '', latest?.id ?? '']);
   const me = useMe();

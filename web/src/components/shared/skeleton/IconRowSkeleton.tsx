@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { cn } from '@/lib/utils';
@@ -12,19 +14,19 @@ export function IconRowSkeleton({
   nameWidth,
   aboutWidth,
   trailingWidth,
-}: IconRowSkeletonProps) {
+}: IconRowSkeletonProps): ReactElement {
   return (
     <div className="flex min-h-12 items-center justify-between gap-4 px-4 py-2">
       <div className="flex min-w-0 items-center gap-3">
         <Skeleton className="size-8 shrink-0 rounded-full" />
         <div className="flex min-w-0 flex-col gap-0.5">
           <SkeletonLine className={cn(nameWidth, 'max-w-full text-sm')} />
-          {aboutWidth && (
+          {aboutWidth !== undefined && aboutWidth !== '' && (
             <SkeletonLine className={cn(aboutWidth, 'max-w-full text-xs')} />
           )}
         </div>
       </div>
-      {trailingWidth && (
+      {trailingWidth !== undefined && trailingWidth !== '' && (
         <SkeletonLine className={cn(trailingWidth, 'shrink-0 text-xs')} />
       )}
     </div>

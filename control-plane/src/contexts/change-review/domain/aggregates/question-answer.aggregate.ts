@@ -1,6 +1,7 @@
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { InvalidAnswerError } from '@change-review/domain/exceptions/invalid-answer.error';
 import { QuestionAlreadyAnsweredError } from '@change-review/domain/exceptions/question-already-answered.error';
+import { nonEmpty } from '@change-review/domain/services/non-empty';
 import {
   answersQuestion,
   sharesAnswers,
@@ -43,9 +44,9 @@ const MAX_REPLY = 4_000;
 const MAX_FEEDBACK = 2_000;
 
 const replyOf = (raw: string | null): string | null => {
-  const reply = raw?.trim() || null;
+  const reply = nonEmpty(raw?.trim());
 
-  if (reply && reply.length > MAX_REPLY) {
+  if (reply !== null && reply.length > MAX_REPLY) {
     throw new InvalidAnswerError(`must be at most ${MAX_REPLY} characters`);
   }
 
@@ -65,7 +66,7 @@ interface Answered {
 const answeredWith = (raw: string | null): Answered => {
   const reply = replyOf(raw);
 
-  return reply
+  return reply !== null && reply !== ''
     ? { reply, grading: 'pending', verdict: null }
     : { reply: null, grading: 'graded', verdict: 'missed' };
 };

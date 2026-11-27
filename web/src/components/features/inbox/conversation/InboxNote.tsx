@@ -1,4 +1,4 @@
-import { type ReactNode, useRef } from 'react';
+import { type ReactElement, type ReactNode, useRef } from 'react';
 
 import { ApprovalCard } from '@/components/features/inbox/conversation/approval/ApprovalCard';
 import { ConnectionCard } from '@/components/features/inbox/conversation/connection/ConnectionCard';
@@ -51,7 +51,7 @@ export function InboxNote({
   suggestion,
   arrived = false,
   prompt,
-}: InboxNoteProps) {
+}: InboxNoteProps): ReactElement {
   const { data: session } = useSession();
   const sight = useJournalSight();
   const written = useRef<HTMLDivElement>(null);
@@ -64,11 +64,11 @@ export function InboxNote({
 
   return (
     <li
-      ref={sight(note.runId ? [note.runId] : [])}
+      ref={sight(note.runId !== null && note.runId !== '' ? [note.runId] : [])}
       data-note={note.position}
       className={cn('flex flex-col gap-1.5', arriving)}
     >
-      {!shows && (
+      {(shows === undefined || shows === false || shows === '') && (
         <StationTag
           name={note.station}
           color={note.stationColor}
@@ -77,7 +77,9 @@ export function InboxNote({
         />
       )}
 
-      {prompt && <PromptDisclosure prompt={prompt} />}
+      {prompt !== undefined && prompt !== '' && (
+        <PromptDisclosure prompt={prompt} />
+      )}
 
       {worked.length > 0 && <InboxWork journals={worked} />}
 
@@ -96,7 +98,7 @@ export function InboxNote({
             }
           />
         </Dockable>
-      ) : shows ? (
+      ) : shows !== undefined && shows !== false && shows !== '' ? (
         <SetupSteps
           teamId={teamId}
           body={note.body}

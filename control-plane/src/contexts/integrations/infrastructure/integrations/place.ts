@@ -130,9 +130,10 @@ export class Place {
 
     return {
       type: checked.type,
-      errors: problem
-        ? [{ message: problem, span: extentOf(source), suggestion: null }]
-        : [],
+      errors:
+        problem !== null && problem !== ''
+          ? [{ message: problem, span: extentOf(source), suggestion: null }]
+          : [],
     };
   }
 

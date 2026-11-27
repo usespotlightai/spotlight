@@ -62,13 +62,19 @@ export class CausalChain {
   }
 
   static readLink(stored: unknown): CauseLink {
-    return CausalChain.linkOf(stored as CauseLink);
+    return CausalChain.linkOf(stored);
   }
 
-  private static linkOf(link: CauseLink): CauseLink {
+  private static linkOf(link: unknown): CauseLink {
     if (
-      !isKind(link?.kind) ||
-      !link.key ||
+      typeof link !== 'object' ||
+      link === null ||
+      !('kind' in link) ||
+      !isKind(link.kind) ||
+      !('key' in link) ||
+      typeof link.key !== 'string' ||
+      link.key === '' ||
+      !('description' in link) ||
       typeof link.description !== 'string'
     ) {
       throw new InconsistentStateError(

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import {
   ANSWER_LABEL,
@@ -6,7 +8,11 @@ import {
   WHY,
 } from '@/lib/judge-disagreement';
 
-export function ClaimAnsweredRows({ answer }: { answer: GivenClaimAnswer }) {
+export function ClaimAnsweredRows({
+  answer,
+}: {
+  answer: GivenClaimAnswer;
+}): ReactElement {
   return (
     <>
       <FactRow wide>
@@ -15,7 +21,7 @@ export function ClaimAnsweredRows({ answer }: { answer: GivenClaimAnswer }) {
           {claimAnswerLabel(answer.answer)}
         </dd>
       </FactRow>
-      {answer.note && (
+      {answer.note !== null && answer.note !== '' && (
         <FactRow wide>
           <dt className={FACT_LABEL}>{WHY}</dt>
           <dd data-slot="claim-note" className={FACT_VALUE}>

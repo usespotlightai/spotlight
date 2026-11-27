@@ -41,7 +41,7 @@ export const tabFor = (
   }
 };
 
-export function useDesktopCommands(slug: string | undefined, tabs: Tabs) {
+export function useDesktopCommands(slug: string | undefined, tabs: Tabs): void {
   const navigate = useNavigate();
 
   const heard = useEffectEvent((command: string) => {
@@ -65,7 +65,7 @@ export function useDesktopCommands(slug: string | undefined, tabs: Tabs) {
     }
 
     if (command === 'settings') {
-      if (slug) {
+      if (slug !== undefined && slug !== '') {
         void navigate(settingsPath(slug));
       }
       return;

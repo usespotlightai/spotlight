@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router';
 
 import { TaskActions } from '@/components/features/board/task/TaskActions';
@@ -28,13 +29,19 @@ type TaskPageProps = {
   trail: readonly BreadcrumbSegment[];
 };
 
-export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
+export function TaskPage({
+  slug,
+  teamId,
+  task,
+  line,
+  trail,
+}: TaskPageProps): ReactElement {
   const deleteTask = useDeleteTask();
   const navigate = useNavigate();
   const hold = task.hold;
 
   const remove = () => {
-    if (!teamId) {
+    if (teamId === undefined || teamId === '') {
       return;
     }
 
@@ -43,7 +50,7 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
       {
         onSuccess: () =>
           void navigate(
-            slug && line
+            slug !== undefined && slug !== '' && line
               ? linePath(slug, teamId, line.id)
               : teamPath(slug ?? '', teamId),
           ),
@@ -61,7 +68,14 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
           hold && (
             <OnHoldPill
               hold={hold}
-              to={slug && teamId ? holdPathOf(slug, teamId, hold) : undefined}
+              to={
+                slug !== undefined &&
+                slug !== '' &&
+                teamId !== undefined &&
+                teamId !== ''
+                  ? holdPathOf(slug, teamId, hold)
+                  : undefined
+              }
             />
           )
         }
@@ -72,7 +86,7 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
           <main className="flex min-w-0 flex-col gap-3">
             <PageTitle>{task.title}</PageTitle>
 
-            {task.description ? (
+            {task.description !== null && task.description !== '' ? (
               <MarkdownEditor
                 readOnly
                 initialValue={task.description}

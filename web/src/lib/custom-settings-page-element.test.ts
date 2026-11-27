@@ -15,8 +15,9 @@ const fresh = () => {
 };
 
 const defines = (element: string) =>
-  vi.fn(async () => {
+  vi.fn(() => {
     customElements.define(element, class extends HTMLElement {});
+    return Promise.resolve();
   });
 
 describe('loadCustomSettingsPageElement', () => {
@@ -33,7 +34,7 @@ describe('loadCustomSettingsPageElement', () => {
   it('does not import the script again for an element that is defined', async () => {
     const page = fresh();
     customElements.define(page.element, class extends HTMLElement {});
-    const load = vi.fn(async () => undefined);
+    const load = vi.fn(() => Promise.resolve(undefined));
 
     await loadCustomSettingsPageElement(page, 0, load);
 
@@ -63,9 +64,11 @@ describe('loadCustomSettingsPageElement', () => {
 
   it('fails when the script does not load', async () => {
     const page = fresh();
-    const load = vi.fn(async () => {
-      throw new TypeError('Failed to fetch dynamically imported module');
-    });
+    const load = vi.fn(() =>
+      Promise.reject(
+        new TypeError('Failed to fetch dynamically imported module'),
+      ),
+    );
 
     await expect(
       loadCustomSettingsPageElement(page, 0, load, 50),
@@ -75,9 +78,11 @@ describe('loadCustomSettingsPageElement', () => {
   it('stops waiting for the element when the script does not load', async () => {
     const page = fresh();
     const cleared = vi.spyOn(globalThis, 'clearTimeout');
-    const load = vi.fn(async () => {
-      throw new TypeError('Failed to fetch dynamically imported module');
-    });
+    const load = vi.fn(() =>
+      Promise.reject(
+        new TypeError('Failed to fetch dynamically imported module'),
+      ),
+    );
 
     await expect(
       loadCustomSettingsPageElement(page, 0, load, 60_000),
@@ -88,7 +93,7 @@ describe('loadCustomSettingsPageElement', () => {
 
   it('fails when the script does not define the element in time', async () => {
     const page = fresh();
-    const load = vi.fn(async () => undefined);
+    const load = vi.fn(() => Promise.resolve(undefined));
 
     await expect(
       loadCustomSettingsPageElement(page, 0, load, 20),
@@ -100,8 +105,9 @@ describe('loadCustomSettingsPageElement', () => {
     const load = vi
       .fn<(url: string) => Promise<unknown>>()
       .mockRejectedValueOnce(new TypeError('Failed to fetch'))
-      .mockImplementationOnce(async () => {
+      .mockImplementationOnce(() => {
         customElements.define(page.element, class extends HTMLElement {});
+        return Promise.resolve();
       });
 
     await expect(

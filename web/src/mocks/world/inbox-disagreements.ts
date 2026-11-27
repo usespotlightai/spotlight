@@ -180,7 +180,7 @@ export const answerDisputedClaims = (
       : disagreement.disputedClaims.slice(0, answered === 'first' ? 1 : 0);
 
   disagreement.answers = claims.map((claim, at) => {
-    const seeded = SEEDED_ANSWERS[at % SEEDED_ANSWERS.length];
+    const seeded = SEEDED_ANSWERS.at(at % SEEDED_ANSWERS.length);
     return {
       claim,
       answer: seeded?.answer ?? 'judge-right',

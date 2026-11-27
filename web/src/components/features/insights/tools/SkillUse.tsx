@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { SkillRows } from '@/components/features/insights/tools/SkillRows';
 import { UnusedSkills } from '@/components/features/insights/tools/UnusedSkills';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
@@ -28,7 +30,7 @@ export function SkillUse({
   teamRuns,
   rule,
   names,
-}: SkillUseProps) {
+}: SkillUseProps): ReactElement {
   const collapsibles = useCollapsibles();
   const max = readShareMax(skills);
 

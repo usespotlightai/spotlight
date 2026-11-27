@@ -34,7 +34,7 @@ import {
   type QueuedRunWait,
 } from '@runs/domain/value-objects/run-waiting';
 import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -65,7 +65,7 @@ const factsOf = (
     check: run.spec.check,
     setups: run.spec.checkoutSetups,
     placement: run.placement,
-    queuedAt: queuedAtOf(run),
+    queuedAt: run.queuedAt,
     startedAt: run.startedAt,
     endedAt: run.endedAt,
     spent: {
@@ -82,7 +82,7 @@ const factsOf = (
     waiting: currentWait(
       {
         state: run.state,
-        queuedAt: queuedAtOf(run),
+        queuedAt: run.queuedAt,
         reserved: run.reservation !== null,
       },
       wait,
@@ -97,17 +97,6 @@ const factsOf = (
     },
     endHeads: run.endHeads.map((each) => each.parts),
   };
-};
-
-const queuedAtOf = (run: Run): Date => {
-  if (!run.queuedAt) {
-    throw new InconsistentStateError(
-      'run',
-      `was read before it was queued (${run.id.value})`,
-    );
-  }
-
-  return run.queuedAt;
 };
 
 const progressFactsOf = (run: Run) => {
@@ -131,7 +120,7 @@ const progressOf = (run: Run): RunProgressFacts => ({
   turn: run.turn?.state ?? null,
   ...progressFactsOf(run),
   suspendedAt: run.turn?.suspendedAt ?? null,
-  queuedAt: queuedAtOf(run),
+  queuedAt: run.queuedAt,
 });
 
 const leasedOf = (
@@ -241,7 +230,7 @@ export class RunReadModel
 
     const newest = await this.reader.newestArchiveOf(run.id);
 
-    if (newest?.isAvailableIn(run.workspaceId)) {
+    if (newest?.isAvailableIn(run.workspaceId) === true) {
       return newest.id.value;
     }
 
@@ -287,7 +276,7 @@ export class RunReadModel
 
     return new Set(
       started.flatMap(({ archive, workspaceId }) =>
-        archives.get(archive.value)?.isAvailableIn(workspaceId)
+        archives.get(archive.value)?.isAvailableIn(workspaceId) === true
           ? [archive.value]
           : [],
       ),
@@ -300,7 +289,7 @@ export class RunReadModel
   ): Promise<LeasedRunFacts | null> {
     const run = await this.one(runId);
 
-    return run?.isLeasedBy(runner)
+    return run?.isLeasedBy(runner) === true
       ? leasedOf(run, runner, await this.storedArchives([run]))
       : null;
   }
@@ -357,9 +346,7 @@ export class RunReadModel
   }
 
   private async one(runId: RunId): Promise<Run | null> {
-    const [run] = await this.reader.runs([runId]);
-
-    return run ?? null;
+    return firstOf(await this.reader.runs([runId])) ?? null;
   }
 
   private async lookedUp(runId: RunId): Promise<Run> {

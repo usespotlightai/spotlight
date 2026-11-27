@@ -147,7 +147,7 @@ export class StationSearchOverride {
     const ceiling = optional(input.ceiling, (value) => {
       const problem = spendAmountProblem(value);
 
-      if (problem) {
+      if (problem !== null && problem !== '') {
         throw new InvalidSearchPolicyError('ceiling', problem);
       }
 
@@ -254,7 +254,9 @@ export class LineSearchPolicy {
     const input: LineSearchPrimitives = {
       ...BY_DEFAULT,
       ...Object.fromEntries(
-        Object.entries(written).filter(([, value]) => value !== undefined),
+        Object.entries(written).filter(
+          ([, value]: [string, unknown]) => value !== undefined,
+        ),
       ),
     };
     const ceiling = spendOf('ceiling', input.ceiling, input.currency);

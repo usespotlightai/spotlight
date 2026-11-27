@@ -12,9 +12,9 @@ describe('InsightsChangeJudge', () => {
   it('asks Insights to judge a replay as a run whose effects the sandbox blocked', async () => {
     const orders: ChangeJudgmentOrder[] = [];
     const judgments: ChangeJudgmentsPort = {
-      judge: async (order) => {
+      judge: (order) => {
         orders.push(order);
-        return { judged: false, failure: 'unavailable' };
+        return Promise.resolve({ judged: false, failure: 'unavailable' });
       },
       roundOf: () => null,
     };
@@ -51,7 +51,7 @@ describe('InsightsChangeJudge', () => {
     };
     const judgingOf = (judging: number) =>
       new InsightsChangeJudge({
-        judge: async () => ({ judged: false, failure: 'unavailable' }),
+        judge: () => Promise.resolve({ judged: false, failure: 'unavailable' }),
         roundOf: () => ({ runId: RunId.of('replay_1'), judging, attempt: 3 }),
       });
 

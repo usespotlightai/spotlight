@@ -18,6 +18,7 @@ import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-re
 import { InjectedCallCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -68,34 +69,42 @@ const resolving = (
   over: { member?: boolean } = {},
 ) => {
   const of = vi.fn(
-    async (_teamId: TeamId, _source: IntegrationKey, owner: ConnectionOwner) =>
-      token ? connected(token, owner) : null,
+    (_teamId: TeamId, _source: IntegrationKey, owner: ConnectionOwner) =>
+      Promise.resolve(
+        token !== null && token !== '' ? connected(token, owner) : null,
+      ),
   );
-  const onTeam = vi.fn(async () =>
-    over.member === false ? null : ({} as TeamWorkspaceMembership),
+  const onTeam = vi.fn(() =>
+    Promise.resolve(
+      over.member === false ? null : partial<TeamWorkspaceMembership>({}),
+    ),
   );
-  const afterUnauthorized = vi.fn(async () => AccessToken.of('xoxp-refreshed'));
-  const find = vi.fn(async () =>
-    inWorkspace
-      ? {
-          id: TEAM,
-          workspaceId: WorkspaceId.of('ws_1'),
-          key: 'platform',
-          name: 'Platform',
-          members: [],
-        }
-      : null,
+  const afterUnauthorized = vi.fn(() =>
+    Promise.resolve(AccessToken.of('xoxp-refreshed')),
+  );
+  const find = vi.fn(() =>
+    Promise.resolve(
+      inWorkspace
+        ? {
+            id: TEAM,
+            workspaceId: WorkspaceId.of('ws_1'),
+            key: 'platform',
+            name: 'Platform',
+            members: [],
+          }
+        : null,
+    ),
   );
   const secrets = injecting(BOUND);
 
   return {
     resolver: new CallAuthResolver(
-      { of } as unknown as IntegrationConnectionRepository,
+      partial<IntegrationConnectionRepository>({ of }),
       { find, inWorkspace: vi.fn() } satisfies TeamDirectoryPort,
-      { inWorkspaceOfTeam: onTeam } as unknown as WorkspaceAccessPort,
+      partial<WorkspaceAccessPort>({ inWorkspaceOfTeam: onTeam }),
       secrets.injection,
       new InjectedCallCredentials(secrets.injection),
-      { afterUnauthorized } as unknown as ConnectionRefresh,
+      partial<ConnectionRefresh>({ afterUnauthorized }),
     ),
     of,
     find,

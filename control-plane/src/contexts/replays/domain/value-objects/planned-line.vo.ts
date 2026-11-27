@@ -3,18 +3,23 @@ import { type Block, isBlock } from '@replays/domain/value-objects/block-shape';
 
 const MAX_CHARACTERS = 64_000;
 
+const repositoriesOf = (raw: unknown): readonly Block[] => {
+  const repositories = isBlock(raw) ? raw.repositories : undefined;
+
+  if (!Array.isArray(repositories) || !repositories.every(isBlock)) {
+    throw new InvalidCandidateError(
+      'planned line must name the line’s repositories',
+    );
+  }
+
+  return repositories;
+};
+
 export class PlannedLine {
   private constructor(private readonly written: string) {}
 
   static of(raw: unknown): PlannedLine {
-    const repositories = isBlock(raw) ? raw.repositories : undefined;
-
-    if (!Array.isArray(repositories) || !repositories.every(isBlock)) {
-      throw new InvalidCandidateError(
-        'planned line must name the line’s repositories',
-      );
-    }
-
+    const repositories = repositoriesOf(raw);
     const written = JSON.stringify({ repositories });
 
     if (written.length > MAX_CHARACTERS) {
@@ -27,7 +32,7 @@ export class PlannedLine {
   }
 
   get repositories(): readonly Block[] {
-    return (JSON.parse(this.written) as { repositories: Block[] }).repositories;
+    return repositoriesOf(JSON.parse(this.written));
   }
 
   get value(): { readonly repositories: readonly Block[] } {

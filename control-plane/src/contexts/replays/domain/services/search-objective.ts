@@ -5,4 +5,4 @@ export const objectiveFor = (
   requested: SearchObjective | null,
   health: SetHealth,
 ): SearchObjective =>
-  requested ?? (health.saturation?.saturated ? 'cost' : 'success');
+  requested ?? (health.saturation?.saturated === true ? 'cost' : 'success');

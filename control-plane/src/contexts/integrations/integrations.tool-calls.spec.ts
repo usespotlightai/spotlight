@@ -45,19 +45,26 @@ import {
   personRulesFrom,
 } from '@integrations/integrations.policies.fake-spec';
 import {
+  callAt,
+  headersOf,
+} from '@integrations/integrations.requests.fake-spec';
+import {
   callAuthFor,
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
-import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
+import {
+  answerOf,
+  resolvedTool,
+} from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { fieldOf } from '@platform/json/field-of';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
-import type {
-  IntegrationTool,
-  RunAttemptDto,
-} from '@work/application/ports/integration-tool-calls.port';
+import type { RunAttemptDto } from '@work/application/ports/integration-tool-calls.port';
+import type { Mock } from 'vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
@@ -83,25 +90,25 @@ const integrationToolCalls = (
     ),
   );
 
-const NO_LINKS = {
-  task: async () => 'https://app.example/tasks/task_1',
-} as unknown as InboxLinksPort;
+const NO_LINKS = partial<InboxLinksPort>({
+  task: () => Promise.resolve('https://app.example/tasks/task_1'),
+});
 
 const expressions = new CelExpressionEngine();
 
 const ATTEMPT: RunAttemptDto = { runId: 'run_1', attempt: 2 };
 
 const runtimeWith = (
-  outbound: unknown,
-  exchange: unknown = {},
+  outbound: Partial<HttpOutbound>,
+  exchange: Partial<OAuth2Exchange> = {},
   clients: OAuth2ClientsPort = clientsFrom(),
   limits: OutboundLimitsPort = unlimited,
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsContaining()),
-    outbound as HttpOutbound,
+    partial<HttpOutbound>(outbound),
     clients,
-    exchange as OAuth2Exchange,
+    partial<OAuth2Exchange>(exchange),
     discoveringNothing(),
     callingNoServer(),
     limits,
@@ -165,15 +172,15 @@ const using = (
     limits?: OutboundLimitsPort;
   } = {},
 ) => {
-  const run = vi.fn(
-    async (_action: unknown, _against: Record<string, unknown>) => reply,
+  const run = vi.fn((_action: unknown, _against: Record<string, unknown>) =>
+    Promise.resolve(reply),
   );
   const schemas = over.schemas ?? new InMemoryInferredOutputSchemas();
 
   const tools = integrationToolCalls(
-    {
-      ofTeam: vi.fn(async () => [defined(over.file ?? LINEAR)]),
-    } as unknown as DefinedIntegrationsPort,
+    partial<DefinedIntegrationsPort>({
+      ofTeam: vi.fn(() => Promise.resolve([defined(over.file ?? LINEAR)])),
+    }),
     runtimeWith({ run }, undefined, undefined, over.limits),
     callAuthFor(),
     inferringInto(schemas),
@@ -185,10 +192,7 @@ const using = (
     tools.resolve(tool, task(marked), ATTEMPT, null);
 
   const comment = async (inputs: ToolCallInputs, marked = true) => {
-    const resolved = (await resolving(
-      'linear.comment',
-      marked,
-    )) as IntegrationTool;
+    const resolved = await resolvedTool(resolving('linear.comment', marked));
 
     return answerOf(resolved.call(inputs));
   };
@@ -255,7 +259,7 @@ describe('IntegrationToolCalls', () => {
 
   it('sends nothing when the workspace calls other services too often, and says so', async () => {
     const { comment, run } = using(undefined, {
-      limits: { perSecond: 50, take: async () => false },
+      limits: { perSecond: 50, take: () => Promise.resolve(false) },
     });
 
     await expect(
@@ -276,17 +280,18 @@ describe('IntegrationToolCalls', () => {
       bound: Parameters<typeof injecting>[0],
       allowed: readonly string[] = ['api.linear.app'],
     ) => {
-      const fetch = vi.fn(
-        async () =>
+      const fetch = vi.fn<typeof globalThis.fetch>(() =>
+        Promise.resolve(
           new Response(JSON.stringify({ url: 'https://linear.app/c/1' }), {
             status: 200,
           }),
+        ),
       );
       const secrets = injecting(bound);
       const tools = integrationToolCalls(
-        {
-          ofTeam: vi.fn(async () => [defined(INJECTS_A_SECRET)]),
-        } as unknown as DefinedIntegrationsPort,
+        partial<DefinedIntegrationsPort>({
+          ofTeam: vi.fn(() => Promise.resolve([defined(INJECTS_A_SECRET)])),
+        }),
         runtimeWith(new HttpOutbound(allowingOutbound(allowed), fetch)),
         callAuthFor(secrets.injection),
         inferringInto(),
@@ -295,12 +300,9 @@ describe('IntegrationToolCalls', () => {
       );
 
       const comment = async () => {
-        const resolved = (await tools.resolve(
-          'linear.comment',
-          task(),
-          ATTEMPT,
-          null,
-        )) as IntegrationTool;
+        const resolved = await resolvedTool(
+          tools.resolve('linear.comment', task(), ATTEMPT, null),
+        );
 
         return answerOf(resolved.call({ issue: 'ENG-12', body: 'Fixed.' }));
       };
@@ -308,9 +310,8 @@ describe('IntegrationToolCalls', () => {
       return { comment, fetch, ...secrets };
     };
 
-    const headersOf = (fetch: ReturnType<typeof vi.fn>) =>
-      (fetch.mock.calls[0] as unknown as [string, RequestInit])[1]
-        .headers as Record<string, string>;
+    const sentHeaders = (fetch: Mock<typeof globalThis.fetch>) =>
+      headersOf(callAt(fetch)[1]);
 
     it('calls the host and injects a secret bound to it', async () => {
       const { comment, fetch } = injectingAction({
@@ -319,7 +320,7 @@ describe('IntegrationToolCalls', () => {
 
       await comment();
 
-      expect(headersOf(fetch).authorization).toBe('lin_api_1');
+      expect(sentHeaders(fetch).authorization).toBe('lin_api_1');
     });
 
     it('grants the run’s current attempt only the secrets that the tool’s action injects', async () => {
@@ -438,9 +439,7 @@ describe('IntegrationToolCalls', () => {
   });
 
   it('reads an input the agent left out from the task', async () => {
-    const resolved = (await using().resolving(
-      'linear.comment',
-    )) as IntegrationTool;
+    const resolved = await resolvedTool(using().resolving('linear.comment'));
     expect(resolved.defaultFor('issue')).toBe('ENG-12');
   });
 
@@ -553,7 +552,7 @@ graphql:
       answering: Response,
       hosts: WorkspaceOutboundScopePort = unscoped,
     ) => {
-      const fetch = vi.fn(async () => answering);
+      const fetch = vi.fn(() => Promise.resolve(answering));
       const secrets = injecting({
         PETSTORE_KEY: {
           host: 'petstore3.swagger.io',
@@ -561,18 +560,18 @@ graphql:
           value: 'special-key',
         },
       });
-      const integration = String(
-        (parseYaml(text) as Record<string, unknown>).integration,
-      );
+      const integration = String(fieldOf(parseYaml(text), 'integration'));
       const tools = integrationToolCalls(
-        {
-          ofTeam: vi.fn(async () => [
-            defined(text, {
-              hash: HASH.value,
-              tools: [`${integration}.${operation.name}`],
-            }),
-          ]),
-        } as unknown as DefinedIntegrationsPort,
+        partial<DefinedIntegrationsPort>({
+          ofTeam: vi.fn(() =>
+            Promise.resolve([
+              defined(text, {
+                hash: HASH.value,
+                tools: [`${integration}.${operation.name}`],
+              }),
+            ]),
+          ),
+        }),
         new CompiledIntegrationRuntime(
           new IntegrationReader(
             expressions,
@@ -591,7 +590,7 @@ graphql:
             fetch,
           ),
           clientsFrom(),
-          {} as OAuth2Exchange,
+          partial<OAuth2Exchange>({}),
           discoveringNothing(),
           callingNoServer(),
           unlimited,
@@ -648,7 +647,7 @@ graphql:
         ADD_PET,
         new Response(JSON.stringify({ id: 10, name: 'doggie' })),
       );
-      const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
+      const resolved = await resolvedTool(resolving('petstore.add-pet'));
 
       await expect(
         answerOf(resolved.call({ body: { name: 'doggie' } })),
@@ -677,7 +676,7 @@ graphql:
         new Response('{}'),
         scopedTo('api.linear.app'),
       );
-      const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
+      const resolved = await resolvedTool(resolving('petstore.add-pet'));
 
       await expect(
         answerOf(resolved.call({ body: { name: 'doggie' } })),
@@ -694,7 +693,7 @@ graphql:
         new Response('{}'),
         scopedTo('*.swagger.io'),
       );
-      const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
+      const resolved = await resolvedTool(resolving('petstore.add-pet'));
 
       await answerOf(resolved.call({ body: { name: 'doggie' } }));
 
@@ -709,9 +708,7 @@ graphql:
           JSON.stringify({ data: { issue: { id: 'i1', title: 'Broken' } } }),
         ),
       );
-      const resolved = (await answered.resolving(
-        'linear.issue',
-      )) as IntegrationTool;
+      const resolved = await resolvedTool(answered.resolving('linear.issue'));
 
       await expect(answerOf(resolved.call({ id: 'i1' }))).resolves.toEqual({
         id: 'i1',
@@ -728,9 +725,7 @@ graphql:
           }),
         ),
       );
-      const failing = (await withErrors.resolving(
-        'linear.issue',
-      )) as IntegrationTool;
+      const failing = await resolvedTool(withErrors.resolving('linear.issue'));
 
       await expect(answerOf(failing.call({ id: 'nope' }))).rejects.toThrow(
         /the integration answered 200: .*Entity not found/,

@@ -5,6 +5,7 @@ import { HookDecision } from '@integrations/domain/value-objects/hook-decision.v
 import { runStarting } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { LifecycleHooks } from '@integrations/infrastructure/acl/lifecycle-hooks.adapter';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -28,7 +29,7 @@ const TASK: TaskViewDto = {
 };
 
 const setUp = (decide = vi.fn()) => {
-  const on = vi.fn(async () => true);
+  const on = vi.fn(() => Promise.resolve(true));
   const toolUsed = vi.fn(async () => {});
 
   return {
@@ -36,9 +37,9 @@ const setUp = (decide = vi.fn()) => {
     decide,
     toolUsed,
     hooks: new LifecycleHooks(
-      { on } as unknown as HooksListening,
-      { decide } as unknown as RunBeforeHooks,
-      { toolUsed } as unknown as LifecycleHookTriggers,
+      partial<HooksListening>({ on }),
+      partial<RunBeforeHooks>({ decide }),
+      partial<LifecycleHookTriggers>({ toolUsed }),
     ),
   };
 };

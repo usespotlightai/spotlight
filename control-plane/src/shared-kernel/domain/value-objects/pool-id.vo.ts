@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class PoolId {
-  private readonly kind = 'pool';
+  private readonly kind: string = 'pool';
 
   private constructor(readonly value: string) {}
 

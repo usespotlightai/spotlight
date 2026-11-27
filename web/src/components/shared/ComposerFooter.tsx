@@ -1,4 +1,4 @@
-import { type ReactNode, useRef } from 'react';
+import { type ReactNode, useRef, type ReactElement } from 'react';
 
 import { THREAD_GUTTER } from '@/components/shared/thread-column';
 import { useTextBarTop } from '@/hooks/useTextBarTop';
@@ -10,7 +10,7 @@ export function ComposerFooter({
 }: {
   floating?: boolean;
   children: ReactNode;
-}) {
+}): ReactElement {
   const footer = useRef<HTMLDivElement>(null);
   const textBarTop = useTextBarTop(footer, floating);
 

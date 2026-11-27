@@ -1,3 +1,4 @@
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
@@ -54,7 +55,7 @@ describe('LineRepositories', () => {
       try {
         of('acme/api', 'acme/web').opening(null);
       } catch (error) {
-        message = (error as Error).message;
+        message = instanceOf(Error, error).message;
       }
 
       expect(message).not.toContain('--repository');

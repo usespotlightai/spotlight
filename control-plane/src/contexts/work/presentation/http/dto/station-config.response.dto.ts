@@ -4,6 +4,9 @@ import type {
   StationConfigShape,
 } from '@work/application/contracts/station-config.contract';
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object';
+
 export class ProfileViewResponseDto {
   @ApiProperty({ example: 'careful' })
   readonly key: string;
@@ -18,10 +21,7 @@ export class ProfileViewResponseDto {
 
   constructor(from: { key: string; settings: unknown }) {
     this.key = from.key;
-    this.settings =
-      from.settings !== null && typeof from.settings === 'object'
-        ? (from.settings as Record<string, unknown>)
-        : {};
+    this.settings = isRecord(from.settings) ? from.settings : {};
   }
 }
 

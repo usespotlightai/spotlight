@@ -1,7 +1,8 @@
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import {
-  claimer,
   OWN_POOL,
+  claimer,
+  leaseEndOf,
   orderedFor,
 } from '@runs/domain/aggregates/run.fake-spec';
 import { RunClaimed } from '@runs/domain/events/run-claimed.event';
@@ -83,8 +84,7 @@ const quiet = (run: Run): Run => {
 const claimed = (by = runner(), when = noon) =>
   quiet(queued().claim(claimer(by), when));
 
-const lostAndRequeued = (run: Run) =>
-  run.expireLease(run.leaseExpiresAt as Date);
+const lostAndRequeued = (run: Run) => run.expireLease(leaseEndOf(run));
 
 const onAttempt = (attempt: number, leaseUntil: Date) =>
   Run.rehydrate({
@@ -106,6 +106,24 @@ const onAttempt = (attempt: number, leaseUntil: Date) =>
     createdAt: noon,
     spent: TimeSpent.none(),
   });
+
+const endedIn = (event: unknown): RunEnded => {
+  if (!(event instanceof RunEnded)) {
+    throw new Error('expected the run to have ended');
+  }
+
+  return event;
+};
+
+const claimableFromOf = (run: Run): Date => {
+  const from = run.requeueCount.claimableFrom;
+
+  if (from === null) {
+    throw new Error('expected the run to wait before it can be claimed');
+  }
+
+  return from;
+};
 
 describe('Run', () => {
   it('is exhausted rather than requeued for ever', () => {
@@ -258,7 +276,7 @@ describe('Run', () => {
 
   it('has an expired lease only once its lease is behind it', () => {
     const run = claimed();
-    const lease = run.leaseExpiresAt as Date;
+    const lease = leaseEndOf(run);
 
     expect(run.leaseExpired(new Date(lease.getTime() - 1))).toBe(false);
     expect(run.leaseExpired(lease)).toBe(true);
@@ -271,7 +289,7 @@ describe('Run', () => {
   it('goes back on the queue for someone else, counting the attempt', () => {
     const leased = claimed();
 
-    const again = leased.expireLease(leased.leaseExpiresAt as Date);
+    const again = leased.expireLease(leaseEndOf(leased));
 
     expect(again.state).toBe('queued');
     expect(again.claimedBy).toBeNull();
@@ -283,7 +301,7 @@ describe('Run', () => {
     const stopping = claimed().requestStop(noon);
     stopping.pullEvents();
 
-    const ended = stopping.expireLease(stopping.leaseExpiresAt as Date);
+    const ended = stopping.expireLease(leaseEndOf(stopping));
 
     expect(ended.hasEnded).toBe(true);
     expect(ended.state).not.toBe('queued');
@@ -306,8 +324,8 @@ describe('Run', () => {
 
     const renewed = leased.renewLease(runner(), at('2026-08-23T12:00:30.000Z'));
 
-    expect((renewed.leaseExpiresAt as Date).getTime()).toBeGreaterThan(
-      (leased.leaseExpiresAt as Date).getTime(),
+    expect(leaseEndOf(renewed).getTime()).toBeGreaterThan(
+      leaseEndOf(leased).getTime(),
     );
   });
 
@@ -912,7 +930,7 @@ describe('Run', () => {
 
       const [completed] = refused.pullEvents();
       expect(completed).toBeInstanceOf(RunEnded);
-      expect((completed as RunEnded).claimedBy).toBeNull();
+      expect(endedIn(completed).claimedBy).toBeNull();
       expect(refused.endedAt).toEqual(refused.createdAt);
     });
   });
@@ -1000,10 +1018,7 @@ describe('Run', () => {
         waits.push(
           (run.requeueCount.claimableFrom?.getTime() ?? 0) - noon.getTime(),
         );
-        run = run.claim(
-          claimer(runner()),
-          run.requeueCount.claimableFrom as Date,
-        );
+        run = run.claim(claimer(runner()), claimableFromOf(run));
       }
 
       expect(waits).toEqual([5_000, 10_000, 20_000, 40_000, 80_000]);
@@ -1022,10 +1037,7 @@ describe('Run', () => {
 
       for (let each = 0; each < 5; each++) {
         run = run.requeue(runner(), noon, DOWN);
-        run = run.claim(
-          claimer(runner()),
-          run.requeueCount.claimableFrom as Date,
-        );
+        run = run.claim(claimer(runner()), claimableFromOf(run));
       }
       run.pullEvents();
 
@@ -1049,7 +1061,7 @@ describe('Run', () => {
       expect(ended.claimedBy).toBeNull();
       const [completed] = ended.pullEvents();
       expect(completed).toBeInstanceOf(RunEnded);
-      expect((completed as RunEnded).outcome.stopped).toBe(true);
+      expect(endedIn(completed).outcome.stopped).toBe(true);
     });
 
     it('starts counting afresh on a later attempt', () => {
@@ -1083,9 +1095,9 @@ describe('Run', () => {
 
       const [completed] = denied.pullEvents();
       expect(completed).toBeInstanceOf(RunEnded);
-      expect((completed as RunEnded).outcome.failed).toBe(true);
-      expect((completed as RunEnded).claimedBy).toBeNull();
-      expect((completed as RunEnded).endedBy).toBe('refusal');
+      expect(endedIn(completed).outcome.failed).toBe(true);
+      expect(endedIn(completed).claimedBy).toBeNull();
+      expect(endedIn(completed).endedBy).toBe('refusal');
     });
 
     it('has its start denied only by the runner that claimed it', () => {
@@ -1186,7 +1198,7 @@ describe('Run', () => {
         .pullEvents();
 
       expect(raised).toBeInstanceOf(RunEnded);
-      const completed = raised as RunEnded;
+      const completed = endedIn(raised);
       expect(completed.runId).toEqual(RunId.of('run_1'));
       expect(completed.outcome.failed).toBe(false);
       expect(completed.claimedBy).toEqual(runner());
@@ -1555,9 +1567,7 @@ describe('Run', () => {
     it('clears the image once it goes back on the queue', () => {
       const started = claimed().startedIn(runner(), pinned, noon);
 
-      expect(
-        started.expireLease(started.leaseExpiresAt as Date).ranIn,
-      ).toBeNull();
+      expect(started.expireLease(leaseEndOf(started)).ranIn).toBeNull();
     });
   });
 

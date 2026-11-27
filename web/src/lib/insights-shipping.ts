@@ -264,9 +264,11 @@ export const flowStages = (
       station: stage.station,
       ms: times?.total[percentile] ?? null,
       parts: parts
-        ? (Object.fromEntries(
-            STATION_STAGES.map((part) => [part, parts[part][percentile]]),
-          ) as Record<StationStage, number | null>)
+        ? {
+            queued: parts.queued[percentile],
+            running: parts.running[percentile],
+            inbox: parts.inbox[percentile],
+          }
         : null,
       bottleneckRatio: times?.bottleneckRatio[percentile] ?? 0,
       worst: times?.worst[percentile] ?? false,
@@ -309,21 +311,26 @@ const byTypeOf = (byType: ByTypeResponseDto): ByType => ({
 
 const sharesOf = (
   rounds: readonly RoundsCount[],
-): Record<Rounds, number | null> =>
-  Object.fromEntries(
-    ROUNDS.map((each) => [
-      each,
-      rounds.find((counted) => counted.rounds === each)?.rate ?? null,
-    ]),
-  ) as Record<Rounds, number | null>;
+): Record<Rounds, number | null> => {
+  const rateOf = (each: Rounds): number | null =>
+    rounds.find((counted) => counted.rounds === each)?.rate ?? null;
+
+  return {
+    '0': rateOf('0'),
+    '1': rateOf('1'),
+    '2': rateOf('2'),
+    '3+': rateOf('3+'),
+  };
+};
 
 const pipelineStageOf =
   (names: StationNames) =>
   (stage: FlowStageResponseDto): PipelineStage => ({
     id: stage.stationId ?? stage.kind,
-    label: stage.stationId
-      ? formatStation(names, stage.stationId)
-      : STAGES_TEXT[stage.kind],
+    label:
+      stage.stationId !== null && stage.stationId !== ''
+        ? formatStation(names, stage.stationId)
+        : STAGES_TEXT[stage.kind],
     station: stage.kind === 'station',
     times: byTypeOf(stage.times),
   });

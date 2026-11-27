@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
@@ -100,7 +101,7 @@ export class DrizzleCandidateRepository implements CandidateRepository {
   ) {}
 
   async find(id: CandidateId): Promise<Candidate | null> {
-    const [found] = await this.where(eq(replayCandidate.id, id.value));
+    const found = firstOf(await this.where(eq(replayCandidate.id, id.value)));
 
     return found ?? null;
   }

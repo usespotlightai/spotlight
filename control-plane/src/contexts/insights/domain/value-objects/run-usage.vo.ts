@@ -67,7 +67,7 @@ export class RunUsage {
       changedLines,
       input.contextTokens,
       input.contextWindow,
-      input.amount !== null && input.currency
+      input.amount !== null && input.currency !== null && input.currency !== ''
         ? { amount: input.amount, currency: input.currency }
         : null,
       tokens,

@@ -34,6 +34,9 @@ import { DrizzleScoreRepository } from '@insights/infrastructure/persistence/dri
 import { scoreFactOf } from '@insights/runs.fake-spec';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -45,6 +48,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
 import { projectedInsights } from './support/insights-facts';
+import { overriding } from './support/overriding';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 const TEAM = TeamId.of('team_1');
@@ -137,8 +141,10 @@ beforeAll(async () => {
   database = await openDatabase('judge_scores');
   context = new DrizzleContext(database.db);
   const dispatcher = {
-    dispatch: async (events: readonly DomainEvent[]) => {
+    dispatch: (events: readonly DomainEvent[]) => {
       dispatched.push(...events);
+
+      return Promise.resolve();
     },
   };
   judgings = new DrizzleJudgingRepository(context, dispatcher);
@@ -153,34 +159,36 @@ beforeAll(async () => {
   facts = new DrizzleStationFacts(context);
   reports = new StationJudgeReports(
     {
-      judgesOnTeam: async () => new Map(),
-      judgeAt: async (stationId) =>
-        stationId.value === CLAIMS_STATION
-          ? {
-              teamId: TeamId.of('team_1'),
-              lineId: LineId.of('line_1'),
-              claims: [...CLAIMS],
-              passThreshold: 0.5,
-              rubricVersion: CLAIMS_VERSION,
-              sample: 1,
-              minAgreement: 0.5,
-            }
-          : {
-              teamId: TeamId.of('team_1'),
-              lineId: LineId.of('line_1'),
-              claims: ['It retries the upload.'],
-              passThreshold: 1,
-              rubricVersion: VERSION,
-              sample: 1,
-              minAgreement: 0.5,
-            },
+      judgesOnTeam: () => Promise.resolve(new Map()),
+      judgeAt: (stationId) =>
+        Promise.resolve(
+          stationId.value === CLAIMS_STATION
+            ? {
+                teamId: TeamId.of('team_1'),
+                lineId: LineId.of('line_1'),
+                claims: [...CLAIMS],
+                passThreshold: 0.5,
+                rubricVersion: CLAIMS_VERSION,
+                sample: 1,
+                minAgreement: 0.5,
+              }
+            : {
+                teamId: TeamId.of('team_1'),
+                lineId: LineId.of('line_1'),
+                claims: ['It retries the upload.'],
+                passThreshold: 1,
+                rubricVersion: VERSION,
+                sample: 1,
+                minAgreement: 0.5,
+              },
+        ),
     },
     facts,
   );
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const erased = async <A extends { delete(): A }>(
@@ -220,35 +228,37 @@ describe('judgings, stored', () => {
 
     const judging = await judgings.of(RunId.of('run_judged'));
     await judgings.save(
-      judging?.recordVerdict({
-        verdict: {
-          claims: [
-            {
-              index: 0,
-              met: true,
-              reasons: [{ text: 'It retried.', steps: [4], hunks: [] }],
-            },
-          ],
-        },
-        evidence: JudgeEvidence.of({
-          runId: RunId.of('run_judged'),
-          title: 'Retry uploads',
-          description: null,
-          steps: [
-            {
-              index: 4,
-              kind: 'message',
-              tool: null,
-              text: 'Retrying.',
-              input: null,
-              output: null,
-            },
-          ],
-          hunks: [],
+      present(
+        judging?.recordVerdict({
+          verdict: {
+            claims: [
+              {
+                index: 0,
+                met: true,
+                reasons: [{ text: 'It retried.', steps: [4], hunks: [] }],
+              },
+            ],
+          },
+          evidence: JudgeEvidence.of({
+            runId: RunId.of('run_judged'),
+            title: 'Retry uploads',
+            description: null,
+            steps: [
+              {
+                index: 4,
+                kind: 'message',
+                tool: null,
+                text: 'Retrying.',
+                input: null,
+                output: null,
+              },
+            ],
+            hunks: [],
+          }),
+          model: 'some/model',
+          now: LATER,
         }),
-        model: 'some/model',
-        now: LATER,
-      }) as Judging,
+      ),
     );
 
     const done = await judgings.of(RunId.of('run_judged'));
@@ -259,7 +269,8 @@ describe('judgings, stored', () => {
       dispatched.some(
         (each) =>
           each.kind === 'judging.judged' &&
-          (each as RunJudged).runId.value === 'run_judged',
+          each instanceof RunJudged &&
+          each.runId.value === 'run_judged',
       ),
     ).toBe(true);
   });
@@ -269,7 +280,7 @@ describe('scores, stored', () => {
   it('stores a judge’s score with its cited reasons', async () => {
     await scores.add(judged('run_a', 1));
 
-    const [score] = await facts.scoresOfRuns([RunId.of('run_a')]);
+    const score = firstOf(await facts.scoresOfRuns([RunId.of('run_a')]));
     expect(score?.reasons[0]?.citations.map((each) => each.kind)).toEqual([
       'step',
       'hunk',
@@ -511,7 +522,7 @@ describe('how often the judge agrees with people', () => {
       stationId: StationId.of('station_1'),
     });
 
-    const [version] = report.versions;
+    const version = firstOf(report.versions);
     expect(version?.rubricVersion).toBe(VERSION);
     expect(version?.judged).toBe(13);
     expect(version?.agreement.pairs).toBe(12);
@@ -578,7 +589,7 @@ describe('how often the judge agrees with people', () => {
       release = resolve;
     });
     const recording = new RecordJudgeScore(
-      Object.assign(Object.create(scores) as typeof scores, {
+      overriding(scores, {
         of: async (runId: RunId, rubricVersion: RubricVersion) => {
           loading();
           await released;
@@ -606,7 +617,7 @@ describe('how often the judge agrees with people', () => {
     await loadingNow;
 
     const deleting = new DeleteInsights(
-      { scores } as unknown as InsightsRepositories,
+      partial<InsightsRepositories>({ scores }),
       deletions,
       context,
     ).scores(DeletionScope.ofTask(WORKSPACE, TaskId.of('task_racing')));
@@ -651,7 +662,7 @@ describe('a claims judge’s scores, stored', () => {
       }),
     );
 
-    const [stored] = await facts.scoresOfRuns([RunId.of('claims_0')]);
+    const stored = firstOf(await facts.scoresOfRuns([RunId.of('claims_0')]));
     expect(stored?.claimResults).toEqual([true, true]);
     expect(stored?.reasons.map((each) => each.claim)).toEqual([0, 1]);
   });

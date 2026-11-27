@@ -21,7 +21,7 @@ export const skillFileProblem = (path: string): string | null => {
 };
 
 export class SkillFiles {
-  private readonly kind = 'skill-files';
+  private readonly kind: string = 'skill-files';
 
   private constructor(private readonly byPath: ReadonlyMap<string, string>) {}
 
@@ -29,7 +29,7 @@ export class SkillFiles {
     for (const path of Object.keys(files)) {
       const problem = skillFileProblem(path);
 
-      if (problem) {
+      if (problem !== null && problem !== '') {
         throw new InvalidIdentifierError('skill file', problem);
       }
     }

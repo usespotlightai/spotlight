@@ -6,10 +6,10 @@ import { describe, expect, it } from 'vitest';
 const provider = (key: string): WebhookProviderPort => ({
   key,
   happenings: [],
-  verifies: async () => true,
+  verifies: () => Promise.resolve(true),
   delivery: () => 'delivery_1',
-  routes: async () => null,
-  read: async () => [],
+  routes: () => Promise.resolve(null),
+  read: () => Promise.resolve([]),
 });
 
 describe('WebhookProviders', () => {

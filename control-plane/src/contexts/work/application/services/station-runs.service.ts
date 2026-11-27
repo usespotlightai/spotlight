@@ -20,7 +20,9 @@ const PREVIEW_LIMIT = 300;
 
 const shortened = (text: string | null | undefined): string | null => {
   const trimmed = text?.trim();
-  return trimmed ? trimmed.slice(0, PREVIEW_LIMIT) : null;
+  return trimmed !== undefined && trimmed !== ''
+    ? trimmed.slice(0, PREVIEW_LIMIT)
+    : null;
 };
 
 export class StationRuns implements StationRunsPort {
@@ -113,7 +115,9 @@ export class StationRuns implements StationRunsPort {
       outputs: new Map(
         [...rows.notes].flatMap(([taskId, body]) => {
           const output = shortened(body);
-          return output ? [[taskId, output] as const] : [];
+          return output !== null && output !== ''
+            ? [[taskId, output] as const]
+            : [];
         }),
       ),
     };

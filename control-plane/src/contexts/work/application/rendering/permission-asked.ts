@@ -17,7 +17,7 @@ export const PermissionAsked = {
   },
 
   because(profile: string | null): string {
-    return profile
+    return profile !== null && profile !== ''
       ? `The ${profile} harness profile says to ask a person first.`
       : 'The harness asked before doing it.';
   },

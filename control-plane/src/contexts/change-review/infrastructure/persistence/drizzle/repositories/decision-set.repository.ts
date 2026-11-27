@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import { Decision } from '@change-review/domain/entities/decision.entity';
 import { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
@@ -236,11 +237,11 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
   }
 
   async forTask(taskId: TaskId): Promise<DecisionSet | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(decisionSet)
       .where(eq(decisionSet.taskId, taskId.value))
-      .limit(1);
+      .limit(1));
 
     return row ? this.withDecisions(row) : null;
   }

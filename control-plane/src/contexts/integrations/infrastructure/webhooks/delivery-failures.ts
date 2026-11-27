@@ -17,11 +17,6 @@ const PERMANENT_KINDS: ReadonlySet<FailureKind> = new Set([
   'not-found',
 ]);
 
-const kindOf = (error: unknown): FailureKind | null =>
-  error instanceof DomainError || error instanceof ApplicationError
-    ? error.kind
-    : null;
-
 export const deliveryFailureOf = (error: unknown): DeliveryFailure | null => {
   if (error instanceof UpstreamError) {
     return error.retryable
@@ -29,13 +24,15 @@ export const deliveryFailureOf = (error: unknown): DeliveryFailure | null => {
       : DeliveryFailure.permanent(error.message);
   }
 
-  const kind = kindOf(error);
-
-  if (kind === 'conflict') {
-    return DeliveryFailure.transient((error as Error).message);
+  if (!(error instanceof DomainError || error instanceof ApplicationError)) {
+    return null;
   }
 
-  return kind !== null && PERMANENT_KINDS.has(kind)
-    ? DeliveryFailure.permanent((error as Error).message)
+  if (error.kind === 'conflict') {
+    return DeliveryFailure.transient(error.message);
+  }
+
+  return PERMANENT_KINDS.has(error.kind)
+    ? DeliveryFailure.permanent(error.message)
     : null;
 };

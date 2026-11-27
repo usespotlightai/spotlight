@@ -1,9 +1,15 @@
+import type { ReactElement } from 'react';
+
 import { StationIconSkeleton } from '@/components/features/board/column/StationIconSkeleton';
 import { SinceSkeleton } from '@/components/features/team/SinceSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { cn } from '@/lib/utils';
 
-export function RunRowSkeleton({ gutter = false }: { gutter?: boolean }) {
+export function RunRowSkeleton({
+  gutter = false,
+}: {
+  gutter?: boolean;
+}): ReactElement {
   return (
     <li
       className={cn(

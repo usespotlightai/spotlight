@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class IntegrationDefinitionId {
-  private readonly kind = 'integration';
+  private readonly kind: string = 'integration';
 
   private constructor(readonly value: string) {}
 

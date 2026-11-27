@@ -1,5 +1,5 @@
 import { useCommands } from '@/hooks/useCommands';
-import { useFocusWithin } from '@/hooks/useFocusWithin';
+import { type FocusWithinResult, useFocusWithin } from '@/hooks/useFocusWithin';
 import type { ApprovalMode } from '@/lib/approval';
 
 type ApproveKey = {
@@ -27,18 +27,23 @@ const approvalOf = ({
     return blank ? null : onApproveEdited;
   }
 
-  return mode === 'viewing' && !onlyFor ? onApprove : null;
+  return mode === 'viewing' && (onlyFor === null || onlyFor === '')
+    ? onApprove
+    : null;
 };
 
-export function useApproveKey(key: ApproveKey) {
+type ApproveKeyResult = {
+  handlers: FocusWithinResult['handlers'];
+  keyed: boolean;
+};
+
+export function useApproveKey(key: ApproveKey): ApproveKeyResult {
   const { focused, handlers } = useFocusWithin();
   const approve = approvalOf(key);
 
   const keyed = (focused || key.docked) && approve !== null;
 
-  useCommands(
-    keyed && approve ? [{ id: 'approval.approve', run: approve }] : [],
-  );
+  useCommands(keyed ? [{ id: 'approval.approve', run: approve }] : []);
 
   return { handlers, keyed };
 }

@@ -25,6 +25,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
@@ -106,11 +107,12 @@ export class IntegrationConnectionController {
   })
   @ApiUnprocessableEntityResponse({ description: 'No such rule' })
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBody({ type: SetToolRuleRequestDto })
   async setToolRule(
     @Param('teamId') teamId: string,
     @Param('integration') integration: string,
     @Param('tool') tool: string,
-    @Body() body: SetToolRuleRequestDto,
+    @Body() body: SetToolRuleRequestDto | undefined,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     const set = await this.commandBus.execute<

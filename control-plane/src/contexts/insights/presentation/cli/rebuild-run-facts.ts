@@ -11,6 +11,9 @@ const reported = ({ owner, rebuilt }: RebuiltRunFacts): void => {
   console.log(`Rebuilt ${rebuilt} run facts for ${owner}.`);
 };
 
+const given = (value: string | undefined): value is string =>
+  value !== undefined && value !== '';
+
 async function rebuild(): Promise<void> {
   const { values } = parseArgs({
     options: {
@@ -20,24 +23,24 @@ async function rebuild(): Promise<void> {
     },
   });
 
-  if (values.help || (values.team && !values.workspace)) {
+  const { workspace, team } = values;
+  const asksForHelp = values.help === true;
+
+  if (asksForHelp || (given(team) && !given(workspace))) {
     console.log(USAGE);
-    process.exitCode = values.help ? 0 : 1;
+    process.exitCode = asksForHelp ? 0 : 1;
     return;
   }
 
   const { facts, close } = openRunFactsRebuild();
 
   try {
-    if (values.workspace && values.team) {
-      reported(await facts.ofTeam(values.workspace, values.team));
+    if (given(workspace) && given(team)) {
+      reported(await facts.ofTeam(workspace, team));
       return;
     }
 
-    await facts.ofWorkspaces(
-      values.workspace ? [values.workspace] : null,
-      reported,
-    );
+    await facts.ofWorkspaces(given(workspace) ? [workspace] : null, reported);
   } finally {
     await close();
   }

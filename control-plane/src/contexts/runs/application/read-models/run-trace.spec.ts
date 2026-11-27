@@ -3,6 +3,7 @@ import type {
   RunJournal,
   RunSpan,
 } from '@runs/application/contracts/run-journal.contract';
+import type { TraceNode } from '@runs/application/contracts/run-trace.contract';
 import {
   paired,
   type TracedRun,
@@ -62,6 +63,11 @@ const journal = (part: Partial<RunJournal> = {}): RunJournal => ({
   background: [],
   ...part,
 });
+
+const nth = (
+  nodes: readonly TraceNode[] | undefined,
+  index: number,
+): TraceNode | undefined => nodes?.[index];
 
 const tracedRun = (part: Partial<TracedRun> = {}): TracedRun => ({
   id: RunId.of('run_1'),
@@ -166,7 +172,10 @@ describe('traceOf', () => {
       }),
     ]);
 
-    const [prepare, turn, publish] = trace.roots[0]?.children ?? [];
+    const children = trace.roots[0]?.children;
+    const prepare = nth(children, 0);
+    const turn = nth(children, 1);
+    const publish = nth(children, 2);
     expect(names(prepare?.children ?? [])).toEqual(['prepare']);
     expect(names(turn?.children ?? [])).toEqual(['npm test']);
     expect(names(publish?.children ?? [])).toEqual(['publish']);
@@ -268,8 +277,8 @@ describe('traceOf', () => {
       }),
     ]);
 
-    const run = trace.roots[0];
-    const turn = run?.children[1];
+    const run = nth(trace.roots, 0);
+    const turn = nth(run?.children, 1);
     expect(
       turn?.children.map((node) => [node.kind, node.name, node.place]),
     ).toEqual([
@@ -319,7 +328,7 @@ describe('traceOf', () => {
       }),
     ]);
 
-    const run = trace.roots[0];
+    const run = nth(trace.roots, 0);
     expect(run?.from).toEqual(at(0));
     expect(run?.cost).toEqual({ amount: 2, currency: 'USD' });
     expect(
@@ -352,7 +361,7 @@ describe('traceOf', () => {
         }),
       ]);
 
-      const turn = trace.roots[0]?.children[1];
+      const turn = nth(trace.roots[0]?.children, 1);
       expect(turn?.children).toHaveLength(1);
       expect(turn?.children[0]?.name).toBe('npm test');
       expect(turn?.children[0]?.span?.id).toBe('s1');
@@ -376,7 +385,7 @@ describe('traceOf', () => {
         }),
       ]);
 
-      const turn = trace.roots[0]?.children[1];
+      const turn = nth(trace.roots[0]?.children, 1);
       expect(turn?.children[0]?.name).toBe('llm_request');
       expect(turn?.children[0]?.step).toBeNull();
     });
@@ -431,7 +440,7 @@ describe('traceOf', () => {
         }),
       ]);
 
-      const turn = trace.roots[0]?.children[1];
+      const turn = nth(trace.roots[0]?.children, 1);
       expect(names(turn?.children ?? [])).toEqual(['interaction']);
       expect(names(turn?.children[0]?.children ?? [])).toEqual(['llm_request']);
     });
@@ -484,7 +493,7 @@ describe('traceOf', () => {
       }),
     ]);
 
-    const turn = trace.roots[0]?.children[1];
+    const turn = nth(trace.roots[0]?.children, 1);
     expect(names(turn?.children ?? [])).toEqual(['npm test']);
     expect(turn?.children[0]?.span).toBeNull();
   });
@@ -502,7 +511,7 @@ describe('traceOf', () => {
         }),
       ]);
 
-      const test = trace.roots[0]?.children[1]?.children[0];
+      const test = nth(trace.roots[0]?.children[1]?.children, 0);
       expect(test?.name).toBe('npm test');
       expect(test?.children).toMatchObject([
         {
@@ -541,7 +550,7 @@ describe('traceOf', () => {
         }),
       ]);
 
-      const run = trace.roots[0];
+      const run = nth(trace.roots, 0);
       expect(names(run?.children[1]?.children ?? [])).toEqual([
         'npm test',
         'paste.example.net',
@@ -610,7 +619,7 @@ describe('traceOf', () => {
         }),
       ]);
 
-      const test = trace.roots[0]?.children[1]?.children[0];
+      const test = nth(trace.roots[0]?.children[1]?.children, 0);
       expect(names(test?.children ?? [])).toEqual(['api.linear.app']);
     });
 

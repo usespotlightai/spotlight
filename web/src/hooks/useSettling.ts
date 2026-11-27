@@ -8,7 +8,9 @@ import {
 
 import { springMs } from '@/lib/motion';
 
-export function useSettling<T>(onSettled: (value: T) => void = () => {}) {
+export function useSettling<T>(
+  onSettled: (value: T) => void = () => {},
+): readonly [NonNullable<T> | null, (value: T | null) => void] {
   const [settling, setSettling] = useState<{ value: T } | null>(null);
   const settled = useRef(onSettled);
 

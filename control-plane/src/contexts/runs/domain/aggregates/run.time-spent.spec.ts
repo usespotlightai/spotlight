@@ -1,5 +1,9 @@
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import {
+  claimer,
+  leaseEndOf,
+  orderedFor,
+} from '@runs/domain/aggregates/run.fake-spec';
 import { RunEnded } from '@runs/domain/events/run-ended.event';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
@@ -98,10 +102,10 @@ describe('the time a run spends', () => {
 
   it('keeps the work of an attempt whose runner was lost, and queues it again', () => {
     const started = startedAt(queued(), 1_000, 2_000);
-    const lost = started.expireLease(started.leaseExpiresAt as Date);
+    const lost = started.expireLease(leaseEndOf(started));
 
     expect(lost.spent.runningMs).toBe(
-      (started.leaseExpiresAt as Date).getTime() - at(2_000).getTime(),
+      leaseEndOf(started).getTime() - at(2_000).getTime(),
     );
     expect(lost.queuedAt).toEqual(started.leaseExpiresAt);
   });

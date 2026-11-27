@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunReadModel } from '@runs/application/services/run-read-model.service';
 import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/readers/run-facts.reader';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -38,7 +40,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const progress = () => {
@@ -158,12 +160,12 @@ const inboxWith = async (
 
   const tasks = new DrizzleTaskReader(
     db,
-    { findMany: async () => new Map() } as never,
+    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
     progress(),
   );
   const reader = new DrizzleInboxReader(
     db,
-    { findMany: async () => new Map() } as never,
+    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
     progress(),
   );
 
@@ -371,11 +373,11 @@ describe('the progress of a chat whose run waits to start', () => {
       items: [found],
     } = await new DrizzleChatReader(
       db,
-      { find: async () => null } as never,
+      partial<PersonReaderPort>({ find: () => Promise.resolve(null) }),
       progress(),
     ).startedBy(TeamId.of('team_1'), UserId.of(viewer), FIRST_PAGE);
 
-    return found?.progress;
+    return found.progress;
   };
 
   it('is queued before the run is even on the queue', async () => {
@@ -517,7 +519,7 @@ const movedOnWith = async (
 
   const reader = new DrizzleInboxReader(
     db,
-    { findMany: async () => new Map() } as never,
+    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
     progress(),
   );
   const entries = await reader.open({

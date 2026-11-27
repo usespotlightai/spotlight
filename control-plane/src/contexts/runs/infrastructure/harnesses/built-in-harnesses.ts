@@ -387,7 +387,7 @@ const harnessVariables = (
 ): readonly string[] => [
   ...Object.keys(def.env),
   ...Object.keys(def.profile.translate(profile).env),
-  ...(def.configEnv ? [def.configEnv] : []),
+  ...(def.configEnv !== null && def.configEnv !== '' ? [def.configEnv] : []),
   ...(def.modelBinding.kind === 'env' ? [def.modelBinding.name] : []),
   ...(def.effortBinding?.kind === 'env' ? [def.effortBinding.name] : []),
   ...def.harnessKeys,
@@ -474,7 +474,11 @@ const commandOf = (
 
   const configured = { ...config, ...overrides };
 
-  if (def.configEnv && Object.keys(configured).length > 0) {
+  if (
+    def.configEnv !== null &&
+    def.configEnv !== '' &&
+    Object.keys(configured).length > 0
+  ) {
     env[def.configEnv] = JSON.stringify(configured);
   }
 

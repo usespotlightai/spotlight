@@ -1,23 +1,23 @@
 import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import { type JsonValue, sameJson } from '@shared-kernel/domain/json-value';
-
-type Fields = Readonly<Record<string, unknown>>;
+import {
+  isJsonObject,
+  type JsonObject,
+  sameJson,
+} from '@shared-kernel/domain/json-value';
 
 export class DefinitionDocument {
-  private constructor(readonly fields: Fields) {}
+  private constructor(readonly fields: JsonObject) {}
 
   static of(raw: unknown): DefinitionDocument {
-    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    if (!isJsonObject(raw)) {
       throw new InvalidIdentifierError(
         'definition',
         'is a document of named fields',
       );
     }
 
-    return new DefinitionDocument(
-      deepFrozen(structuredClone(raw) as Record<string, unknown>),
-    );
+    return new DefinitionDocument(deepFrozen(structuredClone(raw)));
   }
 
   hasValue(field: string, value: string): boolean {
@@ -25,6 +25,6 @@ export class DefinitionDocument {
   }
 
   equals(other: DefinitionDocument): boolean {
-    return sameJson(this.fields as JsonValue, other.fields as JsonValue);
+    return sameJson(this.fields, other.fields);
   }
 }

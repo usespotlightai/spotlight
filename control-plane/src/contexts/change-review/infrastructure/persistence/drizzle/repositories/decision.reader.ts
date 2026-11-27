@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   DecisionDto,
   MergedDecisionsDto,
@@ -108,11 +109,11 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async ofTask(taskId: TaskId): Promise<TaskDecisionsDto | null> {
-    const [set] = await this.context.db
+    const set = firstOf(await this.context.db
       .select()
       .from(decisionSet)
       .where(eq(decisionSet.taskId, taskId.value))
-      .limit(1);
+      .limit(1));
 
     if (!set) {
       return null;

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +15,7 @@ export function InitialAvatar({
   src,
   size = 'sm',
   className,
-}: InitialAvatarProps) {
+}: InitialAvatarProps): ReactElement {
   const [initial] = Array.from(name.trim());
 
   return (
@@ -27,7 +29,7 @@ export function InitialAvatar({
           : 'rounded',
       )}
     >
-      {src && (
+      {src !== undefined && src !== null && src !== '' && (
         <AvatarImage
           src={src}
           alt=""

@@ -16,6 +16,7 @@ import type {
 } from '@/lib/api';
 import type { RunScores } from '@/lib/judge';
 import { MAX_NOTE } from '@/lib/judge-disagreement';
+import { entryOf } from '@/mocks/entry';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
 import { taskOfRun, teamOfTask, world } from '@/mocks/world';
@@ -23,6 +24,7 @@ import {
   type InboxConversation,
   type InboxEntry,
   shown,
+  shownConversation,
 } from '@/mocks/world/inbox';
 import { landingsOf, noDecisions } from '@/mocks/world/inbox-reviews';
 import { pastScoresOf } from '@/mocks/world/inbox-scores';
@@ -67,7 +69,7 @@ const chatOf = (id: string) =>
 const taskOf = (taskId: string) => {
   const teamId = teamOfTask(taskId);
 
-  return teamId
+  return teamId !== undefined && teamId !== ''
     ? world().tasks[teamId]?.find((task) => task.id === taskId)
     : undefined;
 };
@@ -79,12 +81,10 @@ const teamOfAnyTask = (taskId: string) =>
 
 const journalVisible = (params: Params, taskId: string) =>
   isOurs(params) &&
-  Boolean(
-    teamOfAnyTask(taskId) ||
+  ((teamOfAnyTask(taskId) ?? '') !== '' ||
     inboxStore().entries.some(
       (entry) => entry.kind === 'task' && entry.taskId === taskId,
-    ),
-  );
+    ));
 
 const taskOfAnyRun = (runId: string) =>
   taskOfRun(runId) ??
@@ -122,7 +122,7 @@ const answerReviewOf = (item: InboxConversation) => {
   reviewAnswered(task, world().runs[item.taskId] ?? [], item.id);
 
   const teamId = teamOfTask(item.taskId);
-  if (teamId) {
+  if (teamId !== undefined && teamId !== '') {
     seenAgain(teamId, item.taskId);
   }
 };
@@ -134,8 +134,8 @@ const answer = (item: InboxConversation, reply: AnswerInboxItemRequestDto) => {
   if (deciding && pending?.approval) {
     pending.approval = {
       ...pending.approval,
-      status: reply.approve ? 'approved' : 'dismissed',
-      edited: reply.approve && reply.inputs ? reply.inputs : null,
+      status: reply.approve === true ? 'approved' : 'dismissed',
+      edited: reply.approve === true && reply.inputs ? reply.inputs : null,
     };
   }
 
@@ -200,7 +200,7 @@ const rowOf = (entry: InboxEntry) => {
     return shown(entry);
   }
 
-  const { notes, ...row } = shown(entry);
+  const { notes, ...row } = shownConversation(entry);
 
   return { ...row, lastNote: notes[notes.length - 1] ?? null };
 };
@@ -251,7 +251,7 @@ const conversationHandlers = [
     return isOurs(params) && notice ? json(shown(notice)) : notFound();
   }),
 
-  api.post(
+  api.post<AnswerInboxItemRequestDto>(
     '/workspaces/:slug/inbox/:itemId/answer',
     async ({ params, request }) => {
       const item = itemOf(param(params, 'itemId'));
@@ -262,11 +262,11 @@ const conversationHandlers = [
       if (item.resolved) {
         return problem(409, 'Sorry, this was already answered.');
       }
-      if (!shown(item).answerable) {
+      if (!shownConversation(item).answerable) {
         return problem(403, 'Another person is the assignee.');
       }
 
-      const reply = (await request.json()) as AnswerInboxItemRequestDto;
+      const reply = await request.json();
       const asking = item.notes.findLast((note) => note.kind === 'asked');
 
       if (reply.approve !== undefined && asking?.form !== 'approval') {
@@ -342,7 +342,7 @@ const conversationHandlers = [
     if (item.notes[item.notes.length - 1]?.form !== 'resolved') {
       return problem(409, 'Nobody resolved this conversation.');
     }
-    if (!shown(item).reopenable) {
+    if (!shownConversation(item).reopenable) {
       return problem(403, 'Another person is the assignee.');
     }
     notedBySam(item, 'reopened', 'Reopened.');
@@ -474,17 +474,18 @@ const conversationHandlers = [
 
 const alertHandlers = [
   api.get('/teams/:teamId/insights/alerts/:alertId', ({ params }) => {
-    const alert = inboxStore().alerts[param(params, 'alertId')];
-    const onTeam =
-      alert && teamOfAnyTask(alert.taskId) === param(params, 'teamId');
+    const alert = entryOf(inboxStore().alerts, param(params, 'alertId'));
 
-    return onTeam ? json(alert) : notFound();
+    return alert !== undefined &&
+      teamOfAnyTask(alert.taskId) === param(params, 'teamId')
+      ? json(alert)
+      : notFound();
   }),
 ];
 
 const scoresFor = (runId: string): RunScores | undefined => {
   const store = inboxStore();
-  const found = store.scores[runId];
+  const found = entryOf(store.scores, runId);
   if (found) {
     return found;
   }
@@ -512,8 +513,10 @@ const scoreHandlers = [
 const disagreementOf = (
   params: Params,
 ): JudgeDisagreementResponseDto | undefined => {
-  const disagreement =
-    inboxStore().disagreements[param(params, 'disagreementId')];
+  const disagreement = entryOf(
+    inboxStore().disagreements,
+    param(params, 'disagreementId'),
+  );
 
   return disagreement &&
     teamOfAnyTask(disagreement.taskId) === param(params, 'teamId')
@@ -533,6 +536,23 @@ const NOTE_TOO_LONG = `A judge disagreement note must be at most ${MAX_NOTE} cha
 
 const noteTooLong = (note: string | null): boolean =>
   (note?.trim().length ?? 0) > MAX_NOTE;
+
+const trimmedOrNull = (note: string | null): string | null => {
+  const trimmed = note?.trim() ?? '';
+
+  return trimmed === '' ? null : trimmed;
+};
+
+type ClaimAnswer = AnswerDisagreementClaimRequestDto['answer'];
+
+type ClaimAnswerBody = Omit<AnswerDisagreementClaimRequestDto, 'answer'> & {
+  answer: string;
+};
+
+const CLAIM_ANSWERS: readonly ClaimAnswer[] = ['judge-right', 'claim-wrong'];
+
+const claimAnswerOf = (raw: string): ClaimAnswer | undefined =>
+  CLAIM_ANSWERS.find((each) => each === raw);
 
 const notMetRefusalOf = (
   disagreement: JudgeDisagreementResponseDto,
@@ -556,7 +576,7 @@ const notMetRefusalOf = (
   ) {
     return 'A judge disagreement must name the claim that should have failed by its place, from 0.';
   }
-  if (shouldHaveFailed === null && !note?.trim()) {
+  if (shouldHaveFailed === null && (note?.trim() ?? '') === '') {
     return 'A judge disagreement where the judge passed the run and no claim covers it, must say what was wrong.';
   }
 
@@ -566,13 +586,17 @@ const notMetRefusalOf = (
 const refusedAnswer = (
   disagreement: JudgeDisagreementResponseDto,
 ): Response | null => {
-  if (disagreement.withdrawnAt) {
+  if (disagreement.withdrawnAt !== null && disagreement.withdrawnAt !== '') {
     return problem(
       409,
       `Judge disagreement ${disagreement.id} is withdrawn. The judge and people agree now, the claims changed, or the run no longer has people’s verdict.`,
     );
   }
-  if (disagreement.askedOf && disagreement.askedOf !== SAM.id) {
+  if (
+    disagreement.askedOf !== null &&
+    disagreement.askedOf !== '' &&
+    disagreement.askedOf !== SAM.id
+  ) {
     return problem(
       403,
       `Judge disagreement ${disagreement.id} asks another person. Only that person can answer it.`,
@@ -597,7 +621,7 @@ const disagreementHandlers = [
     },
   ),
 
-  api.post(
+  api.post<AnswerJudgeDisagreementRequestDto>(
     '/teams/:teamId/judge-disagreements/:disagreementId/answer',
     async ({ params, request }) => {
       const disagreement = disagreementOf(params);
@@ -618,18 +642,17 @@ const disagreementHandlers = [
         );
       }
 
-      const answer =
-        (await request.json()) as AnswerJudgeDisagreementRequestDto;
+      const answer = await request.json();
 
       const notMetRefusal = notMetRefusalOf(disagreement, answer);
 
-      if (notMetRefusal) {
+      if (notMetRefusal !== null) {
         return problem(422, notMetRefusal);
       }
 
       disagreement.notMet = {
         claim: answer.shouldHaveFailed,
-        note: answer.note?.trim() || null,
+        note: trimmedOrNull(answer.note),
         answeredBy: SAM.id,
         answeredAt: now(),
       };
@@ -639,7 +662,7 @@ const disagreementHandlers = [
     },
   ),
 
-  api.post(
+  api.post<ClaimAnswerBody>(
     '/teams/:teamId/judge-disagreements/:disagreementId/claims/:claim/answer',
     async ({ params, request }) => {
       const raw = param(params, 'claim');
@@ -656,10 +679,11 @@ const disagreementHandlers = [
         return disagreementNotFound(params);
       }
 
-      const answer =
-        (await request.json()) as AnswerDisagreementClaimRequestDto;
+      const answer = await request.json();
 
-      if (answer.answer !== 'judge-right' && answer.answer !== 'claim-wrong') {
+      const given = claimAnswerOf(answer.answer);
+
+      if (given === undefined) {
         return problem(
           422,
           'A judge disagreement must answer a claim with judge-right or claim-wrong.',
@@ -691,8 +715,8 @@ const disagreementHandlers = [
         ...disagreement.answers,
         {
           claim,
-          answer: answer.answer,
-          note: answer.note?.trim() || null,
+          answer: given,
+          note: trimmedOrNull(answer.note),
           answeredBy: SAM.id,
           answeredAt: now(),
         },
@@ -713,7 +737,7 @@ const disagreementHandlers = [
 
 const codeReviewOf = (taskId: string): CodeReviewResponseDto | undefined => {
   const store = inboxStore();
-  const found = store.codeReviews[taskId];
+  const found = entryOf(store.codeReviews, taskId);
 
   if (found) {
     return found;
@@ -739,9 +763,10 @@ const draftedComment = (
   review: CodeReviewResponseDto,
   drafted: DraftReviewCommentRequestDto,
 ) => {
-  const answering = drafted.replyTo
-    ? review.comments.find((each) => each.id === drafted.replyTo)
-    : undefined;
+  const answering =
+    drafted.replyTo !== undefined && drafted.replyTo !== ''
+      ? review.comments.find((each) => each.id === drafted.replyTo)
+      : undefined;
 
   return {
     id: nextId('comment'),
@@ -772,7 +797,7 @@ const reviewHandlers = [
     return review ? json(review) : notFound();
   }),
 
-  api.post(
+  api.post<DraftReviewCommentRequestDto>(
     '/teams/:teamId/tasks/:taskId/review/comments',
     async ({ params, request }) => {
       const review = codeReviewOf(param(params, 'taskId'));
@@ -781,9 +806,9 @@ const reviewHandlers = [
         return notFound();
       }
 
-      const drafted = (await request.json()) as DraftReviewCommentRequestDto;
+      const drafted = await request.json();
 
-      if (!drafted.path && !drafted.replyTo) {
+      if ((drafted.path ?? '') === '' && (drafted.replyTo ?? '') === '') {
         return problem(400, 'A comment needs a file or a comment to answer.');
       }
 
@@ -794,7 +819,7 @@ const reviewHandlers = [
     },
   ),
 
-  api.patch(
+  api.patch<EditReviewCommentRequestDto>(
     '/teams/:teamId/tasks/:taskId/review/comments/:commentId',
     async ({ params, request }) => {
       const comment = codeReviewOf(param(params, 'taskId'))?.comments.find(
@@ -805,7 +830,7 @@ const reviewHandlers = [
         return notFound();
       }
 
-      const { body } = (await request.json()) as EditReviewCommentRequestDto;
+      const { body } = await request.json();
       comment.body = body;
       comment.editedAt = now();
 
@@ -820,9 +845,9 @@ const reviewHandlers = [
       const commentId = param(params, 'commentId');
 
       if (
-        !review?.comments.some(
+        review?.comments.some(
           (each) => each.id === commentId && each.viewerIsAuthor,
-        )
+        ) !== true
       ) {
         return notFound();
       }
@@ -832,7 +857,7 @@ const reviewHandlers = [
     },
   ),
 
-  api.post(
+  api.post<SubmitReviewRequestDto>(
     '/teams/:teamId/tasks/:taskId/review',
     async ({ params, request }) => {
       const review = codeReviewOf(param(params, 'taskId'));
@@ -840,12 +865,12 @@ const reviewHandlers = [
       if (!review) {
         return notFound();
       }
-      const submitted = (await request.json()) as SubmitReviewRequestDto;
+      const submitted = await request.json();
       const landsOn = review.landings.find(
         (each) => each.repository === (submitted.repository ?? null),
       )?.pullRequest;
 
-      if (!landsOn) {
+      if (landsOn === undefined || landsOn === null || landsOn === '') {
         return problem(409, 'Sorry, there is no pull request to review yet.');
       }
       const id = nextId('review');
@@ -854,7 +879,7 @@ const reviewHandlers = [
         if (
           comment.viewerIsAuthor &&
           comment.state === 'draft' &&
-          (!submitted.repository ||
+          ((submitted.repository ?? '') === '' ||
             comment.repository === null ||
             comment.repository === submitted.repository)
         ) {
@@ -898,7 +923,7 @@ const decisionHandlers = [
     return decisions ? json(decisions) : notFound();
   }),
 
-  api.post(
+  api.post<DisputeDecisionRequestDto>(
     '/teams/:teamId/tasks/:taskId/decisions/:decisionId/disputes',
     async ({ params, request }) => {
       const decisions = decisionsOf(param(params, 'taskId'));
@@ -910,8 +935,7 @@ const decisionHandlers = [
         return notFound();
       }
 
-      const { path, reason } =
-        (await request.json()) as DisputeDecisionRequestDto;
+      const { path, reason } = await request.json();
       decision.disputes.push({
         id: nextId('dispute'),
         path,
@@ -965,39 +989,42 @@ const memoryHandlers = [
     return review ? json(review) : notFound();
   }),
 
-  api.post(`${MEMORIES}/approve`, async ({ params, request }) => {
-    const review = memoryReviewOf(
-      param(params, 'taskId'),
-      param(params, 'runId'),
-    );
-
-    if (!review) {
-      return notFound();
-    }
-
-    const { memories } = (await request.json()) as ApproveMemoriesRequestDto;
-    const chosen = memories.map((approved) => ({
-      approved,
-      memory: review.memories.find(
-        (each) => each.id === approved.id && each.state === 'proposed',
-      ),
-    }));
-
-    if (chosen.some(({ memory }) => !memory)) {
-      return problem(
-        409,
-        'Sorry, that memory is no longer waiting for a decision.',
+  api.post<ApproveMemoriesRequestDto>(
+    `${MEMORIES}/approve`,
+    async ({ params, request }) => {
+      const review = memoryReviewOf(
+        param(params, 'taskId'),
+        param(params, 'runId'),
       );
-    }
-    for (const { approved, memory } of chosen) {
-      if (memory) {
-        memory.body = approved.body ?? memory.body;
-        decide(review, memory, 'approved');
-      }
-    }
 
-    return json(review);
-  }),
+      if (!review) {
+        return notFound();
+      }
+
+      const { memories } = await request.json();
+      const chosen = memories.map((approved) => ({
+        approved,
+        memory: review.memories.find(
+          (each) => each.id === approved.id && each.state === 'proposed',
+        ),
+      }));
+
+      if (chosen.some(({ memory }) => !memory)) {
+        return problem(
+          409,
+          'Sorry, that memory is no longer waiting for a decision.',
+        );
+      }
+      for (const { approved, memory } of chosen) {
+        if (memory) {
+          memory.body = approved.body ?? memory.body;
+          decide(review, memory, 'approved');
+        }
+      }
+
+      return json(review);
+    },
+  ),
 
   api.post(`${MEMORIES}/:memoryId/reject`, ({ params }) => {
     const review = memoryReviewOf(

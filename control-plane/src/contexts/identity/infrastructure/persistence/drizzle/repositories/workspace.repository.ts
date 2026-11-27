@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { WorkspaceSlugTakenError } from '@identity/domain/exceptions/workspace-slug-taken.error';
@@ -38,8 +39,10 @@ const isSlugCollision = (error: unknown): boolean =>
   typeof error === 'object' &&
   error !== null &&
   'code' in error &&
-  (error as { code?: string }).code === UNIQUE_VIOLATION &&
-  ((error as { constraint?: string }).constraint ?? '').includes('slug');
+  error.code === UNIQUE_VIOLATION &&
+  'constraint' in error &&
+  typeof error.constraint === 'string' &&
+  error.constraint.includes('slug');
 
 const membersOfWorkspace = sql<
   {
@@ -58,11 +61,13 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
   ) {}
 
   async isTaken(slug: WorkspaceSlug): Promise<boolean> {
-    const [found] = await this.context.db
-      .select({ id: workspace.id })
-      .from(workspace)
-      .where(eq(workspace.slug, slug.value))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select({ id: workspace.id })
+        .from(workspace)
+        .where(eq(workspace.slug, slug.value))
+        .limit(1),
+    );
 
     return found !== undefined;
   }
@@ -76,11 +81,11 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
   }
 
   private async one(where: SQL): Promise<Workspace | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select({ ...getTableColumns(workspace), members: membersOfWorkspace })
       .from(workspace)
       .where(where)
-      .limit(1);
+      .limit(1));
 
     if (!found) {
       return null;
@@ -94,7 +99,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
       members: found.members.map((each) => ({
         userId: UserId.of(each.userId),
         role: WorkspaceRole.of(each.role),
-        suspendedAt: each.suspendedAt ? new Date(each.suspendedAt) : null,
+        suspendedAt: each.suspendedAt !== null && each.suspendedAt !== '' ? new Date(each.suspendedAt) : null,
       })),
       firstTeamPending: found.firstTeamPending,
       version: found.version,

@@ -8,6 +8,7 @@ import { ListRunnerActivityHandler } from '@runs/application/queries/handlers/li
 import { ListRunnerActivityQuery } from '@runs/application/queries/list-runner-activity.query';
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
 import type { RunViewing } from '@runs/application/services/run-viewing.service';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -59,35 +60,39 @@ const LAST_RUNS: WorkingCopyRunRow[] = [
 ];
 
 const listing = (member: boolean) => {
-  const leasedIn = vi.fn(async () => LEASED);
-  const lastRunsOf = vi.fn(async () => LAST_RUNS);
-  const idleIn = vi.fn(async () => ['work/task-task_1']);
+  const leasedIn = vi.fn(() => Promise.resolve(LEASED));
+  const lastRunsOf = vi.fn(() => Promise.resolve(LAST_RUNS));
+  const idleIn = vi.fn(() => Promise.resolve(['work/task-task_1']));
   const labels = new RunRequesterLabels();
   labels.register({
     owner: 'work',
-    labelsOf: async () =>
-      new Map([
-        ['work/task/task_1', { title: 'Drain the stuck retry queues' }],
-        ['work/chat/chat_1', { title: 'Plan the billing migration' }],
-      ]),
+    labelsOf: () =>
+      Promise.resolve(
+        new Map([
+          ['work/task/task_1', { title: 'Drain the stuck retry queues' }],
+          ['work/chat/chat_1', { title: 'Plan the billing migration' }],
+        ]),
+      ),
   });
-  const viewers = {
-    readableAmong: vi.fn(async () => new Set(['run_6', 'run_7'])),
-  } as unknown as RunViewing;
+  const viewers = partial<RunViewing>({
+    readableAmong: vi.fn(() => Promise.resolve(new Set(['run_6', 'run_7']))),
+  });
 
   const handler = new ListRunnerActivityHandler(
-    {
-      inWorkspace: vi.fn(async () =>
-        member
-          ? {
-              workspaceId: WORKSPACE,
-              slug: 'acme',
-              viewer: UserId.of('user_1'),
-              isAdmin: false,
-            }
-          : null,
+    partial<WorkspaceAccessPort>({
+      inWorkspace: vi.fn(() =>
+        Promise.resolve(
+          member
+            ? {
+                workspaceId: WORKSPACE,
+                slug: 'acme',
+                viewer: UserId.of('user_1'),
+                isAdmin: false,
+              }
+            : null,
+        ),
       ),
-    } as unknown as WorkspaceAccessPort,
+    }),
     { leasedIn, lastRunsOf },
     { idleIn },
     labels,

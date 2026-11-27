@@ -76,9 +76,7 @@ describe('ConfigFolderForm', () => {
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'Continue in chat' }));
 
-    expect(
-      JSON.parse(screen.getByTestId('handed').textContent ?? 'null'),
-    ).toMatchObject({
+    expect(JSON.parse(screen.getByTestId('handed').textContent)).toMatchObject({
       prompt:
         'Set up our configuration as code in acme/infra, under infra/spotlight/.',
       setup: { repository: 'acme/infra', folder: 'infra/spotlight' },

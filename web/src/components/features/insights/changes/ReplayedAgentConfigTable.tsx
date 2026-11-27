@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ReplayedAgentConfigRow } from '@/components/features/insights/changes/ReplayedAgentConfigRow';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
@@ -13,7 +15,7 @@ type ReplayedAgentConfigTableProps = {
 export function ReplayedAgentConfigTable({
   points,
   currency,
-}: ReplayedAgentConfigTableProps) {
+}: ReplayedAgentConfigTableProps): ReactElement {
   return (
     <div className="mt-4">
       <NestedTable label="Replayed configs" headings={REPLAYED_HEADINGS}>

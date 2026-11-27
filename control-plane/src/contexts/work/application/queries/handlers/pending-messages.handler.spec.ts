@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PendingMessagesHandler } from '@work/application/queries/handlers/pending-messages.handler';
 import { PendingMessagesQuery } from '@work/application/queries/pending-messages.query';
 import type { RunWorks } from '@work/application/services/run-works.service';
@@ -5,25 +6,29 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { describe, expect, it } from 'vitest';
 
 const reading = () =>
-  new PendingMessagesHandler({
-    pendingFor: async (runId: string, runnerId: string) =>
-      runId === 'run_1' && runnerId === 'runner_1'
-        ? [
-            {
-              position: 2,
-              body: 'Use the staging queue.',
-              attachments: [
-                Attachment.rehydrate({
-                  id: 'att_1',
-                  name: 'queue.png',
-                  contentType: 'image/png',
-                  size: 10,
-                }),
-              ],
-            },
-          ]
-        : null,
-  } as unknown as RunWorks);
+  new PendingMessagesHandler(
+    partial<RunWorks>({
+      pendingFor: (runId: string, runnerId: string) =>
+        Promise.resolve(
+          runId === 'run_1' && runnerId === 'runner_1'
+            ? [
+                {
+                  position: 2,
+                  body: 'Use the staging queue.',
+                  attachments: [
+                    Attachment.rehydrate({
+                      id: 'att_1',
+                      name: 'queue.png',
+                      contentType: 'image/png',
+                      size: 10,
+                    }),
+                  ],
+                },
+              ]
+            : null,
+        ),
+    }),
+  );
 
 describe('PendingMessagesHandler', () => {
   it('hands the runner that leases the run the messages sent to it, with where its files lie', async () => {

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import type { Field } from '@/lib/detail';
 import { cn } from '@/lib/utils';
 
@@ -8,7 +10,11 @@ const tones: Record<Field['kind'], string> = {
   null: 'text-faint',
 };
 
-export function DetailFields({ fields }: { fields: readonly Field[] }) {
+export function DetailFields({
+  fields,
+}: {
+  fields: readonly Field[];
+}): ReactElement {
   return (
     <dl className="flex flex-col">
       {fields.map((field) => (

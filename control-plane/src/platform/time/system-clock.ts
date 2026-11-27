@@ -13,7 +13,7 @@ export class SystemClock implements ClockPort {
     try {
       await sleep(ms, undefined, { signal: cancelled });
     } catch (error) {
-      if (!cancelled?.aborted) {
+      if (cancelled?.aborted !== true) {
         throw error;
       }
     }

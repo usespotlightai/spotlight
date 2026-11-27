@@ -6,7 +6,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class TeamKey {
-  private readonly kind = 'team-key';
+  private readonly kind: string = 'team-key';
 
   private constructor(readonly value: string) {}
 

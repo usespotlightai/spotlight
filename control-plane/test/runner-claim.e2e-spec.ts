@@ -24,6 +24,8 @@ import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/r
 import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -78,7 +80,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const queue = async (workspaceId: string, placement: string[][] = []) => {
@@ -143,8 +145,8 @@ const reservedTo = async (
   runner: RunnerId,
   now: Date,
 ): Promise<StackCheck | null> =>
-  (await checks.reservedFor(runner)).find((each) =>
-    each.reservation?.isActiveAt(now),
+  (await checks.reservedFor(runner)).find(
+    (each) => each.reservation?.isActiveAt(now) === true,
   ) ?? null;
 
 const awaitingCheck = async (workspaceId: string, placement: string[][]) => {
@@ -284,15 +286,9 @@ describe('claiming a requeued run', () => {
       NOW,
     );
     expect(claimed?.id.value).toBe(first);
-    const stored = await runs.findById(
-      (claimed as NonNullable<typeof claimed>).id,
-    );
+    const stored = await runs.findById(present(claimed).id);
     await runs.save(
-      (stored as NonNullable<typeof stored>).requeue(
-        runner,
-        NOW,
-        'connect ECONNREFUSED',
-      ),
+      present(stored).requeue(runner, NOW, 'connect ECONNREFUSED'),
     );
     const other = await queue(workspaceId);
 
@@ -468,8 +464,10 @@ describe('deleting the checks of a deleted task', () => {
   const dispatched: DomainEvent[] = [];
   const deleting = () =>
     new DrizzleStackCheckRepository(new DrizzleContext(db), {
-      dispatch: async (events) => {
+      dispatch: (events) => {
         dispatched.push(...events);
+
+        return Promise.resolve();
       },
     });
 
@@ -497,7 +495,7 @@ describe('deleting the checks of a deleted task', () => {
     await repository.add(await withStack(other));
 
     const found = await repository.ofTask(task);
-    const [check] = found;
+    const check = firstOf(found);
 
     expect(found).toHaveLength(1);
     if (!check) {
@@ -521,7 +519,7 @@ describe('deleting the checks of a deleted task', () => {
     const repository = deleting();
     const task = TaskId.of(randomUUID());
     await repository.add(await withStack(begun(task)));
-    const [stale] = await repository.ofTask(task);
+    const stale = firstOf(await repository.ofTask(task));
     if (!stale) {
       throw new Error('the task’s check was not found');
     }
@@ -557,8 +555,7 @@ describe('a runner reaching git for the work it leases', () => {
 
   const stacks = () => new DrizzleChangeStackReader(new DrizzleContext(db));
 
-  const sha = (digit: string) =>
-    CommitSha.parsed(digit.repeat(40)) as CommitSha;
+  const sha = (digit: string) => present(CommitSha.parsed(digit.repeat(40)));
 
   it('leases the check of a stack only while its lease runs and only to the runner that claimed it', async () => {
     const runId = RunId.of(randomUUID());

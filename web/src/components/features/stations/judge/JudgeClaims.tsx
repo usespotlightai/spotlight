@@ -1,4 +1,9 @@
-export function JudgeClaims({ claims }: { claims: readonly string[] }) {
+import type { ReactElement } from 'react';
+export function JudgeClaims({
+  claims,
+}: {
+  claims: readonly string[];
+}): ReactElement {
   return (
     <ol
       data-slot="judge-claims"

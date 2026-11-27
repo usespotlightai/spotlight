@@ -82,7 +82,10 @@ export class NetworkOutbound {
 
     const { response } = state;
 
-    if (response.status === 0 || response.error) {
+    if (
+      response.status === 0 ||
+      (response.error !== null && response.error !== '')
+    ) {
       throw new UpstreamError(
         sending,
         response.error ?? 'nothing answered there',

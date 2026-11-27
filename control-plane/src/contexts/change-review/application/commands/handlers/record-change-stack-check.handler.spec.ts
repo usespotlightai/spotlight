@@ -100,32 +100,33 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
   const saved: StackCheck[] = [];
 
   const stacks: ChangeStackRepository = {
-    add: async () => undefined,
-    save: async () => undefined,
-    find: async () => stack,
-    nextDueJob: async () => null,
-    ofRun: async () => [],
-    ofTask: async () => [],
-    ofTeam: async () => [],
-    remove: async () => undefined,
+    add: () => Promise.resolve(),
+    save: () => Promise.resolve(),
+    find: () => Promise.resolve(stack),
+    nextDueJob: () => Promise.resolve(null),
+    ofRun: () => Promise.resolve([]),
+    ofTask: () => Promise.resolve([]),
+    ofTeam: () => Promise.resolve([]),
+    remove: () => Promise.resolve(),
   };
 
   const checks: StackCheckRepository = {
-    add: async () => undefined,
-    save: async (each) => {
+    add: () => Promise.resolve(),
+    save: (each) => {
       saved.push(each);
+      return Promise.resolve();
     },
-    find: async () => check,
-    ofStack: async () => (check ? [check] : []),
-    ofRun: async () => [],
-    ofTask: async () => [],
-    ofTeam: async () => [],
-    remove: async () => undefined,
-    waiting: async () => [],
-    waitingIn: async () => [],
-    workspacesWaiting: async () => [],
-    reserved: async () => [],
-    reservedFor: async () => [],
+    find: () => Promise.resolve(check),
+    ofStack: () => Promise.resolve(check ? [check] : []),
+    ofRun: () => Promise.resolve([]),
+    ofTask: () => Promise.resolve([]),
+    ofTeam: () => Promise.resolve([]),
+    remove: () => Promise.resolve(),
+    waiting: () => Promise.resolve([]),
+    waitingIn: () => Promise.resolve([]),
+    workspacesWaiting: () => Promise.resolve([]),
+    reserved: () => Promise.resolve([]),
+    reservedFor: () => Promise.resolve([]),
   };
 
   return {

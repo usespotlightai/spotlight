@@ -1,3 +1,5 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -48,15 +50,16 @@ const IN_CHAT: ChatToolContext = {
 
 const answering: BuiltInToolUse<TaskToolContext> = {
   tool: PULL_REQUEST,
-  call: async (context, inputs) => ({
-    task: context.taskId.value,
-    title: inputs.text('title'),
-  }),
+  call: (context, inputs) =>
+    Promise.resolve({
+      task: context.taskId.value,
+      title: inputs.text('title'),
+    }),
 };
 
 const proposing: BuiltInToolUse<ChatToolContext> = {
   tool: PROPOSE_TASK,
-  call: async () => 'proposed',
+  call: () => Promise.resolve('proposed'),
 };
 
 const reviewing: BuiltInToolUse<TaskToolContext>[] = [
@@ -66,11 +69,13 @@ const reviewing: BuiltInToolUse<TaskToolContext>[] = [
   OPEN_PULL_REQUEST,
   CHECKS,
   OPEN_TASKS,
-].map((tool) => ({ tool, call: async () => null }));
+].map((tool) => ({ tool, call: () => Promise.resolve(null) }));
 
-const NO_EXTENSIONS = new ChatToolExtensions({
-  find: async () => null,
-} as unknown as ChatRepository);
+const NO_EXTENSIONS = new ChatToolExtensions(
+  partial<ChatRepository>({
+    find: () => Promise.resolve(null),
+  }),
+);
 
 describe('BuiltInTools', () => {
   it('will not start with a tool Spotlight declares and nothing uses', () => {
@@ -85,12 +90,15 @@ describe('BuiltInTools', () => {
       NO_EXTENSIONS,
     ).resolve(PULL_REQUEST, ON_TASK);
 
-    expect(resolved?.declared).toBe(builtInTool(PULL_REQUEST)?.declared);
-    expect(
-      resolved?.defaultFor(
-        builtInTool(PULL_REQUEST)?.declared.inputs[0] as never,
-      ),
-    ).toBeUndefined();
+    const declared = builtInTool(PULL_REQUEST)?.declared;
+    const input = firstOf(declared?.inputs ?? []);
+
+    if (!input) {
+      throw new Error('expected the pull request tool to take an input');
+    }
+
+    expect(resolved?.declared).toBe(declared);
+    expect(resolved?.defaultFor(input)).toBeUndefined();
     await expect(
       resolved?.call(ToolInputs.of({ title: 'Fix the queue' })),
     ).resolves.toEqual({
@@ -120,10 +128,12 @@ describe('BuiltInTools', () => {
     expect(tools.resolve(Tool.of('linear.comment'), ON_TASK)).toBeNull();
   });
 
-  it('resolves a tool a chat tool extension declares, for chats only', async () => {
-    const extensions = new ChatToolExtensions({
-      find: async () => null,
-    } as unknown as ChatRepository);
+  it('resolves a tool a chat tool extension declares, for chats only', () => {
+    const extensions = new ChatToolExtensions(
+      partial<ChatRepository>({
+        find: () => Promise.resolve(null),
+      }),
+    );
     const tools = new BuiltInTools(
       [answering, proposing, ...reviewing],
       extensions,
@@ -134,8 +144,8 @@ describe('BuiltInTools', () => {
         description: 'Measure a change to the station.',
         inputs: [],
       },
-      offerFor: async () => ({ offered: true, briefing: null }),
-      call: async () => 'tested',
+      offerFor: () => Promise.resolve({ offered: true, briefing: null }),
+      call: () => Promise.resolve('tested'),
     };
 
     extensions.register(extension);
@@ -145,5 +155,7 @@ describe('BuiltInTools', () => {
         .value,
     ).toBe('test-station-change');
     expect(tools.resolve(Tool.of('test-station-change'), ON_TASK)).toBeNull();
+
+    return Promise.resolve();
   });
 });

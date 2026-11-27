@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 import { type Location, MemoryRouter } from 'react-router';
 
 import App from '@/App';
@@ -11,7 +11,7 @@ type MockApplicationProps = {
   at: string | Partial<Location>;
 };
 
-export function MockApplication({ at }: MockApplicationProps) {
+export function MockApplication({ at }: MockApplicationProps): ReactElement {
   const [client] = useState(
     () =>
       new QueryClient({

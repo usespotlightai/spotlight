@@ -14,16 +14,18 @@ const setUp = (team: boolean) => {
     lockWorkspace,
     lock: new WorkspaceSecretUseLocks(
       {
-        find: vi.fn(async () =>
-          team
-            ? {
-                id: TEAM,
-                workspaceId: WorkspaceId.of('ws_1'),
-                key: 'core',
-                name: 'Core',
-                members: [],
-              }
-            : null,
+        find: vi.fn(() =>
+          Promise.resolve(
+            team
+              ? {
+                  id: TEAM,
+                  workspaceId: WorkspaceId.of('ws_1'),
+                  key: 'core',
+                  name: 'Core',
+                  members: [],
+                }
+              : null,
+          ),
         ),
         inWorkspace: vi.fn(),
       } satisfies TeamDirectoryPort,

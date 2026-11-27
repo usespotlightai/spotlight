@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { LineAlreadyExistsError } from '@lines/domain/exceptions/line-already-exists.error';
 import { LineRoleTakenError } from '@lines/domain/exceptions/line-role-taken.error';
@@ -240,14 +241,14 @@ export class DrizzleLineRepository implements LineRepository {
   }
 
   async find(id: LineId): Promise<Line | null> {
-    const [found] = await hydratedLines(
+    const found = firstOf(await hydratedLines(
       this.context,
       await this.context.db
         .select()
         .from(line)
         .where(eq(line.id, id.value))
         .limit(1),
-    );
+    ));
 
     return found ?? null;
   }

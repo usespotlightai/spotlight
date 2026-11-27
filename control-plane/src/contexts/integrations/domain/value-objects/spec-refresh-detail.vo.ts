@@ -23,7 +23,9 @@ export class SpecRefreshDetail implements ChangeDetail {
   recorded(): RecordedDetail {
     return {
       refreshedSpec: this.hash,
-      ...(this.problem ? { problem: this.problem } : {}),
+      ...(this.problem !== null && this.problem !== ''
+        ? { problem: this.problem }
+        : {}),
       ...(this.orphanedTools.length > 0
         ? { orphanedTools: this.orphanedTools }
         : {}),

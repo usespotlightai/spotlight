@@ -75,9 +75,10 @@ export class ListMergedDecisionsHandler implements QueryHandlerPort<
         return null;
       }
 
-      const repository = query.repository?.trim()
-        ? Repository.of(query.repository)
-        : null;
+      const repository =
+        query.repository !== null && query.repository.trim() !== ''
+          ? Repository.of(query.repository)
+          : null;
 
       const found = await this.decisions.merged({
         workspaceId,

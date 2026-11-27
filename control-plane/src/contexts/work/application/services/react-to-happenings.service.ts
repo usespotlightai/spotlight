@@ -4,6 +4,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -162,17 +163,20 @@ export class ReactToHappenings implements HappeningReactionsPort {
     let held = false;
 
     for (const arrived of happenings) {
-      const key = receivedAs ? `${receivedAs}\n${identityOf(arrived)}` : null;
+      const key =
+        receivedAs !== null && receivedAs !== ''
+          ? `${receivedAs}\n${identityOf(arrived)}`
+          : null;
       const happened = this.received(workspaceId, arrived);
 
       if (
         !happened ||
-        (key && (await this.processed.wasProcessed(workspaceId, key)))
+        (key !== null && (await this.processed.wasProcessed(workspaceId, key)))
       ) {
         continue;
       }
 
-      if (key && (await this.heldByATurn(workspaceId, happened))) {
+      if (key !== null && (await this.heldByATurn(workspaceId, happened))) {
         held = true;
         continue;
       }
@@ -184,7 +188,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       );
 
       const answer = await this.transaction.inTransaction(async () =>
-        !key ||
+        key === null ||
         (await this.processed.markProcessed(workspaceId, key, this.clock.now()))
           ? this.reactTo(workspaceId, teamId, happened, attachments)
           : null,
@@ -207,9 +211,9 @@ export class ReactToHappenings implements HappeningReactionsPort {
       workspaceId,
       happened.correlationKeys,
     );
-    const [run] = task?.currentRunId
-      ? await this.runs.of([task.currentRunId])
-      : [];
+    const run = task?.currentRunId
+      ? firstOf(await this.runs.of([task.currentRunId]))
+      : undefined;
 
     return run?.suspendedAt
       ? TurnWait.holdsHappening(
@@ -386,9 +390,10 @@ export class ReactToHappenings implements HappeningReactionsPort {
     });
 
     const email = happened.chat?.email;
-    const speaker = email
-      ? await this.members.byEmail(task.workspaceId, email)
-      : null;
+    const speaker =
+      email !== undefined && email !== null && email !== ''
+        ? await this.members.byEmail(task.workspaceId, email)
+        : null;
     const anchor = anchorOf(happened, attachments);
     const to = task.reopensAt(line, happened.payload.happening);
     const ranks = (await this.placements.placementsAt(to)).map(
@@ -589,13 +594,18 @@ export class ReactToHappenings implements HappeningReactionsPort {
     const named = happened.opens?.assignEmail ?? null;
     const lineDefault = line.defaultAssignee;
 
-    if (!named && !lineDefault) {
+    if (
+      (named === null || named === '') &&
+      (lineDefault === null || lineDefault === '')
+    ) {
       return null;
     }
 
     const members = await this.teams.membersOf(line.teamId);
     const person = (email: string | null) =>
-      email ? this.members.byEmail(workspaceId, email) : null;
+      email !== null && email !== ''
+        ? this.members.byEmail(workspaceId, email)
+        : null;
 
     return members
       ? {
@@ -631,9 +641,10 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return null;
     }
 
-    const author = authorEmail
-      ? await this.members.byEmail(task.workspaceId, authorEmail)
-      : null;
+    const author =
+      authorEmail !== null && authorEmail !== ''
+        ? await this.members.byEmail(task.workspaceId, authorEmail)
+        : null;
     const destination = movedTo(reaction);
 
     const members = await this.teams.membersOf(line.teamId);

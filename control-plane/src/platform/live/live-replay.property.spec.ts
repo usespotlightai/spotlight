@@ -142,18 +142,16 @@ describe('replayOf', () => {
           channels,
           new Map(
             channels.flatMap((channel, at) => {
-              const from = cases[at]?.from;
+              const { from } = cases[at];
 
-              return from === null || from === undefined
-                ? []
-                : [[channel, from] as const];
+              return from === null ? [] : [[channel, from] as const];
             }),
           ),
           new Map(
             channels.flatMap((channel, at) => {
               const each = cases[at];
 
-              return each ? [[channel, logOf(channel, each)] as const] : [];
+              return [[channel, logOf(channel, each)] as const];
             }),
           ),
         );
@@ -172,25 +170,23 @@ describe('replayOf', () => {
           channels,
           new Map(
             channels.flatMap((channel, at) => {
-              const from = cases[at]?.from;
+              const { from } = cases[at];
 
-              return from === null || from === undefined
-                ? []
-                : [[channel, from] as const];
+              return from === null ? [] : [[channel, from] as const];
             }),
           ),
           new Map(
             channels.flatMap((channel, at) => {
               const each = cases[at];
 
-              return each ? [[channel, logOf(channel, each)] as const] : [];
+              return [[channel, logOf(channel, each)] as const];
             }),
           ),
         );
         const expected = channels.flatMap((channel, at) => {
           const each = cases[at];
 
-          return each && replayable(each)
+          return replayable(each)
             ? logOf(channel, each).after.map(
                 (notice) => `${notice.channel}@${notice.sequence}`,
               )

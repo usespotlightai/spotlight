@@ -253,7 +253,7 @@ const earlierVersion = (
   source,
 });
 
-const versionsOf = (minAgreement: number): Version[] => [
+const versionsOf = (minAgreement: number): [Version, ...Version[]] => [
   { ...shapedVersion(CURRENT_SHAPE, minAgreement), source: MERGED_SOURCE },
   earlierVersion(
     SHAPES.poor,
@@ -424,11 +424,11 @@ export const stationJudge = (
 
   if (shape !== 'seeded' && shape !== 'unjudged') {
     const shaped = shape === 'versions' ? CURRENT_SHAPE : SHAPES[shape];
-    const versions =
+    const versions: [Version, ...Version[]] =
       shape === 'versions'
         ? versionsOf(judge.minAgreement)
         : [shapedVersion(shaped, judge.minAgreement)];
-    const [version] = versions as [Version];
+    const [version] = versions;
     const { pairs } = version.agreement;
     const hiddenReason = !version.agreement.measured
       ? ('too-few-pairs' as const)

@@ -10,6 +10,7 @@ import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -42,7 +43,10 @@ class TaskGate implements RunStartGate {
   readonly owner = 'requester';
 
   constructor(
-    private readonly of: (taskId: string, runId: string) => Promise<unknown>,
+    private readonly of: (
+      taskId: string,
+      runId: string,
+    ) => Promise<object | null>,
     private readonly hooks: {
       before(
         task: unknown,
@@ -59,7 +63,7 @@ class TaskGate implements RunStartGate {
 
     const view = await this.of(run.requester.id, run.runId.value);
 
-    return view
+    return view !== null
       ? this.hooks.before(view, { on: 'run.starting' }, until)
       : { kind: 'allowed' };
   }
@@ -82,17 +86,18 @@ const starting = (
   const hookCalls: BeforeHookEvent[] = [];
   const untils: (Date | undefined)[] = [];
   const logged: string[] = [];
-  const of = vi.fn(async (taskId: string, runId: string | null) =>
-    over.viewed === false ? null : { taskId, runId },
+  const of = vi.fn((taskId: string, runId: string | null) =>
+    Promise.resolve(over.viewed === false ? null : { taskId, runId }),
   );
   const runs = {
-    findById: vi.fn(async () => current),
-    save: vi.fn(async (run: Run) => {
+    findById: vi.fn(() => Promise.resolve(current)),
+    save: vi.fn((run: Run) => {
       if (clashes > 0) {
         clashes -= 1;
-        throw new RunVersionConflictError(run.id.value);
+        return Promise.reject(new RunVersionConflictError(run.id.value));
       }
       current = run;
+      return Promise.resolve();
     }),
   };
 
@@ -108,7 +113,7 @@ const starting = (
 
   function gate(): ClaimGate {
     const claims = new ClaimGate(
-      runs as unknown as RunRepository,
+      partial<RunRepository>(runs),
       { now: () => over.now ?? NOW, sleep: async () => {} },
       {
         debug: () => {},
@@ -118,16 +123,18 @@ const starting = (
       },
     );
 
-    if (!over.ungated) {
+    if (over.ungated !== true) {
       claims.register(
         new TaskGate(of, {
-          before: async (_task, event, until) => {
-            if (over.unreachable) {
-              throw new StartGateUnavailableError('connect ECONNREFUSED');
+          before: (_task, event, until) => {
+            if (over.unreachable === true) {
+              return Promise.reject(
+                new StartGateUnavailableError('connect ECONNREFUSED'),
+              );
             }
             hookCalls.push(event);
             untils.push(until);
-            return over.decision ?? { kind: 'allowed' };
+            return Promise.resolve(over.decision ?? { kind: 'allowed' });
           },
         }),
       );
@@ -223,8 +230,8 @@ describe('ClaimGate', () => {
     const { hooks, current } = starting({ ungated: true });
     hooks.register({
       owner: 'requester',
-      mayStart: async () => {
-        throw new TypeError('not a function');
+      mayStart: () => {
+        return Promise.reject(new TypeError('not a function'));
       },
     });
 

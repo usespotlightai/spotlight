@@ -79,7 +79,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('answering a judge disagreement over HTTP, one claim at a time', () => {

@@ -436,10 +436,10 @@ const linesStartingWith = (stack: ChangeStackResponseDto, mark: string) =>
     .flatMap((each) => each.patch.split('\n').slice(1))
     .filter((line) => line.startsWith(mark)).length;
 
-export const addedIn = (stack: ChangeStackResponseDto) =>
+export const addedIn = (stack: ChangeStackResponseDto): number =>
   linesStartingWith(stack, '+');
 
-export const removedIn = (stack: ChangeStackResponseDto) =>
+export const removedIn = (stack: ChangeStackResponseDto): number =>
   linesStartingWith(stack, '-');
 
 export type MockDiffStat = {

@@ -4,7 +4,7 @@ const PURPOSE = /^[a-z][a-z-]*\.[a-z][a-z-]*$/;
 
 /** What a session is for, named by the context that orders it: `<context>.<name>`, such as `insights.judge`. */
 export class AssistPurpose {
-  private readonly kind = 'assist-purpose';
+  private readonly kind: string = 'assist-purpose';
 
   private constructor(readonly value: string) {}
 

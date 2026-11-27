@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -27,11 +28,17 @@ type DispatchRow = Pick<
 >;
 
 const forOf = (row: DispatchRow): DispatchedFor => {
-  if (row.kind === 'chat' && row.chatId) {
+  if (row.kind === 'chat' && row.chatId !== null && row.chatId !== '') {
     return { kind: 'chat', chatId: ChatId.of(row.chatId) };
   }
 
-  if (row.kind === 'task' && row.taskId && row.stationId) {
+  if (
+    row.kind === 'task' &&
+    row.taskId !== null &&
+    row.taskId !== '' &&
+    row.stationId !== null &&
+    row.stationId !== ''
+  ) {
     return {
       kind: 'task',
       taskId: TaskId.of(row.taskId),
@@ -39,7 +46,7 @@ const forOf = (row: DispatchRow): DispatchedFor => {
     };
   }
 
-  if (row.kind === 'trial' && row.stationId) {
+  if (row.kind === 'trial' && row.stationId !== null && row.stationId !== '') {
     return {
       kind: 'trial',
       stationId: StationId.of(row.stationId),
@@ -61,21 +68,23 @@ export class DrizzleDispatchedRuns implements DispatchedRunsPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
   async of(runId: RunId): Promise<DispatchedRun | null> {
-    const [row] = await this.db
-      .select({
-        id: dispatch.id,
-        kind: dispatch.kind,
-        taskId: dispatch.taskId,
-        stationId: dispatch.stationId,
-        chatId: dispatch.chatId,
-        asOf: dispatch.asOf,
-        trialRepositories: dispatch.trialRepositories,
-        briefedMemories: dispatch.briefedMemories,
-        orderedAt: dispatch.orderedAt,
-      })
-      .from(dispatch)
-      .where(eq(dispatch.id, runId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.db
+        .select({
+          id: dispatch.id,
+          kind: dispatch.kind,
+          taskId: dispatch.taskId,
+          stationId: dispatch.stationId,
+          chatId: dispatch.chatId,
+          asOf: dispatch.asOf,
+          trialRepositories: dispatch.trialRepositories,
+          briefedMemories: dispatch.briefedMemories,
+          orderedAt: dispatch.orderedAt,
+        })
+        .from(dispatch)
+        .where(eq(dispatch.id, runId.value))
+        .limit(1),
+    );
 
     return row
       ? {

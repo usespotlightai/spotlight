@@ -1,4 +1,5 @@
 import { MousePointer2 } from 'lucide-react';
+import type { ReactElement } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
 import { ChatRow } from '@/components/features/agent/ChatRow';
@@ -31,7 +32,7 @@ type AgentChatsProps = {
   teamId: string;
 };
 
-export function AgentChats({ slug, teamId }: AgentChatsProps) {
+export function AgentChats({ slug, teamId }: AgentChatsProps): ReactElement {
   const prefetch = usePrefetchChatJournal();
   const chats = useChats(teamId);
   const navigate = useNavigate();

@@ -20,6 +20,7 @@ import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
@@ -43,24 +44,26 @@ const pooling = (
     platformImages?: readonly RunnerImage[] | null;
   } = {},
 ) => {
-  const authenticate = vi.fn(async () => authenticated);
-  const find = vi.fn(async () =>
-    stored.pool === undefined ? aPullPool({ maxRuns: 2 }) : stored.pool,
+  const authenticate = vi.fn(() => Promise.resolve(authenticated));
+  const find = vi.fn(() =>
+    Promise.resolve(
+      stored.pool === undefined ? aPullPool({ maxRuns: 2 }) : stored.pool,
+    ),
   );
 
-  const inWorkspaces = vi.fn(async () => stored.provisioning ?? []);
+  const inWorkspaces = vi.fn(() => Promise.resolve(stored.provisioning ?? []));
 
   const pools = new RunnerPools(
-    { find, inWorkspaces } as unknown as RunnerPoolRepository,
-    {
-      inWorkspaces: vi.fn(async () => stored.trusts ?? []),
-    } as unknown as RunnerTrustRepository,
-    {
-      aliveIn: vi.fn(async () => stored.alive ?? []),
-    } as unknown as RunnerRepository,
-    {
-      idleInPool: vi.fn(async () => stored.idleSandboxes ?? []),
-    } as unknown as SandboxPlacementsPort,
+    partial<RunnerPoolRepository>({ find, inWorkspaces }),
+    partial<RunnerTrustRepository>({
+      inWorkspaces: vi.fn(() => Promise.resolve(stored.trusts ?? [])),
+    }),
+    partial<RunnerRepository>({
+      aliveIn: vi.fn(() => Promise.resolve(stored.alive ?? [])),
+    }),
+    partial<SandboxPlacementsPort>({
+      idleInPool: vi.fn(() => Promise.resolve(stored.idleSandboxes ?? [])),
+    }),
     { authenticate } satisfies RunnerAuthenticatorPort,
     {
       platformEgressSet: stored.platform ?? true,

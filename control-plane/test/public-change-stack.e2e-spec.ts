@@ -17,6 +17,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served } from './support/app';
+import { bodyOf } from './support/body';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -114,7 +115,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('the public change stack of a task', () => {
@@ -123,7 +124,7 @@ describe('the public change stack of a task', () => {
     const taskId = await taskOf(['open']);
 
     const response = await reading(taskId);
-    const { stacks } = response.body as { stacks: Record<string, unknown>[] };
+    const { stacks } = bodyOf<{ stacks: Record<string, unknown>[] }>(response);
 
     expect(response.status).toBe(200);
     expect(stacks).toHaveLength(1);

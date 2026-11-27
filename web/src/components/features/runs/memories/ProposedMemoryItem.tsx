@@ -1,4 +1,5 @@
 import { Inbox } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { MemoryCard } from '@/components/features/runs/memories/MemoryCard';
 import { MemoryHandleLink } from '@/components/features/runs/memories/MemoryHandleLink';
@@ -18,7 +19,7 @@ export function ProposedMemoryItem({
   teamId,
   proposal,
   reviewItemId,
-}: ProposedMemoryItemProps) {
+}: ProposedMemoryItemProps): ReactElement {
   const waiting = proposal.state === 'proposed' && reviewItemId;
 
   return (
@@ -27,8 +28,10 @@ export function ProposedMemoryItem({
       body={proposal.body}
       about={[
         KIND_LABELS[proposal.kind],
-        ...(waiting ? [] : [proposalStateOf(proposal)]),
-        ...(proposal.handle
+        ...(waiting !== null && waiting !== false && waiting !== ''
+          ? []
+          : [proposalStateOf(proposal)]),
+        ...(proposal.handle !== null && proposal.handle !== ''
           ? [
               <MemoryHandleLink
                 key="handle"
@@ -41,7 +44,9 @@ export function ProposedMemoryItem({
           : []),
       ]}
       action={
-        waiting && (
+        waiting !== null &&
+        waiting !== false &&
+        waiting !== '' && (
           <PillLink to={inboxItemPath(slug, waiting)}>
             <Inbox aria-hidden className="size-3" />
             {proposalStateOf(proposal)}

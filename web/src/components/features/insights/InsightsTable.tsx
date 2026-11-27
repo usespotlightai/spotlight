@@ -1,4 +1,4 @@
-import { type ReactNode, useRef } from 'react';
+import { type ReactElement, type ReactNode, useRef } from 'react';
 
 import { ColumnResizer } from '@/components/shared/ColumnResizer';
 import {
@@ -39,7 +39,7 @@ export function InsightsTable<T>({
   rows,
   rowKey,
   picked = null,
-}: InsightsTableProps<T>) {
+}: InsightsTableProps<T>): ReactElement {
   const widths = useColumnWidths(columns.length);
   const head = useRef<HTMLTableRowElement>(null);
   const headings: NestedHeading[] = columns.map((column, at) => ({
@@ -79,7 +79,7 @@ export function InsightsTable<T>({
                 className={cn(
                   'relative min-w-0 font-normal',
                   at === 0 && EDGE_INDENT,
-                  column.numeric ? 'text-right' : 'text-left',
+                  column.numeric === true ? 'text-right' : 'text-left',
                 )}
               >
                 <span className="block truncate">{column.header}</span>
@@ -120,7 +120,7 @@ export function InsightsTable<T>({
                       className={cn(
                         'min-w-0 truncate text-foreground',
                         at === 0 && EDGE_INDENT,
-                        column.numeric && 'text-right tabular-nums',
+                        column.numeric === true && 'text-right tabular-nums',
                       )}
                     >
                       {cell}

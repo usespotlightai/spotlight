@@ -36,9 +36,10 @@ export class NetworkResponse {
       );
     }
 
-    const error = input.error?.trim().slice(0, MAX_ERROR) || null;
+    const written = input.error?.trim().slice(0, MAX_ERROR);
+    const error = written === undefined || written === '' ? null : written;
 
-    if (input.status === 0 && !error) {
+    if (input.status === 0 && error === null) {
       throw new InvalidNetworkCallError('with no response must say why');
     }
 

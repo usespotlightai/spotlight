@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { AgentPicker } from '@/components/features/stations/AgentPicker';
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
@@ -31,7 +31,7 @@ export function NewChatComposer({
   defaultRepositories = [],
   setup,
   onStarted,
-}: NewChatComposerProps) {
+}: NewChatComposerProps): ReactElement {
   const { data: harnesses } = useHarnesses();
   const { data: available } = useRepositories(slug);
   const start = useStartChat();
@@ -120,7 +120,9 @@ export function NewChatComposer({
             body,
             attachments,
             traces,
-            ...(targetStation ? { targetStation } : {}),
+            ...(targetStation !== null && targetStation !== ''
+              ? { targetStation }
+              : {}),
             ...(setup ? { setup } : {}),
           },
           {

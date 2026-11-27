@@ -6,7 +6,7 @@ export interface ToolUse {
 }
 
 export class ToolUses {
-  private readonly kind = 'tool-uses';
+  private readonly kind: string = 'tool-uses';
 
   private constructor(readonly uses: readonly ToolUse[]) {}
 

@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { MemoryFilterMenu } from '@/components/features/memory/MemoryFilterMenu';
@@ -5,10 +6,15 @@ import { TeamMemory } from '@/components/features/memory/TeamMemory';
 import { WriteMemoryButton } from '@/components/features/memory/WriteMemoryButton';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
 
-export function Memory() {
+export function Memory(): ReactElement | null {
   const { slug, teamId } = useParams();
 
-  if (!slug || !teamId) {
+  if (
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === ''
+  ) {
     return null;
   }
 

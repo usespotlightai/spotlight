@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronsUpDown } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import {
   FIELD_SELECT,
@@ -78,7 +79,7 @@ export function ChoiceSelect({
   toolbar = false,
   input = false,
   className,
-}: ChoiceSelectProps) {
+}: ChoiceSelectProps): ReactElement {
   const chosen = choices.find((each) => each.value === value);
   const look =
     LOOKS[

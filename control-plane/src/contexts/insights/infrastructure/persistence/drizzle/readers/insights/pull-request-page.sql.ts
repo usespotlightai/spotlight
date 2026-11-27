@@ -17,6 +17,7 @@ import {
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/pull-requests.sql';
 import { iso } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { type SQL, sql } from 'drizzle-orm';
 
 interface PageRow extends Record<string, unknown> {
@@ -91,7 +92,7 @@ export const pullRequestPageIn = async (
         ) as paged
       ) as page
   `);
-  const [row] = result.rows;
+  const row = firstOf(result.rows);
 
   if (!row) {
     throw new Error('The pull request page query returned no row');

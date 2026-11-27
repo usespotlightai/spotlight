@@ -7,6 +7,7 @@ import {
   openWorkloadIssuer,
   type WorkloadIssuer,
 } from '@platform/workload/workload-issuer.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { eq } from 'drizzle-orm';
 import {
   afterAll,
@@ -19,6 +20,7 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { awaitingCheck } from './support/change-stacks';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
@@ -60,7 +62,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
 
     expect(made.status).toBe(201);
 
-    return made.body as { id: string; version: number };
+    return bodyOf<{ id: string; version: number }>(made);
   };
 
   const workload = () => platform.issue({ sub: SUBJECT, aud: 'spotlight' });
@@ -97,10 +99,12 @@ describe('a host claiming through a runner trust, as a platform workload with no
       });
 
   const hostRow = async () => {
-    const [row] = await db
-      .select()
-      .from(schema.runnerHost)
-      .where(eq(schema.runnerHost.id, HOST));
+    const row = firstOf(
+      await db
+        .select()
+        .from(schema.runnerHost)
+        .where(eq(schema.runnerHost.id, HOST)),
+    );
 
     return row ?? null;
   };
@@ -174,7 +178,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
         run: expect.anything() as unknown,
       }) as unknown,
     });
-    const answer = claimed.body as Claimed;
+    const answer = bodyOf<Claimed>(claimed);
     expect(answer.work.run.id).toBe(placed);
 
     const [started] = await db
@@ -207,10 +211,12 @@ describe('a host claiming through a runner trust, as a platform workload with no
 
     await claim(trust.id, await workload()).expect(204);
 
-    const [still] = await db
-      .select({ state: schema.run.state })
-      .from(schema.run)
-      .where(eq(schema.run.id, placed));
+    const still = firstOf(
+      await db
+        .select({ state: schema.run.state })
+        .from(schema.run)
+        .where(eq(schema.run.id, placed)),
+    );
 
     expect(still?.state).toBe('queued');
   });
@@ -223,7 +229,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     const claimed = await claim(trust.id, await workload());
 
     expect(claimed.status).toBe(200);
-    expect((claimed.body as Claimed).work).toMatchObject({
+    expect(bodyOf<Claimed>(claimed).work).toMatchObject({
       kind: 'check',
       check: { stackId },
     });
@@ -291,7 +297,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     });
 
     expect(await hostRow()).toMatchObject({
-      workspaceId: (answered.body as { workspace: string }).workspace,
+      workspaceId: bodyOf<{ workspace: string }>(answered).workspace,
       trustId: trust.id,
       poolId: null,
       bootId: 'boot_1',

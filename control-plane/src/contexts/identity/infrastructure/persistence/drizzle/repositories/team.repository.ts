@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
 import { TeamAlreadyExistsError } from '@identity/domain/exceptions/team-already-exists.error';
@@ -179,11 +180,11 @@ export class DrizzleTeamRepository implements TeamRepository {
   }
 
   private async one(...conditions: readonly SQL[]): Promise<Team | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select({ ...getTableColumns(team), members: membersOfTeam })
       .from(team)
       .where(and(...conditions))
-      .limit(1);
+      .limit(1));
 
     return found ? rehydrated(found) : null;
   }

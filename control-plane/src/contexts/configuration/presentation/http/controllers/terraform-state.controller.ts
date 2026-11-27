@@ -57,7 +57,11 @@ const md5Of = (body: Uint8Array): string =>
   createHash('md5').update(body).digest('hex');
 
 const assertDigest = (md5: string, sent: string | undefined): void => {
-  if (sent && Buffer.from(sent, 'base64').toString('hex') !== md5) {
+  if (
+    sent !== undefined &&
+    sent !== '' &&
+    Buffer.from(sent, 'base64').toString('hex') !== md5
+  ) {
     throw new BadRequestException(
       'The Content-MD5 header does not match the state Terraform sent. Please run the command again.',
     );
@@ -147,7 +151,7 @@ export class TerraformStateController {
           slug,
           name,
           actor,
-          lockId || null,
+          lockId === undefined || lockId === '' ? null : lockId,
           body,
           md5,
         ),

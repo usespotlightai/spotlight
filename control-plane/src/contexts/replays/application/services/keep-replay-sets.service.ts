@@ -26,7 +26,7 @@ export class KeepReplaySets {
     workspaceId: WorkspaceId,
     drivenByAPerson: boolean,
   ): Promise<void> {
-    if (!ranAt || drivenByAPerson) {
+    if (ranAt === null || ranAt === '' || drivenByAPerson) {
       return;
     }
 
@@ -41,7 +41,7 @@ export class KeepReplaySets {
     const station = await this.lines.findStation(stationId);
 
     if (
-      !station?.workspaceId.equals(workspaceId) ||
+      station?.workspaceId.equals(workspaceId) !== true ||
       (await this.people.teamKey(station.teamId)) === null
     ) {
       return;

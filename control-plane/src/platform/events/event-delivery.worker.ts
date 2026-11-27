@@ -25,6 +25,8 @@ interface LaneState {
   again: boolean;
 }
 
+const asksAgain = (state: LaneState): boolean => state.again;
+
 // Each lane ticks on its own, so a slow sink never holds up the subscribers of the contexts.
 @Injectable()
 export class EventDeliveryWorker implements OnModuleInit, OnModuleDestroy {
@@ -88,7 +90,7 @@ export class EventDeliveryWorker implements OnModuleInit, OnModuleDestroy {
       do {
         state.again = false;
         await this.delivery.processDue(lane);
-      } while (state.again && !this.#stopped);
+      } while (asksAgain(state) && !this.#stopped);
     } catch (error) {
       this.logger.error({ err: error, lane }, 'Delivering domain events');
     }

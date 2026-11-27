@@ -1,4 +1,5 @@
 import { ChevronsUpDown } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import {
   DropdownMenu,
@@ -29,7 +30,7 @@ export function ToolRuleSelect({
   rule,
   disabled,
   onRule,
-}: ToolRuleSelectProps) {
+}: ToolRuleSelectProps): ReactElement {
   const shown = RULES.find((each) => each.value === rule) ?? RULES[0];
 
   return (

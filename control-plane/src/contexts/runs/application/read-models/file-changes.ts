@@ -17,7 +17,7 @@ export const fileChangesOf = (journal: RunJournal): FileChange[] => {
   for (const step of journal.steps) {
     const change = step.change;
 
-    if (!change?.path) {
+    if (change === null || change.path === null || change.path === '') {
       continue;
     }
 
@@ -57,7 +57,7 @@ export const netHunksOf = (
   for (const step of steps) {
     const change = step.change;
 
-    if (!change?.path) {
+    if (change === null || change.path === null || change.path === '') {
       continue;
     }
 

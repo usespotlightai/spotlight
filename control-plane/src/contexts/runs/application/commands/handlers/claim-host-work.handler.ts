@@ -119,14 +119,15 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
 
       const until = this.polls.deadline();
       const { sandbox } = command;
-      const into = sandbox
-        ? await this.polls.polled(
-            () => this.sandboxes.takingRuns(sandbox, command.host),
-            until,
-          )
-        : null;
+      const into =
+        sandbox !== null && sandbox !== ''
+          ? await this.polls.polled(
+              () => this.sandboxes.takingRuns(sandbox, command.host),
+              until,
+            )
+          : null;
 
-      if (sandbox && !into) {
+      if (sandbox !== null && sandbox !== '' && !into) {
         return { outcome: 'nothing' };
       }
 
@@ -221,7 +222,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
         until,
       );
 
-      if (requested) {
+      if (requested !== null) {
         return requested;
       }
 
@@ -235,7 +236,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
         until,
       );
 
-      if (run) {
+      if (run !== null) {
         return run;
       }
 
@@ -330,7 +331,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
           until,
         );
 
-        if (run) {
+        if (run !== null) {
           return run;
         }
       }
@@ -502,7 +503,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
       return start === 'requeued' ? start : start === 'starts' ? run : null;
     }, until);
 
-    if (!found || found === 'requeued') {
+    if (found === null || found === 'requeued') {
       return null;
     }
 
@@ -546,7 +547,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
       return start === 'requeued' ? start : start === 'starts' ? run : null;
     }, until);
 
-    if (!found) {
+    if (found === null) {
       await this.drainedForWaitingRuns(runner, registered, host);
       return null;
     }

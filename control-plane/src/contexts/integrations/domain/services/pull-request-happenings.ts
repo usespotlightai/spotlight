@@ -85,7 +85,7 @@ export const PullRequestHappenings = {
       return facts.labelled ? reviewRequest(facts, 'labelled') : [];
     }
 
-    if (!facts.branch && !facts.pullRequest) {
+    if ((facts.branch === null || facts.branch === '') && !facts.pullRequest) {
       unplaceable(activity);
     }
 

@@ -8,6 +8,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -35,7 +36,10 @@ const toInboxRequest = (row: Row, reads: readonly ReadRow[]): InboxRequest =>
     taskId: TaskId.of(row.taskId),
     form: row.form,
     about: InboxRequestSubject.of(row.about),
-    askedOf: row.askedOfId ? UserId.of(row.askedOfId) : null,
+    askedOf:
+      row.askedOfId !== null && row.askedOfId !== ''
+        ? UserId.of(row.askedOfId)
+        : null,
     createdAt: row.createdAt,
     openedAt: row.openedAt,
     reads: reads.map((each) =>
@@ -146,11 +150,13 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
   }
 
   async find(id: InboxRequestId): Promise<InboxRequest | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(inboxRequest)
-      .where(eq(inboxRequest.id, id.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(inboxRequest)
+        .where(eq(inboxRequest.id, id.value))
+        .limit(1),
+    );
 
     return row ? this.withReads(row) : null;
   }
@@ -185,17 +191,19 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
     form: InboxRequestForm,
     about: InboxRequestSubject,
   ): Promise<InboxRequest | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(inboxRequest)
-      .where(
-        and(
-          eq(inboxRequest.taskId, taskId.value),
-          eq(inboxRequest.form, form),
-          eq(inboxRequest.about, about.value),
-        ),
-      )
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(inboxRequest)
+        .where(
+          and(
+            eq(inboxRequest.taskId, taskId.value),
+            eq(inboxRequest.form, form),
+            eq(inboxRequest.about, about.value),
+          ),
+        )
+        .limit(1),
+    );
 
     return row ? this.withReads(row) : null;
   }

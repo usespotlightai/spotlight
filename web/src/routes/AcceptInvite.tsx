@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { AcceptAsSignedIn } from '@/components/features/invites/AcceptAsSignedIn';
@@ -18,7 +19,7 @@ const STATUS_TEXT: Record<string, string> = {
   expired: 'This invitation has expired. Please request a new one.',
 };
 
-export function AcceptInvite() {
+export function AcceptInvite(): ReactElement | null {
   const { token } = useParams();
   const { data: session, isPending: reading } = useSession();
   const preview = useInvite(token);

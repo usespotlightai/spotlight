@@ -17,7 +17,7 @@ export class UnsubscribeFromPushHandler implements CommandHandlerPort<
         PushEndpoint.of(command.endpoint),
       );
 
-      if (!found?.belongsTo(UserId.of(command.personId))) {
+      if (found?.belongsTo(UserId.of(command.personId)) !== true) {
         return false;
       }
 

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { TooltipText } from '@/lib/tooltip-note';
@@ -23,7 +23,7 @@ type StackedRowsProps = {
   rows: readonly StackedRow[];
 };
 
-export function StackedRows({ label, rows }: StackedRowsProps) {
+export function StackedRows({ label, rows }: StackedRowsProps): ReactElement {
   return (
     <ul aria-label={label} data-slot="stacked-rows" className="flex flex-col">
       {rows.map((row) => (

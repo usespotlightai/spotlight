@@ -9,14 +9,15 @@ import { progressOfState } from '@/mocks/world/run-progress';
 import { Run } from '@/routes/Run';
 import { write } from '@/test/lexical';
 
-const runs = vi.fn();
-const runsFailing = vi.fn();
+const runs =
+  vi.fn<() => { id: string; [key: string]: unknown }[] | undefined>();
+const runsFailing = vi.fn<() => boolean>();
 const refetchRuns = vi.fn();
 const conversation = vi.fn<() => Record<string, unknown> | undefined>();
-const conversationFailing = vi.fn();
+const conversationFailing = vi.fn<() => boolean>();
 const refetchConversation = vi.fn();
 const journal = vi.fn<(...args: unknown[]) => unknown>();
-const journalFailing = vi.fn();
+const journalFailing = vi.fn<() => boolean>();
 
 vi.mock('@/hooks/api/useTaskFooterLoading', () => ({
   useTaskFooterLoading: () => false,
@@ -24,9 +25,7 @@ vi.mock('@/hooks/api/useTaskFooterLoading', () => ({
 vi.mock('@/hooks/api/useTeamRuns', () => ({
   teamRunKeys: { forTeam: () => ['runs'] },
   useTeamRun: (_teamId: string, runId: string) => ({
-    data: (runs() as { id: string }[] | undefined)?.find(
-      (each) => each.id === runId,
-    ),
+    data: runs()?.find((each) => each.id === runId),
     isPending: runs() === undefined,
     errorUpdateCount: runsFailing() ? 1 : 0,
     isFetching: false,
@@ -154,10 +153,12 @@ const STATION = {
   count: 4,
 };
 
-const run = (over: Record<string, unknown> = {}) => ({
+const run = (
+  over: { state?: TeamRun['state']; [key: string]: unknown } = {},
+) => ({
   id: 'run_1',
   state: 'completed',
-  progress: progressOfState((over.state ?? 'completed') as TeamRun['state']),
+  progress: progressOfState(over.state ?? 'completed'),
   attempt: 1,
   exitCode: 0,
   startedAt: '2026-08-29T09:02:00.000Z',

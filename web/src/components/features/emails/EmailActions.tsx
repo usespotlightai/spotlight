@@ -1,4 +1,5 @@
 import { Send, Trash2 } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { RowActions } from '@/components/shared/RowActions';
 import { useRemoveMyEmail } from '@/hooks/api/useRemoveMyEmail';
@@ -10,7 +11,7 @@ type EmailActionsProps = {
   email: UserEmail;
 };
 
-export function EmailActions({ email }: EmailActionsProps) {
+export function EmailActions({ email }: EmailActionsProps): ReactElement {
   const resend = useResendMyEmailVerification();
   const remove = useRemoveMyEmail();
 

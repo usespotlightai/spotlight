@@ -162,7 +162,7 @@ export class OpenJudgeClaimsPullRequests implements PendingJobsPort {
       this.sources.people.teamKey(at.teamId),
     ]);
 
-    if (!station || !settings || !teamKey) {
+    if (!station || !settings || teamKey === null || teamKey === '') {
       return failed('The station is gone from its line.');
     }
     if (!station.source) {

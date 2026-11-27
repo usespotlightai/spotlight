@@ -1,4 +1,5 @@
 import { ChevronDown } from 'lucide-react';
+import type { ReactElement } from 'react';
 import { useMatch } from 'react-router';
 
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
@@ -22,7 +23,7 @@ export function TeamNavItem({
   team,
   expanded,
   onToggle,
-}: TeamNavItemProps) {
+}: TeamNavItemProps): ReactElement {
   const active = Boolean(useMatch(`/w/${slug}/team/${team.id}/*`));
   const { data: lines } = useLines(team.id, expanded);
 

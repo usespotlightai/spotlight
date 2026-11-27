@@ -132,7 +132,7 @@ export interface DueInput {
 export const dueVerdict = (input: DueInput): ScheduleVerdict => {
   const { policy, lastStartedAt, cooldownFrom, now } = input;
 
-  if (!policy?.enabled) {
+  if (policy?.enabled !== true) {
     return { kind: 'wait', checkAfter: after(now, SET_RECHECK_MS) };
   }
   if (!input.scores) {

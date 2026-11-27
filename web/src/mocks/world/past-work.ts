@@ -1,4 +1,6 @@
 import type {
+  LineResponseDto,
+  StationResponseDto,
   TaskResponseDto,
   TaskRunResponseDto,
   TeamRunResponseDto,
@@ -79,10 +81,12 @@ export const historyTaskOf = (taskId: string): HistoryTask | undefined =>
 export const runNumberOf = (runId: string): number =>
   index().runNumbers.get(runId) ?? 1;
 
-export const lineOfStation = (stationId: string) =>
+export const lineOfStation = (stationId: string): LineResponseDto | undefined =>
   LINES.find((line) => line.stations.some((each) => each.id === stationId));
 
-export const stationOfId = (stationId: string) =>
+export const stationOfId = (
+  stationId: string,
+): StationResponseDto | undefined =>
   lineOfStation(stationId)?.stations.find((each) => each.id === stationId);
 
 const personOf = (id: string) =>
@@ -101,9 +105,9 @@ const shownRunOf = (run: HistoryRun): TaskRunResponseDto => ({
   progress: progressOfState(stateOf(run)),
   attempt: 1,
   exitCode: exitCodeOf(run),
-  startedAt: run.startedAt ?? run.endedAt ?? new Date(run.at).toISOString(),
-  updatedAt: run.endedAt ?? new Date(run.at).toISOString(),
-  harness: run.harness ?? 'claude-code',
+  startedAt: run.startedAt ?? run.endedAt,
+  updatedAt: run.endedAt,
+  harness: run.harness,
   image: null,
   ranOn: OWN_POOL,
   waiting: null,

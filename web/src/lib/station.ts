@@ -17,7 +17,9 @@ export const STATION_TABS = [
   { id: 'judge', label: 'Judge' },
 ] as const;
 
-export const stationTabsOf = (station: { judge: unknown }) =>
+export const stationTabsOf = (station: {
+  judge: unknown;
+}): (typeof STATION_TABS)[number][] =>
   STATION_TABS.filter((tab) => tab.id !== 'judge' || station.judge !== null);
 
 export type StationTab = (typeof STATION_TABS)[number]['id'];

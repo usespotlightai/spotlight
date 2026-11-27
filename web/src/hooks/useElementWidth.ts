@@ -7,7 +7,9 @@ import {
 
 const SETTLE_MS = 100;
 
-export function useElementWidth(element: RefObject<HTMLElement | null>) {
+export function useElementWidth(
+  element: RefObject<HTMLElement | null>,
+): number {
   const [width, setWidth] = useState(0);
 
   useLayoutEffect(() => {
@@ -25,7 +27,8 @@ export function useElementWidth(element: RefObject<HTMLElement | null>) {
     };
 
     show(shown);
-    const observer = new ResizeObserver(([entry]) => {
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries.at(0);
       if (!entry) {
         return;
       }

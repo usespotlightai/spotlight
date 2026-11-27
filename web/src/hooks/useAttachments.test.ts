@@ -26,10 +26,8 @@ describe('useAttachments', () => {
       result.current.add([text()]);
     });
 
-    expect(uploaded).toHaveBeenCalledWith({
-      slug: 'acme',
-      file: expect.any(File) as File,
-    });
+    const anyFile: unknown = expect.any(File);
+    expect(uploaded).toHaveBeenCalledWith({ slug: 'acme', file: anyFile });
     expect(result.current.uploading).toBe(true);
     expect(result.current.ids).toEqual([]);
 
@@ -79,7 +77,8 @@ describe('useAttachments', () => {
       result.current.add([picture, text()]);
     });
 
-    const [shot, notes] = result.current.attachments;
+    const shot = result.current.attachments.at(0);
+    const notes = result.current.attachments.at(1);
     expect(shot?.imageSource).toEqual({ blob: picture });
     expect(notes?.imageSource).toBeNull();
 
@@ -101,7 +100,10 @@ describe('useAttachments', () => {
       result.current.add([text()]);
     });
     act(() => result.current.clear());
-    await act(async () => land({ id: 'att_1' }));
+    await act(() => {
+      land({ id: 'att_1' });
+      return Promise.resolve();
+    });
 
     expect(result.current.attachments).toEqual([]);
     expect(result.current.ids).toEqual([]);

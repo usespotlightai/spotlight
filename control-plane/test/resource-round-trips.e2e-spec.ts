@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from 'node:util';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { eq } from 'drizzle-orm';
 import fc from 'fast-check';
 import type { Test } from 'supertest';
@@ -14,6 +15,14 @@ import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
 type Fields = Readonly<Record<string, unknown>>;
+
+const objectOf = (value: unknown): object => {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('expected the stored definition to be an object');
+  }
+
+  return value;
+};
 
 type Stored = Fields & {
   readonly id: string;
@@ -31,7 +40,7 @@ interface ResourceKind {
   readonly plural: string;
   readonly keys: fc.Arbitrary<string>;
   readonly drafts: (key: string) => fc.Arbitrary<Draft>;
-  readonly writable: (stored: Fields) => unknown;
+  readonly writable: (stored: Fields) => object;
   readonly parts: (
     db: DrizzleDatabase,
     id: string,
@@ -464,7 +473,7 @@ const LINES: ResourceKind = {
     fc
       .uniqueArray(fc.constantFrom(...WORK_KEYS), { maxLength: 4 })
       .chain((keys) => line(keys).map((model) => lineDraft(key, keys, model))),
-  writable: (stored) => stored.definition,
+  writable: (stored) => objectOf(stored.definition),
   parts: async (db, id) =>
     new Map(
       (
@@ -601,7 +610,7 @@ const PROFILES: ResourceKind = {
     mcpServers: stored.mcpServers,
     native: stored.native,
   }),
-  parts: async () => new Map(),
+  parts: () => Promise.resolve(new Map()),
 };
 
 const same = (one: unknown, other: unknown): boolean =>
@@ -625,7 +634,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 const opened = async (resource: ResourceKind) => {
@@ -649,11 +658,11 @@ const opened = async (resource: ResourceKind) => {
     update: async (
       id: string,
       version: number,
-      body: unknown,
+      body: object,
     ): Promise<Answer<Stored>> =>
       signed(served(app).put(item(id)))
         .set('If-Match', `"${version}"`)
-        .send(body as object),
+        .send(body),
     remove: async (id: string, version: number): Promise<Answer<Fields>> =>
       signed(served(app).delete(item(id))).set('If-Match', `"${version}"`),
     imported: async (address: string): Promise<Answer<Fields>> =>
@@ -815,7 +824,7 @@ describe.each([LINES, PROFILES])(
               const won = answers.flatMap((answer, at) =>
                 answer.status === 200 ? [{ answer, draft: racing[at] }] : [],
               );
-              const [winner] = won;
+              const winner = firstOf(won);
               const readBack = await api.read(created.body.id);
 
               return (
@@ -823,7 +832,7 @@ describe.each([LINES, PROFILES])(
                 winner !== undefined &&
                 same(
                   resource.writable(winner.answer.body),
-                  winner.draft?.expected,
+                  winner.draft.expected,
                 ) &&
                 answers
                   .filter((answer) => answer !== winner.answer)

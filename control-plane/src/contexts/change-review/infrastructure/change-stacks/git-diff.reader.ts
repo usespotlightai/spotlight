@@ -13,6 +13,7 @@ import {
   type UnnamedFile,
 } from '@change-review/domain/value-objects/diff.vo';
 import type { SourceSide } from '@change-review/domain/value-objects/symbol-index.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 interface OpenFile {
   path: string | null;
@@ -84,7 +85,7 @@ const sourcesOf = (
   }
 
   return sides.flatMap(([side, path, lines]) => {
-    if (!path || lines.size === 0) {
+    if (path === null || path === '' || lines.size === 0) {
       return [];
     }
 
@@ -129,7 +130,7 @@ const filesIn = (text: string): OpenFile[] => {
       continue;
     }
 
-    const hunk = current.hunks[current.hunks.length - 1];
+    const hunk = itemAt(current.hunks, current.hunks.length - 1);
 
     if (hunk && /^[ +\-\\]/.test(line)) {
       hunk.lines.push(line);
@@ -177,7 +178,7 @@ export class GitDiffReader implements DiffReaderPort {
       const newPath = file.newPath ?? file.headerPaths?.new ?? null;
       const path = file.deleted ? oldPath : (newPath ?? oldPath);
 
-      if (!path) {
+      if (path === null || path === '') {
         throw new InvalidDiffError('has a file without a path');
       }
 

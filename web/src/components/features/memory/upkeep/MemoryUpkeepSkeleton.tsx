@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { DecisionCard } from '@/components/shared/DecisionCard';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { FactRow } from '@/components/shared/FactRow';
@@ -5,7 +7,7 @@ import { DecisionTitleSkeleton } from '@/components/shared/skeleton/DecisionTitl
 import { PillSkeleton } from '@/components/shared/skeleton/PillSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
-export function MemoryUpkeepSkeleton() {
+export function MemoryUpkeepSkeleton(): ReactElement {
   return (
     <div
       role="status"

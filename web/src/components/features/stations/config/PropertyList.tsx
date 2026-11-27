@@ -1,9 +1,13 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 export const PROPERTY_GRID =
   'grid grid-cols-[clamp(6rem,100%_-_11.5rem,8.5rem)_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm leading-5';
 
-export function PropertyList({ children }: { children: ReactNode }) {
+export function PropertyList({
+  children,
+}: {
+  children: ReactNode;
+}): ReactElement {
   return <dl className={PROPERTY_GRID}>{children}</dl>;
 }
 
@@ -15,7 +19,7 @@ export function Property({
   label: string;
   slot?: string;
   children: ReactNode;
-}) {
+}): ReactElement {
   return (
     <>
       <dt className="text-muted-foreground">{label}</dt>

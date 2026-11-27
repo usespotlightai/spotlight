@@ -38,7 +38,7 @@ const routeOf = (pathname: string): TunnelRoute | null => {
 
   return matched
     ? {
-        peer: decodeURIComponent(matched[1] ?? ''),
+        peer: decodeURIComponent(matched[1]),
         stream: matched[2] ? decodeURIComponent(matched[2]) : null,
       }
     : null;

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { sliceFill } from '@/components/features/insights/chart-series';
 import { SliceDonut } from '@/components/features/insights/SliceDonut';
@@ -19,7 +19,11 @@ type FailureSlicesProps = {
   slices: readonly FailureSlice[];
 };
 
-export function FailureSlices({ label, of, slices }: FailureSlicesProps) {
+export function FailureSlices({
+  label,
+  of,
+  slices,
+}: FailureSlicesProps): ReactElement {
   const total = slices.reduce((sum, slice) => sum + slice.count, 0);
 
   return (

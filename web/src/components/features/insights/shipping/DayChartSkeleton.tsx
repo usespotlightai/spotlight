@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { DAY_CHART_HEIGHT } from '@/components/features/insights/shipping/DayChart';
 import { ChartSkeleton } from '@/components/shared/skeleton/ChartSkeleton';
@@ -6,7 +8,9 @@ type DayChartSkeletonProps = {
   legend?: readonly { readonly label: string; readonly color: string }[];
 };
 
-export function DayChartSkeleton({ legend }: DayChartSkeletonProps) {
+export function DayChartSkeleton({
+  legend,
+}: DayChartSkeletonProps): ReactElement {
   return (
     <figure className="flex flex-col gap-2">
       <ChartSkeleton height={DAY_CHART_HEIGHT} />

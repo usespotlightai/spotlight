@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { HarnessProfileMapper } from '@configuration/application/mappers/harness-profile.mapper';
 import { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileAlreadyExistsError } from '@configuration/domain/exceptions/harness-profile-already-exists.error';
@@ -52,11 +53,11 @@ export class DrizzleHarnessProfiles implements HarnessProfileRepository {
   ) {}
 
   async withId(id: HarnessProfileId): Promise<HarnessProfile | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(harnessProfile)
       .where(eq(harnessProfile.id, id.value))
-      .limit(1);
+      .limit(1));
 
     return found ? rehydrated(found) : null;
   }

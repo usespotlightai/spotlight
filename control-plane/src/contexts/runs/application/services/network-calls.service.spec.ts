@@ -5,6 +5,7 @@ import type { NetworkCallRepository } from '@runs/domain/repositories/network-ca
 import { CallingHost } from '@runs/domain/value-objects/calling-host.vo';
 import { NetworkResponse } from '@runs/domain/value-objects/network-response.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
@@ -32,18 +33,20 @@ const calling = (
   let now = NOW;
   const clock: ClockPort = {
     now: () => now,
-    sleep: async (ms) => {
+    sleep: (ms) => {
       now = new Date(now.getTime() + ms);
+      return Promise.resolve();
     },
   };
   let stored: NetworkCall | null = null;
   const reads: Date[] = [];
   let saves = 0;
-  const repository = {
-    add: async (call: NetworkCall) => {
+  const repository = partial<NetworkCallRepository>({
+    add: (call: NetworkCall) => {
       stored = call;
+      return Promise.resolve();
     },
-    find: async () => {
+    find: () => {
       reads.push(now);
       if (
         stored &&
@@ -56,17 +59,22 @@ const calling = (
           ? claimed
           : claimed.recordResponse(HOST, response, now);
       }
-      return stored;
+      return Promise.resolve(stored);
     },
-    save: async (call: NetworkCall) => {
+    save: (call: NetworkCall) => {
       saves += 1;
       stored = call.isDiscarded ? null : call;
+      return Promise.resolve();
     },
-    expiringBy: async (at: Date) =>
-      stored && stored.expiresAt <= at && !stored.isCompleted ? [stored] : [],
-    completedBy: async (at: Date) =>
-      stored?.completedAt && stored.completedAt <= at ? [stored] : [],
-  } as unknown as NetworkCallRepository;
+    expiringBy: (at: Date) =>
+      Promise.resolve(
+        stored && stored.expiresAt <= at && !stored.isCompleted ? [stored] : [],
+      ),
+    completedBy: (at: Date) =>
+      Promise.resolve(
+        stored?.completedAt && stored.completedAt <= at ? [stored] : [],
+      ),
+  });
 
   return {
     reads,

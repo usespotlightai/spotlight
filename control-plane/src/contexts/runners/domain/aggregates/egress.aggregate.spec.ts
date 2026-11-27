@@ -25,8 +25,11 @@ describe('Egress', () => {
     const [created] = anEgress().pullEvents();
 
     expect(created).toBeInstanceOf(EgressCreated);
-    expect((created as EgressCreated).change.resource).toBe('egress');
-    expect((created as EgressCreated).change.action).toBe('created');
+    if (!(created instanceof EgressCreated)) {
+      throw new Error('expected EgressCreated');
+    }
+    expect(created.change.resource).toBe('egress');
+    expect(created.change.action).toBe('created');
   });
 
   it('moves to another URL and keeps its token when none is given', () => {
@@ -43,7 +46,10 @@ describe('Egress', () => {
     expect(moved.url.value).toBe('https://egress-2.example.com');
     expect(moved.tokenHash.equals(hashOf('9'))).toBe(true);
     expect(event).toBeInstanceOf(EgressUpdated);
-    expect((event as EgressUpdated).change.detail?.recorded()).toEqual({});
+    if (!(event instanceof EgressUpdated)) {
+      throw new Error('expected EgressUpdated');
+    }
+    expect(event.change.detail?.recorded()).toEqual({});
   });
 
   it('rotates its token in place, and records that it did', () => {
@@ -60,7 +66,10 @@ describe('Egress', () => {
     expect(rotated.id.equals(egress.id)).toBe(true);
     expect(rotated.tokenHash.equals(hashOf('8'))).toBe(true);
     expect(rotated.tokenVersion.value).toBe(2);
-    expect((event as EgressUpdated).change.detail?.recorded()).toEqual({
+    if (!(event instanceof EgressUpdated)) {
+      throw new Error('expected EgressUpdated');
+    }
+    expect(event.change.detail?.recorded()).toEqual({
       tokenRotated: true,
     });
   });

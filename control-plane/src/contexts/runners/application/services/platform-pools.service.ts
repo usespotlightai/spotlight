@@ -161,7 +161,7 @@ export class PlatformPools {
 
       open.push(...page.items.map((each) => each.id));
       after = page.next;
-    } while (after);
+    } while (after !== null && after !== '');
 
     return open;
   }

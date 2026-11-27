@@ -25,7 +25,7 @@ describe('JoseHookTokens', () => {
 
     const { payload, protectedHeader } = await jwtVerify(
       token,
-      createLocalJWKSet((await tokens.keys()) as never),
+      createLocalJWKSet({ keys: [...(await tokens.keys()).keys] }),
       { issuer: ISSUER, audience: 'https://dba.example.com' },
     );
 
@@ -35,7 +35,7 @@ describe('JoseHookTokens', () => {
       webhook_id: 'msg_1',
       body_sha256: 'digest',
     });
-    expect((payload.exp as number) - (payload.iat as number)).toBe(300);
+    expect((payload.exp ?? Number.NaN) - (payload.iat ?? Number.NaN)).toBe(300);
   });
 
   it('publishes only the public half of its key', async () => {

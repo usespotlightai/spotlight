@@ -20,7 +20,7 @@ const review = (
 ): ObservedReview => ({
   id,
   state,
-  login: over.byBot ? BOT : 'grace',
+  login: over.byBot === true ? BOT : 'grace',
   byBot: false,
   at: at(hour),
   dismissed: false,

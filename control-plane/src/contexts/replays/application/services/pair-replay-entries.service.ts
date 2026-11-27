@@ -18,7 +18,7 @@ export class PairReplayEntries {
     const pairing = await this.replays.pairingWith(event.replayId);
 
     for (const each of [
-      ...(replay?.pairs ? [event.replayId] : []),
+      ...(replay?.pairs === true ? [event.replayId] : []),
       ...pairing,
     ]) {
       await this.paired(each);
@@ -28,7 +28,7 @@ export class PairReplayEntries {
   private async paired(replayId: ReplayId): Promise<void> {
     const seen = await this.replays.find(replayId);
 
-    if (!seen?.pairs || !seen.takesPairings) {
+    if (seen?.pairs !== true || !seen.takesPairings) {
       return;
     }
 

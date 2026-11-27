@@ -85,7 +85,9 @@ export const TraceRow = memo(function TraceRow({
           </span>
         )}
         {node.egressEnforcement === 'not-enforced' && <TraceEgressMark />}
-        {runId && <TraceRunVerdict teamId={teamId} runId={runId} />}
+        {runId !== null && runId !== '' && (
+          <TraceRunVerdict teamId={teamId} runId={runId} />
+        )}
       </div>
 
       <TraceBar node={node} trace={trace} />

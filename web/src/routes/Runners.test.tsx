@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Runners } from '@/routes/Runners';
 
 const fleet = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 const role = vi.fn<(...args: unknown[]) => unknown>();
 

@@ -1,6 +1,10 @@
 import { NoGitHubInstallationError } from '@github/application/errors/no-github-installation.error';
-import type { PullRequestPort } from '@github/application/ports/pull-request.port';
+import type {
+  OpenedPullRequestDto,
+  PullRequestPort,
+} from '@github/application/ports/pull-request.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -106,9 +110,9 @@ const lineWorking = (repositories: readonly string[]): LineMap => {
     null,
   );
 
-  return {
+  return partial<LineMap>({
     opening: (name: RepositoryName | null) => repositoriesOfLine.opening(name),
-  } as unknown as LineMap;
+  });
 };
 
 const requested = (
@@ -139,56 +143,70 @@ const opening = (
   const opened: Parameters<PullRequestPort['open']>[0][] = [];
   const edited: Parameters<PullRequestPort['edit']>[0][] = [];
 
-  const pullRequests = {
-    open: async (request: Parameters<PullRequestPort['open']>[0]) => {
+  const pullRequests = partial<PullRequestPort>({
+    open: (request: Parameters<PullRequestPort['open']>[0]) => {
       if (over.connected === false) {
-        throw new NoGitHubInstallationError();
+        return Promise.reject(new NoGitHubInstallationError());
       }
       opened.push(request);
       if (stored && over.meanwhile) {
         stored = over.meanwhile(stored);
       }
-      return { url: 'https://github.com/acme/widgets/pull/7' };
+      return Promise.resolve(
+        partial<OpenedPullRequestDto>({
+          url: 'https://github.com/acme/widgets/pull/7',
+        }),
+      );
     },
-    edit: async (request: Parameters<PullRequestPort['edit']>[0]) => {
+    edit: (request: Parameters<PullRequestPort['edit']>[0]) => {
       edited.push(request);
+
+      return Promise.resolve();
     },
-    changedOn: async (...on: unknown[]) => {
+    changedOn: (...on: unknown[]) => {
       compared.push(on);
-      return ['db/migrations/0042_add_index.sql', 'src/queue.ts'];
+      return Promise.resolve([
+        'db/migrations/0042_add_index.sql',
+        'src/queue.ts',
+      ]);
     },
-  } as unknown as PullRequestPort;
-  const tasks = {
-    find: async () => stored,
-    findByCorrelation: async () => (over.markedTask ? [over.markedTask] : []),
-    owningPullRequest: async () => null,
-    reviewingPullRequest: async () => null,
-    holdingMark: async () => [],
-    save: async (each: Task) => {
+  });
+  const tasks = partial<TaskRepository>({
+    find: () => Promise.resolve(stored),
+    findByCorrelation: () =>
+      Promise.resolve(over.markedTask ? [over.markedTask] : []),
+    owningPullRequest: () => Promise.resolve(null),
+    reviewingPullRequest: () => Promise.resolve(null),
+    holdingMark: () => Promise.resolve([]),
+    save: (each: Task) => {
       saved.push(each);
+
+      return Promise.resolve();
     },
-  } as unknown as TaskRepository;
+  });
   const line = lineWorking(over.repositories ?? ['acme/widgets']);
   const service = new OpenPullRequest(
     tasks,
-    { findByStation: async () => line } as unknown as LineMapsPort,
+    partial<LineMapsPort>({ findByStation: () => Promise.resolve(line) }),
     pullRequests,
     { inTransaction: (work) => work() } satisfies TransactionPort,
     new PullRequestOpeningHook(
+      partial<TaskViewsPort>({
+        of: (taskId: string, runId: string | null) =>
+          Promise.resolve(
+            over.viewed === false
+              ? null
+              : partial<TaskViewDto>({ taskId, runId, teamId: 'team_1' }),
+          ),
+      }),
       {
-        of: async (taskId: string, runId: string | null) =>
-          over.viewed === false
-            ? null
-            : ({ taskId, runId, teamId: 'team_1' } as unknown as TaskViewDto),
-      } as unknown as TaskViewsPort,
-      {
-        listens: async (teamId, on) => {
+        listens: (teamId, on) => {
           listened.push([teamId, on]);
-          return over.listening ?? true;
+          return Promise.resolve(over.listening ?? true);
         },
-        before: async (_task, event) => {
+        before: (_task, event) => {
           hookCalls.push(event);
-          return over.decision ?? { kind: 'allowed' };
+          return Promise.resolve(over.decision ?? { kind: 'allowed' });
         },
         after: async () => {},
       },

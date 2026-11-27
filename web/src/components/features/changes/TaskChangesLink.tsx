@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ChangesRow } from '@/components/features/changes/ChangesRow';
 import { useTaskChangeStack } from '@/hooks/api/useTaskChangeStack';
 import { taskChangesPath } from '@/lib/change-stack';
@@ -12,7 +14,7 @@ export function TaskChangesLink({
   slug,
   teamId,
   taskId,
-}: TaskChangesLinkProps) {
+}: TaskChangesLinkProps): ReactElement | null {
   const { data } = useTaskChangeStack(teamId, taskId);
   const latest = data?.latest;
 

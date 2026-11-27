@@ -16,6 +16,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -59,9 +60,7 @@ const alertRowOf = (alertState: StationAlertState, firing: AlertFiring) => ({
 });
 
 @Injectable()
-export class DrizzleStationAlertStateRepository
-  implements StationAlertStateRepository
-{
+export class DrizzleStationAlertStateRepository implements StationAlertStateRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -122,21 +121,25 @@ export class DrizzleStationAlertStateRepository
   }
 
   async of(stationId: StationId): Promise<StationAlertState | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(stationAlertState)
-      .where(eq(stationAlertState.stationId, stationId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(stationAlertState)
+        .where(eq(stationAlertState.stationId, stationId.value))
+        .limit(1),
+    );
 
     return row ? this.withFirings(row) : null;
   }
 
   async ofAlert(alertId: AlertId): Promise<StationAlertState | null> {
-    const [row] = await this.context.db
-      .select({ stationId: stationAlert.stationId })
-      .from(stationAlert)
-      .where(eq(stationAlert.id, alertId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select({ stationId: stationAlert.stationId })
+        .from(stationAlert)
+        .where(eq(stationAlert.id, alertId.value))
+        .limit(1),
+    );
 
     return row ? this.of(StationId.of(row.stationId)) : null;
   }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 const GRACE_MS = 300;
 
-export function useDragGuard() {
+export function useDragGuard(): () => void {
   const pending = useRef<((event: MouseEvent) => void) | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

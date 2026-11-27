@@ -1,4 +1,4 @@
-import { type ReactNode, useRef } from 'react';
+import { type ReactNode, useRef, type ReactElement } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOverflows } from '@/hooks/useOverflows';
@@ -10,7 +10,11 @@ type OverflowFadeProps = {
   children: ReactNode;
 };
 
-export function OverflowFade({ className, slot, children }: OverflowFadeProps) {
+export function OverflowFade({
+  className,
+  slot,
+  children,
+}: OverflowFadeProps): ReactElement {
   const scroller = useRef<HTMLDivElement>(null);
   const scrolls = useOverflows(scroller, true);
 

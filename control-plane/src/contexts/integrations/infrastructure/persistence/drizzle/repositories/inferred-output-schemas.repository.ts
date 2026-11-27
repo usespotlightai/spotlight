@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { InferredOutputSchema } from '@integrations/domain/aggregates/inferred-output-schema.aggregate';
 import { InferredOutputSchemaVersionConflictError } from '@integrations/domain/exceptions/inferred-output-schema-version-conflict.error';
 import type { InferredOutputSchemaRepository } from '@integrations/domain/repositories/inferred-output-schema.repository';
@@ -30,7 +31,7 @@ export class DrizzleInferredOutputSchemas
     teamId: TeamId,
     tool: ToolName,
   ): Promise<InferredOutputSchema | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(inferredOutputSchema)
       .where(
@@ -39,7 +40,7 @@ export class DrizzleInferredOutputSchemas
           eq(inferredOutputSchema.tool, tool.value),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return found ? rehydrate(found) : null;
   }

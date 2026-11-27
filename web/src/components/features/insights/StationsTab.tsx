@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
@@ -25,7 +27,12 @@ type StationsTabProps = {
   names: StationNames;
 };
 
-export function StationsTab({ slug, teamId, period, names }: StationsTabProps) {
+export function StationsTab({
+  slug,
+  teamId,
+  period,
+  names,
+}: StationsTabProps): ReactElement {
   const stations = useInsightsStations(teamId, period);
   useScrollToHash(Boolean(stations.data));
 

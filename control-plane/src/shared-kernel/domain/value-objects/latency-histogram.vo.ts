@@ -16,9 +16,11 @@ const bucketOf = (ms: number): number => {
   return at === -1 ? LATENCY_BOUNDS_MS.length : at;
 };
 
+const boundAt = (index: number): number | undefined => LATENCY_BOUNDS_MS[index];
+
 const typicalOf = (bucket: number): number => {
-  const below = LATENCY_BOUNDS_MS[bucket - 1];
-  const above = LATENCY_BOUNDS_MS[bucket];
+  const below = boundAt(bucket - 1);
+  const above = boundAt(bucket);
 
   if (below === undefined) {
     return Math.round((above ?? 0) / 2);

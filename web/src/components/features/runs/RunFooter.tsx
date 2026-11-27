@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ClosedTaskComposer } from '@/components/features/runs/ClosedTaskComposer';
 import { MovedOnFooter } from '@/components/features/runs/MovedOnFooter';
 import {
@@ -25,7 +27,7 @@ export function RunFooter({
   latest,
   conversation,
   onSent,
-}: RunFooterProps) {
+}: RunFooterProps): ReactElement {
   const { station: current, task } = useTaskStation(
     teamId,
     conversation?.taskId,
@@ -58,7 +60,7 @@ export function RunFooter({
           station={current.name}
           harness={task.runNotStarted.harness}
         />
-        {refusedHere ? (
+        {refusedHere !== null && refusedHere !== '' ? (
           closed(current.name, refusedHere)
         ) : (
           <RunComposer
@@ -91,7 +93,7 @@ export function RunFooter({
 
   const refused = messageRefusal(latest.yourMessage);
 
-  if (refused) {
+  if (refused !== null && refused !== '') {
     return closed(
       run.station?.name ?? 'the agent',
       refused,

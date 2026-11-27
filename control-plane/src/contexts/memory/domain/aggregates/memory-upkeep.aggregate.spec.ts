@@ -30,14 +30,20 @@ const TEAM = TeamId.of('team_1');
 const P1 = UpkeepProposalId.of('p_1');
 const P2 = UpkeepProposalId.of('p_2');
 
-const swept = (proposals: UpkeepProposal[]) =>
-  MemoryUpkeep.swept({
+const swept = (proposals: UpkeepProposal[]): MemoryUpkeep => {
+  const upkeep = MemoryUpkeep.swept({
     id: MemoryUpkeepId.of('upkeep_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
     sweptAt: NOW,
     proposals,
-  }) as MemoryUpkeep;
+  });
+
+  if (upkeep === null) {
+    throw new Error('expected an upkeep');
+  }
+  return upkeep;
+};
 
 const memory = (number: number, retired = false): Memory => {
   const written = Memory.write({
@@ -106,8 +112,10 @@ describe('a memory upkeep sweep', () => {
     });
 
     const [, event] = approved.pullEvents();
-    expect(event).toBeInstanceOf(UpkeepProposalApproved);
-    expect((event as UpkeepProposalApproved).merged?.value).toBe('memory_new');
+    if (!(event instanceof UpkeepProposalApproved)) {
+      throw new Error('expected an UpkeepProposalApproved');
+    }
+    expect(event.merged?.value).toBe('memory_new');
     expect(approved.proposal(P2).state).toBe('approved');
   });
 

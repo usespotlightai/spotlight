@@ -3,6 +3,8 @@ import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -48,28 +50,27 @@ import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const TEAMMATES = {
-  membersOf: async () => TeamMembers.of([UserId.of('user_9')]),
+  membersOf: () => Promise.resolve(TeamMembers.of([UserId.of('user_9')])),
 };
 
-const NO_RUNS = { of: async () => [] } as unknown as RunFactsPort;
+const NO_RUNS = partial<RunFactsPort>({ of: () => Promise.resolve([]) });
 
-const channels = {
-  reached: async () => null,
-  refuse: async () => {},
-} as unknown as ChannelChats;
+const channels = partial<ChannelChats>({
+  reached: () => Promise.resolve(null),
+});
 
 const NOW = new Date('2026-09-18T12:00:00.000Z');
 const PULL = 'https://github.com/acme/api/pull/7';
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 const transaction: TransactionPort = { inTransaction: async (work) => work() };
 const members: MemberDirectoryPort = {
-  byEmail: async () => null,
+  byEmail: () => Promise.resolve(null),
 };
 const files = {
   grant: vi.fn(),
-  received: vi.fn(async () => []),
+  received: vi.fn(() => Promise.resolve([])),
   save: vi.fn(),
-  stored: vi.fn(async () => true),
+  stored: vi.fn(() => Promise.resolve(true)),
   taken: vi.fn(),
   copy: vi.fn(),
   link: vi.fn(),
@@ -133,7 +134,8 @@ const requested = (
     answers: trigger === 'mentioned',
     state: 'raised',
     correlationKeys: { branch: null, marks },
-    message: over.body ? { body: over.body } : null,
+    message:
+      over.body !== undefined && over.body !== '' ? { body: over.body } : null,
     ourOwn: false,
     opens: {
       lineRole: 'review',
@@ -164,48 +166,53 @@ const world = (input: {
   const dispatched: Task[] = [];
 
   const tasks = {
-    add: vi.fn(async (each: Task) => {
+    add: vi.fn((each: Task) => {
       added.push(each);
+
+      return Promise.resolve();
     }),
-    save: vi.fn(async (each: Task) => {
+    save: vi.fn((each: Task) => {
       saved.push(each);
+
+      return Promise.resolve();
     }),
-    find: vi.fn(async () => null),
+    find: vi.fn(() => Promise.resolve(null)),
     remove: vi.fn(),
-    placementsAt: vi.fn(async () => []),
+    placementsAt: vi.fn(() => Promise.resolve([])),
     findByCorrelation: vi.fn(
-      async (_at: WorkspaceId, correlationKeys: CorrelationKeys) => {
+      (_at: WorkspaceId, correlationKeys: CorrelationKeys) => {
         const found = input.findByCorrelation?.(correlationKeys) ?? null;
-        return found ? [found] : [];
+        return Promise.resolve(found ? [found] : []);
       },
     ),
-    owningPullRequest: vi.fn(async () => input.owning ?? null),
-    reviewingPullRequest: vi.fn(async () => null),
-    holdingMark: vi.fn(async () => []),
-    settingUpFor: vi.fn(async () => null),
-    settingUpIn: vi.fn(async () => []),
-    settingUp: vi.fn(async () => []),
-    withTurnAnsweredBetween: vi.fn(async () => []),
-    awaitingConnection: vi.fn(async () => []),
-    startingFrom: vi.fn(async () => []),
-    onBranch: vi.fn(async () => null),
+    owningPullRequest: vi.fn(() => Promise.resolve(input.owning ?? null)),
+    reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
+    holdingMark: vi.fn(() => Promise.resolve([])),
+    settingUpFor: vi.fn(() => Promise.resolve(null)),
+    settingUpIn: vi.fn(() => Promise.resolve([])),
+    settingUp: vi.fn(() => Promise.resolve([])),
+    withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
+    awaitingConnection: vi.fn(() => Promise.resolve([])),
+    startingFrom: vi.fn(() => Promise.resolve([])),
+    onBranch: vi.fn(() => Promise.resolve(null)),
   } satisfies TaskRepository & TaskPlacementsPort;
 
   const lines = {
-    find: vi.fn(async () => null),
-    findByStation: vi.fn<LineMapsPort['findByStation']>(
-      async (stationId) =>
+    find: vi.fn(() => Promise.resolve(null)),
+    findByStation: vi.fn<LineMapsPort['findByStation']>((stationId) =>
+      Promise.resolve(
         input.lines.find((line) => line.stationAt(stationId)) ?? null,
+      ),
     ),
-    ofWorkspace: vi.fn(async () => input.lines),
-    ofTeam: vi.fn(async () => input.lines),
+    ofWorkspace: vi.fn(() => Promise.resolve(input.lines)),
+    ofTeam: vi.fn(() => Promise.resolve(input.lines)),
     candidate: vi.fn(),
   } satisfies LineMapsPort;
 
   const dispatch: TaskDispatching = {
-    runIdFor: async ({ task }) => {
+    runIdFor: ({ task }) => {
       dispatched.push(task);
-      return RunId.of('run_1');
+      return Promise.resolve(RunId.of('run_1'));
     },
   };
 
@@ -257,7 +264,7 @@ describe('ReactToHappenings, with a review request', () => {
     await react(requested('opened'));
 
     expect(added).toHaveLength(1);
-    const [task] = added;
+    const task = firstOf(added);
     expect(task?.stationId.value).toBe(line.entry?.id.value);
     expect(task?.title.value).toBe('Retry uploads');
     expect(task?.reviewing).toBe(true);
@@ -356,7 +363,7 @@ describe('ReactToHappenings, with a review request', () => {
       newId: () => 'task_own',
     });
     const holding = (correlationKeys: CorrelationKeys) =>
-      correlationKeys.branch?.equals(own.branch) ? own : null;
+      correlationKeys.branch?.equals(own.branch) === true ? own : null;
 
     const skipping = world({
       lines: [delivery, reviewing({ reviews: policy('opened') })],

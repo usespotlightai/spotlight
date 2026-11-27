@@ -31,7 +31,7 @@ const recordOf = (tool: Tool): OperationRecord | string => {
     return `skips ${tool.name}. It has no name that a tool can take`;
   }
 
-  if (unnameable) {
+  if (unnameable !== undefined && unnameable !== '') {
     return `skips ${tool.name}. It takes ${unnameable}, which a tool cannot take`;
   }
 

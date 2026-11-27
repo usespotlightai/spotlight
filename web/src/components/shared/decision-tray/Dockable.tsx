@@ -9,7 +9,7 @@ type DockableProps = {
   children: ReactNode;
 };
 
-export function Dockable({ id, run = 1, children }: DockableProps) {
+export function Dockable({ id, run = 1, children }: DockableProps): ReactNode {
   const tray = use(DecisionTrayContext);
   const docked = dockedIn(tray, id);
 

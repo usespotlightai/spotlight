@@ -1,10 +1,14 @@
+import type { ReactElement } from 'react';
+
 import { type ChangeStack, shortCommit } from '@/lib/change-stack';
 
 type StackPushOriginProps = {
   stack: ChangeStack;
 };
 
-export function StackPushOrigin({ stack }: StackPushOriginProps) {
+export function StackPushOrigin({
+  stack,
+}: StackPushOriginProps): ReactElement | null {
   if (!stack.push) {
     return null;
   }
@@ -14,7 +18,7 @@ export function StackPushOrigin({ stack }: StackPushOriginProps) {
       title={`Commit ${shortCommit(stack.push.head)}`}
       className="hidden shrink-0 text-muted-foreground text-xs @md/pane:inline"
     >
-      {stack.push.pushedBy
+      {stack.push.pushedBy !== null && stack.push.pushedBy !== ''
         ? `Pushed by ${stack.push.pushedBy}`
         : 'Pushed to the pull request'}
     </span>

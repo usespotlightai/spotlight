@@ -1,8 +1,10 @@
 import type { TaskDecisionsDto } from '@change-review/application/dto/decision.dto';
 import type { DecisionReaderPort } from '@change-review/application/ports/decision-reader.port';
+import type { ReviewedTask } from '@change-review/application/ports/work.port';
 import { ReadTaskDecisionsHandler } from '@change-review/application/queries/handlers/read-task-decisions.handler';
 import { ReadTaskDecisionsQuery } from '@change-review/application/queries/read-task-decisions.query';
 import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -41,29 +43,31 @@ const reading = (
   over: { stored?: TaskDecisionsDto | null; allowed?: boolean } = {},
 ) =>
   new ReadTaskDecisionsHandler(
-    {
-      task: async () =>
-        over.allowed === false
-          ? null
-          : {
-              task: {
-                id: TaskId.of('task_1'),
-                workspaceId: WorkspaceId.of('ws_1'),
-                teamId: null,
-                pullRequest: null,
-                reviewing: false,
-                currentRunId: null,
+    partial<TeamWorkAccess>({
+      task: () =>
+        Promise.resolve(
+          over.allowed === false
+            ? null
+            : {
+                task: partial<ReviewedTask>({
+                  id: TaskId.of('task_1'),
+                  workspaceId: WorkspaceId.of('ws_1'),
+                  teamId: null,
+                  reviewing: false,
+                  currentRunId: null,
+                }),
+                by: UserId.of('user_1'),
               },
-              by: UserId.of('user_1'),
-            },
-    } as unknown as TeamWorkAccess,
+        ),
+    }),
+    partial<DecisionReaderPort>({
+      ofTask: () =>
+        Promise.resolve(over.stored === undefined ? STORED : over.stored),
+    }),
     {
-      ofTask: async () => (over.stored === undefined ? STORED : over.stored),
-    } as unknown as DecisionReaderPort,
-    {
-      find: async () => ({ name: 'Maya Chen', image: null }),
-      viewerOf: async () => null,
-      actsOnTeam: async () => false,
+      find: () => Promise.resolve({ name: 'Maya Chen', image: null }),
+      viewerOf: () => Promise.resolve(null),
+      actsOnTeam: () => Promise.resolve(false),
     },
   ).execute(new ReadTaskDecisionsQuery('team_1', 'task_1', 'user_1'));
 

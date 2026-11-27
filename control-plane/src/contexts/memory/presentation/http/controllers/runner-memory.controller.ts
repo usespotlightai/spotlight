@@ -76,6 +76,7 @@ export class RunnerMemoryController {
     description:
       'The run is a search, which recalls nothing the team remembers',
   })
+  @ApiBody({ type: RecallMemoriesRequestDto })
   async recall(
     @Param('runId') runId: string,
     @Body() body: RecallMemoriesRequestDto | undefined,
@@ -110,6 +111,7 @@ export class RunnerMemoryController {
     description:
       'The run is a search, which is shown nothing the team remembers',
   })
+  @ApiBody({ type: DeliveredMemoriesRequestDto })
   async delivered(
     @Param('runId') runId: string,
     @Body() body: DeliveredMemoriesRequestDto | undefined,
@@ -176,6 +178,7 @@ export class RunnerMemoryController {
     description:
       'An unknown kind or scope, a path outside the run’s repositories, or a chat run',
   })
+  @ApiBody({ type: RememberRequestDto })
   async remember(
     @Param('runId') runId: string,
     @Body() body: RememberRequestDto | undefined,
@@ -217,6 +220,7 @@ export class RunnerMemoryController {
     description:
       'Not a handle like M-12, a memory that is not active in the run’s team, no reason, or a chat run',
   })
+  @ApiBody({ type: ForgetRequestDto })
   async forget(
     @Param('runId') runId: string,
     @Param('handle') handle: string,

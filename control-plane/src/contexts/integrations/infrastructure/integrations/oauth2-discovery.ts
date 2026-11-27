@@ -70,9 +70,10 @@ export const ownClientOf = (
   endpoints.client
     ? {
         id: endpoints.client.id,
-        secret: endpoints.client.secret
-          ? SecretName.of(endpoints.client.secret)
-          : null,
+        secret:
+          endpoints.client.secret !== null && endpoints.client.secret !== ''
+            ? SecretName.of(endpoints.client.secret)
+            : null,
         token: endpoints.token,
       }
     : null;
@@ -190,7 +191,7 @@ export class OAuth2Discovery {
     this.policy.allow(discovered.issuer);
     this.policy.allow(discovered.token);
 
-    if (discovered.registration) {
+    if (discovered.registration !== null && discovered.registration !== '') {
       this.policy.allow(discovered.registration);
     }
   }
@@ -221,7 +222,7 @@ export class OAuth2Discovery {
       !metadata ||
       withoutTrailingSlash(metadata.issuer) !==
         withoutTrailingSlash(info.authorizationServerUrl) ||
-      !metadata.code_challenge_methods_supported?.includes(PKCE) ||
+      metadata.code_challenge_methods_supported?.includes(PKCE) !== true ||
       !checkResourceAllowed({
         requestedResource: server,
         configuredResource: resource,

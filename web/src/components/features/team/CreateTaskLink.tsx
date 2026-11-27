@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
@@ -13,11 +15,11 @@ export function CreateTaskLink({
 }: {
   slug: string;
   teamId: string | undefined;
-}) {
+}): ReactElement {
   const { data: lines } = useLines(teamId);
   const line = lines?.[0];
 
-  return teamId && line ? (
+  return teamId !== undefined && teamId !== '' && line ? (
     <TrailLink
       to={linePath(slug, teamId, line.id)}
       className={cn(

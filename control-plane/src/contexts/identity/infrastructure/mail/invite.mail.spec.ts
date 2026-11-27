@@ -4,20 +4,25 @@ import type {
   MailTransport,
 } from '@identity/infrastructure/mail/mail.transport';
 import type { Env } from '@platform/config/env.schema';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const sending = (over: Partial<Env> = {}) => {
   const delivered: MailMessage[] = [];
   const transport: MailTransport = {
-    deliver: vi.fn<MailTransport['deliver']>(async (message) => {
+    deliver: vi.fn<MailTransport['deliver']>((message) => {
       delivered.push(message);
+      return Promise.resolve();
     }),
   };
 
-  const mail = new InviteByMail(transport, {
-    BETTER_AUTH_URL: 'https://app.example.com',
-    ...over,
-  } as Env);
+  const mail = new InviteByMail(
+    transport,
+    partial<Env>({
+      BETTER_AUTH_URL: 'https://app.example.com',
+      ...over,
+    }),
+  );
 
   return { mail, delivered };
 };

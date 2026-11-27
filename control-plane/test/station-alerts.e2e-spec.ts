@@ -20,11 +20,14 @@ import {
   TASK_DELETED,
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
+import { itemAt, firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { aDispatch, outcomeOf, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
@@ -51,15 +54,17 @@ let elsewhere: Awaited<ReturnType<typeof createTeam>>;
 const watched = randomUUID();
 
 const inboxRequestOf = async (taskId: string) => {
-  const [inboxRequest] = await db
-    .select()
-    .from(schema.inboxRequest)
-    .where(
-      and(
-        eq(schema.inboxRequest.taskId, taskId),
-        eq(schema.inboxRequest.form, 'alert'),
+  const inboxRequest = firstOf(
+    await db
+      .select()
+      .from(schema.inboxRequest)
+      .where(
+        and(
+          eq(schema.inboxRequest.taskId, taskId),
+          eq(schema.inboxRequest.form, 'alert'),
+        ),
       ),
-    );
+  );
 
   return inboxRequest ?? null;
 };
@@ -170,12 +175,12 @@ beforeAll(async () => {
     `elsewhere-${randomUUID().slice(0, 8)}`,
   );
 
-  const [, completed] = team.line.stations;
+  const completed = present(itemAt(team.line.stations, 1));
 
   await db
     .update(schema.station)
     .set({ position: 2 })
-    .where(eq(schema.station.id, completed?.id.value ?? ''));
+    .where(eq(schema.station.id, completed.id.value));
   await insertStations(db, {
     id: watched,
     workspaceId: team.workspaceId.value,
@@ -197,17 +202,19 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('a station alert (e2e)', () => {
   it('creates an inbox request on the task whose run crossed the station’s threshold once a person sent it back, and shows it', async () => {
     const runId = await ranAndEnded(10);
     await eventuallyFound(async () => {
-      const [record] = await db
-        .select()
-        .from(schema.runRecord)
-        .where(eq(schema.runRecord.runId, runId));
+      const record = firstOf(
+        await db
+          .select()
+          .from(schema.runRecord)
+          .where(eq(schema.runRecord.runId, runId)),
+      );
       return record?.endedAt;
     });
     expect(await inboxRequestOf(team.list.id.value)).toBeNull();
@@ -234,7 +241,7 @@ describe('a station alert (e2e)', () => {
       rule: { measure: 'accepted_rate', below: 0.5, over: 1 },
       resolvedAt: null,
     });
-    expect((answer.body as { series: unknown[] }).series).toEqual([
+    expect(bodyOf<{ series: unknown[] }>(answer).series).toEqual([
       expect.objectContaining({ runId, value: 0 }),
     ]);
 
@@ -244,11 +251,9 @@ describe('a station alert (e2e)', () => {
 
     expect(inbox.status).toBe(200);
     expect(
-      (
-        inbox.body as {
-          items: { inboxRequest: { form: string; about: string } | null }[];
-        }
-      ).items.some(
+      bodyOf<{
+        items: { inboxRequest: { form: string; about: string } | null }[];
+      }>(inbox).items.some(
         (each) =>
           each.inboxRequest?.form === 'alert' &&
           each.inboxRequest.about === inboxRequest.about,
@@ -259,10 +264,12 @@ describe('a station alert (e2e)', () => {
   it('creates no second inbox request while the station stays past the threshold, nor on a run whose resolution is still Other', async () => {
     const runId = await ranAndEnded(5);
     await eventuallyFound(async () => {
-      const [record] = await db
-        .select()
-        .from(schema.runRecord)
-        .where(eq(schema.runRecord.runId, runId));
+      const record = firstOf(
+        await db
+          .select()
+          .from(schema.runRecord)
+          .where(eq(schema.runRecord.runId, runId)),
+      );
       return record?.endedAt;
     });
     await app.get(EventDelivery).drain(2_000);
@@ -282,28 +289,36 @@ describe('a station alert (e2e)', () => {
   });
 
   it('resolves once a person accepts the run with no deciding action', async () => {
-    const [undecided] = await db
-      .select()
-      .from(schema.runRecord)
-      .where(
-        and(
-          eq(schema.runRecord.stationId, watched),
-          isNull(schema.runRecord.decidingAction),
+    const undecided = firstOf(
+      await db
+        .select()
+        .from(schema.runRecord)
+        .where(
+          and(
+            eq(schema.runRecord.stationId, watched),
+            isNull(schema.runRecord.decidingAction),
+          ),
         ),
-      );
+    );
 
-    await actedOn(undecided?.runId, 'accepted', 4);
+    if (undecided === undefined) {
+      throw new Error('expected a run with no deciding action');
+    }
 
-    const [recovered] = await eventuallyFound(async () => {
-      const alerts = await alertsAtStation();
-      return alerts[0]?.resolvedAt ? alerts : null;
-    });
+    await actedOn(undecided.runId, 'accepted', 4);
+
+    const recovered = firstOf(
+      await eventuallyFound(async () => {
+        const alerts = await alertsAtStation();
+        return alerts[0]?.resolvedAt ? alerts : null;
+      }),
+    );
 
     expect(recovered?.resolvedAt).not.toBeNull();
   });
 
   it('resolves the inbox request when the alert resolves, and reopens the same alert and inbox request when the station crosses again soon after', async () => {
-    const [recovered] = await alertsAtStation();
+    const recovered = firstOf(await alertsAtStation());
     const resolvedRequest = await eventuallyFound(async () => {
       const inboxRequest = await inboxRequestOf(team.list.id.value);
       return inboxRequest?.resolvedAt ? inboxRequest : null;
@@ -311,18 +326,22 @@ describe('a station alert (e2e)', () => {
 
     const runId = await ranAndEnded(3);
     await eventuallyFound(async () => {
-      const [record] = await db
-        .select()
-        .from(schema.runRecord)
-        .where(eq(schema.runRecord.runId, runId));
+      const record = firstOf(
+        await db
+          .select()
+          .from(schema.runRecord)
+          .where(eq(schema.runRecord.runId, runId)),
+      );
       return record?.endedAt;
     });
     await actedOn(runId, 'sent-back', 2);
 
-    const [reopened] = await eventuallyFound(async () => {
-      const alerts = await alertsAtStation();
-      return alerts[0]?.resolvedAt === null ? alerts : null;
-    });
+    const reopened = firstOf(
+      await eventuallyFound(async () => {
+        const alerts = await alertsAtStation();
+        return alerts[0]?.resolvedAt === null ? alerts : null;
+      }),
+    );
     const inboxRequest = await eventuallyFound(async () => {
       const found = await inboxRequestOf(team.list.id.value);
       return found && found.resolvedAt === null ? found : null;
@@ -341,19 +360,23 @@ describe('a station alert (e2e)', () => {
     const updated = await lineChangedOf(db, team.line.id.value, [watched]);
     await app.get(EventOutbox).record([updated]);
 
-    const [recovered] = await eventuallyFound(async () => {
-      const alerts = await alertsAtStation();
-      return alerts[0]?.resolvedAt ? alerts : null;
-    });
+    const recovered = firstOf(
+      await eventuallyFound(async () => {
+        const alerts = await alertsAtStation();
+        return alerts[0]?.resolvedAt ? alerts : null;
+      }),
+    );
 
     expect(recovered?.resolvedAt).not.toBeNull();
   });
 
   it('finds no alert for another team', async () => {
-    const [alert] = await db
-      .select()
-      .from(schema.stationAlert)
-      .where(eq(schema.stationAlert.stationId, watched));
+    const alert = firstOf(
+      await db
+        .select()
+        .from(schema.stationAlert)
+        .where(eq(schema.stationAlert.stationId, watched)),
+    );
 
     const answer = await served(app)
       .get(`/api/teams/${elsewhere.teamId.value}/insights/alerts/${alert?.id}`)
@@ -364,12 +387,18 @@ describe('a station alert (e2e)', () => {
 
   it('deletes the alerts of a deleted task through the station’s alert state, so a check read before the deletion cannot write them back', async () => {
     const alertStates = app.get(DrizzleStationAlertStateRepository);
-    const [alert] = await alertsAtStation();
-    const stale = await alertStates.ofAlert(AlertId.of(alert?.id));
-    const [before] = await db
-      .select()
-      .from(schema.stationAlertState)
-      .where(eq(schema.stationAlertState.stationId, watched));
+    const alert = firstOf(await alertsAtStation());
+
+    if (alert === undefined) {
+      throw new Error('expected an alert at the station');
+    }
+    const stale = await alertStates.ofAlert(AlertId.of(alert.id));
+    const before = firstOf(
+      await db
+        .select()
+        .from(schema.stationAlertState)
+        .where(eq(schema.stationAlertState.stationId, watched)),
+    );
 
     const deleted: TaskDeletedIntegrationEvent = {
       kind: TASK_DELETED,
@@ -381,15 +410,17 @@ describe('a station alert (e2e)', () => {
     await eventuallyFound(async () =>
       (await alertsAtStation()).length === 0 ? true : null,
     );
-    const [after] = await db
-      .select()
-      .from(schema.stationAlertState)
-      .where(eq(schema.stationAlertState.stationId, watched));
+    const after = firstOf(
+      await db
+        .select()
+        .from(schema.stationAlertState)
+        .where(eq(schema.stationAlertState.stationId, watched)),
+    );
 
     expect(after?.version).toBeGreaterThan(before?.version ?? 0);
     await expect(
       alertStates.save(
-        stale?.check([], new Date(), () => AlertId.of(randomUUID())) as never,
+        present(stale).check([], new Date(), () => AlertId.of(randomUUID())),
       ),
     ).rejects.toBeInstanceOf(StationAlertStateVersionConflictError);
     expect(await alertsAtStation()).toEqual([]);

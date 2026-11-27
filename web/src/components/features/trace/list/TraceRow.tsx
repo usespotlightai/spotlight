@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   TRACE_CELL as CELL,
   TRACE_COLUMNS,
@@ -24,7 +26,7 @@ export function TraceRow({
   to,
   selected,
   onSelectedChange,
-}: TraceRowProps) {
+}: TraceRowProps): ReactElement {
   const errorsLabel = `${trace.errors} ${trace.errors === 1 ? 'error' : 'errors'}`;
 
   return (

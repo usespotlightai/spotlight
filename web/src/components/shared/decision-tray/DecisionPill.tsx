@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { PillButton } from '@/components/shared/PillButton';
 
 type DecisionPillProps = {
@@ -6,7 +8,11 @@ type DecisionPillProps = {
   onShow: () => void;
 };
 
-export function DecisionPill({ label, current, onShow }: DecisionPillProps) {
+export function DecisionPill({
+  label,
+  current,
+  onShow,
+}: DecisionPillProps): ReactElement {
   return (
     <PillButton
       data-slot="decision-pill"

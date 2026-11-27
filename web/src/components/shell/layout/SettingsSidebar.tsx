@@ -9,6 +9,7 @@ import {
   Settings2,
   Users,
 } from 'lucide-react';
+import type { ReactElement } from 'react';
 import { Link } from 'react-router';
 
 import { SettingsNavGroup } from '@/components/shell/layout/SettingsNavGroup';
@@ -46,7 +47,7 @@ export function SettingsSidebar({
   slug,
   back,
   workspace,
-}: SettingsSidebarProps) {
+}: SettingsSidebarProps): ReactElement {
   const { data: fleet } = useRunners(slug);
   const { data: custom = [] } = useCustomSettingsPages();
 

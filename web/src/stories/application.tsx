@@ -1,10 +1,12 @@
 import type { ArgTypes } from '@storybook/react-vite';
 import { onlineManager } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 import type { Location } from 'react-router';
 import { mocked } from 'storybook/test';
 
 import { useSession } from '@/hooks/api/useSession';
 import { APP_TABS_KEY } from '@/lib/app-tabs';
+import { keysOf } from '@/lib/one-of';
 import {
   ACCOUNTS,
   ACTIONS,
@@ -20,6 +22,7 @@ import {
   ScriptedApplication,
 } from '@/stories/ScriptedApplication';
 import { resumed } from '@/stories/visit';
+import { partial } from '@/test/partial';
 
 const closeStoredTabs = () => {
   try {
@@ -49,13 +52,12 @@ type PageStory<Extra> = {
   readonly world?: (args: PageArgs & Extra) => void;
 };
 
-const SIGNED_OUT = {
+const SIGNED_OUT = partial<ReturnType<typeof useSession>>({
   data: null,
   isPending: false,
   isRefetching: false,
   error: null,
-  refetch: async () => undefined,
-} as never;
+});
 
 const signIn = (account: Account) => {
   if (account === 'signed-out') {
@@ -105,19 +107,43 @@ const PAGE_ARG_TYPES: Partial<ArgTypes<PageArgs>> = {
   },
 };
 
+type Choice<Value extends string> = {
+  readonly name: string;
+  readonly options: Value[];
+  readonly control: {
+    readonly type: 'select';
+    readonly labels: Record<Value, string>;
+  };
+};
+
 export const choice = <Value extends string>(
   name: string,
   labels: Record<Value, string>,
-) => ({
+): Choice<Value> => ({
   name,
-  options: Object.keys(labels) as Value[],
-  control: { type: 'select' as const, labels },
+  options: keysOf(labels),
+  control: { type: 'select', labels },
 });
 
-export const toggle = (name: string) => ({
+type Toggle = { readonly name: string; readonly control: 'boolean' };
+
+export const toggle = (name: string): Toggle => ({
   name,
   control: 'boolean' as const,
 });
+
+const DEFAULT_ARGS: PageArgs = {
+  state: 'data',
+  account: 'owner',
+  actions: 'succeed',
+};
+
+type PageStoryOf<Extra> = {
+  readonly args: PageArgs & Extra;
+  readonly argTypes: Partial<ArgTypes<PageArgs>> & Partial<ArgTypes<Extra>>;
+  readonly beforeEach: () => () => void;
+  readonly render: (all: PageArgs & Extra) => ReactElement;
+};
 
 export const pageStory = <Extra extends object = object>({
   at,
@@ -127,18 +153,13 @@ export const pageStory = <Extra extends object = object>({
   script,
   states = PAGE_STATES,
   world,
-}: PageStory<Extra>) => ({
-  args: {
-    state: 'data',
-    account: 'owner',
-    actions: 'succeed',
-    ...args,
-  } as PageArgs & Extra,
+}: PageStory<Extra>): PageStoryOf<Extra> => ({
+  args: { ...DEFAULT_ARGS, ...(args ?? partial<Extra>({})) },
   argTypes: {
     ...PAGE_ARG_TYPES,
     state: stateControl(states),
-    ...argTypes,
-  } as Partial<ArgTypes<PageArgs & Extra>>,
+    ...(argTypes ?? partial<ArgTypes<Extra>>({})),
+  },
   beforeEach: () => {
     onlineManager.setOnline(true);
     closeStoredTabs();

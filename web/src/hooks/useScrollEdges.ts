@@ -1,6 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 
-export function useScrollEdges() {
+type ScrollEdgesResult = {
+  viewport: RefObject<HTMLDivElement | null>;
+  edges: { up: boolean; down: boolean };
+  measure: () => void;
+};
+
+export function useScrollEdges(): ScrollEdgesResult {
   const viewport = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ up: false, down: false });
 

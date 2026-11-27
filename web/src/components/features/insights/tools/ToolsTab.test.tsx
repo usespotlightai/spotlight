@@ -4,8 +4,16 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ToolsTab } from '@/components/features/insights/tools/ToolsTab';
+import type {
+  InsightsPeriodResponseDto,
+  LineResponseDto,
+  SkillWeekResponseDto,
+  StationResponseDto,
+} from '@/lib/api';
 import { stationNamesOf } from '@/lib/insights';
 import type { InsightsTools } from '@/lib/insights-tools';
+import { htmlElement } from '@/test/elements';
+import { partial } from '@/test/partial';
 
 type Queried = {
   data: unknown;
@@ -33,18 +41,24 @@ const lines: { data: unknown[] } = { data: [] };
 vi.mock('@/hooks/api/useLines', () => ({ useLines: () => lines }));
 
 const LINES = [
-  {
+  partial<LineResponseDto>({
     id: 'line_1',
     key: 'delivery',
     name: 'Delivery',
     repositories: [],
     reactions: [],
-    stations: [{ id: 'station_impl', key: 'implement', name: 'Implement' }],
-  },
+    stations: [
+      partial<StationResponseDto>({
+        id: 'station_impl',
+        key: 'implement',
+        name: 'Implement',
+      }),
+    ],
+  }),
 ];
 
-const TOOLS = {
-  period: { name: '30d' },
+const TOOLS = partial<InsightsTools>({
+  period: partial<InsightsPeriodResponseDto>({ name: '30d' }),
   weeks: ['2026-09-21', '2026-09-28'],
   runs: 12,
   trendRule: { recentWeeks: 2, minRuns: 5, shiftPoints: 20 },
@@ -93,8 +107,20 @@ const TOOLS = {
       used: 1,
       usedRate: 1 / 12,
       weeks: [
-        { week: '2026-09-21', runs: 6, enabled: 0, used: 0, usedRate: 0 },
-        { week: '2026-09-28', runs: 6, enabled: 0, used: 1, usedRate: 1 / 6 },
+        partial<SkillWeekResponseDto>({
+          week: '2026-09-21',
+          runs: 6,
+          enabled: 0,
+          used: 0,
+          usedRate: 0,
+        }),
+        partial<SkillWeekResponseDto>({
+          week: '2026-09-28',
+          runs: 6,
+          enabled: 0,
+          used: 1,
+          usedRate: 1 / 6,
+        }),
       ],
       trend: null,
       stations: [],
@@ -121,15 +147,15 @@ const TOOLS = {
     { tool: 'create_issue', server: 'linear', dismissed: 2 },
     { tool: 'github.merge', server: null, dismissed: 1 },
   ],
-} as unknown as InsightsTools;
+});
 
-const EMPTY = {
+const EMPTY = partial<InsightsTools>({
   ...TOOLS,
   skills: [],
   unused: [],
   servers: [],
   dismissals: [],
-} as unknown as InsightsTools;
+});
 
 const showing = (search = '?tab=tools') =>
   render(
@@ -142,9 +168,7 @@ const showing = (search = '?tab=tools') =>
               slug="acme"
               teamId="team_1"
               period="30d"
-              names={stationNamesOf(
-                LINES as unknown as Parameters<typeof stationNamesOf>[0],
-              )}
+              names={stationNamesOf(LINES)}
             />
           }
         />
@@ -219,7 +243,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
     showing();
 
     const title = screen.getByText('No MCP servers called');
-    const card = title.closest('.max-w-xs') as HTMLElement;
+    const card = htmlElement(title.closest('.max-w-xs'));
     expect(card.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
     expect(within(card).queryByRole('link')).toBeNull();
     expect(within(card).queryByRole('button')).toBeNull();
@@ -237,9 +261,11 @@ describe('the skills and tools of the Tools and skills tab', () => {
   });
 
   const skillRow = (key: string) =>
-    screen
-      .getByText(key, { selector: 'a, span' })
-      .closest('[data-slot="nested-group"]') as HTMLElement;
+    htmlElement(
+      screen
+        .getByText(key, { selector: 'a, span' })
+        .closest('[data-slot="nested-group"]'),
+    );
 
   it('lists each skill in one table, ending its weekly line with the latest share in the trend’s colour', () => {
     showing();
@@ -345,7 +371,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
     const table = screen.getByRole('list', {
       name: 'How each MCP server behaved',
     });
-    const row = within(table).getByText('linear').closest('li') as HTMLElement;
+    const row = htmlElement(within(table).getByText('linear').closest('li'));
 
     expect(within(row).getByRole('link', { name: '4' })).toHaveAttribute(
       'href',

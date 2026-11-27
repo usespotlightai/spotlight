@@ -1,4 +1,5 @@
 import { ChevronsUpDown } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import {
   DropdownMenu,
@@ -7,6 +8,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { isOneOf } from '@/lib/one-of';
 import { nameOfRole, type Role } from '@/lib/role';
 
 type MemberRoleProps = {
@@ -23,7 +25,7 @@ export function MemberRole({
   onOffer,
   onChange,
   pending,
-}: MemberRoleProps) {
+}: MemberRoleProps): ReactElement {
   if (onOffer.length === 0) {
     return (
       <span className="shrink-0 px-2 text-muted-foreground text-sm">
@@ -46,7 +48,11 @@ export function MemberRole({
       <DropdownMenuContent align="end" sideOffset={6} className="min-w-36">
         <DropdownMenuRadioGroup
           value={role}
-          onValueChange={(next) => onChange(String(next) as Role)}
+          onValueChange={(next) => {
+            if (isOneOf(onOffer, next)) {
+              onChange(next);
+            }
+          }}
         >
           {onOffer.map((each) => (
             <DropdownMenuRadioItem key={each} value={each}>

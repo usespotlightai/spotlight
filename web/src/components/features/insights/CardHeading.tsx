@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { useCardLevel } from '@/components/features/insights/section-level';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { TooltipText } from '@/lib/tooltip-note';
@@ -15,7 +17,7 @@ export function CardTitle({
   title,
   description,
   level,
-}: CardTitleProps) {
+}: CardTitleProps): ReactElement {
   const inherited = useCardLevel();
   const Heading = (level ?? inherited) === 3 ? 'h3' : 'h2';
 
@@ -30,7 +32,9 @@ export function CardTitle({
       >
         {title}
       </Heading>
-      {description && <InfoTooltip tooltip={description} />}
+      {description !== undefined && description !== '' && (
+        <InfoTooltip tooltip={description} />
+      )}
     </span>
   );
 }

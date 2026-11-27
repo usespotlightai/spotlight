@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -20,7 +20,7 @@ export function SettingsRow({
   leading,
   stack = false,
   children,
-}: SettingsRowProps) {
+}: SettingsRowProps): ReactElement {
   return (
     <div className="flex min-h-12 items-center gap-3 px-4 py-2">
       {leading}
@@ -36,7 +36,7 @@ export function SettingsRow({
             stack && '@max-md/pane:basis-auto',
           )}
         >
-          {htmlFor ? (
+          {htmlFor !== undefined && htmlFor !== '' ? (
             <label htmlFor={htmlFor} className={LABEL}>
               {label}
             </label>
@@ -44,14 +44,14 @@ export function SettingsRow({
             <span className={LABEL}>{label}</span>
           )}
 
-          {description && (
+          {Boolean(description) && (
             <span className="break-words text-muted-foreground text-xs">
               {description}
             </span>
           )}
         </div>
 
-        {children && (
+        {Boolean(children) && (
           <div className="flex shrink-0 items-center">{children}</div>
         )}
       </div>

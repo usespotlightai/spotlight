@@ -14,8 +14,9 @@ const of = (...named: string[]) =>
 
 const repositoryConfig = (name: string, image?: string, setup?: string) =>
   LineRepositoryConfig.of(Repository.of(name), {
-    image: image ? RunnerImage.of(image) : null,
-    setup: setup ? RepositorySetup.of(setup) : null,
+    image: image !== undefined && image !== '' ? RunnerImage.of(image) : null,
+    setup:
+      setup !== undefined && setup !== '' ? RepositorySetup.of(setup) : null,
   });
 
 describe('LineRepositories', () => {

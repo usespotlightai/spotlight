@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactElement, type ReactNode, useMemo, useState } from 'react';
 
 import { ChangeDetail } from '@/components/features/runs/ChangeDetail';
 import { RunMemoriesDetail } from '@/components/features/runs/memories/RunMemoriesDetail';
@@ -16,7 +16,11 @@ type Showing =
     }
   | { readonly kind: 'memories'; readonly run: MemoriesRun };
 
-export function RunSidePanel({ children }: { children: ReactNode }) {
+export function RunSidePanel({
+  children,
+}: {
+  children: ReactNode;
+}): ReactElement {
   const [showing, setShowing] = useState<Showing | null>(null);
   const displayed = useDelayedValue(showing, LEAVING);
 

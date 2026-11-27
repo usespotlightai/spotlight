@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { GitHubAppLink } from '@/components/features/integrations/GitHubAppLink';
 import { IntegrationFacts } from '@/components/features/integrations/IntegrationFacts';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
@@ -16,7 +18,7 @@ export function GitHubDetails({
   href,
   accessible,
   used,
-}: GitHubDetailsProps) {
+}: GitHubDetailsProps): ReactElement {
   const inaccessible = inaccessibleOf(used, accessible);
 
   return (
@@ -37,7 +39,9 @@ export function GitHubDetails({
                 Agents read code and open pull requests through it.
               </span>
             </div>
-            {href && <GitHubAppLink href={href} installed={installed} />}
+            {href !== null && href !== '' && (
+              <GitHubAppLink href={href} installed={installed} />
+            )}
           </div>
         </dd>
       </FactRow>

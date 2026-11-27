@@ -2,13 +2,19 @@ import {
   type QueryClient,
   useMutation,
   useQueryClient,
+  type UseMutationResult,
 } from '@tanstack/react-query';
 
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { runNotesKeys } from '@/hooks/api/useRunNotes';
 import { taskKeys } from '@/hooks/api/useTasks';
 import { teamRunKeys } from '@/hooks/api/useTeamRuns';
-import { type HoldEnd, type HoldVerdict, resumeLine } from '@/lib/api';
+import {
+  type HoldEnd,
+  type HoldVerdict,
+  resumeLine,
+  type TaskResponseDto,
+} from '@/lib/api';
 
 type HoldEndInput = {
   teamId: string;
@@ -27,7 +33,11 @@ const refresh = (queryClient: QueryClient, teamId: string) =>
     queryClient.invalidateQueries({ queryKey: inboxKeys.all }),
   ]);
 
-export function useResumeLine() {
+export function useResumeLine(): UseMutationResult<
+  TaskResponseDto,
+  Error,
+  HoldEndInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

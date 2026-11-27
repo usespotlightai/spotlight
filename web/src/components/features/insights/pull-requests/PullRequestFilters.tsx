@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { FilterMenu } from '@/components/shared/filter/FilterMenu';
 import { FilterRow } from '@/components/shared/filter/FilterRow';
@@ -18,6 +19,7 @@ import {
   pullRequestsNarrowedBy,
 } from '@/lib/insights-pull-requests';
 import { formatDay } from '@/lib/judge';
+import { isOneOf } from '@/lib/one-of';
 
 const PICKED: readonly PullRequestFilterKey[] = [
   'repository',
@@ -38,20 +40,24 @@ export function PullRequestFilters({
   filter,
   repositories,
   onChange,
-}: PullRequestFiltersProps) {
+}: PullRequestFiltersProps): ReactElement {
   const change = (key: PullRequestFilterKey, value: string | null) =>
     onChange({ ...filter, [key]: value ?? undefined });
 
   const oneRepository =
-    !filter.repository || repositories.includes(filter.repository);
+    filter.repository === undefined ||
+    filter.repository === '' ||
+    repositories.includes(filter.repository);
   const others = pullRequestsNarrowedBy(filter).filter(
     (key) => !PICKED.includes(key) || (key === 'repository' && !oneRepository),
   );
 
   const picked = PICKED.filter(
-    (key) => filter[key] && (key !== 'repository' || oneRepository),
+    (key) =>
+      filter[key] !== undefined &&
+      filter[key] !== '' &&
+      (key !== 'repository' || oneRepository),
   );
-  const pickedKeys = new Set(picked);
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -81,9 +87,7 @@ export function PullRequestFilters({
         onClear={() =>
           onChange(
             Object.fromEntries(
-              Object.entries(filter).filter(
-                ([key]) => !pickedKeys.has(key as PullRequestFilterKey),
-              ),
+              Object.entries(filter).filter(([key]) => !isOneOf(picked, key)),
             ),
           )
         }

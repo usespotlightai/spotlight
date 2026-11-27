@@ -1,3 +1,5 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -17,37 +19,48 @@ const NOW = new Date('2026-10-01T09:00:00.000Z');
 class InMemoryNotices implements NoticeRepository {
   readonly stored = new Map<string, Notice>();
 
-  add = async (notice: Notice) => {
+  add = (notice: Notice) => {
     this.stored.set(notice.id.value, notice);
+
+    return Promise.resolve();
   };
 
-  save = async (notice: Notice) => {
+  save = (notice: Notice) => {
     this.stored.set(notice.id.value, notice);
+
+    return Promise.resolve();
   };
 
-  find = async (id: { value: string }) => this.stored.get(id.value) ?? null;
+  find = (id: { value: string }) =>
+    Promise.resolve(this.stored.get(id.value) ?? null);
 
-  about = async (
+  about = (
     teamId: TeamId,
     addressee: UserId | null,
     form: string,
     subject: NoticeSubject,
   ) =>
-    [...this.stored.values()].find(
-      (each) =>
-        each.teamId.equals(teamId) &&
-        (each.addressee === null || addressee === null
-          ? each.addressee === addressee
-          : each.addressee.equals(addressee)) &&
-        each.form === form &&
-        each.subject.equals(subject),
-    ) ?? null;
+    Promise.resolve(
+      [...this.stored.values()].find(
+        (each) =>
+          each.teamId.equals(teamId) &&
+          (each.addressee === null || addressee === null
+            ? each.addressee === addressee
+            : each.addressee.equals(addressee)) &&
+          each.form === form &&
+          each.subject.equals(subject),
+      ) ?? null,
+    );
 
-  ofTeam = async (teamId: TeamId) =>
-    [...this.stored.values()].filter((each) => each.teamId.equals(teamId));
+  ofTeam = (teamId: TeamId) =>
+    Promise.resolve(
+      [...this.stored.values()].filter((each) => each.teamId.equals(teamId)),
+    );
 
-  remove = async (notice: Notice) => {
+  remove = (notice: Notice) => {
     this.stored.delete(notice.id.value);
+
+    return Promise.resolve();
   };
 }
 
@@ -161,10 +174,10 @@ describe('Notices', () => {
 
   it('creates no team notice for a team that is gone', async () => {
     const memory = new InMemoryNotices();
-    const gone = {
+    const gone = partial<typeof access>({
       ...access,
-      membersOf: async () => null,
-    } as unknown as typeof access;
+      membersOf: () => Promise.resolve(null),
+    });
 
     await new Notices(
       memory,
@@ -188,7 +201,11 @@ describe('Notices', () => {
 
     await noticesOver(memory).create(STALLED);
 
-    const [id] = [...memory.stored.keys()] as [string];
+    const id = firstOf([...memory.stored.keys()]);
+
+    if (id === undefined) {
+      throw new Error('expected a stored notice');
+    }
 
     members.add('team_1:user_2');
     await expect(resolve(id, 'acme', 'user_2')).rejects.toMatchObject({

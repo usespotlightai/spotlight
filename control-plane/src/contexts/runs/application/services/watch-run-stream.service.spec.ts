@@ -6,6 +6,7 @@ import type {
 } from '@runs/application/services/run-viewing.service';
 import { WatchRunStream } from '@runs/application/services/watch-run-stream.service';
 import { InMemoryRunStream } from '@runs/infrastructure/streaming/in-memory-run-stream';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const entry = (seq: number): RunJournalEntryView => ({
@@ -16,11 +17,11 @@ const entry = (seq: number): RunJournalEntryView => ({
 });
 
 const watching = (watchable: boolean, backlog = [entry(1)]) => {
-  const runs = {
-    watchedBy: vi.fn(async () =>
-      watchable ? ({ attempt: 1 } as WatchedRun) : null,
+  const runs = partial<RunViewing>({
+    watchedBy: vi.fn(() =>
+      Promise.resolve(watchable ? partial<WatchedRun>({ attempt: 1 }) : null),
     ),
-  } as unknown as RunViewing;
+  });
   let answer: (found: RunJournalEntryView[]) => void = () => {};
   const entries = {
     entriesSince: vi.fn(
@@ -29,7 +30,7 @@ const watching = (watchable: boolean, backlog = [entry(1)]) => {
           answer = resolve;
         }),
     ),
-    egressEnforcementOf: vi.fn(async () => null),
+    egressEnforcementOf: vi.fn(() => Promise.resolve(null)),
   } satisfies RunJournalEntryReaderPort;
   const stream = new InMemoryRunStream();
 

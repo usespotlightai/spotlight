@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
@@ -11,6 +12,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { deleteRunnersOf } from './support/runners';
 import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
@@ -20,14 +22,15 @@ const HOST = `host-attachment-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
 const POOL_TOKEN = `${'a'.repeat(8)}${randomUUID().replaceAll('-', '')}`;
 
-const attachmentStore = {
-  received: async () => [],
-  taken: async () => undefined,
-  open: async () => ({
-    bytes: new Uint8Array([7, 7, 7]),
-    contentType: 'image/png',
-  }),
-} as unknown as AttachmentStorePort;
+const attachmentStore = partial<AttachmentStorePort>({
+  received: () => Promise.resolve([]),
+  taken: () => Promise.resolve(undefined),
+  open: () =>
+    Promise.resolve({
+      bytes: new Uint8Array([7, 7, 7]),
+      contentType: 'image/png',
+    }),
+});
 
 let app: INestApplication;
 let db: DrizzleDatabase;
@@ -114,13 +117,13 @@ const aChatRun = async (): Promise<{
 
 const claimed = async (): Promise<LeasedRun> => {
   const queued = await aChatRun();
-  const assignment = (
+  const assignment = bodyOf<{ token: string; work: { run: { id: string } } }>(
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
       .send({ host: HOST, image: IMAGE })
-      .expect(200)
-  ).body as { token: string; work: { run: { id: string } } };
+      .expect(200),
+  );
 
   expect(assignment.work.run.id).toBe(queued.runId);
 
@@ -172,7 +175,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 describe('reading a file attached to a leased chat run', () => {
@@ -183,7 +186,7 @@ describe('reading a file attached to a leased chat run', () => {
       .expect(200)
       .buffer(true);
 
-    expect([...(file.body as Buffer)]).toEqual([7, 7, 7]);
+    expect([...bodyOf<Buffer>(file)]).toEqual([7, 7, 7]);
   });
 
   it('denies another runner, and a file not attached to the run', async () => {

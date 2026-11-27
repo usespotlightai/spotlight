@@ -1,13 +1,13 @@
-import { request, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import { request } from 'node:http';
 
 import type { INestApplication } from '@nestjs/common';
 
 import { TEST_USER_HEADER } from './app';
+import { httpServerOf, addressOf } from './http-server';
 
 export const E2E_REDIS_URL = process.env.SPOTLIGHT_E2E_REDIS_URL;
 
-export interface HeardEvent {
+interface HeardEvent {
   readonly type: string;
   readonly data: unknown;
 }
@@ -35,13 +35,20 @@ const eventOf = (block: string): HeardEvent | null => {
   }
 };
 
+export interface WatchedLive {
+  readonly heard: HeardEvent[];
+  readonly status: () => number | undefined;
+  readonly of: (type: string) => HeardEvent[];
+  readonly close: () => void;
+}
+
 export const watchedLive = (
   app: INestApplication,
   personId: string,
   since: readonly string[] = [],
-) => {
+): WatchedLive => {
   const heard: HeardEvent[] = [];
-  const { port } = (app.getHttpServer() as Server).address() as AddressInfo;
+  const { port } = addressOf(httpServerOf(app));
   let buffered = '';
   let status: number | undefined;
 
@@ -78,6 +85,8 @@ export const watchedLive = (
     heard,
     status: () => status,
     of: (type: string) => heard.filter((each) => each.type === type),
-    close: () => call.destroy(),
+    close: () => {
+      call.destroy();
+    },
   };
 };

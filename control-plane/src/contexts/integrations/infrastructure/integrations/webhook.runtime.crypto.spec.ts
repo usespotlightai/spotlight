@@ -14,6 +14,7 @@ import {
   signingFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
@@ -45,7 +46,7 @@ const EVENT = `
 
 const raw = (body: unknown) => Buffer.from(JSON.stringify(body));
 
-const NO_KEYS: JwksResolver = { keys: async () => new Map() };
+const NO_KEYS: JwksResolver = { keys: () => Promise.resolve(new Map()) };
 
 const runtimeOf = (
   readable: ReadableIntegration,
@@ -57,11 +58,11 @@ const runtimeOf = (
     signingFor(),
     { now: () => new Date(NOW * 1000), sleep: async () => {} },
     jwks,
-    {} as HttpOutbound,
+    partial<HttpOutbound>({}),
     credentialsFor(),
     unlimited,
     unscoped,
-    async () => null,
+    () => Promise.resolve(null),
   );
 
 describe('verifying an ed25519 signature', () => {
@@ -159,7 +160,8 @@ describe('verifying a JWT against a JWKS', () => {
   });
 
   const jwks: JwksResolver = {
-    keys: async () => new Map<string, KeyObject>([['k1', publicKey]]),
+    keys: () =>
+      Promise.resolve(new Map<string, KeyObject>([['k1', publicKey]])),
   };
 
   const JWT = `

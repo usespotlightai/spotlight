@@ -5,6 +5,11 @@ const WEB = 'web';
 
 export type ClientKind = 'terraform-provider' | 'cli' | 'web' | 'unknown';
 
+const isVersionedKind = (
+  kind: string | undefined,
+): kind is 'terraform-provider' | 'cli' =>
+  kind === 'terraform-provider' || kind === 'cli';
+
 export class Client {
   private constructor(
     readonly kind: ClientKind,
@@ -18,14 +23,16 @@ export class Client {
       return new Client('web', null);
     }
 
-    const versioned = VERSIONED.exec(value);
+    const [, kind, version] = VERSIONED.exec(value) ?? [];
 
-    return versioned
-      ? new Client(versioned[1] as ClientKind, versioned[2])
+    return isVersionedKind(kind)
+      ? new Client(kind, version)
       : new Client('unknown', null);
   }
 
   toString(): string {
-    return this.version ? `${this.kind}/${this.version}` : this.kind;
+    return this.version !== null && this.version !== ''
+      ? `${this.kind}/${this.version}`
+      : this.kind;
   }
 }

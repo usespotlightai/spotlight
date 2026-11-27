@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { InviteForm } from '@/components/features/members/InviteForm';
 import { InviteOutcomes } from '@/components/features/members/InviteOutcomes';
@@ -24,14 +24,14 @@ export function InviteDialog({
   slug,
   teams,
   teamIds = NO_TEAMS,
-}: InviteDialogProps) {
+}: InviteDialogProps): ReactElement {
   const invite = useInviteToWorkspace(slug);
   const [sent, setSent] = useState<InviteOutcome[] | null>(null);
   const [round, setRound] = useState(0);
   const sending = invite.isPending;
 
   const send = (spec: InviteToWorkspaceRequestDto) => {
-    if (slug && !sending) {
+    if (slug !== undefined && slug !== '' && !sending) {
       invite.mutate(spec, { onSuccess: setSent });
     }
   };

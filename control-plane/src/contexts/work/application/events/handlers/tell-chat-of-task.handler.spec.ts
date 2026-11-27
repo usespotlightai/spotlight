@@ -1,4 +1,5 @@
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -47,20 +48,22 @@ const word = (wakes: boolean, body = 'Checks failed on web.') =>
 
 const using = (chat: Chat | null) => {
   const saved: Chat[] = [];
-  const takenUp = vi.fn(async (each: Chat) =>
-    each.assignRun(RunId.of('run_2'), NOW),
+  const takenUp = vi.fn((each: Chat) =>
+    Promise.resolve(each.assignRun(RunId.of('run_2'), NOW)),
   );
   const handler = new TellChatOfTask(
-    {
-      find: async () => chat,
-      save: async (each: Chat) => {
+    partial<ChatRepository>({
+      find: () => Promise.resolve(chat),
+      save: (each: Chat) => {
         saved.push(each);
+
+        return Promise.resolve();
       },
-    } as unknown as ChatRepository,
+    }),
     { takenUp },
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
   );
 
   return { handler, saved, takenUp };

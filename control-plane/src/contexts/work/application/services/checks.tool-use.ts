@@ -1,4 +1,5 @@
 import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { BuiltInToolUse } from '@work/application/ports/built-in-tool-uses.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
 import type { TaskLookupReaderPort } from '@work/application/ports/task-lookup-reader.port';
@@ -35,7 +36,7 @@ export class ChecksToolUse implements BuiltInToolUse<TaskToolContext> {
         ...(await this.checkRuns.failedOn(workspaceId, pullRequest)),
       })),
     );
-    const [firstRead] = read;
+    const firstRead = firstOf(read);
 
     if (
       firstRead?.status === 'rejected' &&

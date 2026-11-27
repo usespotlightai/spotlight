@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
 import { TEXT_LINK } from '@/components/shared/text-link';
 
@@ -10,7 +12,11 @@ export type SeeLink = {
   | { onClick?: never; unavailable: string }
 );
 
-export function SeeLinks({ links }: { links: readonly SeeLink[] }) {
+export function SeeLinks({
+  links,
+}: {
+  links: readonly SeeLink[];
+}): ReactElement | null {
   if (links.length === 0) {
     return null;
   }

@@ -6,6 +6,7 @@ import type {
   ReviewWorkPort,
 } from '@runs/application/ports/review-work.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -18,31 +19,33 @@ const NOW = new Date('2026-09-28T09:00:00.000Z');
 const renewing = (
   options: { known?: boolean; answer?: ReviewWorkLeaseRenewal | Error } = {},
 ) => {
-  const seen = vi.fn(async () =>
-    options.known === false
-      ? null
-      : {
-          workspaceId: WorkspaceId.of('ws_1'),
-          harnesses: [HarnessId.of('claude-code')],
-          offer: RunnerOffer.none(),
-          claims: 'nothing' as const,
-          source: null,
-        },
+  const seen = vi.fn(() =>
+    Promise.resolve(
+      options.known === false
+        ? null
+        : {
+            workspaceId: WorkspaceId.of('ws_1'),
+            harnesses: [HarnessId.of('claude-code')],
+            offer: RunnerOffer.none(),
+            claims: 'nothing' as const,
+            source: null,
+          },
+    ),
   );
-  const renewLease = vi.fn(async (): Promise<ReviewWorkLeaseRenewal> => {
+  const renewLease = vi.fn((): Promise<ReviewWorkLeaseRenewal> => {
     if (options.answer instanceof Error) {
-      throw options.answer;
+      return Promise.reject(options.answer);
     }
-    return options.answer ?? 'renewed';
+    return Promise.resolve(options.answer ?? 'renewed');
   });
 
   const handler = new RenewReviewWorkLeaseHandler(
-    { renewLease } as unknown as ReviewWorkPort,
+    partial<ReviewWorkPort>({ renewLease }),
     {
       claimantOf: seen,
-      registeredClaimantOf: async () => null,
+      registeredClaimantOf: () => Promise.resolve(null),
     } satisfies RunnerClaimantsPort,
-    { now: () => NOW } as ClockPort,
+    partial<ClockPort>({ now: () => NOW }),
   );
 
   return { handler, seen, renewLease };

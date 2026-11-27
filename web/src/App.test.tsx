@@ -3,7 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useSession } from '@/hooks/api/useSession';
+import { type SessionUser, useSession } from '@/hooks/api/useSession';
+import { partial } from '@/test/partial';
 import { quietBrowser } from '@/test/signed-in';
 
 import App from './App';
@@ -69,14 +70,20 @@ const renderAt = (path: string) =>
     </QueryClientProvider>,
   );
 
+type SessionState = ReturnType<typeof useSession>;
+
 const signedIn = () =>
-  mockSession.mockReturnValue({
-    data: { user: { email: 'dev@example.com' } },
-    isPending: false,
-  } as never);
+  mockSession.mockReturnValue(
+    partial<SessionState>({
+      data: { user: partial<SessionUser>({ email: 'dev@example.com' }) },
+      isPending: false,
+    }),
+  );
 
 const signedOut = () =>
-  mockSession.mockReturnValue({ data: null, isPending: false } as never);
+  mockSession.mockReturnValue(
+    partial<SessionState>({ data: null, isPending: false }),
+  );
 
 beforeEach(() => {
   mockSession.mockReset();

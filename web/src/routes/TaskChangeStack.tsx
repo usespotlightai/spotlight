@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { ChangeStackPage } from '@/components/features/changes/ChangeStackPage';
@@ -16,7 +17,7 @@ import { taskPath } from '@/lib/task';
 import { TrailContext, useTrail } from '@/lib/trail';
 import { PublicChangeStack } from '@/routes/PublicChangeStack';
 
-export function TaskChangeStack() {
+export function TaskChangeStack(): ReactElement | null {
   const { slug, teamId, taskId } = useParams();
   const stacks = useTaskChangeStacks(teamId, taskId);
   const found = useTask(teamId, taskId);
@@ -27,7 +28,15 @@ export function TaskChangeStack() {
   const line = lines.data?.find((candidate) =>
     candidate.stations.some((station) => station.id === task?.stationId),
   );
-  const toTask = slug && teamId && taskId ? taskPath(slug, teamId, taskId) : '';
+  const toTask =
+    slug !== undefined &&
+    slug !== '' &&
+    teamId !== undefined &&
+    teamId !== '' &&
+    taskId !== undefined &&
+    taskId !== ''
+      ? taskPath(slug, teamId, taskId)
+      : '';
   const { trail, forward } = useTrail([
     ...useTaskTrail({ slug, teamId, line, title: task?.title }).map(
       (segment, index, all) =>
@@ -36,7 +45,14 @@ export function TaskChangeStack() {
     { label: 'Change stack' },
   ]);
 
-  if (!slug || !teamId || !taskId) {
+  if (
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === '' ||
+    taskId === undefined ||
+    taskId === ''
+  ) {
     return null;
   }
 

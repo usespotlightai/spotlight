@@ -3,6 +3,8 @@ import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client
 import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth2-registrar';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
+import { bodyOf, callAt } from '@integrations/integrations.requests.fake-spec';
+import { fieldOf } from '@platform/json/field-of';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -12,7 +14,7 @@ const CALLBACK = OAuth2Endpoint.of(
 );
 
 const registering = (reply: Response) => {
-  const fetch = vi.fn(async () => reply);
+  const fetch = vi.fn<typeof globalThis.fetch>(() => Promise.resolve(reply));
   const logger = {
     debug: vi.fn(),
     info: vi.fn(),
@@ -46,12 +48,11 @@ describe('OAuth2Registrar', () => {
       clientSecret: 's-1',
       secretExpiresAt: new Date(1_800_000_000_000),
     });
-    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect(
-      (JSON.parse(init.body as string) as { redirect_uris: string[] })
-        .redirect_uris,
-    ).toEqual([CALLBACK.value]);
-    expect(init.redirect).toBe('manual');
+    const [, init] = callAt(fetch);
+    expect(fieldOf(JSON.parse(bodyOf(init)), 'redirect_uris')).toEqual([
+      CALLBACK.value,
+    ]);
+    expect(init?.redirect).toBe('manual');
   });
 
   it('never follows a redirect, and registers nothing from one', async () => {

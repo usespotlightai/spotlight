@@ -42,7 +42,7 @@ export const createReadPool = (
   pool: Pool,
   logger: LoggerPort,
 ): Pool =>
-  env.DATABASE_READ_URL
+  env.DATABASE_READ_URL !== undefined && env.DATABASE_READ_URL !== ''
     ? openPool(env, env.DATABASE_READ_URL, logPoolError(logger))
     : pool;
 
@@ -52,4 +52,4 @@ export const createDatabase = (pool: Pool): DrizzleDatabase =>
 export const createRelationalDatabase = <Schema extends Record<string, unknown>>(
   pool: Pool,
   schema: Schema,
-) => drizzle({ client: pool, schema });
+): NodePgDatabase<Schema> & { $client: Pool } => drizzle({ client: pool, schema });

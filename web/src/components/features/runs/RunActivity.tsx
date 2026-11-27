@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InboxStep } from '@/components/features/inbox/conversation/InboxStep';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { StepsWork } from '@/components/features/inbox/conversation/StepsWork';
@@ -26,7 +28,7 @@ export function RunActivity({
   journals,
   progress,
   station,
-}: RunActivityProps) {
+}: RunActivityProps): ReactElement | null {
   const stretches = stretchesOf(journals.flatMap((each) => each.steps));
   const arrived = useArrivals(
     runId,

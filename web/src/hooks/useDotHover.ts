@@ -2,7 +2,15 @@ import { type MouseEvent, useState } from 'react';
 
 const DOT = '.recharts-scatter-symbol';
 
-export function useDotHover() {
+type DotHoverResult = {
+  area: {
+    onMouseMove: (event: MouseEvent<HTMLElement>) => void;
+    onMouseLeave: () => void;
+  };
+  tooltip: { active: false | undefined };
+};
+
+export function useDotHover(): DotHoverResult {
   const [onDot, setOnDot] = useState(false);
 
   return {

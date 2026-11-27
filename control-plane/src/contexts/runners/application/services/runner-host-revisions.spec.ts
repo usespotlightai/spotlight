@@ -56,9 +56,9 @@ describe('reviseHost', () => {
     const { stored, hosts } = storedHosts();
     const seen: (number | null)[] = [];
 
-    hosts.add.mockImplementationOnce(async (host) => {
+    hosts.add.mockImplementationOnce((host) => {
       stored.set(host.id.value, host);
-      throw new RunnerHostVersionConflictError(host.id.value);
+      return Promise.reject(new RunnerHostVersionConflictError(host.id.value));
     });
 
     const revised = await reviseHost(hosts, HOST_ID, (known) => {
@@ -74,8 +74,8 @@ describe('reviseHost', () => {
   it('stops after three tries, and reports that the host changed', async () => {
     const { hosts } = storedHosts(aHost());
 
-    hosts.save.mockImplementation(async (host) => {
-      throw new RunnerHostVersionConflictError(host.id.value);
+    hosts.save.mockImplementation((host) => {
+      return Promise.reject(new RunnerHostVersionConflictError(host.id.value));
     });
 
     await expect(

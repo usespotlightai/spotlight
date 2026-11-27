@@ -169,7 +169,9 @@ export class TaskNoteBody {
       [
         `The line resumed at ${input.at.value}. ${TaskNoteBody.resumedInto(input.into)}`,
         TaskNoteBody.heldMoveOnResume(input.into, input.held),
-        input.summary ? `About the changes:\n\n${input.summary}` : null,
+        input.summary !== null && input.summary !== ''
+          ? `About the changes:\n\n${input.summary}`
+          : null,
         changed.length > 0
           ? [
               "The changes from the person's turns are committed in the workspace. Read them with:",

@@ -17,6 +17,8 @@ import {
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { CelVariables } from '@platform/expressions/cel-variables';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
@@ -76,7 +78,7 @@ const connectionWith = (
   token: AccessToken.of(token),
   owner: ConnectionOwner.team(),
   linkedAccount: null,
-  unauthorized: vi.fn(async () => AccessToken.maybe(refreshed)),
+  unauthorized: vi.fn(() => Promise.resolve(AccessToken.maybe(refreshed))),
 });
 
 const reading = (
@@ -88,43 +90,45 @@ const reading = (
   const fetchedWith: unknown[] = [];
   let answered = 0;
   let fetched = 0;
-  const outbound = {
-    run: async (_request: RequestIR, against: CelVariables) => {
+  const outbound = partial<HttpOutbound>({
+    run: (_request: RequestIR, against: CelVariables) => {
       sentWith.push(against.connection);
       const status = answers[Math.min(answered, answers.length - 1)] ?? 200;
       answered += 1;
 
-      return {
+      return Promise.resolve({
         ok: status === 200,
         status,
         response: { email: 'ada@example.com' },
         capture: {},
-      };
+      });
     },
-    bytes: async (_request: RequestIR, against: CelVariables) => {
+    bytes: (_request: RequestIR, against: CelVariables) => {
       fetchedWith.push(against.connection);
       const status =
         fetchAnswers[Math.min(fetched, fetchAnswers.length - 1)] ?? 200;
       fetched += 1;
 
       if (status !== 200) {
-        throw new UpstreamError(
-          'fetching a file',
-          `the host answered ${status} without it`,
-          status,
+        return Promise.reject(
+          new UpstreamError(
+            'fetching a file',
+            `the host answered ${status} without it`,
+            status,
+          ),
         );
       }
 
-      return new Uint8Array();
+      return Promise.resolve(new Uint8Array());
     },
-  } as unknown as HttpOutbound;
-  const connectionOf = vi.fn(async () => connection);
+  });
+  const connectionOf = vi.fn(() => Promise.resolve(connection));
   const runtime = new WebhookRuntime(
     compiled(CHAT),
     WorkspaceId.of('ws_1'),
     signingFor(),
     { now: () => new Date(1_700_000_000_000), sleep: async () => {} },
-    { keys: async () => new Map() },
+    { keys: () => Promise.resolve(new Map()) },
     outbound,
     credentialsFor(),
     unlimited,
@@ -147,7 +151,7 @@ describe('a webhook that calls back with the team’s connection', () => {
       connectionWith('xoxb-team'),
     );
 
-    const [read] = await runtime.read(delivered);
+    const read = firstOf(await runtime.read(delivered));
     await read?.attachments?.[0]?.fetch();
 
     expect(sentWith).toEqual(['xoxb-team']);
@@ -171,7 +175,7 @@ describe('a webhook that calls back with the team’s connection', () => {
     const connection = connectionWith('xoxb-old', 'xoxb-new');
     const { runtime, fetchedWith } = reading(connection, [200], [401, 200]);
 
-    const [read] = await runtime.read(delivered);
+    const read = firstOf(await runtime.read(delivered));
     await read?.attachments?.[0]?.fetch();
 
     expect(connection.unauthorized).toHaveBeenCalledExactlyOnceWith(
@@ -184,7 +188,7 @@ describe('a webhook that calls back with the team’s connection', () => {
     const connection = connectionWith('xoxb-old', 'xoxb-new');
     const { runtime, fetchedWith } = reading(connection, [401, 200]);
 
-    const [read] = await runtime.read(delivered);
+    const read = firstOf(await runtime.read(delivered));
     await read?.attachments?.[0]?.fetch();
 
     expect(connection.unauthorized).toHaveBeenCalledOnce();
@@ -205,7 +209,7 @@ describe('a webhook that calls back with the team’s connection', () => {
     const connection = connectionWith('xoxb-old', 'xoxb-new');
     const { runtime, fetchedWith } = reading(connection, [200], [401, 401]);
 
-    const [read] = await runtime.read(delivered);
+    const read = firstOf(await runtime.read(delivered));
 
     await expect(read?.attachments?.[0]?.fetch()).rejects.toThrow(
       'fetching a file: the host answered 401 without it',

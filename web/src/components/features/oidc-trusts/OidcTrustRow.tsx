@@ -1,4 +1,5 @@
 import { ShieldCheck } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { RowIcon } from '@/components/shared/RowIcon';
@@ -9,7 +10,7 @@ type OidcTrustRowProps = {
   trust: OidcTrust;
 };
 
-export function OidcTrustRow({ trust }: OidcTrustRowProps) {
+export function OidcTrustRow({ trust }: OidcTrustRowProps): ReactElement {
   return (
     <div data-slot="oidc-trust-row">
       <SettingsRow
@@ -28,7 +29,7 @@ export function OidcTrustRow({ trust }: OidcTrustRowProps) {
       >
         <WithTooltip tooltip={trustNote(trust)}>
           <span className="whitespace-nowrap text-muted-foreground text-xs tabular-nums">
-            {trust.lastIssuedAt ? (
+            {trust.lastIssuedAt !== null && trust.lastIssuedAt !== '' ? (
               <time dateTime={trust.lastIssuedAt}>
                 {describeIssued(trust.lastIssuedAt)}
               </time>

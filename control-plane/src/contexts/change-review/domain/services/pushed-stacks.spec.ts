@@ -14,7 +14,7 @@ import {
   supersededBy,
 } from '@change-review/domain/services/pushed-stacks';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha as sha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
@@ -35,8 +35,6 @@ const NOW = new Date('2026-11-16T10:00:00.000Z');
 
 const WIDGETS = PullRequestUrl.of('https://github.com/acme/widgets/pull/7');
 const DOCS = PullRequestUrl.of('https://github.com/acme/docs/pull/8');
-
-const sha = (digit: string) => CommitSha.parsed(digit.repeat(40)) as CommitSha;
 
 const ofRun = (run: string) => StackOrigin.run(RunId.of(run));
 const pushedAt = (digit: string) =>

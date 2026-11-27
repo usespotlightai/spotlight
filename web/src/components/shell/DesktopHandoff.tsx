@@ -4,10 +4,14 @@ import { Button } from '@/components/ui/button';
 import { useDesktopHandoff } from '@/hooks/useDesktopHandoff';
 import { openInDesktop } from '@/lib/desktop';
 
-export function DesktopHandoff({ children }: { children: ReactNode }) {
+export function DesktopHandoff({
+  children,
+}: {
+  children: ReactNode;
+}): ReactNode {
   const { link, stayHere } = useDesktopHandoff();
 
-  if (!link) {
+  if (link === null || link === '') {
     return children;
   }
 

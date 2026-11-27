@@ -9,7 +9,7 @@ export function useRunDeciding(
   const answer = useAnswerInboxItem();
   const itemId = run?.review?.conversationId;
 
-  if (!itemId) {
+  if (typeof itemId !== 'string' || itemId === '') {
     return undefined;
   }
 

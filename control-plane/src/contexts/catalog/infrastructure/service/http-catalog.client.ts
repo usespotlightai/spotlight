@@ -45,7 +45,9 @@ export class HttpCatalogClient implements CatalogServicePort {
           'content-type': 'application/json',
           'spotlight-workspace': on.workspaceId.value,
           'spotlight-run': on.runId.value,
-          ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
+          ...(this.token !== undefined && this.token !== ''
+            ? { authorization: `Bearer ${this.token}` }
+            : {}),
         },
         body: JSON.stringify({ inputs }),
         signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -57,11 +59,14 @@ export class HttpCatalogClient implements CatalogServicePort {
       );
     }
 
-    const answered = (await reply.json().catch(() => null)) as {
-      output?: unknown;
-    } | null;
+    const answered: unknown = await reply.json().catch(() => null);
 
-    if (!reply.ok || !answered || !('output' in answered)) {
+    if (
+      !reply.ok ||
+      typeof answered !== 'object' ||
+      answered === null ||
+      !('output' in answered)
+    ) {
       throw new UpstreamError(
         operation,
         `the catalog answered ${reply.status}`,

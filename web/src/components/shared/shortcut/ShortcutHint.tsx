@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { ShortcutKeys } from '@/components/shared/shortcut/ShortcutKeys';
 import type { ShortcutId } from '@/lib/commands/shortcuts';
@@ -8,7 +8,10 @@ type ShortcutHintProps = {
   children: ReactNode;
 };
 
-export function ShortcutHint({ id, children }: ShortcutHintProps) {
+export function ShortcutHint({
+  id,
+  children,
+}: ShortcutHintProps): ReactElement {
   return (
     <span data-slot="shortcut-hint" className="flex items-center gap-2">
       {children}

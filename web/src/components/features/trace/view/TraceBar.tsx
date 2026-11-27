@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { formatShortDuration, spentOn } from '@/lib/inbox';
 import { laidOut, type Trace, type TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
@@ -15,7 +17,13 @@ const fills: Record<TraceNode['category'], string> = {
   failed: 'bg-destructive',
 };
 
-export function TraceBar({ node, trace }: { node: TraceNode; trace: Trace }) {
+export function TraceBar({
+  node,
+  trace,
+}: {
+  node: TraceNode;
+  trace: Trace;
+}): ReactElement {
   const { left, width } = laidOut(node, trace);
 
   const drawn = Math.max(width, MIN_WIDTH);

@@ -1,4 +1,5 @@
 import { CircleArrowRight, CircleSlash, type LucideIcon } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { OnHoldPill } from '@/components/features/hold/OnHoldPill';
@@ -37,7 +38,7 @@ export function RunRow({
   gutter,
   onHold,
   onIntent,
-}: RunRowProps) {
+}: RunRowProps): ReactElement {
   const intent = useOpenIntent(onIntent);
   const stop = useStopRunAction(teamId, run.id, stoppable(run));
   const menu = useMenuActions(stop ? [stop] : []);
@@ -50,10 +51,10 @@ export function RunRow({
       {...intent}
       className={cn(
         'relative flex min-w-0 items-start gap-2 rounded-md py-2 text-sm transition-colors hover:bg-accent has-[a:focus-visible]:ring-1 has-[a:focus-visible]:ring-primary has-[a:focus-visible]:ring-inset @xl/pane:h-9 @xl/pane:items-center @xl/pane:py-0',
-        gutter ? 'px-3' : 'px-2',
+        gutter === true ? 'px-3' : 'px-2',
       )}
     >
-      {gutter && <span className="w-4 shrink-0" aria-hidden />}
+      {gutter === true && <span className="w-4 shrink-0" aria-hidden />}
 
       <span className="flex h-5 shrink-0 items-center @xl/pane:h-auto">
         {run.station ? (
@@ -72,7 +73,10 @@ export function RunRow({
           title={title}
           className={cn(
             'min-w-0 truncate text-foreground outline-none after:absolute after:inset-0 after:rounded-md',
-            taskTitle && 'basis-full @xl/pane:basis-auto',
+            taskTitle !== null &&
+              taskTitle !== undefined &&
+              taskTitle !== '' &&
+              'basis-full @xl/pane:basis-auto',
           )}
         >
           {title}
@@ -83,14 +87,17 @@ export function RunRow({
         )}
 
         <div className="flex min-w-0 grow flex-wrap items-center gap-x-2 gap-y-1 @xl/pane:contents">
-          {taskTitle && run.station && (
-            <span
-              title={run.station.name}
-              className="min-w-[6rem] truncate text-muted-foreground text-xs @xl/pane:min-w-0 @xl/pane:shrink-0"
-            >
-              {run.station.name}
-            </span>
-          )}
+          {taskTitle !== null &&
+            taskTitle !== undefined &&
+            taskTitle !== '' &&
+            run.station && (
+              <span
+                title={run.station.name}
+                className="min-w-[6rem] truncate text-muted-foreground text-xs @xl/pane:min-w-0 @xl/pane:shrink-0"
+              >
+                {run.station.name}
+              </span>
+            )}
 
           <span className="ml-auto flex shrink-0 items-center gap-2">
             {onHold && <OnHoldPill hold={onHold} />}
@@ -120,7 +127,7 @@ function EndedPill({ run }: { run: Run }) {
   const Icon = ENDED_ICONS[run.state];
   const status = runStatus(run);
 
-  if (!Icon || !status) {
+  if (!Icon || status === null || status === '') {
     return null;
   }
 

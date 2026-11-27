@@ -34,7 +34,8 @@ export class StartSearchReplays {
       }
 
       const search = await this.searches.locked(searchId);
-      const terms = search?.isActive ? search.plannedReplay(replayId) : null;
+      const terms =
+        search?.isActive === true ? search.plannedReplay(replayId) : null;
 
       if (
         !search ||

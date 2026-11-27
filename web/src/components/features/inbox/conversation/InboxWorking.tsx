@@ -5,6 +5,7 @@ import {
   type LucideIcon,
   Terminal,
 } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ARRIVING, type RunJournal, workingWordsOf } from '@/lib/inbox';
@@ -37,7 +38,7 @@ export function InboxWorking({
   stationCount,
   progress,
   session,
-}: InboxWorkingProps) {
+}: InboxWorkingProps): ReactElement {
   const background =
     progress === 'in-progress' ? (session?.background ?? []) : [];
 

@@ -1,4 +1,5 @@
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 export interface Spread {
   readonly p50: number | null;
@@ -89,7 +90,7 @@ export interface Spending {
 
 export const spendingOf = (spends: readonly (Money | null)[]): Spending => {
   const priced = spends.flatMap((each) => (each ? [each] : []));
-  const [first] = priced;
+  const first = firstOf(priced);
   const mixedCurrencies = priced.some(
     (each) => each.currency !== first?.currency,
   );

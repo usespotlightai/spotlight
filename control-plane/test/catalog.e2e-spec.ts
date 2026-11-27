@@ -9,6 +9,7 @@ import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
+import type { OperationObject } from '@nestjs/swagger';
 import { buildOpenApiDocument } from '@platform/http/openapi';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -191,17 +192,17 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
 
   it('documents both data sources, and how a query can fail them', () => {
     const operations = Object.values(buildOpenApiDocument(app).paths).flatMap(
-      (methods) => Object.values(methods as Record<string, unknown>),
-    ) as {
-      operationId?: string;
-      responses: Record<string, { content?: Record<string, unknown> }>;
-    }[];
+      (item) =>
+        [item.get, item.put, item.post, item.delete, item.patch].filter(
+          (each): each is OperationObject => each !== undefined,
+        ),
+    );
 
     for (const id of ['readCatalogTool', 'readCatalogSkill']) {
       const operation = operations.find((each) => each.operationId === id);
 
-      expect(operation?.responses['404']?.content).toHaveProperty([PROBLEM]);
-      expect(operation?.responses['422']?.content).toHaveProperty([PROBLEM]);
+      expect(operation?.responses).toHaveProperty(['404', 'content', PROBLEM]);
+      expect(operation?.responses).toHaveProperty(['422', 'content', PROBLEM]);
       expect(operation?.responses).not.toHaveProperty(['403']);
     }
   });
@@ -367,9 +368,9 @@ describe('a catalog call (e2e)', () => {
   it('calls the catalog service with the workspace, run and the version called', async () => {
     const called: unknown[] = [];
     const calls = new CatalogCalls(new StaticCatalog(CATALOG_ITEMS), {
-      call: async (tool, _inputs, on) => {
+      call: (tool, _inputs, on) => {
         called.push([tool.id.value, on.workspaceId.value, on.runId.value]);
-        return ['https://example.com'];
+        return Promise.resolve(['https://example.com']);
       },
     });
     const runId = randomUUID();

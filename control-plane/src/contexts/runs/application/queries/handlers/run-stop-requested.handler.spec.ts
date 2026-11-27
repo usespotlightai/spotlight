@@ -1,17 +1,27 @@
-import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
+import type {
+  LeasedRunFacts,
+  RunLeasesPort,
+} from '@runs/application/ports/run-leases.port';
 import { RunStopRequestedHandler } from '@runs/application/queries/handlers/run-stop-requested.handler';
 import { RunStopRequestedQuery } from '@runs/application/queries/run-stop-requested.query';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const requesting = (stopping: Record<string, string>) =>
-  new RunStopRequestedHandler({
-    leasedBy: async (runId: RunId, runnerId: RunnerId) =>
-      runnerId.value === 'runner_1'
-        ? { stopRequested: stopping[runId.value] === runnerId.value }
-        : null,
-  } as unknown as RunLeasesPort);
+  new RunStopRequestedHandler(
+    partial<RunLeasesPort>({
+      leasedBy: (runId: RunId, runnerId: RunnerId) =>
+        Promise.resolve(
+          runnerId.value === 'runner_1'
+            ? partial<LeasedRunFacts>({
+                stopRequested: stopping[runId.value] === runnerId.value,
+              })
+            : null,
+        ),
+    }),
+  );
 
 describe('RunStopRequestedHandler', () => {
   it('says no when nobody has requested the run to stop', async () => {

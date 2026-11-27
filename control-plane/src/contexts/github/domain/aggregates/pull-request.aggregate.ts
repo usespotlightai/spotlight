@@ -400,9 +400,10 @@ export class PullRequest extends EventRecorder {
       ...this.props,
       title: snapshot.title,
       author: snapshot.author ?? this.props.author,
-      authorIsBot: snapshot.author
-        ? snapshot.authorIsBot
-        : this.props.authorIsBot,
+      authorIsBot:
+        snapshot.author !== null && snapshot.author !== ''
+          ? snapshot.authorIsBot
+          : this.props.authorIsBot,
       branch: snapshot.branch ?? this.props.branch,
       size: snapshot.size ?? this.props.size,
       openedAt: snapshot.openedAt,
@@ -584,7 +585,7 @@ export class PullRequest extends EventRecorder {
     if (
       !this.merged ||
       revert.equals(this.url) ||
-      this.props.revertedBy?.equals(revert)
+      this.props.revertedBy?.equals(revert) === true
     ) {
       return this;
     }
@@ -614,9 +615,10 @@ export class PullRequest extends EventRecorder {
     const deleted = comment.action === 'deleted';
 
     if (
-      !comment.login ||
+      comment.login === null ||
+      comment.login === '' ||
       comment.action === 'edited' ||
-      known?.deleted ||
+      known?.deleted === true ||
       (known && !deleted)
     ) {
       return this;

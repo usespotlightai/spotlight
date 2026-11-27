@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { installUrlFor } from '@/lib/github';
 import { TeamIntegrations } from '@/routes/TeamIntegrations';
+import { htmlElement } from '@/test/elements';
 
 const configuration = vi.fn();
 const github = vi.fn();
@@ -16,7 +17,7 @@ const disconnect = vi.fn();
 const connectFailed = vi.fn<(...args: unknown[]) => unknown>();
 const disconnectFailed = vi.fn<(...args: unknown[]) => unknown>();
 
-const failing = vi.fn();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 
 const query = (data: unknown) => ({
@@ -130,17 +131,18 @@ const showing = () =>
     </MemoryRouter>,
   );
 
-const row = (name: string) =>
-  screen.getByRole('button', { name }).closest('li') as HTMLElement;
+const row = (name: string): HTMLElement =>
+  htmlElement(screen.getByRole('button', { name }).closest('li'));
 
 const head = (name: string) =>
   within(
-    row(name).querySelector('[data-slot="integration-head"]') as HTMLElement,
+    htmlElement(row(name).querySelector('[data-slot="integration-head"]')),
   );
 
-const fact = (opened: HTMLElement, label: string) =>
-  within(opened).getByText(label, { selector: 'dt' })
-    .nextElementSibling as HTMLElement;
+const fact = (opened: HTMLElement, label: string): HTMLElement =>
+  htmlElement(
+    within(opened).getByText(label, { selector: 'dt' }).nextElementSibling,
+  );
 
 const opening = async (name: string) => {
   await userEvent.click(screen.getByRole('button', { name }));

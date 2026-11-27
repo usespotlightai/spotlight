@@ -1,23 +1,25 @@
 import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
 
-import type { HttpAdapterHost } from '@nestjs/core';
+import type { AbstractHttpAdapter, HttpAdapterHost } from '@nestjs/core';
+import { portOf } from '@platform/testing/port-of.fake-spec';
 import { DialBackTunnels } from '@platform/websocket/dial-back-tunnels';
 import type {
   Ask,
   TunnelDirectory,
 } from '@platform/websocket/tunnel-directory';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createWebSocketStream, WebSocket } from 'ws';
+import { z } from 'zod';
 
-const logger = {
+const logger = partial<LoggerPort>({
   info: vi.fn(),
   error: vi.fn(),
   warn: vi.fn(),
   debug: vi.fn(),
-} as unknown as LoggerPort;
+});
 
 const ROUTE = /^\/tunnel\/([^/]+)(?:\/([^/]+))?$/;
 
@@ -28,34 +30,39 @@ const sharedDirectory = () => {
 
   return (address: string): TunnelDirectory => ({
     address,
-    claimPeer: async (peer) => {
+    claimPeer: (peer) => {
       peers.set(peer, address);
+      return Promise.resolve();
     },
-    renewPeer: async (peer) => {
+    renewPeer: (peer) => {
       if ((peers.get(peer) ?? address) === address) {
         peers.set(peer, address);
       }
+      return Promise.resolve();
     },
-    releasePeer: async (peer) => {
+    releasePeer: (peer) => {
       if (peers.get(peer) === address) {
         peers.delete(peer);
       }
+      return Promise.resolve();
     },
-    ownerOfPeer: async (peer) => peers.get(peer) ?? null,
-    claimStream: async (stream) => {
+    ownerOfPeer: (peer) => Promise.resolve(peers.get(peer) ?? null),
+    claimStream: (stream) => {
       streams.set(stream, address);
+      return Promise.resolve();
     },
-    ownerOfStream: async (stream) => streams.get(stream) ?? null,
-    ask: async (owner, peer, message) => {
+    ownerOfStream: (stream) => Promise.resolve(streams.get(stream) ?? null),
+    ask: (owner, peer, message) => {
       const ask = asks.get(owner);
       ask?.(peer, message);
-      return ask !== undefined;
+      return Promise.resolve(ask !== undefined);
     },
     onAsk: (ask) => {
       asks.set(address, ask);
     },
-    stopAsking: async () => {
+    stopAsking: () => {
       asks.delete(address);
+      return Promise.resolve();
     },
   });
 };
@@ -83,15 +90,15 @@ afterEach(() => {
 const instance = async (directoryAt: (address: string) => TunnelDirectory) => {
   const server = createServer();
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
-  const address = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const address = `http://127.0.0.1:${portOf(server)}`;
   const tunnels = new DialBackTunnels({
     route: (pathname) => {
       const matched = ROUTE.exec(pathname);
-      return matched
-        ? { peer: matched[1] ?? '', stream: matched[2] ?? null }
-        : null;
+      if (matched === null) return null;
+      const groups: readonly (string | undefined)[] = matched;
+      return { peer: groups[1] ?? '', stream: groups[2] ?? null };
     },
-    admit: async () => true,
+    admit: () => Promise.resolve(true),
     refusals: {
       browser: 'browser',
       unadmitted: 'unadmitted',
@@ -102,9 +109,13 @@ const instance = async (directoryAt: (address: string) => TunnelDirectory) => {
     logger,
     directory: directoryAt(address),
   });
-  tunnels.listen({
-    httpAdapter: { getHttpServer: () => server },
-  } as unknown as HttpAdapterHost);
+  tunnels.listen(
+    partial<HttpAdapterHost>({
+      httpAdapter: partial<AbstractHttpAdapter>({
+        getHttpServer: () => server,
+      }),
+    }),
+  );
   running.push({ server, tunnels });
 
   return { address, tunnels };
@@ -124,9 +135,10 @@ const host = async (
     `${tunnelAt.replace('http', 'ws')}/tunnel/host_1`,
   );
   tunnel.on('message', (data) => {
-    const { stream } = JSON.parse((data as Buffer).toString()) as {
-      stream: string;
-    };
+    if (!Buffer.isBuffer(data)) throw new Error('expected a Buffer');
+    const { stream } = z
+      .object({ stream: z.string() })
+      .parse(JSON.parse(data.toString()));
     const back = new WebSocket(
       `${dialBackAt().replace('http', 'ws')}/tunnel/host_1/${stream}`,
     );
@@ -241,8 +253,8 @@ describe('DialBackTunnels across instances', () => {
     const at = sharedDirectory();
     const a = await instance((address) => ({
       ...at(address),
-      claimStream: async () => {
-        throw new Error('Redis is not reachable');
+      claimStream: () => {
+        return Promise.reject(new Error('Redis is not reachable'));
       },
     }));
     await host(a.address, () => a.address);

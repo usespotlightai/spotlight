@@ -165,7 +165,7 @@ const editOf = (
   fields: fieldsOf(BUILD, desired),
   blocks: [JUDGE],
   module: [],
-  read: async (path) => files[path] ?? null,
+  read: (path) => Promise.resolve(files[path] ?? null),
   ...more,
 });
 
@@ -202,9 +202,11 @@ describe('parsedHcl', () => {
     const delivery = parsed.blocks.find(
       (each) => each.labels[1] === 'core_delivery',
     );
-    const [, build, polish] = delivery?.body.blocks ?? [];
+    const blocks = delivery?.body.blocks ?? [];
+    if (blocks.length < 3) throw new Error('expected three blocks');
+    const [, build, polish] = blocks;
     const readOf = (from: typeof build, name: string) =>
-      from?.body.attributes.find((each) => each.name === name)?.read;
+      from.body.attributes.find((each) => each.name === name)?.read;
 
     expect(readOf(build, 'skills')).toEqual({
       kind: 'list',
@@ -247,12 +249,15 @@ describe('parsedHcl', () => {
       // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
       'a = "x\\"y\\n\\u00e9 $${z}"\nb = "${var.x}-y-${var.z}"\nc = file("p.md")\n',
     );
+    if (parsed.attributes.length < 3) {
+      throw new Error('expected three attributes');
+    }
     const [a, b, c] = parsed.attributes;
 
     // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
-    expect(a?.read).toEqual({ kind: 'literal', value: 'x"y\né ${z}' });
-    expect(b?.read).toEqual({ kind: 'computed' });
-    expect(c?.read).toEqual({ kind: 'file', path: 'p.md', fromModule: false });
+    expect(a.read).toEqual({ kind: 'literal', value: 'x"y\né ${z}' });
+    expect(b.read).toEqual({ kind: 'computed' });
+    expect(c.read).toEqual({ kind: 'file', path: 'p.md', fromModule: false });
   });
 
   it('fails on a file that does not parse', async () => {
@@ -347,13 +352,14 @@ describe('editedHclBlock', () => {
         { ...FILES, 'teams/core/prompts/shared.md': 'Build it.\r\n' },
       ),
     );
+    if (edited.files.length < 2) throw new Error('expected two files');
     const [main, prompt] = edited.files;
 
-    expect(main?.content).toContain(
+    expect(main.content).toContain(
       '    passes_to = ["completed"]\r\n\r\n    effort = "high"\r\n\r\n    judge {',
     );
-    expect(main?.content.replace(/\r\n/g, '')).not.toContain('\n');
-    expect(prompt?.content).toBe('Build.\r\nThen ship.\r\n');
+    expect(main.content.replace(/\r\n/g, '')).not.toContain('\n');
+    expect(prompt.content).toBe('Build.\r\nThen ship.\r\n');
   });
 
   it('replaces a heredoc prompt in place, and writes a quoted string when something follows the value on its line', async () => {
@@ -464,7 +470,7 @@ describe('editedHclBlock', () => {
     );
 
     expect(error).toMatchObject({ code: 'unparsable' });
-    expect(error?.message).toContain('"teams/core/skills.tf"');
+    expect(error.message).toContain('"teams/core/skills.tf"');
   });
 
   it('does not change what it cannot resolve, and lists what it could not check', async () => {

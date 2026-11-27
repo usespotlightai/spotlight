@@ -96,7 +96,7 @@ describe('TurnOffSearches', () => {
     const ended = search.stationLeft(NOW);
 
     enabled.set(STATION.stationId.value, false);
-    memory.searchRepository.locked = async () => ended;
+    memory.searchRepository.locked = () => Promise.resolve(ended);
 
     await turningOff().lineChanged(STATION.lineId);
 

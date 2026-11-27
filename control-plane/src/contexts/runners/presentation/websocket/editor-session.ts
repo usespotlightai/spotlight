@@ -104,11 +104,11 @@ export class EditorSession {
     while (!this.closed) {
       const sandbox = await this.editors.stateOf(this.connection);
 
-      if (sandbox?.ready) {
+      if (sandbox?.ready === true) {
         return true;
       }
 
-      if (!sandbox?.open) {
+      if (sandbox?.open !== true) {
         this.close(EDITOR_CLOSE.sandboxStopped, STOPPED);
         return false;
       }
@@ -175,6 +175,10 @@ export class EditorSession {
     });
   }
 
+  private hasClosed(): boolean {
+    return this.closed;
+  }
+
   private async renew(): Promise<void> {
     if (this.closed) {
       return;
@@ -189,12 +193,12 @@ export class EditorSession {
       const sandbox = await this.editors.renew(this.connection);
       this.held = sandbox !== null;
 
-      if (this.closed) {
+      if (this.hasClosed()) {
         await this.release();
         return;
       }
 
-      if (!sandbox?.open) {
+      if (sandbox?.open !== true) {
         this.close(EDITOR_CLOSE.sandboxStopped, STOPPED);
       }
     } catch (error) {

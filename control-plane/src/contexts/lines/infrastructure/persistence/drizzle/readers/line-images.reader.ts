@@ -29,6 +29,6 @@ export class DrizzleLineImages implements LineImagesPort {
       .orderBy(asc(lineRepository.image))
       .limit(MAX_NAMED);
 
-    return rows.flatMap((row) => (row.image ? [row.image] : []));
+    return rows.flatMap((row) => (row.image !== null && row.image !== '' ? [row.image] : []));
   }
 }

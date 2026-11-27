@@ -36,7 +36,7 @@ export class RunnerEgress implements RunnerEgressPort {
     token: string | undefined,
     at: Date,
   ): Promise<EgressAuthentication | null> {
-    if (!token) {
+    if (token === undefined || token === '') {
       return null;
     }
 
@@ -55,7 +55,7 @@ export class RunnerEgress implements RunnerEgressPort {
   }
 
   async sharedWith(token: string | undefined): Promise<SharedEgress | null> {
-    if (!token) {
+    if (token === undefined || token === '') {
       return null;
     }
 
@@ -67,7 +67,7 @@ export class RunnerEgress implements RunnerEgressPort {
 
     const egress = await this.egresses.findByTokenHash(hash);
 
-    return egress?.isServing &&
+    return egress?.isServing === true &&
       (await this.workspaces.isOpen(egress.workspaceId))
       ? { egressId: egress.id.value }
       : null;

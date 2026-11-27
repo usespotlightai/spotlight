@@ -72,9 +72,9 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
 
   return new StationJudgeReports(
     {
-      judgeAt: async () => judge,
-      judgesOnTeam: async () =>
-        new Map(judge ? [['station_1', judge] as const] : []),
+      judgeAt: () => Promise.resolve(judge),
+      judgesOnTeam: () =>
+        Promise.resolve(new Map(judge ? [['station_1', judge] as const] : [])),
     },
     new StationFactsInMemory(records, { scores }),
   );
@@ -103,12 +103,13 @@ const judgedAcross = async () => {
   const pullRequestRecords = new PullRequestRecordsInMemory();
   const requested: string[] = [];
   const judges: StationJudgesPort = {
-    judgeAt: async (stationId) => JUDGES.get(stationId.value) ?? null,
-    judgesOnTeam: async (teamId) => {
+    judgeAt: (stationId) =>
+      Promise.resolve(JUDGES.get(stationId.value) ?? null),
+    judgesOnTeam: (teamId) => {
       requested.push(teamId.value);
 
-      return new Map(
-        [...JUDGES].filter(([, judge]) => judge.teamId.equals(teamId)),
+      return Promise.resolve(
+        new Map([...JUDGES].filter(([, judge]) => judge.teamId.equals(teamId))),
       );
     },
   };

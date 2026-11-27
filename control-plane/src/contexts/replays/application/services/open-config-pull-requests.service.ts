@@ -108,17 +108,16 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       throw error;
     }
 
-    let pullRequest = await this.pullRequests.find(due.id);
+    const found = await this.pullRequests.find(due.id);
 
-    if (!pullRequest) {
+    if (!found) {
       return;
     }
 
+    let pullRequest: ConfigPullRequest = found;
+
     const committed = async (commit: string) => {
-      const next = (pullRequest as ConfigPullRequest).commit(
-        CommitSha.of(commit),
-        this.clock.now(),
-      );
+      const next = pullRequest.commit(CommitSha.of(commit), this.clock.now());
 
       await this.saved(next);
       pullRequest = (await this.pullRequests.find(next.id)) ?? next;
@@ -173,7 +172,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
         'The config pull request has no target repository.',
       );
     }
-    if (!search || !station || !teamKey) {
+    if (!search || !station || teamKey === null || teamKey === '') {
       return failedAs(
         'block-not-found',
         'The searched station is gone from its line.',

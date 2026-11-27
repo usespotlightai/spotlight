@@ -12,7 +12,7 @@ const pointsOf = (gain: number): string =>
   `${gain >= 0 ? '+' : '−'}${Math.abs(percent(gain))} points`;
 
 const stationOf = (name: string | null): string =>
-  name ? `the ${name} station` : 'a station';
+  name !== null && name !== '' ? `the ${name} station` : 'a station';
 
 export interface PickedResult {
   readonly objective: SearchObjective;

@@ -13,6 +13,8 @@ import type { GitHubConnectionRepository } from '@github/domain/repositories/git
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -38,7 +40,7 @@ const COMMENT = {
   writtenAt: new Date('2026-09-16T09:00:00Z'),
 };
 
-const MERGED: WebhookEvent = {
+const MERGED: Extract<WebhookEvent, { kind: 'pull-request-activity' }> = {
   kind: 'pull-request-activity',
   activity: {
     activity: 'merged',
@@ -82,30 +84,36 @@ const hooks = (
 ) => {
   const connected = over.connected ?? true;
   const connections = {
-    connectedWorkspaceOf: vi.fn(async () => (connected ? WORKSPACE : null)),
-    of: vi.fn(async (id: WorkspaceId) =>
-      connected
-        ? GitHubConnection.rehydrate({
-            workspaceId: id,
-            installation: INSTALLED,
-            version: 1,
-          })
-        : GitHubConnection.none(id),
+    connectedWorkspaceOf: vi.fn(() =>
+      Promise.resolve(connected ? WORKSPACE : null),
     ),
-    lockedConnectedWorkspaceOf: vi.fn(async () =>
-      connected ? WORKSPACE : null,
+    of: vi.fn((id: WorkspaceId) =>
+      Promise.resolve(
+        connected
+          ? GitHubConnection.rehydrate({
+              workspaceId: id,
+              installation: INSTALLED,
+              version: 1,
+            })
+          : GitHubConnection.none(id),
+      ),
+    ),
+    lockedConnectedWorkspaceOf: vi.fn(() =>
+      Promise.resolve(connected ? WORKSPACE : null),
     ),
     save: vi.fn<GitHubConnectionRepository['save']>(async () => {}),
   } satisfies GitHubConnectionRepository;
   const signature = { signs: vi.fn(() => over.signs ?? true) };
-  const logger = {
+  const logger = partial<LoggerPort>({
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-  } as unknown as LoggerPort;
+  });
   const checkRuns = {
     failedOn: vi.fn(),
-    failedInSuite: vi.fn(over.failedInSuite ?? (async () => [BUILD_FAILED])),
+    failedInSuite: vi.fn(
+      over.failedInSuite ?? (() => Promise.resolve([BUILD_FAILED])),
+    ),
   } satisfies CheckRunsPort;
   const visibilities = { record: vi.fn(async () => {}) };
   const sync = {
@@ -117,7 +125,7 @@ const hooks = (
     closed: vi.fn(over.closed ?? (async () => {})),
     reopened: vi.fn(async () => {}),
     pushed: vi.fn(async () => {}),
-    uninstalled: vi.fn(async () => 0),
+    uninstalled: vi.fn(() => Promise.resolve(0)),
   };
 
   return {
@@ -129,7 +137,7 @@ const hooks = (
       },
       signature,
       connections,
-      sync as unknown as PullRequestSync,
+      partial<PullRequestSync>(sync),
       logger,
       checkRuns,
       visibilities,
@@ -196,18 +204,14 @@ describe('GitHubWebhooks', () => {
       events: [{ kind: 'installation-removed' }, MERGED],
     });
 
-    expect(await service.activityIn(DELIVERY)).toEqual([
-      MERGED.kind === 'pull-request-activity' ? MERGED.activity : null,
-    ]);
+    expect(await service.activityIn(DELIVERY)).toEqual([MERGED.activity]);
   });
 
   describe('naming the checks that failed', () => {
     const FAILED: WebhookEvent = {
       kind: 'pull-request-activity',
       activity: {
-        ...(MERGED.kind === 'pull-request-activity'
-          ? MERGED.activity
-          : ({} as never)),
+        ...MERGED.activity,
         activity: 'checks-failed',
         checkSuite: { id: 42, repository: 'acme/api' },
       },
@@ -219,7 +223,7 @@ describe('GitHubWebhooks', () => {
         events: [FAILED],
       });
 
-      const [read] = await service.activityIn(DELIVERY);
+      const read = firstOf(await service.activityIn(DELIVERY));
 
       expect(read?.failedChecks).toEqual([
         {
@@ -240,13 +244,15 @@ describe('GitHubWebhooks', () => {
       const { service, logger } = hooks(
         { installation: '158876513', events: [FAILED] },
         {
-          failedInSuite: async () => {
-            throw new Error('Resource not accessible by integration');
+          failedInSuite: () => {
+            return Promise.reject(
+              new Error('Resource not accessible by integration'),
+            );
           },
         },
       );
 
-      const [read] = await service.activityIn(DELIVERY);
+      const read = firstOf(await service.activityIn(DELIVERY));
 
       expect(read?.activity).toBe('checks-failed');
       expect(read?.failedChecks).toEqual([]);
@@ -708,8 +714,8 @@ describe('GitHubWebhooks', () => {
           events: [CLOSED],
         },
         {
-          closed: async () => {
-            throw new Error('the outbox is down');
+          closed: () => {
+            return Promise.reject(new Error('the outbox is down'));
           },
         },
       );

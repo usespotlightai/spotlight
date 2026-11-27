@@ -31,7 +31,10 @@ import { DrizzlePushDiffRepository } from '@change-review/infrastructure/persist
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import { pushDiff } from '@change-review/infrastructure/persistence/drizzle/schemas/push-diff.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
+import type {
+  RegisteredClaimant,
+  RunnerClaimantsPort,
+} from '@runners/application/ports/runner-claimants.port';
 import { RenewReviewWorkLeaseHandler } from '@runs/application/commands/handlers/renew-review-work-lease.handler';
 import { RenewReviewWorkLeaseCommand } from '@runs/application/commands/runner.commands';
 import type {
@@ -43,6 +46,8 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+import { itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -96,8 +101,8 @@ beforeAll(async () => {
   context = new DrizzleContext(database.db);
 
   const dispatcher = {
-    dispatch: async (events: readonly DomainEvent[]) =>
-      context.afterCommit(() => committed.push(...events)),
+    dispatch: (events: readonly DomainEvent[]) =>
+      Promise.resolve(context.afterCommit(() => committed.push(...events))),
   };
 
   checks = new DrizzleStackCheckRepository(context, dispatcher);
@@ -118,7 +123,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const clockAt = (at: number): ClockPort => ({
@@ -134,14 +139,15 @@ const recordingLogger: LoggerPort = {
 };
 
 const claimants: RunnerClaimantsPort = {
-  registeredClaimantOf: async () => null,
-  claimantOf: async () => ({
-    workspaceId: null as never,
-    harnesses: [],
-    offer: null as never,
-    claims: 'nothing',
-    source: null,
-  }),
+  registeredClaimantOf: () => Promise.resolve(null),
+  claimantOf: () =>
+    Promise.resolve(
+      partial<RegisteredClaimant>({
+        harnesses: [],
+        claims: 'nothing',
+        source: null,
+      }),
+    ),
 };
 
 const sha = (digit: string): CommitSha => {
@@ -357,12 +363,12 @@ describe('runners claiming review work at the same moment', () => {
 
     const [leasedCheck, reservedCheck] =
       input.leased === 'a check'
-        ? [begunChecks[0], begunChecks[1]]
-        : [undefined, begunChecks[0]];
+        ? [itemAt(begunChecks, 0), itemAt(begunChecks, 1)]
+        : [undefined, itemAt(begunChecks, 0)];
     const [leasedDiff, reservedDiff] =
       input.leased === 'a diff'
-        ? [begunDiffs[0], begunDiffs[1]]
-        : [undefined, begunDiffs[0]];
+        ? [itemAt(begunDiffs, 0), itemAt(begunDiffs, 1)]
+        : [undefined, itemAt(begunDiffs, 0)];
     const held = new Set<string>();
 
     if (leasedCheck) {
@@ -787,8 +793,8 @@ describe('a leased push diff raced by its runner, another runner, the sweeper an
     new StackPushes(
       diffs,
       stacks,
-      { ...({} as WorkPort), task: async () => null },
-      {} as GenerateChangeStack,
+      { ...partial<WorkPort>({}), task: () => Promise.resolve(null) },
+      partial<GenerateChangeStack>({}),
       { stackingFor: async (_, work) => work() },
       { generate: () => randomUUID() },
       clockAt(TIMES[at]),

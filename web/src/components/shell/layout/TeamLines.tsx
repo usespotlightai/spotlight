@@ -1,4 +1,5 @@
 import { Package } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
@@ -21,7 +22,7 @@ export function TeamLines({
   teamId,
   lines,
   shownLineId,
-}: TeamLinesProps) {
+}: TeamLinesProps): ReactElement {
   const { isExpanded, toggle } = useCollapsed(LINES_STORAGE_KEY);
   const open = isExpanded(teamId);
 

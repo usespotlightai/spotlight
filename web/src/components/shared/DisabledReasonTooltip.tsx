@@ -14,7 +14,7 @@ type DisabledReasonTooltipProps = {
 export function DisabledReasonTooltip({
   reason,
   children,
-}: DisabledReasonTooltipProps) {
+}: DisabledReasonTooltipProps): ReactNode {
   const reasonId = useId();
 
   if (reason === null || reason === undefined || reason === false) {

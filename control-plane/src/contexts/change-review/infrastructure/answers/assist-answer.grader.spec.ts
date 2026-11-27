@@ -14,6 +14,7 @@ import {
   BRIEFING,
   GRADE_RESULT,
 } from '@change-review/infrastructure/answers/assist-answer.grader';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -39,9 +40,9 @@ const grading = (state: AssistState) => {
   return {
     orders,
     grader: new AssistAnswerGrader({
-      request: async (order) => {
+      request: (order) => {
         orders.push(order);
-        return state;
+        return Promise.resolve(state);
       },
     }),
   };
@@ -56,7 +57,7 @@ describe('AssistAnswerGrader', () => {
 
     await expect(grader.grade(REQUEST)).resolves.toEqual(SESSION_WAITING);
 
-    const [order] = orders;
+    const [order] = optionalItems(orders);
     expect(order).toMatchObject({
       workspaceId: 'workspace-1',
       purpose: 'change-review.grade',

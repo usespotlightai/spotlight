@@ -11,7 +11,7 @@ const refuse = (event: DragEvent) => {
   }
 };
 
-export const refuseStrayFileDrops = (target: Window = window) => {
+export const refuseStrayFileDrops = (target: Window = window): (() => void) => {
   target.addEventListener('dragover', refuse);
   target.addEventListener('drop', refuse);
 

@@ -1,4 +1,4 @@
-import { type SubmitEvent, useId, useState } from 'react';
+import { type ReactElement, type SubmitEvent, useId, useState } from 'react';
 
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,10 @@ type AddEmailDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-export function AddEmailDialog({ open, onOpenChange }: AddEmailDialogProps) {
+export function AddEmailDialog({
+  open,
+  onOpenChange,
+}: AddEmailDialogProps): ReactElement {
   const add = useAddMyEmail();
   const emailId = useId();
   const [email, setEmail] = useState('');

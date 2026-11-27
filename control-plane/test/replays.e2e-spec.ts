@@ -23,6 +23,7 @@ import {
   ReplayRunDecision,
   type ReplayRunOwner,
 } from '@replays/domain/aggregates/replay-run-decision.aggregate';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { aReplay } from '@replays/domain/replays.fake-spec';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -37,6 +38,8 @@ import {
   type WorkingCopyArchiveStorePort,
 } from '@runs/application/ports/working-copy-archive-store.port';
 import { RunOrderConflictError } from '@runs/domain/exceptions/run-order-conflict.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -52,7 +55,9 @@ import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
+import { overriding } from './support/overriding';
 import { writtenStation } from './support/replays';
 import { deleteRunnersOf } from './support/runners';
 import { aDispatch, requestedByTask } from './support/runs';
@@ -68,25 +73,29 @@ const BUILD = randomUUID();
 const SHIP = randomUUID();
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 
-const attachmentStore = {
-  received: async () => [],
-  stored: async () => true,
-  taken: async () => undefined,
-  open: async () => ({
-    bytes: new Uint8Array([1, 2, 3, 4]),
-    contentType: 'image/png',
-  }),
-} as unknown as AttachmentStorePort;
+const attachmentStore = partial<AttachmentStorePort>({
+  received: () => Promise.resolve([]),
+  stored: () => Promise.resolve(true),
+  taken: () => Promise.resolve(undefined),
+  open: () =>
+    Promise.resolve({
+      bytes: new Uint8Array([1, 2, 3, 4]),
+      contentType: 'image/png',
+    }),
+});
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: async (archive) => ({
-    url: `https://archives.test/${archive.id.value}`,
-    headers: {},
-  }),
-  stored: async (archive) =>
-    archive.location.kind === 'spotlight' ? archive.location : null,
-  grantDownload: async (archive) =>
-    `https://archives.test/${archive.id.value}?download`,
+  grantUpload: (archive) =>
+    Promise.resolve({
+      url: `https://archives.test/${archive.id.value}`,
+      headers: {},
+    }),
+  stored: (archive) =>
+    Promise.resolve(
+      archive.location.kind === 'spotlight' ? archive.location : null,
+    ),
+  grantDownload: (archive) =>
+    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
   remove: async () => {},
 };
 
@@ -305,9 +314,9 @@ const ownerOf = () => ({
   replayId: ReplayId.of(randomUUID()),
 });
 
-const standingReplays = {
-  find: async () => ({}),
-} as unknown as Pick<ReplayRepository, 'find'>;
+const standingReplays = partial<Pick<ReplayRepository, 'find'>>({
+  find: () => Promise.resolve(partial<Replay>({})),
+});
 
 const dispatchOver = (
   runs: ReplaysRunsPort,
@@ -359,13 +368,13 @@ const claimed = async (
     })
     .expect(200);
 
-  const assignment = (
+  const assignment = bodyOf<{ token: string; work: { run: Claimed } }>(
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
       .send({ host: HOST, image: IMAGE })
-      .expect(200)
-  ).body as { token: string; work: { run: Claimed } };
+      .expect(200),
+  );
 
   expect(assignment.work.run.id).toBe(replayId);
 
@@ -381,28 +390,28 @@ const aClaimedReplay = async () => {
 };
 
 const runRow = async (runId: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.run)
-    .where(eq(schema.run.id, runId));
+  const row = firstOf(
+    await db.select().from(schema.run).where(eq(schema.run.id, runId)),
+  );
 
   return row;
 };
 
 const dispatchRow = async (runId: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.dispatch)
-    .where(eq(schema.dispatch.id, runId));
+  const row = firstOf(
+    await db
+      .select()
+      .from(schema.dispatch)
+      .where(eq(schema.dispatch.id, runId)),
+  );
 
   return row;
 };
 
 const taskRow = async (taskId: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.task)
-    .where(eq(schema.task.id, taskId));
+  const row = firstOf(
+    await db.select().from(schema.task).where(eq(schema.task.id, taskId)),
+  );
 
   return row;
 };
@@ -455,13 +464,11 @@ const untilDelivered = (runId: string) =>
   });
 
 const inboxHas = async (taskId: string): Promise<boolean> =>
-  (
-    (
-      await http()
-        .get(`/api/workspaces/${team.slug}/inbox`)
-        .set(TEST_USER_HEADER, team.owner.value)
-        .expect(200)
-    ).body as { readonly items: { taskId: string }[] }
+  bodyOf<{ readonly items: { taskId: string }[] }>(
+    await http()
+      .get(`/api/workspaces/${team.slug}/inbox`)
+      .set(TEST_USER_HEADER, team.owner.value)
+      .expect(200),
   ).items.some((each) => each.taskId === taskId);
 
 const finishing = (next: string) => ({
@@ -545,21 +552,23 @@ beforeAll(async () => {
   });
 
   memoryId = randomUUID();
-  const [stored] = await db
-    .insert(schema.memory)
-    .values({
-      id: memoryId,
-      handle: sql`nextval('memory_handle_seq')`,
-      workspaceId: team.workspaceId.value,
-      kind: 'rationale',
-      body: 'Queues drain oldest first.',
-      teamId: team.teamId.value,
-      paths: [],
-      source: 'person',
-      approvedById: team.owner.value,
-      approvedAt: new Date(),
-    })
-    .returning({ handle: schema.memory.handle });
+  const stored = firstOf(
+    await db
+      .insert(schema.memory)
+      .values({
+        id: memoryId,
+        handle: sql`nextval('memory_handle_seq')`,
+        workspaceId: team.workspaceId.value,
+        kind: 'rationale',
+        body: 'Queues drain oldest first.',
+        teamId: team.teamId.value,
+        paths: [],
+        source: 'person',
+        approvedById: team.owner.value,
+        approvedAt: new Date(),
+      })
+      .returning({ handle: schema.memory.handle }),
+  );
   memoryHandle = stored?.handle ?? 0;
 
   await http()
@@ -572,22 +581,13 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 describe('a replay claimed by a runner', () => {
   it('receives the candidate’s spec, starting at the original’s archive and commits, with no tools, secrets or starting-point report', async () => {
     const { original, replayId, run } = await aClaimedReplay();
-    const spec = run.spec as {
-      checkouts: unknown;
-      replay: unknown;
-      resume: unknown;
-      briefing: string;
-      manifest?: unknown;
-      injectedSecrets?: unknown;
-      startingPoint?: unknown;
-      diffs?: boolean;
-    };
+    const spec = run.spec;
 
     expect(run.attempt).toBe(1);
     expect(spec.replay).toEqual({
@@ -718,11 +718,11 @@ describe('a replay claimed by a runner', () => {
     const { replayId, token } = await aClaimedReplay();
     const after = await anEndedStationRun(new Date(), new Date());
 
-    const history = (
+    const history = bodyOf<{ runs: { runId: string }[] }>(
       await runner(token)
         .get(`/api/runs/${replayId}/history?station=build&last=50`)
-        .expect(200)
-    ).body as { runs: { runId: string }[] };
+        .expect(200),
+    );
     const listed = history.runs.map((each) => each.runId);
 
     expect(listed).toContain(before);
@@ -750,15 +750,12 @@ describe('a replay cancelled while it is ordered', () => {
     const original = await anOriginal();
     const run = RunId.of(randomUUID());
     const runs = app.get<ReplaysRunsPort>(REPLAYS_RUNS);
-    const cancellingFirst: ReplaysRunsPort = Object.assign(
-      Object.create(runs) as ReplaysRunsPort,
-      {
-        enqueueTrial: async (trial: ReplayTrialRun) => {
-          await dispatchOver(runs).cancel(run, ownerOf(), false);
-          return runs.enqueueTrial(trial);
-        },
+    const cancellingFirst: ReplaysRunsPort = overriding(runs, {
+      enqueueTrial: async (trial: ReplayTrialRun) => {
+        await dispatchOver(runs).cancel(run, ownerOf(), false);
+        return runs.enqueueTrial(trial);
       },
-    );
+    });
     const racing = dispatchOver(cancellingFirst);
 
     expect(await racing.dispatch(await replayOrderOf(original, run))).toEqual({
@@ -775,10 +772,12 @@ describe('a replay cancelled while it is ordered', () => {
 
 describe('a replay deleted while its run is dispatched', () => {
   const decisionRow = async (runId: string) => {
-    const [row] = await db
-      .select()
-      .from(schema.replayRunDecision)
-      .where(eq(schema.replayRunDecision.runId, runId));
+    const row = firstOf(
+      await db
+        .select()
+        .from(schema.replayRunDecision)
+        .where(eq(schema.replayRunDecision.runId, runId)),
+    );
 
     return row;
   };
@@ -826,24 +825,21 @@ describe('a replay deleted while its run is dispatched', () => {
           deleted = true;
           await deleting(order.owner, run);
         };
-        const racing: ReplaysRunsPort = Object.assign(
-          Object.create(runs) as ReplaysRunsPort,
-          {
-            enqueueTrial: async (trial: ReplayTrialRun) => {
-              if (moment === 'between its claim and its enqueue') {
-                await deletedReplay();
-                return runs.enqueueTrial(trial);
-              }
-
-              const enqueued = await runs.enqueueTrial(trial);
+        const racing: ReplaysRunsPort = overriding(runs, {
+          enqueueTrial: async (trial: ReplayTrialRun) => {
+            if (moment === 'between its claim and its enqueue') {
               await deletedReplay();
-              return enqueued;
-            },
+              return runs.enqueueTrial(trial);
+            }
+
+            const enqueued = await runs.enqueueTrial(trial);
+            await deletedReplay();
+            return enqueued;
           },
-        );
-        const replaysUntilDeleted = {
-          find: async () => (deleted ? null : {}),
-        } as unknown as Pick<ReplayRepository, 'find'>;
+        });
+        const replaysUntilDeleted = partial<Pick<ReplayRepository, 'find'>>({
+          find: () => Promise.resolve(deleted ? null : partial<Replay>({})),
+        });
 
         expect(
           await dispatchOver(racing, { replays: replaysUntilDeleted }).dispatch(
@@ -865,15 +861,12 @@ describe('a replay deleted while its run is dispatched', () => {
     const run = RunId.of(randomUUID());
     const order = await replayOrderOf(original, run);
     const trials = app.get<StationTrialsPort>(STATION_TRIALS);
-    const deletingFirst: StationTrialsPort = Object.assign(
-      Object.create(trials) as StationTrialsPort,
-      {
-        order: async (request: Parameters<StationTrialsPort['order']>[0]) => {
-          await deletingDecisions(order.owner);
-          return trials.order(request);
-        },
+    const deletingFirst: StationTrialsPort = overriding(trials, {
+      order: async (request: Parameters<StationTrialsPort['order']>[0]) => {
+        await deletingDecisions(order.owner);
+        return trials.order(request);
       },
-    );
+    });
 
     expect(
       await dispatchOver(app.get<ReplaysRunsPort>(REPLAYS_RUNS), {
@@ -1008,7 +1001,7 @@ describe('a replay ending', () => {
     expect(row?.state).toBe('completed');
     expect(row?.askedAPerson).toBe(false);
 
-    const [ended] = await published('runs.run-ended.v1', replayId);
+    const ended = firstOf(await published('runs.run-ended.v1', replayId));
     expect(ended?.payload).toMatchObject({
       requester: { owner: 'replays', kind: 'replay', id: replayId },
       endedBy: 'turn',
@@ -1045,7 +1038,7 @@ describe('a replay ending', () => {
     expect(await inboxHas(original.taskId)).toBe(false);
     expect(await notesOf(original.taskId)).toEqual([]);
 
-    const [ended] = await published('runs.run-ended.v1', replayId);
+    const ended = firstOf(await published('runs.run-ended.v1', replayId));
     expect(ended?.payload).toMatchObject({
       askedAPerson: true,
       report: { next: 'review' },

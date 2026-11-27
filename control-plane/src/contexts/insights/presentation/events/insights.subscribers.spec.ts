@@ -80,6 +80,8 @@ import { TASK_PASSED } from '@shared-kernel/application/integration-events/task-
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -108,19 +110,23 @@ const ENDED: EndedRun = {
 const HELD = RunId.of('run_held');
 
 const WORK = {
-  unfinishedRuns: async () => [],
-  traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
-  taskRunOf: async (runId: RunId) =>
-    runId.equals(ENDED.runId) || runId.equals(HELD)
-      ? {
-          runId,
-          workspaceId: ENDED.workspaceId,
-          taskId: ENDED.taskId,
-          teamId: ENDED.teamId,
-        }
-      : null,
-  endedRun: async (runId: RunId) => (runId.equals(ENDED.runId) ? ENDED : null),
-  configsInOrder: async () => [],
+  unfinishedRuns: () => Promise.resolve([]),
+  traced: () =>
+    Promise.resolve({ tasks: [], stations: [], outputs: new Map() }),
+  taskRunOf: (runId: RunId) =>
+    Promise.resolve(
+      runId.equals(ENDED.runId) || runId.equals(HELD)
+        ? {
+            runId,
+            workspaceId: ENDED.workspaceId,
+            taskId: ENDED.taskId,
+            teamId: ENDED.teamId,
+          }
+        : null,
+    ),
+  endedRun: (runId: RunId) =>
+    Promise.resolve(runId.equals(ENDED.runId) ? ENDED : null),
+  configsInOrder: () => Promise.resolve([]),
 };
 
 const CLOCK = {
@@ -134,8 +140,8 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   const alerted: string[] = [];
   let alertsNow = alerts;
   const lines = {
-    teamRepositories: async () => [],
-    alertsAt: async () => alertsNow,
+    teamRepositories: () => Promise.resolve([]),
+    alertsAt: () => Promise.resolve(alertsNow),
   };
   const judgings = new JudgingsInMemory();
   const scores = new ScoresInMemory();
@@ -148,11 +154,13 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   let next = 0;
   const settled: SettledSession[] = [];
   const subscribers = insightsSubscribers({
-    waking: {
-      sessionSettled: async (session: SettledSession) => {
+    waking: partial<WorkJudgings>({
+      sessionSettled: (session: SettledSession) => {
         settled.push(session);
+
+        return Promise.resolve();
       },
-    } as unknown as WorkJudgings,
+    }),
     ending: new RecordRunEnding(
       WORK,
       records,
@@ -201,20 +209,21 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
     judging: new RequestJudging(
       WORK,
       {
-        hasTask: async () => true,
-        of: async () => null,
+        hasTask: () => Promise.resolve(true),
+        of: () => Promise.resolve(null),
       },
       {
-        judgesOnTeam: async () => new Map(),
-        judgeAt: async () => ({
-          teamId: TeamId.of('team_1'),
-          lineId: LineId.of('line_1'),
-          rubricVersion: RUBRIC_VERSION,
-          claims: ['It retries the upload.'],
-          passThreshold: 1,
-          sample: 1,
-          minAgreement: 0.6,
-        }),
+        judgesOnTeam: () => Promise.resolve(new Map()),
+        judgeAt: () =>
+          Promise.resolve({
+            teamId: TeamId.of('team_1'),
+            lineId: LineId.of('line_1'),
+            rubricVersion: RUBRIC_VERSION,
+            claims: ['It retries the upload.'],
+            passThreshold: 1,
+            sample: 1,
+            minAgreement: 0.6,
+          }),
       },
       judgings,
       new FactRecorder(deletions),
@@ -289,25 +298,29 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
     ),
     alerting: new AlertInbox(
       {
-        open: async (taskId, alertId) => {
+        open: (taskId, alertId) => {
           alerted.push(`open ${taskId.value} ${alertId.value}`);
+
+          return Promise.resolve();
         },
-        resolve: async (taskId, alertId) => {
+        resolve: (taskId, alertId) => {
           alerted.push(`resolve ${taskId.value} ${alertId.value}`);
+
+          return Promise.resolve();
         },
       },
       alertStates,
     ),
   });
 
-  const deliver = async (name: string, event: Record<string, unknown>) => {
+  const deliver = async <E extends DomainEvent>(name: string, event: E) => {
     const subscriber = subscribers.find((each) => each.name === name);
 
     if (!subscriber) {
       throw new Error(`no subscriber ${name}`);
     }
 
-    await subscriber.handle(event as never, anOutboxRecord());
+    await subscriber.handle(event, anOutboxRecord());
   };
 
   return {
@@ -1427,12 +1440,12 @@ describe('insightsSubscribers', () => {
     );
 
     await subscriber.deliver('insights.judge-ended-run', runEnded());
-    await subscriber.deliver('insights.record-judge-score', judged as never);
-    await subscriber.deliver('insights.record-judge-score', judged as never);
+    await subscriber.deliver('insights.record-judge-score', judged);
+    await subscriber.deliver('insights.record-judge-score', judged);
 
     const [score, ...rest] = [...subscriber.scores.stored.values()];
     expect(rest).toEqual([]);
-    expect(score?.value).toBe(1);
+    expect(score.value).toBe(1);
   });
 
   it('requests no judging of a run whose end is received after its task was deleted', async () => {
@@ -1471,7 +1484,7 @@ describe('insightsSubscribers', () => {
         [reasonOf('It retried.', 0)],
         SeenEvidence.none(),
         new Date('2026-09-30T10:05:00.000Z'),
-      ) as never,
+      ),
     );
 
     expect(subscriber.scores.stored.size).toBe(0);
@@ -2096,7 +2109,7 @@ describe('insightsSubscribers', () => {
           record.runId,
           record.workspaceId,
           record.end.location,
-        ) as never,
+        ),
       );
     };
 
@@ -2109,7 +2122,7 @@ describe('insightsSubscribers', () => {
       const [fired] = subscriber.alertStates.raised;
       await subscriber.deliver(
         'insights.follow-station-alert-inbox-request',
-        fired as never,
+        fired,
       );
 
       expect(subscriber.alerted).toEqual(['open task_1 alert_1']);
@@ -2124,7 +2137,7 @@ describe('insightsSubscribers', () => {
       const resolved = subscriber.alertStates.raised[1];
       await subscriber.deliver(
         'insights.follow-station-alert-inbox-request',
-        resolved as never,
+        resolved,
       );
 
       expect(subscriber.alerted).toEqual([
@@ -2148,11 +2161,11 @@ describe('insightsSubscribers', () => {
 
       await subscriber.deliver(
         'insights.follow-station-alert-inbox-request',
-        resolved as never,
+        resolved,
       );
       await subscriber.deliver(
         'insights.follow-station-alert-inbox-request',
-        fired as never,
+        fired,
       );
 
       expect(subscriber.alerted).toEqual([

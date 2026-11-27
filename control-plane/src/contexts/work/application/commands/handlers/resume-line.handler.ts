@@ -60,8 +60,14 @@ export class ResumeLineHandler implements CommandHandlerPort<
       await this.resuming.resumed(task, line, {
         by: UserId.of(command.viewerId),
         next: holdEndOf(command.next),
-        to: command.stationId ? StationId.of(command.stationId) : null,
-        verdict: command.verdict ? holdVerdictOf(command.verdict) : null,
+        to:
+          command.stationId !== null && command.stationId !== ''
+            ? StationId.of(command.stationId)
+            : null,
+        verdict:
+          command.verdict !== null && command.verdict !== ''
+            ? holdVerdictOf(command.verdict)
+            : null,
         summary: command.summary,
         endingTurn: null,
       }),

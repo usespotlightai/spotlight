@@ -43,7 +43,7 @@ export class CheckRequest {
     plan: CheckingPlan | null,
     repository: string | null,
   ): CheckRequest | null {
-    if (!plan?.command.trim()) {
+    if (plan === null || plan.command.trim() === '') {
       return null;
     }
 

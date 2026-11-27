@@ -17,6 +17,7 @@ import type { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -240,7 +241,9 @@ export class ReplaySet extends EventRecorder {
     );
 
     if (removed.length !== changes.remove.length) {
-      const [unknown] = changes.remove.filter((run) => !this.includes(run));
+      const unknown = firstOf(
+        changes.remove.filter((run) => !this.includes(run)),
+      );
       throw new UnknownReplaySetEntryError(unknown?.value ?? '');
     }
 
@@ -300,7 +303,7 @@ export class ReplaySet extends EventRecorder {
       );
     }
 
-    if (!replayable.stationId?.equals(this.state.station.stationId)) {
+    if (replayable.stationId?.equals(this.state.station.stationId) !== true) {
       throw new ReplaySetEntryElsewhereError(run.value);
     }
 

@@ -116,9 +116,17 @@ export class AssistMemoryConsolidator implements MemoryConsolidatorPort {
       return null;
     }
 
-    const [, team, dueAt, attempt] = CONSOLIDATION_KEY.exec(session.key) ?? [];
+    const matched = CONSOLIDATION_KEY.exec(session.key);
+    const team = matched?.[1];
+    const dueAt = matched?.[2];
+    const attempt = matched?.[3];
 
-    if (!team || dueAt === undefined || attempt === undefined) {
+    if (
+      team === undefined ||
+      team === '' ||
+      dueAt === undefined ||
+      attempt === undefined
+    ) {
       return null;
     }
 

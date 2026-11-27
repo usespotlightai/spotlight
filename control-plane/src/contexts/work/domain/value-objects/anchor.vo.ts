@@ -20,16 +20,25 @@ export class Anchor {
     pullRequest?: string | null;
   }): Anchor | null {
     const body = input.body?.trim() ?? '';
-    const path = input.path?.trim() || null;
+    const path = (input.path?.trim() ?? '') || null;
 
-    return body || path
+    return body !== '' || path !== null
       ? new Anchor(
           body,
           path,
           input.from ?? null,
           input.to ?? null,
-          input.reviewComment ? ReviewComment.of(input.reviewComment) : null,
-          input.reviewComment && input.pullRequest
+          input.reviewComment !== null &&
+            input.reviewComment !== undefined &&
+            input.reviewComment !== ''
+            ? ReviewComment.of(input.reviewComment)
+            : null,
+          input.reviewComment !== null &&
+            input.reviewComment !== undefined &&
+            input.reviewComment !== '' &&
+            input.pullRequest !== null &&
+            input.pullRequest !== undefined &&
+            input.pullRequest !== ''
             ? PullRequestUrl.of(input.pullRequest)
             : null,
         )
@@ -70,14 +79,18 @@ export class Anchor {
   }
 
   get place(): string | null {
-    if (!this.path) {
+    if (this.path === null || this.path === '') {
       return null;
     }
 
     const lines =
-      this.from && this.to && this.to !== this.from
+      this.from !== null &&
+      this.from !== 0 &&
+      this.to !== null &&
+      this.to !== 0 &&
+      this.to !== this.from
         ? `:${this.from}-${this.to}`
-        : this.from
+        : this.from !== null && this.from !== 0
           ? `:${this.from}`
           : '';
 

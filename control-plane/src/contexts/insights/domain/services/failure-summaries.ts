@@ -1,5 +1,6 @@
 import type { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 export interface TaskFailureSummary {
   readonly source: string;
@@ -32,7 +33,7 @@ export const taskFailureSummaries = (
 
   return [...grouped.values()]
     .map((group) => {
-      const [first] = group;
+      const first = firstOf(group);
 
       return {
         source: first?.occurrence.source ?? '',

@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { SpanDetail } from '@/components/features/trace/view/SpanDetail';
@@ -37,7 +37,7 @@ type TraceViewProps = {
   teamId: string;
 };
 
-export function TraceView({ trace, teamId }: TraceViewProps) {
+export function TraceView({ trace, teamId }: TraceViewProps): ReactElement {
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const [picked, setPicked] = useState<string | null>(null);
   const [cited, setCited] = useState<LineRange | null>(null);
@@ -53,9 +53,12 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
   useDocumentListener(
     'pointerdown',
     (event) => {
-      const on = event.target as Node;
+      const on = event.target instanceof Node ? event.target : null;
 
-      if (!listed.current?.contains(on) && !panel.current?.contains(on)) {
+      if (
+        listed.current?.contains(on) !== true &&
+        panel.current?.contains(on) !== true
+      ) {
         setPicked(null);
       }
     },
@@ -131,11 +134,18 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
         return node ? () => reveal(node, null) : null;
       },
       hunk: (hunk) => {
-        const node = hunk.path ? lastChangeTo(displayed, hunk.path) : null;
+        const node =
+          hunk.path !== null && hunk.path !== ''
+            ? lastChangeTo(displayed, hunk.path)
+            : null;
         return node ? () => reveal(node, lineRangeOf(hunk)) : null;
       },
     };
   }, [displayed, reveal]);
+
+  const namesWanted: CSSProperties & Record<`--${string}`, string> = {
+    '--names-wanted': `${namesWidth}px`,
+  };
 
   return (
     <PaneScroller
@@ -159,7 +169,7 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
         <div
           ref={namesRef}
           className={cn('relative flex min-w-0 flex-1 flex-col', TIMELINE)}
-          style={{ '--names-wanted': `${namesWidth}px` } as CSSProperties}
+          style={namesWanted}
         >
           <div
             className={cn(

@@ -22,8 +22,10 @@ const sizesOf = (
     ...headings.map((heading) => heading.size ?? 'max-content'),
     ...(trailing ? ['max-content'] : []),
   ].map((size, at) => {
-    const chosen = widths[at];
-    return chosen ? `${chosen}px` : size;
+    const chosen = widths.at(at);
+    return chosen !== undefined && chosen !== null && chosen !== 0
+      ? `${chosen}px`
+      : size;
   });
 
 export const filled = (

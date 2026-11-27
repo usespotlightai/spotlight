@@ -1,8 +1,10 @@
+import type { ReactElement } from 'react';
+
 import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { McpLogo } from '@/components/shared/icons';
 
-export function NoMcpServers() {
+export function NoMcpServers(): ReactElement {
   return (
     <EmptyFrame className="py-6">
       <EmptyState icon={McpLogo} title="No MCP servers called">

@@ -9,6 +9,7 @@ import type { IntegrationDefinitionRepository } from '@integrations/domain/repos
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { InMemoryInferredOutputSchemas } from '@integrations/integrations.inferred.fake-spec';
 import { InMemoryPersonToolPolicies } from '@integrations/integrations.policies.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -19,37 +20,41 @@ const TEAM = TeamId.of('team_1');
 const WORKSPACE = WorkspaceId.of('workspace_1');
 
 const setUp = () => {
-  const hook = {
-    delete: vi.fn(() => 'deleted hook'),
-  } as unknown as HookDefinition;
-  const integration = {
-    cascadeDelete: vi.fn(() => 'deleted integration'),
-  } as unknown as IntegrationDefinition;
-  const connection = {} as IntegrationConnection;
-  const registration = {} as OAuth2ClientRegistration;
+  const deletedHook = partial<HookDefinition>({});
+  const hook = partial<HookDefinition>({
+    delete: vi.fn(() => deletedHook),
+  });
+  const deletedIntegration = partial<IntegrationDefinition>({});
+  const integration = partial<IntegrationDefinition>({
+    cascadeDelete: vi.fn(() => deletedIntegration),
+  });
+  const connection = partial<IntegrationConnection>({});
+  const registration = partial<OAuth2ClientRegistration>({});
   const hooks = {
     withId: vi.fn(),
-    ofTeam: vi.fn(async () => [hook, hook]),
+    ofTeam: vi.fn(() => Promise.resolve([hook, hook])),
     save: vi.fn(async () => {}),
   } satisfies HookDefinitionRepository;
   const definitions = {
     withId: vi.fn(),
     of: vi.fn(),
-    ofTeam: vi.fn(async () => [integration]),
+    ofTeam: vi.fn(() => Promise.resolve([integration])),
     save: vi.fn(async () => {}),
   } satisfies IntegrationDefinitionRepository;
-  const connections = {
-    ofTeam: vi.fn(async () => [connection]),
+  const connections = partial<IntegrationConnectionRepository>({
+    ofTeam: vi.fn(() => Promise.resolve([connection])),
     remove: vi.fn(async () => {}),
-  } as unknown as IntegrationConnectionRepository;
-  const registrations = {
-    ofTeam: vi.fn(async () => [registration]),
+  });
+  const registrations = partial<OAuth2ClientRegistrationRepository>({
+    ofTeam: vi.fn(() => Promise.resolve([registration])),
     remove: vi.fn(async () => {}),
-  } as unknown as OAuth2ClientRegistrationRepository;
+  });
 
   return {
     hook,
+    deletedHook,
     integration,
+    deletedIntegration,
     connection,
     registration,
     hooks,
@@ -69,24 +74,24 @@ const setUp = () => {
 
 describe('DeleteTeamIntegrations', () => {
   it('deletes each hook of a deleted team through the hook, as Spotlight', async () => {
-    const { deleting, hook, hooks } = setUp();
+    const { deleting, hook, deletedHook, hooks } = setUp();
 
     await deleting.deleteHooks(TEAM, WORKSPACE);
 
     expect(hook.delete).toHaveBeenCalledWith(ChangeActor.spotlight(WORKSPACE));
     expect(hooks.save).toHaveBeenCalledTimes(2);
-    expect(hooks.save).toHaveBeenCalledWith('deleted hook');
+    expect(hooks.save).toHaveBeenCalledWith(deletedHook);
   });
 
   it('deletes each integration of a deleted team, whatever enables its tools', async () => {
-    const { deleting, integration, definitions } = setUp();
+    const { deleting, integration, deletedIntegration, definitions } = setUp();
 
     await deleting.deleteIntegrations(TEAM, WORKSPACE);
 
     expect(integration.cascadeDelete).toHaveBeenCalledWith(
       ChangeActor.spotlight(WORKSPACE),
     );
-    expect(definitions.save).toHaveBeenCalledWith('deleted integration');
+    expect(definitions.save).toHaveBeenCalledWith(deletedIntegration);
   });
 
   it('removes each connection and client registration of a deleted team at its version', async () => {

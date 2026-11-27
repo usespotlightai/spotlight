@@ -1,5 +1,6 @@
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -53,20 +54,22 @@ const welcoming = (
   const added: Task[] = [];
   const welcomed: TeamId[] = [];
   const welcomer = new WelcomeTeam(
+    partial<LineMapsPort>({
+      ofTeam: vi.fn(() => Promise.resolve(over.lines ?? LINES)),
+    }),
+    partial<TaskRepository>({
+      add: vi.fn((task: Task) => Promise.resolve(void added.push(task))),
+    }),
     {
-      ofTeam: vi.fn(async () => over.lines ?? LINES),
-    } as unknown as LineMapsPort,
-    {
-      add: vi.fn(async (task: Task) => void added.push(task)),
-    } as unknown as TaskRepository,
-    {
-      welcomed: vi.fn(async () => over.welcomed ?? false),
-      record: vi.fn(async (teamId: TeamId) => void welcomed.push(teamId)),
+      welcomed: vi.fn(() => Promise.resolve(over.welcomed ?? false)),
+      record: vi.fn((teamId: TeamId) =>
+        Promise.resolve(void welcomed.push(teamId)),
+      ),
       forget: vi.fn(),
     },
-    {
-      hasPlatformRunners: vi.fn(async () => over.platform ?? false),
-    } as unknown as RunnerReaderPort,
+    partial<RunnerReaderPort>({
+      hasPlatformRunners: vi.fn(() => Promise.resolve(over.platform ?? false)),
+    }),
     ids(),
     { now: () => new Date('2026-09-03T09:00:00.000Z'), sleep: async () => {} },
   );

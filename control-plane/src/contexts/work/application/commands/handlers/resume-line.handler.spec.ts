@@ -1,6 +1,7 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -14,6 +15,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ResumeLineHandler } from '@work/application/commands/handlers/resume-line.handler';
 import { ResumeLineCommand } from '@work/application/commands/resume-line.command';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { leasedRun } from '@work/application/ports/runs.fake-spec';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
@@ -122,9 +124,11 @@ const driven = () =>
     });
 
 const people: PersonReaderPort = {
-  find: async (id) =>
-    id.value === 'user_1' ? { id, name: 'Sam Lee', image: null } : null,
-  findMany: async () => new Map(),
+  find: (id) =>
+    Promise.resolve(
+      id.value === 'user_1' ? { id, name: 'Sam Lee', image: null } : null,
+    ),
+  findMany: () => Promise.resolve(new Map()),
 };
 
 const resumeLine = async (
@@ -135,16 +139,18 @@ const resumeLine = async (
 ): Promise<{ saved: Task | undefined; dispatched: boolean }> => {
   let saved: Task | undefined;
   let dispatched = false;
-  const tasks = {
-    find: vi.fn(async () => found()),
-    save: vi.fn(async (task: Task) => {
+  const tasks = partial<TaskRepository>({
+    find: vi.fn(() => Promise.resolve(found())),
+    save: vi.fn((task: Task) => {
       saved = task;
+
+      return Promise.resolve();
     }),
-  } as unknown as TaskRepository;
+  });
   const dispatch: TaskDispatching = {
-    runIdFor: async () => {
+    runIdFor: () => {
       dispatched = true;
-      return RunId.of('run_line_2');
+      return Promise.resolve(RunId.of('run_line_2'));
     },
   };
   const transaction: TransactionPort = {
@@ -153,30 +159,36 @@ const resumeLine = async (
   const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
   const lines = new LineLoader(
     workAccessSeeing(() => true),
-    {
-      find: async () => line,
-      findByStation: async () => line,
-    } as never,
+    partial<LineMapsPort>({
+      find: () => Promise.resolve(line),
+      findByStation: () => Promise.resolve(line),
+    }),
   );
   const facts = {
-    of: async () => [
-      leasedRun({
-        runId: TURN,
-        startedFrom: {
-          archiveId: null,
-          archiveStored: false,
-          at: NOW,
-          checkouts: [{ path: '/workspace/app', commit: FIRST }],
-        },
-        endHeads: ended,
-      }),
-    ],
+    of: () =>
+      Promise.resolve([
+        leasedRun({
+          runId: TURN,
+          startedFrom: {
+            archiveId: null,
+            archiveStored: false,
+            at: NOW,
+            checkouts: [{ path: '/workspace/app', commit: FIRST }],
+          },
+          endHeads: ended,
+        }),
+      ]),
   };
 
   await new ResumeLineHandler(
     tasks,
     lines,
-    new LineResuming({ placementsAt: async () => [] }, facts, dispatch, clock),
+    new LineResuming(
+      { placementsAt: () => Promise.resolve([]) },
+      facts,
+      dispatch,
+      clock,
+    ),
     transaction,
     people,
   ).execute(

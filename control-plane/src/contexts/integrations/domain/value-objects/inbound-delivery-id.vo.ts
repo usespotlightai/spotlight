@@ -2,7 +2,7 @@ import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/inv
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class InboundDeliveryId {
-  private readonly kind = 'inbound-delivery-id';
+  private readonly kind: string = 'inbound-delivery-id';
 
   private constructor(readonly value: string) {}
 

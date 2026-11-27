@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { FailureSlices } from '@/components/features/insights/FailureSlices';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
@@ -22,7 +24,7 @@ export function StationFailures({
   slug,
   teamId,
   report,
-}: StationFailuresProps) {
+}: StationFailuresProps): ReactElement {
   const both = report.runFailures.length > 0 && report.taskFailures.length > 0;
 
   return (

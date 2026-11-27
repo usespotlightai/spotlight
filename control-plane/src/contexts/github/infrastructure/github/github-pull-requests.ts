@@ -44,7 +44,14 @@ interface Opened {
 const openedOf = (opened: Opened | undefined): OpenedPullRequestDto | null => {
   const repository = opened?.base?.repo?.full_name;
 
-  return opened?.html_url && opened.number && opened.id && repository
+  return opened?.html_url !== undefined &&
+    opened.html_url !== '' &&
+    opened.number !== undefined &&
+    opened.number !== 0 &&
+    opened.id !== undefined &&
+    opened.id !== 0 &&
+    repository !== undefined &&
+    repository !== ''
     ? {
         url: opened.html_url,
         number: opened.number,
@@ -55,7 +62,7 @@ const openedOf = (opened: Opened | undefined): OpenedPullRequestDto | null => {
 };
 
 const dateOf = (raw: string | null | undefined): Date | null =>
-  raw ? new Date(raw) : null;
+  raw !== null && raw !== undefined && raw !== '' ? new Date(raw) : null;
 
 interface Associated {
   readonly number?: number;
@@ -65,7 +72,10 @@ interface Associated {
 }
 
 const associatedOf = (found: Associated): CommitPullRequestDto[] =>
-  found.number && found.html_url
+  found.number !== undefined &&
+  found.number !== 0 &&
+  found.html_url !== undefined &&
+  found.html_url !== ''
     ? [
         {
           number: found.number,
@@ -264,7 +274,7 @@ export class GitHubPullRequests implements PullRequestPort {
       const before = changed.size;
 
       for (const file of files) {
-        if (file.filename) {
+        if (file.filename !== undefined && file.filename !== '') {
           changed.add(file.filename);
         }
       }

@@ -1,6 +1,10 @@
-import type { PullRequestPort } from '@github/application/ports/pull-request.port';
+import type {
+  OpenedPullRequestDto,
+  PullRequestPort,
+} from '@github/application/ports/pull-request.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -47,18 +51,22 @@ const using = (options: { setup?: boolean } = {}) => {
   chat.pullEvents();
 
   const events: unknown[] = [];
-  const save = vi.fn(async (saved: Chat) => {
+  const save = vi.fn((saved: Chat) => {
     events.push(...saved.pullEvents());
     chat = saved;
+
+    return Promise.resolve();
   });
-  const open = vi.fn(async () => ({ url: URL }));
+  const open = vi.fn(() =>
+    Promise.resolve(partial<OpenedPullRequestDto>({ url: URL })),
+  );
   const tool = new SetupPullRequestToolUse(
-    { find: async () => chat, save } as unknown as ChatRepository,
-    { open } as unknown as PullRequestPort,
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
-    { now: () => NOW } as ClockPort,
+    partial<ChatRepository>({ find: () => Promise.resolve(chat), save }),
+    partial<PullRequestPort>({ open }),
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
+    partial<ClockPort>({ now: () => NOW }),
   );
   const context: ChatToolContext = {
     kind: 'chat',

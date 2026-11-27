@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
 import type { INestApplication } from '@nestjs/common';
-import type { NotificationDto } from '@notifications/application/dto/notification.dto';
 import {
   LIVE_FEED,
   type LiveFeedPort,
+  type LiveMessage,
   personChannel,
 } from '@platform/live/live-feed.port';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -58,36 +58,36 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('notifications about new inbox items', () => {
   it('streams a new notice to the person it is for, once', async () => {
-    const seen: NotificationDto[] = [];
+    const seen: LiveMessage['data'][] = [];
     const stop = app
       .get<LiveFeedPort>(LIVE_FEED)
       .subscribe([personChannel(team.owner.value)], (message) => {
         if (message.type === 'notification') {
-          seen.push(message.data as unknown as NotificationDto);
+          seen.push(message.data);
         }
       });
 
     try {
       await noticeAbout('drift-1', 'The station drifted');
 
-      const notification = await eventually(async () => seen[0]);
+      const notification = await eventually(() => Promise.resolve(seen[0]));
 
       expect(notification).toMatchObject({
         kind: 'notice',
         title: 'The station drifted',
         body: 'The pass rate fell by 12 points.',
       });
-      expect(notification?.path).toMatch(
+      expect(notification.path).toMatch(
         new RegExp(`^/w/${team.slug}/inbox/notices/`),
       );
 
       await noticeAbout('drift-2', 'The station drifted again');
-      await eventually(async () => seen.length === 2);
+      await eventually(() => Promise.resolve(seen.length === 2));
 
       expect(seen.map((each) => each.title)).toEqual([
         'The station drifted',
@@ -111,19 +111,19 @@ describe('notifications about new inbox items', () => {
       role: 'admin',
     });
 
-    const seen: NotificationDto[] = [];
+    const seen: LiveMessage['data'][] = [];
     const stop = app
       .get<LiveFeedPort>(LIVE_FEED)
       .subscribe([personChannel(admin.value)], (message) => {
         if (message.type === 'notification') {
-          seen.push(message.data as unknown as NotificationDto);
+          seen.push(message.data);
         }
       });
 
     try {
       await noticeAbout('drift-team', 'The team station drifted', null);
 
-      expect(await eventually(async () => seen[0])).toMatchObject({
+      expect(await eventually(() => Promise.resolve(seen[0]))).toMatchObject({
         kind: 'notice',
         title: 'The team station drifted',
       });

@@ -16,6 +16,7 @@ import { HookReply } from '@integrations/domain/value-objects/hook-reply.vo';
 import type { WaitingHookStep } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { CAUSE_HEADER } from '@platform/http/cause-header';
+import { causeOf, fieldOf } from '@platform/json/field-of';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type {
   NetworkCallsPort,
@@ -43,7 +44,7 @@ export interface HookRequestSettings {
   readonly policy: OutboundPolicy;
 }
 
-const PLAINLY: Readonly<Record<string, string>> = {
+const PLAINLY: Readonly<Partial<Record<string, string>>> = {
   ECONNREFUSED: 'nothing answered there',
   ECONNRESET: 'the connection was cut off',
   ENOTFOUND: 'the host does not resolve',
@@ -59,18 +60,30 @@ const described = (error: unknown): string => {
     return 'it did not answer in time';
   }
 
-  const cause = (error as { cause?: unknown }).cause;
-  const code = (cause as { code?: string } | undefined)?.code;
+  const cause = causeOf(error);
+  const code = fieldOf(cause, 'code');
+  const plainly = typeof code === 'string' ? PLAINLY[code] : undefined;
 
-  if (code && PLAINLY[code]) {
-    return PLAINLY[code];
+  if (plainly !== undefined && plainly !== '') {
+    return plainly;
   }
 
-  return error instanceof Error
-    ? cause instanceof Error
-      ? `${error.message}: ${cause.message || code || cause.name}`
-      : error.message
-    : String(error);
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  if (!(cause instanceof Error)) {
+    return error.message;
+  }
+
+  const because =
+    cause.message !== ''
+      ? cause.message
+      : typeof code === 'string' && code !== ''
+        ? code
+        : cause.name;
+
+  return `${error.message}: ${because}`;
 };
 
 const storedBody = (text: string): unknown => {
@@ -384,9 +397,10 @@ export class HookRequests implements HookRequestsPort {
     ended: Date,
   ): StepResult {
     const { reply } = answered;
-    const reason = answered.error
-      ? `could not reach ${request.url}: ${answered.error}`
-      : `was answered ${reply.status} by ${request.url}`;
+    const reason =
+      answered.error !== null && answered.error !== ''
+        ? `could not reach ${request.url}: ${answered.error}`
+        : `was answered ${reply.status} by ${request.url}`;
     const failure = reply.failure(reason);
     const shown = Object.fromEntries(
       Object.entries(headers).filter(

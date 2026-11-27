@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { DetailFields } from '@/components/features/trace/view/detail/DetailFields';
 import { DetailSection } from '@/components/features/trace/view/detail/DetailSection';
 import { CodeBlock } from '@/components/shared/CodeBlock';
@@ -7,7 +9,7 @@ export function DetailDescription({
   description,
 }: {
   description: Description;
-}) {
+}): ReactElement {
   const fields = description.prose ? null : shaped(description.body);
 
   return (
@@ -18,7 +20,7 @@ export function DetailDescription({
         <p className="whitespace-pre-wrap break-words text-foreground/80 text-xs leading-5">
           {description.body}
         </p>
-      ) : description.command ? (
+      ) : description.command === true ? (
         <CodeBlock command={description.body} />
       ) : (
         <CodeBlock output={description.body} />

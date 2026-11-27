@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { MemoryDecision } from '@/components/features/inbox/memories/MemoryDecision';
 import { ProposedMemories } from '@/components/features/inbox/memories/ProposedMemories';
 import { RunThread } from '@/components/features/inbox/RunThread';
@@ -20,7 +22,7 @@ export function MemoryThread({
   taskId,
   runId,
   trail,
-}: MemoryThreadProps) {
+}: MemoryThreadProps): ReactElement {
   const review = useMemoryReview({ teamId, taskId, runId });
   const about = { slug, teamId, taskId, runId };
   const docked = (review.data?.memories ?? []).flatMap(

@@ -1,4 +1,5 @@
 import { CircleDashed } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { CitedPlaces } from '@/components/features/changes/CitedPlaces';
 import { QuestionAnswerForm } from '@/components/features/changes/QuestionAnswerForm';
@@ -46,7 +47,7 @@ export function LayerQuestionThread({
   stack,
   question,
   onReveal,
-}: LayerQuestionThreadProps) {
+}: LayerQuestionThreadProps): ReactElement {
   const visitor = useStackVisitor();
   const me = useMe();
   const { answered } = question;
@@ -74,7 +75,7 @@ export function LayerQuestionThread({
             avatar={<ReviewerAvatar />}
             author={(me ?? YOU).name}
           >
-            {answered.reply ? (
+            {answered.reply !== null && answered.reply !== '' ? (
               <p className="whitespace-pre-wrap break-words text-foreground text-sm leading-5">
                 {answered.reply}
               </p>
@@ -86,7 +87,7 @@ export function LayerQuestionThread({
           </ThreadEntry>
         )}
 
-        {answered?.outdated && (
+        {answered?.outdated === true && (
           <ThreadEntry
             first={false}
             avatar={<Logo className="size-5 rounded" aria-hidden />}
@@ -120,7 +121,7 @@ export function LayerQuestionThread({
                 expected answer.
               </p>
             )}
-            {current.feedback && (
+            {current.feedback !== null && current.feedback !== '' && (
               <p className="whitespace-pre-wrap break-words text-foreground text-sm leading-5">
                 {current.feedback}
               </p>

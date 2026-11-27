@@ -229,8 +229,10 @@ const EVENT_WEBHOOK_REGISTRATION = Symbol('EVENT_WEBHOOK_REGISTRATION');
         subscribers: EventSubscribers,
       ) => {
         if (
-          env.SPOTLIGHT_EVENT_WEBHOOK_URL &&
-          env.SPOTLIGHT_EVENT_WEBHOOK_SECRET
+          env.SPOTLIGHT_EVENT_WEBHOOK_URL !== undefined &&
+          env.SPOTLIGHT_EVENT_WEBHOOK_URL !== '' &&
+          env.SPOTLIGHT_EVENT_WEBHOOK_SECRET !== undefined &&
+          env.SPOTLIGHT_EVENT_WEBHOOK_SECRET !== ''
         ) {
           const webhook = new EventWebhook(
             {

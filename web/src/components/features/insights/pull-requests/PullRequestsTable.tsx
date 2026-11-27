@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react';
-import { useRef } from 'react';
+import { type ReactElement, useRef } from 'react';
 
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
@@ -50,12 +50,16 @@ export function PullRequestsTable({
   slug,
   teamId,
   pullRequests,
-}: PullRequestsTableProps) {
+}: PullRequestsTableProps): ReactElement {
   const frame = useRef<HTMLDivElement>(null);
   const roomy = useElementWidth(frame) >= ROOMY_WIDTH;
 
   const writtenBy = (pullRequest: InsightsPullRequest) => {
-    if (pullRequest.by === 'spotlight' && pullRequest.taskId) {
+    if (
+      pullRequest.by === 'spotlight' &&
+      pullRequest.taskId !== null &&
+      pullRequest.taskId !== ''
+    ) {
       return (
         <span className="flex min-w-0 items-center gap-2">
           <TrailLink

@@ -1,5 +1,5 @@
 import { Virtualizer } from '@pierre/diffs/react';
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { LayerDetail } from '@/components/features/changes/LayerDetail';
 import { StackNavCohort } from '@/components/features/changes/StackNavCohort';
@@ -27,7 +27,7 @@ export function ChangeStackView({
   stack,
   layerId,
   onPick,
-}: ChangeStackViewProps) {
+}: ChangeStackViewProps): ReactElement {
   const located = layerAt(stack, layerId);
   const [listed, setListed] = useState(false);
   const {

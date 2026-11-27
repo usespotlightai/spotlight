@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { readStationInsights } from '@/lib/api';
+import { required } from '@/lib/required';
 import type { StationRunOutcomes } from '@/lib/station-insights';
 
 const stationInsightsKeys = {
@@ -12,16 +13,16 @@ export function useStationInsights(
   teamId: string | undefined,
   lineId: string | undefined,
   stationId: string | undefined,
-) {
+): UseQueryResult<StationRunOutcomes> {
   return useQuery({
     queryKey: stationInsightsKeys.forStation(stationId),
-    enabled: Boolean(teamId && lineId && stationId),
+    enabled: Boolean(teamId) && Boolean(lineId) && Boolean(stationId),
     queryFn: async (): Promise<StationRunOutcomes> => {
       const { data } = await readStationInsights({
         path: {
-          teamId: teamId as string,
-          lineId: lineId as string,
-          stationId: stationId as string,
+          teamId: required(teamId),
+          lineId: required(lineId),
+          stationId: required(stationId),
         },
         throwOnError: true,
       });

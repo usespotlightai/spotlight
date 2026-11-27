@@ -37,7 +37,9 @@ export class RefreshToken implements Secret {
   }
 
   static maybe(raw: string | null | undefined): RefreshToken | null {
-    return raw?.trim() ? RefreshToken.of(raw) : null;
+    return raw !== null && raw !== undefined && raw.trim() !== ''
+      ? RefreshToken.of(raw)
+      : null;
   }
 
   equals(other: RefreshToken): boolean {

@@ -1,11 +1,12 @@
 import type { TerraformStateBodiesPort } from '@configuration/application/ports/terraform-state-bodies.port';
 import { PruneStateBodies } from '@configuration/application/services/prune-state-bodies.service';
 import { TerraformState } from '@configuration/domain/aggregates/terraform-state.aggregate';
-import type { TerraformStateWritten } from '@configuration/domain/events/terraform-state-written.event';
+import { TerraformStateWritten } from '@configuration/domain/events/terraform-state-written.event';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
 import { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
 import { TerraformStateId } from '@configuration/domain/value-objects/terraform-state-id.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -35,12 +36,18 @@ describe('PruneStateBodies', () => {
       }).state;
     }
 
-    const written = state.pullEvents().slice(-1)[0] as TerraformStateWritten;
-    const remove = vi.fn(async () => undefined);
+    const written = state.pullEvents().slice(-1)[0];
 
-    await new PruneStateBodies({
-      remove,
-    } as unknown as TerraformStateBodiesPort).onWritten(written);
+    if (!(written instanceof TerraformStateWritten)) {
+      throw new Error('expected a written Terraform state');
+    }
+    const remove = vi.fn(() => Promise.resolve(undefined));
+
+    await new PruneStateBodies(
+      partial<TerraformStateBodiesPort>({
+        remove,
+      }),
+    ).onWritten(written);
 
     expect(remove).toHaveBeenCalledWith([
       {

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { idleNoteOf, type TeamRun } from '@/lib/run';
@@ -10,12 +12,12 @@ type RunEmptyProps = {
   run: TeamRun;
 };
 
-export function RunEmpty({ slug, teamId, run }: RunEmptyProps) {
+export function RunEmpty({ slug, teamId, run }: RunEmptyProps): ReactElement {
   return (
     <div className="flex flex-col items-center gap-3 text-center">
       <p className="text-muted-foreground text-sm">{idleNoteOf(run)}</p>
 
-      {run.taskId && (
+      {run.taskId !== null && run.taskId !== '' && (
         <TrailLink
           to={taskPath(slug, teamId, run.taskId)}
           className={cn(

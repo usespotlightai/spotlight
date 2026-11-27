@@ -1,6 +1,7 @@
 import type { Env } from '@platform/config/env.schema';
 import { CustomSettingsPagesController } from '@platform/http/controllers/custom-settings-pages.controller';
 import { ALLOW_ANONYMOUS } from '@platform/http/decorators/allow-anonymous.decorator';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const handbook: Env['SPOTLIGHT_CUSTOM_SETTINGS_PAGES'][number] = {
@@ -13,9 +14,11 @@ const handbook: Env['SPOTLIGHT_CUSTOM_SETTINGS_PAGES'][number] = {
 };
 
 const controller = (pages: Env['SPOTLIGHT_CUSTOM_SETTINGS_PAGES']) =>
-  new CustomSettingsPagesController({
-    SPOTLIGHT_CUSTOM_SETTINGS_PAGES: pages,
-  } as Env);
+  new CustomSettingsPagesController(
+    partial<Env>({
+      SPOTLIGHT_CUSTOM_SETTINGS_PAGES: pages,
+    }),
+  );
 
 describe('CustomSettingsPagesController', () => {
   it('lists the custom settings pages of the deployment', () => {

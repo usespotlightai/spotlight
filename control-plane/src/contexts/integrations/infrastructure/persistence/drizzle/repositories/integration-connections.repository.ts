@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import { IntegrationConnectionVersionConflictError } from '@integrations/domain/exceptions/integration-connection-version-conflict.error';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
@@ -65,7 +66,7 @@ export class DrizzleIntegrationConnections
     integration: IntegrationKey,
     owner: ConnectionOwner,
   ): Promise<IntegrationConnection | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(integrationConnection)
       .where(
@@ -75,7 +76,7 @@ export class DrizzleIntegrationConnections
           eq(integrationConnection.owner, owner.key),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return found ? this.rehydrate(found) : null;
   }
@@ -246,7 +247,7 @@ export class DrizzleIntegrationConnections
       accessToken: AccessToken.of(
         await this.decrypted(row, 'access', row.accessToken),
       ),
-      refreshToken: row.refreshToken
+      refreshToken: (row.refreshToken !== null && row.refreshToken !== '')
         ? RefreshToken.rehydrate(
             await this.decrypted(row, 'refresh', row.refreshToken),
           )

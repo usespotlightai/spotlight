@@ -1,5 +1,6 @@
 import { graphqlOperations } from '@integrations/infrastructure/specs/graphql/graphql-operations';
 import { LINEAR_SDL } from '@integrations/infrastructure/specs/graphql/linear.fake-spec';
+import { valueAt } from '@integrations/integrations.requests.fake-spec';
 import { buildSchema, introspectionFromSchema } from 'graphql';
 import { describe, expect, it } from 'vitest';
 
@@ -71,11 +72,11 @@ describe('graphqlOperations', () => {
   });
 
   it('stops at an input object that refers to itself', () => {
-    const filter = named('issues')?.inputs[0]?.schema as {
-      properties: { and: { items: unknown } };
-    };
+    const filter = named('issues')?.inputs[0]?.schema;
 
-    expect(filter.properties.and.items).toEqual({ type: 'object' });
+    expect(valueAt(filter, 'properties', 'and', 'items')).toEqual({
+      type: 'object',
+    });
   });
 
   it('selects scalar fields two levels deep, skipping fields that need arguments', () => {

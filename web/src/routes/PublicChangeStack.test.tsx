@@ -7,10 +7,11 @@ import {
   usePublicRunChangeStacks,
   usePublicTaskChangeStacks,
 } from '@/hooks/api/usePublicChangeStacks';
-import { useSession } from '@/hooks/api/useSession';
+import { type SessionUser, useSession } from '@/hooks/api/useSession';
 import type { ChangeStack } from '@/lib/change-stack';
 import { PublicChangeStack } from '@/routes/PublicChangeStack';
 import { INVITATIONS } from '@/test/fixtures/change-stack';
+import { partial } from '@/test/partial';
 
 vi.mock('@/hooks/api/useSession', () => ({ useSession: vi.fn() }));
 vi.mock('@/hooks/api/usePublicChangeStacks', () => ({
@@ -26,7 +27,7 @@ vi.mock('@/hooks/useInferenceUnset', () => ({
 }));
 vi.mock('@/components/features/changes/ChangeStackView', () => ({
   ChangeStackView: ({ stack }: { stack: ChangeStack }) => {
-    const layer = stack.cohorts[0]?.layers[0];
+    const layer = stack.cohorts.at(0)?.layers.at(0);
 
     return (
       <div>
@@ -66,14 +67,16 @@ const QUESTIONED: ChangeStack = {
   })),
 };
 
-const loaded = (data: { stacks: ChangeStack[] } | null) =>
-  ({
+type StacksQuery = ReturnType<typeof usePublicTaskChangeStacks>;
+
+const loaded = (data: { stacks: ChangeStack[] } | null): StacksQuery =>
+  partial<StacksQuery>({
     data,
     isPending: false,
     errorUpdateCount: 0,
     isFetching: false,
     refetch: vi.fn(),
-  }) as never;
+  });
 
 const renderAt = (path: string) =>
   render(
@@ -98,7 +101,9 @@ beforeEach(() => {
   mockSession.mockReset();
   mockTask.mockReset();
   mockRun.mockReset();
-  mockSession.mockReturnValue({ data: null, isPending: false } as never);
+  mockSession.mockReturnValue(
+    partial<ReturnType<typeof useSession>>({ data: null, isPending: false }),
+  );
   mockTask.mockReturnValue(loaded({ stacks: [QUESTIONED] }));
   mockRun.mockReturnValue(loaded({ stacks: [QUESTIONED] }));
 });
@@ -155,10 +160,12 @@ describe('PublicChangeStack', () => {
   });
 
   it('tells a signed-in person who is not a member that only members take part, with no way to log in', () => {
-    mockSession.mockReturnValue({
-      data: { user: { id: 'user_1' } },
-      isPending: false,
-    } as never);
+    mockSession.mockReturnValue(
+      partial<ReturnType<typeof useSession>>({
+        data: { user: partial<SessionUser>({ id: 'user_1' }) },
+        isPending: false,
+      }),
+    );
 
     renderAt(TASK_URL);
 
@@ -182,13 +189,15 @@ describe('PublicChangeStack', () => {
   });
 
   it('offers a retry when loading fails', () => {
-    mockTask.mockReturnValue({
-      data: undefined,
-      isPending: true,
-      errorUpdateCount: 1,
-      isFetching: false,
-      refetch: vi.fn(),
-    } as never);
+    mockTask.mockReturnValue(
+      partial<StacksQuery>({
+        data: undefined,
+        isPending: true,
+        errorUpdateCount: 1,
+        isFetching: false,
+        refetch: vi.fn(),
+      }),
+    );
 
     renderAt(TASK_URL);
 

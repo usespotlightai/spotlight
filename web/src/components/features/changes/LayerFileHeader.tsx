@@ -1,4 +1,5 @@
 import { ChevronRight, MessageSquarePlus } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { DiffStat } from '@/components/shared/DiffStat';
 import { Button } from '@/components/ui/button';
@@ -26,7 +27,7 @@ export function LayerFileHeader({
   open,
   onToggle,
   onComment,
-}: LayerFileHeaderProps) {
+}: LayerFileHeaderProps): ReactElement {
   const status = STATUS[file.status];
 
   return (
@@ -50,7 +51,7 @@ export function LayerFileHeader({
           )}
         />
         <span className="min-w-0 truncate font-medium text-foreground">
-          {file.previousPath && (
+          {file.previousPath !== null && file.previousPath !== '' && (
             <span className="text-muted-foreground">
               {file.previousPath} →{' '}
             </span>
@@ -58,7 +59,9 @@ export function LayerFileHeader({
           {file.path}
         </span>
 
-        {status && <span className="shrink-0 text-faint">{status}</span>}
+        {status !== null && status !== '' && (
+          <span className="shrink-0 text-faint">{status}</span>
+        )}
       </button>
 
       <div className="flex shrink-0 items-center gap-1 pr-3">

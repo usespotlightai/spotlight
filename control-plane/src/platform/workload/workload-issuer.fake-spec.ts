@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
+import { portOf } from '@platform/testing/port-of.fake-spec';
 import { exportJWK, generateKeyPair, type JWTPayload, SignJWT } from 'jose';
 
 export interface WorkloadIssuer {
@@ -35,7 +35,7 @@ export const openWorkloadIssuer = async (): Promise<WorkloadIssuer> => {
   });
 
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  issuer = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  issuer = `http://127.0.0.1:${portOf(server)}`;
 
   const signed =
     (key: CryptoKey) =>

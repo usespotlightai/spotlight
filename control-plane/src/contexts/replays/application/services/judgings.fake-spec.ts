@@ -45,11 +45,9 @@ export class FakeChangeJudge implements ChangeJudgePort {
     failure: 'unavailable',
   };
 
-  async judge(
-    order: ChangeJudgeOrder,
-  ): Promise<ChangeJudgment | SessionWaiting> {
+  judge(order: ChangeJudgeOrder): Promise<ChangeJudgment | SessionWaiting> {
     this.orders.push(order);
-    return this.awaiting ? SESSION_WAITING : this.answer;
+    return Promise.resolve(this.awaiting ? SESSION_WAITING : this.answer);
   }
 
   /** The round every settled session reads back as. */
@@ -68,9 +66,9 @@ export class FakePairJudge implements PairJudgePort {
     failure: 'unavailable',
   };
 
-  async judge(order: PairJudgeOrder): Promise<PairJudgment | SessionWaiting> {
+  judge(order: PairJudgeOrder): Promise<PairJudgment | SessionWaiting> {
     this.orders.push(order);
-    return this.awaiting ? SESSION_WAITING : this.answer;
+    return Promise.resolve(this.awaiting ? SESSION_WAITING : this.answer);
   }
 
   /** The round every settled session reads back as. */
@@ -88,26 +86,31 @@ export class InMemoryChangeJudgings implements ChangeJudgingRepository {
   readonly stored = new Map<string, ChangeJudging>();
   readonly events: DomainEvent[] = [];
 
-  async add(judging: ChangeJudging): Promise<void> {
+  add(judging: ChangeJudging): Promise<void> {
     const key = changeKeyOf(judging.runId, judging.attempt);
 
     if (this.stored.has(key)) {
-      throw new ChangeJudgingVersionConflictError(judging.runId.value);
+      return Promise.reject(
+        new ChangeJudgingVersionConflictError(judging.runId.value),
+      );
     }
     this.events.push(...judging.pullEvents());
     this.stored.set(key, judging);
+    return Promise.resolve();
   }
 
-  async save(judging: ChangeJudging): Promise<void> {
+  save(judging: ChangeJudging): Promise<void> {
     const key = changeKeyOf(judging.runId, judging.attempt);
 
     if (this.stored.get(key)?.version !== judging.version) {
-      throw new ChangeJudgingVersionConflictError(judging.runId.value);
+      return Promise.reject(
+        new ChangeJudgingVersionConflictError(judging.runId.value),
+      );
     }
     this.events.push(...judging.pullEvents());
     if (judging.isDeleted) {
       this.stored.delete(key);
-      return;
+      return Promise.resolve();
     }
     this.stored.set(
       key,
@@ -125,28 +128,28 @@ export class InMemoryChangeJudgings implements ChangeJudgingRepository {
         version: judging.version + 1,
       }),
     );
+    return Promise.resolve();
   }
 
-  async of(
-    runId: RunId,
-    attempt: JudgingAttempt,
-  ): Promise<ChangeJudging | null> {
-    return this.stored.get(changeKeyOf(runId, attempt)) ?? null;
-  }
-
-  async ofTeam(teamId: TeamId): Promise<readonly ChangeJudging[]> {
-    return [...this.stored.values()].filter((each) =>
-      each.teamId.equals(teamId),
+  of(runId: RunId, attempt: JudgingAttempt): Promise<ChangeJudging | null> {
+    return Promise.resolve(
+      this.stored.get(changeKeyOf(runId, attempt)) ?? null,
     );
   }
 
-  async nextDueJob(now: Date): Promise<ChangeJudging | null> {
-    return (
+  ofTeam(teamId: TeamId): Promise<readonly ChangeJudging[]> {
+    return Promise.resolve(
+      [...this.stored.values()].filter((each) => each.teamId.equals(teamId)),
+    );
+  }
+
+  nextDueJob(now: Date): Promise<ChangeJudging | null> {
+    return Promise.resolve(
       [...this.stored.values()]
-        .filter((each) => each.job?.isDue(now))
+        .filter((each) => each.job?.isDue(now) === true)
         .sort(
           (one, other) => one.queuedAt.getTime() - other.queuedAt.getTime(),
-        )[0] ?? null
+        )[0] ?? null,
     );
   }
 }
@@ -158,32 +161,37 @@ export class InMemorySideBySideJudgings implements SideBySideJudgingRepository {
   readonly stored = new Map<string, SideBySideJudging>();
   readonly events: DomainEvent[] = [];
 
-  async add(judging: SideBySideJudging): Promise<void> {
+  add(judging: SideBySideJudging): Promise<void> {
     const key = pairKeyOf(judging.runId, judging.otherRunId);
 
     if (this.stored.has(key)) {
-      throw new SideBySideJudgingVersionConflictError(
-        judging.runId.value,
-        judging.otherRunId.value,
+      return Promise.reject(
+        new SideBySideJudgingVersionConflictError(
+          judging.runId.value,
+          judging.otherRunId.value,
+        ),
       );
     }
     this.events.push(...judging.pullEvents());
     this.stored.set(key, judging);
+    return Promise.resolve();
   }
 
-  async save(judging: SideBySideJudging): Promise<void> {
+  save(judging: SideBySideJudging): Promise<void> {
     const key = pairKeyOf(judging.runId, judging.otherRunId);
 
     if (this.stored.get(key)?.version !== judging.version) {
-      throw new SideBySideJudgingVersionConflictError(
-        judging.runId.value,
-        judging.otherRunId.value,
+      return Promise.reject(
+        new SideBySideJudgingVersionConflictError(
+          judging.runId.value,
+          judging.otherRunId.value,
+        ),
       );
     }
     this.events.push(...judging.pullEvents());
     if (judging.isDeleted) {
       this.stored.delete(key);
-      return;
+      return Promise.resolve();
     }
     this.stored.set(
       key,
@@ -202,35 +210,41 @@ export class InMemorySideBySideJudgings implements SideBySideJudgingRepository {
         version: judging.version + 1,
       }),
     );
+    return Promise.resolve();
   }
 
-  async of(runId: RunId, otherRunId: RunId): Promise<SideBySideJudging | null> {
-    return this.stored.get(pairKeyOf(runId, otherRunId)) ?? null;
-  }
-
-  async ofTeam(teamId: TeamId): Promise<readonly SideBySideJudging[]> {
-    return [...this.stored.values()].filter((each) =>
-      each.teamId.equals(teamId),
+  of(runId: RunId, otherRunId: RunId): Promise<SideBySideJudging | null> {
+    return Promise.resolve(
+      this.stored.get(pairKeyOf(runId, otherRunId)) ?? null,
     );
   }
 
-  async nextDueJob(now: Date): Promise<SideBySideJudging | null> {
-    return (
+  ofTeam(teamId: TeamId): Promise<readonly SideBySideJudging[]> {
+    return Promise.resolve(
+      [...this.stored.values()].filter((each) => each.teamId.equals(teamId)),
+    );
+  }
+
+  nextDueJob(now: Date): Promise<SideBySideJudging | null> {
+    return Promise.resolve(
       [...this.stored.values()]
-        .filter((each) => each.job?.isDue(now))
+        .filter((each) => each.job?.isDue(now) === true)
         .sort(
           (one, other) => one.queuedAt.getTime() - other.queuedAt.getTime(),
-        )[0] ?? null
+        )[0] ?? null,
     );
   }
 }
 
-export const changeJudgingRequestsFor = (judgings: ChangeJudgingRepository) =>
+export const changeJudgingRequestsFor = (
+  judgings: ChangeJudgingRepository,
+): RequestChangeJudging =>
   new RequestChangeJudging(judgings, TRANSACTION, CLOCK);
 
 export const sideBySideJudgingRequestsFor = (
   judgings: SideBySideJudgingRepository,
-) => new RequestSideBySideJudging(judgings, TRANSACTION, CLOCK);
+): RequestSideBySideJudging =>
+  new RequestSideBySideJudging(judgings, TRANSACTION, CLOCK);
 
 export const judgedOnce = async (
   judgings: ChangeJudgingRepository,

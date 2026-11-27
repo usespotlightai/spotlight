@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { TrailSkeleton } from '@/components/shared/skeleton/TrailSkeleton';
@@ -11,7 +13,11 @@ const COHORTS = [
   ['w-28', 'w-36'],
 ];
 
-export function ChangeStackSkeleton({ known }: { known: BreadcrumbSegment[] }) {
+export function ChangeStackSkeleton({
+  known,
+}: {
+  known: BreadcrumbSegment[];
+}): ReactElement {
   const { paneRef } = usePaneWidth<HTMLDivElement>(STACK_NAV_PANE);
 
   return (

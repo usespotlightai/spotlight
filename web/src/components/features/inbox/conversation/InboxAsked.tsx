@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
@@ -18,7 +20,7 @@ export function InboxAsked({
   title,
   description,
   attachments,
-}: InboxAskedProps) {
+}: InboxAskedProps): ReactElement {
   return (
     <div className="flex flex-col gap-1.5">
       <MessageCard>
@@ -37,7 +39,7 @@ export function InboxAsked({
             {title}
           </h1>
 
-          {description && (
+          {description !== null && description !== '' && (
             <ExpandableText what="description">
               <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-6">
                 {description}

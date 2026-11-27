@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Link, useLocation } from 'react-router';
 
 type SignInPromptProps = {
@@ -7,7 +8,10 @@ type SignInPromptProps = {
 
 const LINK = 'font-medium text-foreground underline underline-offset-2';
 
-export function SignInPrompt({ signedIn, to }: SignInPromptProps) {
+export function SignInPrompt({
+  signedIn,
+  to,
+}: SignInPromptProps): ReactElement {
   const location = useLocation();
 
   if (signedIn) {

@@ -1,4 +1,4 @@
-import type { ReactNode, Ref, UIEventHandler } from 'react';
+import type { ReactNode, Ref, UIEventHandler, ReactElement } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -16,7 +16,7 @@ export function PaneScroller({
   ref,
   onScroll,
   children,
-}: PaneScrollerProps) {
+}: PaneScrollerProps): ReactElement {
   return (
     <div className="relative flex min-h-0 flex-1">
       <ScrollArea
@@ -26,10 +26,12 @@ export function PaneScroller({
         contentClassName="flex min-h-full flex-col"
       >
         <div className="@container/pane flex flex-1 flex-col">{children}</div>
-        {footer && <div className="sticky bottom-0 z-20">{footer}</div>}
+        {Boolean(footer) && (
+          <div className="sticky bottom-0 z-20">{footer}</div>
+        )}
       </ScrollArea>
 
-      {sidePanel && <div className="flex shrink-0">{sidePanel}</div>}
+      {Boolean(sidePanel) && <div className="flex shrink-0">{sidePanel}</div>}
     </div>
   );
 }

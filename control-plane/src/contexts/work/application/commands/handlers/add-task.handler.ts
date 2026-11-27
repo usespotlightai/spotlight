@@ -62,9 +62,10 @@ export class AddTaskHandler implements CommandHandlerPort<
       line,
       at: stationId,
       title: TaskTitle.of(command.title),
-      description: command.description
-        ? TaskDescription.of(command.description)
-        : null,
+      description:
+        command.description !== null && command.description !== ''
+          ? TaskDescription.of(command.description)
+          : null,
       attachments,
       rank: Placement.entering(
         'opened',
@@ -74,7 +75,9 @@ export class AddTaskHandler implements CommandHandlerPort<
       base: await requestedBase(
         this.settings,
         line,
-        command.base?.trim() ? Branch.of(command.base.trim()) : null,
+        command.base !== null && command.base.trim() !== ''
+          ? Branch.of(command.base.trim())
+          : null,
       ),
       now: this.clock.now(),
       newId: () => this.ids.generate(),

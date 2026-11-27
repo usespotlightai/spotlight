@@ -1,5 +1,5 @@
 import { Undo2 } from 'lucide-react';
-import { type Ref, use, useId, useState } from 'react';
+import { type ReactElement, type Ref, use, useId, useState } from 'react';
 
 import { ProposedTaskFacts } from '@/components/features/agent/ProposedTaskFacts';
 import { Collapsible } from '@/components/shared/Collapsible';
@@ -44,7 +44,7 @@ export function ProposedTaskCard({
   onDismiss,
   onRestore,
   ref,
-}: ProposedTaskCardProps) {
+}: ProposedTaskCardProps): ReactElement {
   const titleId = useId();
   const docked = use(DockedContext) !== null;
   const [unfolded, setUnfolded] = useState(false);
@@ -162,7 +162,11 @@ function ProposalOutcome({
         <DecisionButton
           variant="default"
           data-focus-next
-          disabled={pending || !proposal.stationName}
+          disabled={
+            pending ||
+            proposal.stationName === null ||
+            proposal.stationName === ''
+          }
           onClick={onCreate}
           aria-describedby={titleId}
         >

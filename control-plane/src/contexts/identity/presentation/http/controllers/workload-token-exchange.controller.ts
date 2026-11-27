@@ -18,6 +18,7 @@ import {
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { InAudience } from '@platform/http/decorators/in-audience.decorator';
@@ -45,8 +46,9 @@ export class WorkloadTokenExchangeController {
   })
   @ApiOkResponse({ type: IssuedTokenResponseDto })
   @ApiUnauthorizedResponse({ description: UNAUTHORIZED })
+  @ApiBody({ type: ExchangeWorkloadTokenRequestDto })
   async exchange(
-    @Body() body: ExchangeWorkloadTokenRequestDto,
+    @Body() body: ExchangeWorkloadTokenRequestDto | undefined,
     @Headers(CLIENT_HEADER) client: string | undefined,
   ): Promise<IssuedTokenResponseDto> {
     const issued = await this.commandBus.execute<

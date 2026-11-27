@@ -1,4 +1,5 @@
 import { ChevronsUpDown } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import {
   FIELD_SELECT,
@@ -28,7 +29,7 @@ export function TeamsSelect({
   onChange,
   disabled = false,
   className,
-}: TeamsSelectProps) {
+}: TeamsSelectProps): ReactElement {
   const chosen = new Set(value);
   const shown = describeTeams(teams.filter((each) => chosen.has(each.id)));
 

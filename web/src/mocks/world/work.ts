@@ -4,6 +4,7 @@ import type {
   LatestChangeStackResponseDto,
   NoteResponseDto,
   RunNotesResponseDto,
+  RunStationResponseDto,
   StationResponseDto,
   TaskResponseDto,
   TaskRunResponseDto,
@@ -69,7 +70,10 @@ const tasksOf = (teamId: string): TaskResponseDto[] =>
 
 const runsOf = (taskId: string): TaskRunResponseDto[] => runsOfAnyTask(taskId);
 
-export const findTask = (teamId: string, taskId: string) =>
+export const findTask = (
+  teamId: string,
+  taskId: string,
+): TaskResponseDto | undefined =>
   tasksOf(teamId).find((each) => each.id === taskId);
 
 export const readableTask = (
@@ -91,7 +95,10 @@ export const locateRun = (
   }
 
   const past = pastTeamRuns(teamId).find((each) => each.id === runId);
-  const task = past?.taskId ? pastTaskOf(past.taskId) : undefined;
+  const task =
+    past !== undefined && past.taskId !== null && past.taskId !== ''
+      ? pastTaskOf(past.taskId)
+      : undefined;
   const run = task
     ? runsOf(task.id).find((each) => each.id === runId)
     : undefined;
@@ -121,7 +128,7 @@ const askOf = (task: TaskResponseDto): MockAsk => {
   const conversationId = task.awaitingReview?.conversationId;
   const asking =
     runs.find((each) => each.review?.conversationId === conversationId) ??
-    runs[0];
+    runs.at(0);
   const opening = asking
     ? storyOf(asking.id).notes.findLast((note) => note.kind === 'asked')
     : undefined;
@@ -156,7 +163,10 @@ perWorld(() => {
   }
 });
 
-export const runStationIn = (teamId: string, stationId: string) => {
+export const runStationIn = (
+  teamId: string,
+  stationId: string,
+): RunStationResponseDto => {
   const line = (world().lines[teamId] ?? []).find((each) =>
     each.stations.some((station) => station.id === stationId),
   );
@@ -210,7 +220,9 @@ const briefingOf = (located: Located, story: RunStory): string => {
   return [
     `## ${name}\n\n${role}`,
     `## The task\n\n${task}`,
-    ...(story.before ? [`## What came before\n\n${story.before}`] : []),
+    ...(story.before !== undefined && story.before !== ''
+      ? [`## What came before\n\n${story.before}`]
+      : []),
   ].join('\n\n');
 };
 
@@ -296,7 +308,7 @@ export const addMessage = (
   located: Located,
   body: string,
   attachments: AttachmentResponseDto[],
-) => {
+): void => {
   const notes = conversationNotes();
   const before = conversationOf(located).notes.length;
 
@@ -370,7 +382,8 @@ const withConnections = (
   run: TaskRunResponseDto,
   steps: TraceNodeResponseDto[],
 ): TraceNodeResponseDto[] => {
-  const [first, ...rest] = steps;
+  const first = steps.at(0);
+  const rest = steps.slice(1);
 
   if (!first) {
     return steps;
@@ -456,7 +469,7 @@ export const taskTraceOf = (taskId: string): TaskTraceResponseDto => {
   const runs = oldestFirst(runsOf(taskId));
   const roots = runs.map(runNode);
   const nodes = flattened(roots);
-  const first = runs[0];
+  const first = runs.at(0);
   const last = runs.at(-1);
 
   return {
@@ -512,7 +525,9 @@ export const tracedTaskOf = (
     outputs: new Map(
       runs.flatMap((run) => {
         const output = storyOf(run.id).output;
-        return output ? [[run.id, output] as const] : [];
+        return output !== undefined && output !== ''
+          ? [[run.id, output] as const]
+          : [];
       }),
     ),
   };

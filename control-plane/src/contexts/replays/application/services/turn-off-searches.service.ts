@@ -16,14 +16,14 @@ export class TurnOffSearches {
     for (const each of await this.searches.activeOfLine(lineId)) {
       const live = await this.configs.live(lineId, each.station.stationId);
 
-      if (!live || live.search?.enabled) {
+      if (!live || live.search?.enabled === true) {
         continue;
       }
 
       await this.transaction.inTransaction(async () => {
         const locked = await this.searches.locked(each.id);
 
-        if (locked?.isActive) {
+        if (locked?.isActive === true) {
           await this.searches.save(locked.turnOff(this.clock.now()));
         }
       });

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { DeliveryStages } from '@/components/features/insights/DeliveryStages';
 import { FlowSkeleton } from '@/components/features/insights/FlowSkeleton';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
@@ -18,7 +20,12 @@ type FlowTabProps = {
   names: StationNames;
 };
 
-export function FlowTab({ slug, teamId, period, names }: FlowTabProps) {
+export function FlowTab({
+  slug,
+  teamId,
+  period,
+  names,
+}: FlowTabProps): ReactElement {
   const flow = useInsightsFlow(teamId, period);
 
   if (loading(flow)) {

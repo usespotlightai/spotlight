@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import {
   HOOK_FIRING_SKIPS,
   HookFiring,
@@ -276,11 +277,11 @@ export class DrizzleHookFirings implements HookFiringRepository {
   }
 
   async withId(id: HookFiringId): Promise<HookFiring | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(hookFiring)
       .where(eq(hookFiring.id, id.value))
-      .limit(1);
+      .limit(1));
 
     return row ? toFiring(row) : null;
   }

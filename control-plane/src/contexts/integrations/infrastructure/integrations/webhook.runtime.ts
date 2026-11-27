@@ -42,8 +42,11 @@ import {
 } from '@platform/expressions/cel-variables';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
 import { evaluateText, isTrue, value } from '@platform/expressions/readings';
+import { fieldOf } from '@platform/json/field-of';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
@@ -54,6 +57,25 @@ const headed = (headers: WebhookHeaders, name: string): string | undefined => {
   const value = headers[name.toLowerCase()];
 
   return Array.isArray(value) ? value[0] : value;
+};
+
+const receivedIn = (
+  delivered: Delivered,
+  header: string | null,
+): string | undefined =>
+  header === null || header === ''
+    ? undefined
+    : headed(delivered.headers, header);
+
+const rawOf = (delivered: Delivered): Buffer => {
+  if (delivered.raw === null) {
+    throw new InconsistentStateError(
+      'webhook delivery',
+      'came without the bytes it was signed over',
+    );
+  }
+
+  return Buffer.from(delivered.raw);
 };
 
 const DIGEST = { sha256: 'sha256', sha1: 'sha1', sha512: 'sha512' } as const;
@@ -130,9 +152,9 @@ export class WebhookRuntime implements WebhookProviderPort {
     auth: Extract<AuthIR, { kind: 'token' }>,
     delivered: Delivered,
   ): Promise<boolean> {
-    const received = auth.header && headed(delivered.headers, auth.header);
+    const received = receivedIn(delivered, auth.header);
 
-    if (!received) {
+    if (received === undefined || received === '') {
       return false;
     }
 
@@ -145,9 +167,9 @@ export class WebhookRuntime implements WebhookProviderPort {
     auth: Extract<AuthIR, { kind: 'hmac' }>,
     delivered: Delivered,
   ): Promise<boolean> {
-    const received = auth.header && headed(delivered.headers, auth.header);
+    const received = receivedIn(delivered, auth.header);
 
-    if (!received) {
+    if (received === undefined || received === '') {
       return false;
     }
 
@@ -157,7 +179,7 @@ export class WebhookRuntime implements WebhookProviderPort {
 
     const material = auth.signed
       ? Buffer.from(evaluateText(auth.signed, this.bindings(delivered)) ?? '')
-      : Buffer.from(delivered.raw as Uint8Array);
+      : rawOf(delivered);
 
     const expected =
       auth.prefix +
@@ -173,15 +195,20 @@ export class WebhookRuntime implements WebhookProviderPort {
     delivered: Delivered,
   ): boolean {
     const raw = this.templated(auth.key, delivered);
-    const received = auth.header && headed(delivered.headers, auth.header);
+    const received = receivedIn(delivered, auth.header);
 
-    if (!raw || !received) {
+    if (
+      raw === null ||
+      raw === '' ||
+      received === undefined ||
+      received === ''
+    ) {
       return false;
     }
 
     const message = auth.signed
       ? Buffer.from(evaluateText(auth.signed, this.bindings(delivered)) ?? '')
-      : Buffer.from(delivered.raw as Uint8Array);
+      : rawOf(delivered);
     const signature = Buffer.from(received, auth.encoding);
 
     try {
@@ -212,7 +239,7 @@ export class WebhookRuntime implements WebhookProviderPort {
     const carried = headed(delivered.headers, auth.header ?? 'authorization');
     const token = carried?.replace(/^Bearer\s+/i, '');
 
-    if (!token) {
+    if (token === undefined || token === '') {
       return false;
     }
 
@@ -222,26 +249,26 @@ export class WebhookRuntime implements WebhookProviderPort {
       return false;
     }
 
-    let header: { alg?: string; kid?: string };
-    let payload: { exp?: number; aud?: unknown; iss?: unknown };
+    let header: unknown;
+    let payload: unknown;
 
     try {
-      header = JSON.parse(
-        Buffer.from(head, 'base64url').toString('utf8'),
-      ) as typeof header;
-      payload = JSON.parse(
-        Buffer.from(claims, 'base64url').toString('utf8'),
-      ) as typeof payload;
+      header = JSON.parse(Buffer.from(head, 'base64url').toString('utf8'));
+      payload = JSON.parse(Buffer.from(claims, 'base64url').toString('utf8'));
     } catch {
       return false;
     }
 
-    if (header.alg !== 'RS256') {
+    if (fieldOf(header, 'alg') !== 'RS256') {
       return false;
     }
 
     const keys = await this.scoped(() => this.jwks.keys(auth.jwks));
-    const key = header.kid ? keys.get(header.kid) : [...keys.values()][0];
+    const kid = fieldOf(header, 'kid');
+    const key =
+      typeof kid === 'string' && kid !== ''
+        ? keys.get(kid)
+        : firstOf([...keys.values()]);
 
     if (!key) {
       return false;
@@ -258,18 +285,25 @@ export class WebhookRuntime implements WebhookProviderPort {
       return false;
     }
 
+    const exp = fieldOf(payload, 'exp');
+
+    if (typeof exp === 'number' && this.clock.now().getTime() / 1000 >= exp) {
+      return false;
+    }
+
     if (
-      typeof payload.exp === 'number' &&
-      this.clock.now().getTime() / 1000 >= payload.exp
+      auth.audience !== null &&
+      auth.audience !== '' &&
+      !within(fieldOf(payload, 'aud'), auth.audience)
     ) {
       return false;
     }
 
-    if (auth.audience && !within(payload.aud, auth.audience)) {
-      return false;
-    }
-
-    return !auth.issuer || payload.iss === auth.issuer;
+    return (
+      auth.issuer === null ||
+      auth.issuer === '' ||
+      fieldOf(payload, 'iss') === auth.issuer
+    );
   }
 
   private fresh(auth: AuthIR, delivered: Delivered): boolean {
@@ -325,8 +359,8 @@ export class WebhookRuntime implements WebhookProviderPort {
     );
   }
 
-  async routes(): Promise<WorkspaceId | null> {
-    return this.workspaceId;
+  routes(): Promise<WorkspaceId | null> {
+    return Promise.resolve(this.workspaceId);
   }
 
   async read(delivered: Delivered): Promise<readonly Happened[]> {
@@ -418,7 +452,7 @@ export class WebhookRuntime implements WebhookProviderPort {
   private bindings(delivered: Delivered): Record<string, unknown> {
     return {
       body: sanitizedForCel(delivered.body ?? {}),
-      headers: sanitizedForCel(delivered.headers ?? {}),
+      headers: sanitizedForCel(delivered.headers),
       raw: delivered.raw ? Buffer.from(delivered.raw).toString('utf8') : '',
     };
   }

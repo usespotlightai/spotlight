@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { cn } from '@/lib/utils';
 
 type DiffStatProps = {
@@ -12,7 +14,7 @@ export function DiffStat({
   removed,
   always = false,
   className,
-}: DiffStatProps) {
+}: DiffStatProps): ReactElement {
   return (
     <span
       className={cn('flex shrink-0 items-center gap-2 tabular-nums', className)}

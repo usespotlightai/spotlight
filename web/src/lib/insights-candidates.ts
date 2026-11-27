@@ -140,7 +140,7 @@ export const replayedFrontiersOf = (
   const bySearch = new Map<string, ReplayedPoint[]>();
 
   for (const point of points) {
-    if (point.frontier && point.searchId) {
+    if (point.frontier && point.searchId !== null && point.searchId !== '') {
       bySearch.set(point.searchId, [
         ...(bySearch.get(point.searchId) ?? []),
         point,

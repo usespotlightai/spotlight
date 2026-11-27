@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { type ReactElement, useId, useRef, useState } from 'react';
 
 import { ProposedMemoryControls } from '@/components/features/inbox/memories/ProposedMemoryControls';
 import { ProposedMemoryFacts } from '@/components/features/inbox/memories/ProposedMemoryFacts';
@@ -38,7 +38,7 @@ export function ProposedMemoryCard({
   onApprove,
   onReject,
   onRestore,
-}: ProposedMemoryCardProps) {
+}: ProposedMemoryCardProps): ReactElement {
   const card = useRef<HTMLElement>(null);
   const decided = useFocusAfterDecision(card, `${memory.state}:${pending}`);
   const [editingOpen, setEditing] = useState(false);

@@ -86,7 +86,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
           named,
           IntegrationTaskViewMapper.toView(task),
           RunAttemptRef.of(RunId.of(run.runId), run.attempt),
-          requester ? UserId.of(requester) : null,
+          requester !== null && requester !== '' ? UserId.of(requester) : null,
         )
       : null;
 

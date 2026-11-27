@@ -1,3 +1,5 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
+
 export class DraftPeriod {
   private constructor(
     readonly from: Date,
@@ -13,9 +15,9 @@ export class DraftPeriod {
   }
 
   static openOf(periods: readonly DraftPeriod[]): DraftPeriod | null {
-    const last = periods[periods.length - 1];
+    const last = itemAt(periods, periods.length - 1);
 
-    return last?.isOpen ? last : null;
+    return last !== undefined && last.isOpen ? last : null;
   }
 
   static sameAll(
@@ -25,7 +27,7 @@ export class DraftPeriod {
     return (
       one.length === other.length &&
       one.every((each, at) => {
-        const counterpart = other[at];
+        const counterpart = itemAt(other, at);
 
         return counterpart !== undefined && each.equals(counterpart);
       })

@@ -11,6 +11,7 @@ import { StateVersionId } from '@configuration/domain/value-objects/state-versio
 import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import { TerraformStateId } from '@configuration/domain/value-objects/terraform-state-id.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -50,30 +51,33 @@ const stored = (latest: number) =>
   });
 
 const writing = (input: { latest: number; save?: () => Promise<void> }) => {
-  const states = {
-    save: vi.fn(input.save ?? (async () => undefined)),
-  } as unknown as TerraformStateRepository;
-  const bodies = {
-    put: vi.fn(async () => undefined),
-    remove: vi.fn(async () => undefined),
-  } as unknown as TerraformStateBodiesPort;
+  const states = partial<TerraformStateRepository>({
+    save: vi.fn(input.save ?? (() => Promise.resolve(undefined))),
+  });
+  const bodies = partial<TerraformStateBodiesPort>({
+    put: vi.fn(() => Promise.resolve(undefined)),
+    remove: vi.fn(() => Promise.resolve(undefined)),
+  });
   let next = 0;
   const handler = new WriteTerraformStateHandler(
-    {
-      permissionsInSlug: async () => ({
-        workspaceId: WORKSPACE,
-        slug: 'acme',
-        plans: true,
-        configures: true,
-        scopes: new Set(),
-        isAdmin: false,
-      }),
-    } as unknown as WorkspaceAccessPort,
-    { named: async () => stored(input.latest) } as unknown as TerraformStates,
+    partial<WorkspaceAccessPort>({
+      permissionsInSlug: () =>
+        Promise.resolve({
+          workspaceId: WORKSPACE,
+          slug: 'acme',
+          plans: true,
+          configures: true,
+          scopes: new Set(),
+          isAdmin: false,
+        }),
+    }),
+    partial<TerraformStates>({
+      named: () => Promise.resolve(stored(input.latest)),
+    }),
     states,
     bodies,
     { generate: () => `id_${++next}` },
-    { now: () => AT, sleep: async () => undefined },
+    { now: () => AT, sleep: () => Promise.resolve(undefined) },
   );
 
   return { handler, states, bodies };
@@ -92,8 +96,8 @@ describe('WriteTerraformStateHandler', () => {
   it('removes the body it stored when the save fails', async () => {
     const { handler, bodies } = writing({
       latest: 1,
-      save: async () => {
-        throw new Error('database down');
+      save: () => {
+        return Promise.reject(new Error('database down'));
       },
     });
 

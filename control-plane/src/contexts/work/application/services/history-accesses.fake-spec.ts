@@ -1,4 +1,9 @@
-import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
+import type { RunPolicyContract } from '@runs/application/contracts/run-order.contract';
+import type {
+  LeasedRunFacts,
+  RunLeasesPort,
+} from '@runs/application/ports/run-leases.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -64,33 +69,39 @@ export const historyAccessesOf = (
 
   scopes.register({
     owner: 'replays',
-    scopeOf: async () => fixture.scope ?? null,
+    scopeOf: () => Promise.resolve(fixture.scope ?? null),
   });
 
   return new HistoryAccesses(
-    {
-      leasedBy: async (runId: RunId) =>
-        team
-          ? {
-              runId,
-              team: TeamId.of(team),
-              requester: {
-                owner: isolated ? 'replays' : 'work',
-                kind: fixture.trialAsOf !== undefined ? 'replay' : 'search',
-                id: runId.value,
-                token: null,
-                team,
-              },
-              policy: { actsBeyondItself: !isolated },
-            }
-          : null,
-    } as unknown as RunLeasesPort,
-    {
-      find: async (runId: RunId) =>
-        fixture.trialAsOf === undefined
-          ? null
-          : trialOf(runId, fixture.trialAsOf),
-    } as unknown as DispatchRepository,
+    partial<RunLeasesPort>({
+      leasedBy: (runId: RunId) =>
+        Promise.resolve(
+          team !== null && team !== ''
+            ? partial<LeasedRunFacts>({
+                runId,
+                team: TeamId.of(team),
+                requester: {
+                  owner: isolated ? 'replays' : 'work',
+                  kind: fixture.trialAsOf !== undefined ? 'replay' : 'search',
+                  id: runId.value,
+                  token: null,
+                  team,
+                },
+                policy: partial<RunPolicyContract>({
+                  actsBeyondItself: !isolated,
+                }),
+              })
+            : null,
+        ),
+    }),
+    partial<DispatchRepository>({
+      find: (runId: RunId) =>
+        Promise.resolve(
+          fixture.trialAsOf === undefined
+            ? null
+            : trialOf(runId, fixture.trialAsOf),
+        ),
+    }),
     scopes,
   );
 };

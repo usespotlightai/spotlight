@@ -42,8 +42,10 @@ export class RequestJudging {
 
     if (
       !isLineWork(event) ||
-      !event.taskId ||
-      !event.stationId ||
+      event.taskId === null ||
+      event.taskId === '' ||
+      event.stationId === null ||
+      event.stationId === '' ||
       !ending ||
       !leftWork(ending)
     ) {

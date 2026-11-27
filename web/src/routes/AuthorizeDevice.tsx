@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 import { DecideDevice } from '@/components/features/devices/DecideDevice';
@@ -15,18 +16,21 @@ const WIDTH = 'w-80';
 
 const TITLE = 'Log in to the Spotlight CLI';
 
-export function AuthorizeDevice() {
+export function AuthorizeDevice(): ReactElement | null {
   const [params] = useSearchParams();
   const userCode = params.get('user_code');
   const { data: session, isPending: reading } = useSession();
   const signedIn = Boolean(session?.user);
   const device = useDeviceCode(userCode, signedIn);
 
-  if (reading || (signedIn && userCode && loading(device))) {
+  if (
+    reading ||
+    (signedIn && userCode !== null && userCode !== '' && loading(device))
+  ) {
     return null;
   }
 
-  if (!userCode) {
+  if (userCode === null || userCode === '') {
     return (
       <AuthScreen className={WIDTH}>
         <AuthTitle title={TITLE}>

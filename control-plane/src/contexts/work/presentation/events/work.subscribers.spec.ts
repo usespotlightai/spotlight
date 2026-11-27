@@ -1,5 +1,9 @@
-import { RUN_SUSPENDED } from '@shared-kernel/application/integration-events/run-suspended.integration-event';
+import {
+  RUN_SUSPENDED,
+  type RunSuspendedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-suspended.integration-event';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -13,14 +17,16 @@ import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
 import { describe, expect, it, vi } from 'vitest';
 
+type Reactions = Parameters<typeof workSubscribers>[0];
+
 describe('workSubscribers', () => {
   it('reconciles the setup list of the team whose setup chat opened its pull request', async () => {
-    const forTeam = vi.fn(async () => undefined);
-    const reconciling = workSubscribers({
-      setup: { forTeam },
-    } as unknown as Parameters<typeof workSubscribers>[0]).find(
-      (each) => each.name === 'work.reconcile-setup-on-pull-request',
-    );
+    const forTeam = vi.fn(() => Promise.resolve(undefined));
+    const reconciling = workSubscribers(
+      partial<Reactions>({
+        setup: partial<Reactions['setup']>({ forTeam }),
+      }),
+    ).find((each) => each.name === 'work.reconcile-setup-on-pull-request');
 
     await reconciling?.handle(
       new SetupPullRequestOpened(
@@ -39,12 +45,12 @@ describe('workSubscribers', () => {
   });
 
   it('takes up the run a person answered, whichever way the answer came', async () => {
-    const answeredRuns = { on: vi.fn(async () => {}) };
-    const taking = workSubscribers({
-      answeredRuns,
-    } as unknown as Parameters<typeof workSubscribers>[0]).find(
-      (each) => each.name === 'work.take-up-the-run-a-person-answered',
-    );
+    const on = vi.fn(async () => {});
+    const taking = workSubscribers(
+      partial<Reactions>({
+        answeredRuns: partial<Reactions['answeredRuns']>({ on }),
+      }),
+    ).find((each) => each.name === 'work.take-up-the-run-a-person-answered');
     const answered = new TaskAnswered(
       TaskId.of('task_1'),
       WorkspaceId.of('ws_1'),
@@ -56,31 +62,29 @@ describe('workSubscribers', () => {
 
     expect(taking?.kinds).toEqual(['task.answered']);
     expect(taking?.callsOut).toBe(true);
-    expect(answeredRuns.on).toHaveBeenCalledWith(answered);
+    expect(on).toHaveBeenCalledWith(answered);
   });
 
   it('decides the turn of a run that suspended, outside the transaction that suspended it', async () => {
-    const turns = { take: vi.fn(async () => {}) };
-    const taking = workSubscribers({
-      turns,
-    } as unknown as Parameters<typeof workSubscribers>[0]).find(
-      (each) => each.name === 'work.take-turn',
-    );
+    const take = vi.fn(async () => {});
+    const taking = workSubscribers(
+      partial<Reactions>({
+        turns: partial<Reactions['turns']>({ take }),
+      }),
+    ).find((each) => each.name === 'work.take-turn');
+    const suspended: RunSuspendedIntegrationEvent = {
+      kind: RUN_SUSPENDED,
+      runId: 'run_1',
+      workspaceId: 'ws_1',
+      requester: requestedBy.task('task_1', 0),
+      attempt: 2,
+      at: '2026-11-07T10:00:00.000Z',
+    };
 
-    await taking?.handle(
-      {
-        kind: RUN_SUSPENDED,
-        runId: 'run_1',
-        workspaceId: 'ws_1',
-        requester: requestedBy.task('task_1', 0),
-        attempt: 2,
-        at: '2026-11-07T10:00:00.000Z',
-      } as never,
-      anOutboxRecord(),
-    );
+    await taking?.handle(suspended, anOutboxRecord());
 
     expect(taking?.kinds).toEqual(['runs.run-suspended.v1']);
     expect(taking?.callsOut).toBe(true);
-    expect(turns.take).toHaveBeenCalledWith(RunId.of('run_1'), 2);
+    expect(take).toHaveBeenCalledWith(RunId.of('run_1'), 2);
   });
 });

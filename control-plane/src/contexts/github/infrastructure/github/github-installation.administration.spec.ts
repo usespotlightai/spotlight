@@ -3,18 +3,20 @@ import { generateKeyPairSync } from 'node:crypto';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import { GitHubInstallationAdministration } from '@github/infrastructure/github/github-installation.administration';
 import type { Env } from '@platform/config/env.schema';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 
-const env = {
+const env = partial<Env>({
   GITHUB_APP_ID: '1',
   GITHUB_APP_PRIVATE_KEY: privateKey.export({
     type: 'pkcs1',
     format: 'pem',
   }),
-} as Env;
+});
 
 const LEON = UserId.of('user_leon');
 const INSTALLED = GitHubInstallation.of('42');
@@ -31,15 +33,15 @@ const PERSONAL = {
 };
 
 const github = (routes: Record<string, Answer>) => {
-  const fetching = vi.fn(async (url: string) => {
+  const fetching = vi.fn((url: string, _init?: RequestInit) => {
     const path = url.replace('https://api.github.com', '');
     const answer = routes[path] ?? { status: 404, body: {} };
 
-    return {
+    return Promise.resolve({
       ok: answer.status >= 200 && answer.status < 300,
       status: answer.status,
-      json: async () => answer.body,
-    };
+      json: () => Promise.resolve(answer.body),
+    });
   });
   vi.stubGlobal('fetch', fetching);
 
@@ -48,7 +50,7 @@ const github = (routes: Record<string, Answer>) => {
 
 const administration = (token: string | null = 'gho_live') =>
   new GitHubInstallationAdministration(env, {
-    tokenFor: vi.fn(async () => token),
+    tokenFor: vi.fn(() => Promise.resolve(token)),
   });
 
 afterEach(() => {
@@ -66,11 +68,10 @@ describe('GitHubInstallationAdministration', () => {
     });
 
     expect(await administration().of(INSTALLED, LEON)).toBe('admin');
-    const [, init] = fetching.mock.calls[0] as unknown as [
-      string,
-      { headers: Record<string, string> },
-    ];
-    expect(init.headers.authorization).not.toBe('Bearer gho_live');
+    const init = firstOf(fetching.mock.calls)?.[1];
+    expect(new Headers(init?.headers).get('authorization')).not.toBe(
+      'Bearer gho_live',
+    );
   });
 
   it('denies a plain member of the organisation', async () => {

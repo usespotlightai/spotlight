@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunReadModel } from '@runs/application/services/run-read-model.service';
 import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/readers/run-facts.reader';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -42,13 +45,13 @@ beforeAll(async () => {
   chats = new DrizzleChatRepository(context, { dispatch: async () => {} });
   reader = new DrizzleInboxReader(
     database.db,
-    { findMany: async () => new Map() } as never,
+    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
     new RunReadModel(new DrizzleRunFactsReader(context)),
   );
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const WORKSPACE = randomUUID();
@@ -109,7 +112,7 @@ const proposedBy = (chat: Chat) => {
 };
 
 const ended = (chat: Chat) =>
-  chat.runEnded(chat.currentRunId as RunId, {
+  chat.runEnded(present(chat.currentRunId), {
     session: HarnessSession.of('session_1'),
     claimedBy: null,
     lastWordsAt: null,
@@ -151,11 +154,13 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
 
     expect(ids).toEqual([newer.id.value, older.id.value]);
 
-    const followed = (await chats.find(older.id))?.addMessage({
-      by: UserId.of(viewer),
-      body: ChatMessageBody.of('Any news?'),
-      at: new Date('2026-10-20T09:00:00Z'),
-    }) as Chat;
+    const followed = present(
+      (await chats.find(older.id))?.addMessage({
+        by: UserId.of(viewer),
+        body: ChatMessageBody.of('Any news?'),
+        at: new Date('2026-10-20T09:00:00Z'),
+      }),
+    );
     await chats.save(followed);
 
     expect((await open(viewer)).map((each) => each.id)).toEqual([
@@ -182,10 +187,12 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
       reopened.id.value,
     ]);
 
-    const back = (await chats.find(reopened.id))?.reopen(
-      UserId.of(viewer),
-      new Date('2026-10-20T09:30:00Z'),
-    ) as Chat;
+    const back = present(
+      (await chats.find(reopened.id))?.reopen(
+        UserId.of(viewer),
+        new Date('2026-10-20T09:30:00Z'),
+      ),
+    );
     await chats.save(back);
 
     expect((await open(viewer)).map((each) => each.id)).toEqual([
@@ -210,7 +217,7 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
       at: new Date('2026-10-20T09:00:00Z'),
     });
     await chats.save(followed);
-    await chats.save(repliedTo((await chats.find(early.id)) as Chat));
+    await chats.save(repliedTo(present(await chats.find(early.id))));
 
     const entries = await open(viewer);
 
@@ -267,7 +274,7 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
 
     expect(chatEntry(await open(viewer), following)?.section).toBe('running');
 
-    const answered = (await chats.find(following.id)) as Chat;
+    const answered = present(await chats.find(following.id));
     await chats.save(repliedTo(answered));
 
     expect(chatEntry(await open(viewer), following)?.section).toBe('open');
@@ -321,7 +328,7 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
     );
     await chats.add(chat);
 
-    const stored = (await chats.find(chat.id)) as Chat;
+    const stored = present(await chats.find(chat.id));
     expect(stored.proposals.map((each) => each.proposal.state)).toEqual([
       'replaced',
       'open',
@@ -353,14 +360,14 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
       UserId.of(viewer),
       AFTER,
     );
-    await chats.save(read as Chat);
+    await chats.save(present(read));
     expect(chatEntry(await open(viewer), chat)?.unread).toBe(false);
 
     const resolved = (await chats.find(chat.id))?.resolve(
       UserId.of(viewer),
       AFTER,
     );
-    await chats.save(resolved as Chat);
+    await chats.save(present(resolved));
     expect(chatEntry(await open(viewer), chat)).toBeUndefined();
     expect(
       chatEntry((await resolvedPage(viewer, {})).items, chat),
@@ -370,7 +377,7 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
       UserId.of(viewer),
       AFTER,
     );
-    await chats.save(reopened as Chat);
+    await chats.save(present(reopened));
     expect(chatEntry(await open(viewer), chat)?.section).toBe('open');
     expect(
       chatEntry((await resolvedPage(viewer, {})).items, chat),
@@ -436,7 +443,7 @@ describe('agent chats in the inbox, read from the database (e2e)', () => {
     const viewer = `user_${randomUUID()}`;
     const chat = repliedTo(startedBy(viewer));
     await chats.add(chat);
-    await chats.remove((await chats.find(chat.id)) as Chat);
+    await chats.remove(present(await chats.find(chat.id)));
 
     expect(chatEntry(await open(viewer), chat)).toBeUndefined();
   });

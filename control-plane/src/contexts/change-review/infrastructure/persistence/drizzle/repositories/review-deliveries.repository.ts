@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   LeasedReviewDelivery,
   ReviewDeliveriesPort,
@@ -65,7 +66,7 @@ export class DrizzleReviewDeliveries implements ReviewDeliveriesPort {
     leaseUntil: Date,
   ): Promise<LeasedReviewDelivery | null> {
     const found = await this.context.inTransaction(async () => {
-      const [due] = await this.context.db
+      const due = firstOf(await this.context.db
         .select()
         .from(reviewDelivery)
         .where(
@@ -76,7 +77,7 @@ export class DrizzleReviewDeliveries implements ReviewDeliveriesPort {
         )
         .orderBy(asc(reviewDelivery.dueAt))
         .limit(1)
-        .for('update', { skipLocked: true });
+        .for('update', { skipLocked: true }));
 
       if (due) {
         await this.context.db

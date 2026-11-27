@@ -1,4 +1,5 @@
 import { GitPullRequest } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { pullRequestOf } from '@/lib/pull-request-link';
 
@@ -7,7 +8,10 @@ type TaskPullRequestLinkProps = {
   named: boolean;
 };
 
-export function TaskPullRequestLink({ href, named }: TaskPullRequestLinkProps) {
+export function TaskPullRequestLink({
+  href,
+  named,
+}: TaskPullRequestLinkProps): ReactElement {
   return (
     <a
       href={href}

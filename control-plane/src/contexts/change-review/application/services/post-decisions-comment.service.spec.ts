@@ -13,6 +13,7 @@ import type {
   StickyComment,
   StickyCommentPlace,
 } from '@github/application/ports/pull-request-comments.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -48,32 +49,37 @@ const posting = (
   const deleted: StickyCommentPlace[] = [];
 
   const service = new PostDecisionsComment(
-    { ofTask: async () => stored } as unknown as DecisionReaderPort,
+    partial<DecisionReaderPort>({ ofTask: () => Promise.resolve(stored) }),
+    partial<WorkPort>({
+      task: (): Promise<ReviewedTask> =>
+        Promise.resolve({
+          id: TASK,
+          workspaceId: WORKSPACE,
+          teamId: TeamId.of('team_1'),
+          pullRequests: [
+            PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+          ],
+          openPullRequests: [],
+          reviewedPullRequest: null,
+          reviewing: false,
+          currentRunId: null,
+          ...task,
+        }),
+    }),
     {
-      task: async (): Promise<ReviewedTask> => ({
-        id: TASK,
-        workspaceId: WORKSPACE,
-        teamId: TeamId.of('team_1'),
-        pullRequests: [PullRequestUrl.of('https://github.com/acme/api/pull/7')],
-        openPullRequests: [],
-        reviewedPullRequest: null,
-        reviewing: false,
-        currentRunId: null,
-        ...task,
-      }),
-    } as unknown as WorkPort,
-    {
-      slugOf: async () => 'acme',
-      idOf: async () => null,
-      mayView: async () => true,
+      slugOf: () => Promise.resolve('acme'),
+      idOf: () => Promise.resolve(null),
+      mayView: () => Promise.resolve(true),
     },
-    { isConnected: async () => true },
+    { isConnected: () => Promise.resolve(true) },
     {
-      upsert: async (comment) => {
+      upsert: (comment) => {
         upserted.push(comment);
+        return Promise.resolve();
       },
-      delete: async (place) => {
+      delete: (place) => {
         deleted.push(place);
+        return Promise.resolve();
       },
     },
     {
@@ -82,9 +88,9 @@ const posting = (
         `https://app.example/tasks/${taskId.value}#decisions`,
     },
     {
-      find: async () => ({ name: 'Maya Chen', image: null }),
-      viewerOf: async () => null,
-      actsOnTeam: async () => false,
+      find: () => Promise.resolve({ name: 'Maya Chen', image: null }),
+      viewerOf: () => Promise.resolve(null),
+      actsOnTeam: () => Promise.resolve(false),
     },
     new MarkdownCommentBodies(),
   );

@@ -13,7 +13,7 @@ import { ownQueryCache, queryCacheOwner } from '@/lib/query-cache';
 const cachedFor = (owner: string | null, restoring = false) => {
   const queryClient = new QueryClient();
   queryClient.setQueryData(['inbox'], ['item of the earlier user']);
-  if (owner) {
+  if (owner !== null && owner !== '') {
     ownQueryCache(owner);
   }
 

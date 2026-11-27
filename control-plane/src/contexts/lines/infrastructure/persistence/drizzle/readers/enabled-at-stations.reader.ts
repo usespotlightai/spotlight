@@ -62,6 +62,6 @@ export class DrizzleEnabledAtStations implements EnabledAtStationsPort {
         .innerJoin(line, eq(line.id, station.lineId))
         .where(and(eq(line.teamId, teamId.value), isNotNull(station.profile)))
         .orderBy(asc(line.key), asc(station.key))
-    ).flatMap((each) => (each.name ? [{ ...each, name: each.name }] : []));
+    ).flatMap((each) => (each.name !== null && each.name !== '' ? [{ ...each, name: each.name }] : []));
   }
 }

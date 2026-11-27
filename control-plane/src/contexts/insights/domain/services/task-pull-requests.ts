@@ -3,6 +3,7 @@ import type {
   OwnedPullRequest,
   RunPullRequest,
 } from '@insights/domain/value-objects/run-fact.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 const newestFirst = (one: OwnedPullRequest, other: OwnedPullRequest): number =>
   other.openedAt.getTime() - one.openedAt.getTime() ||
@@ -38,9 +39,9 @@ export const taskPullRequestsOf = (
   owned: readonly OwnedPullRequest[],
 ): RunPullRequest | null => {
   const all = [...owned].sort(newestFirst);
-  const [newest] = all;
+  const newest = firstOf(all);
 
-  if (!newest) {
+  if (newest === undefined) {
     return null;
   }
 

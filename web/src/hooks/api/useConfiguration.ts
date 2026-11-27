@@ -1,18 +1,21 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { readConfiguration } from '@/lib/api';
+import { readConfiguration, type ConfigurationResponseDto } from '@/lib/api';
+import { required } from '@/lib/required';
 
 const configurationKeys = {
   forTeam: (teamId?: string) => ['configuration', teamId ?? null] as const,
 };
 
-export function useConfiguration(teamId: string | undefined) {
+export function useConfiguration(
+  teamId: string | undefined,
+): UseQueryResult<ConfigurationResponseDto> {
   return useQuery({
     queryKey: configurationKeys.forTeam(teamId),
     enabled: Boolean(teamId),
     queryFn: async () => {
       const { data } = await readConfiguration({
-        path: { teamId: teamId as string },
+        path: { teamId: required(teamId) },
         throwOnError: true,
       });
       return data;

@@ -23,10 +23,10 @@ const CONTEXT: TaskToolContext = {
 const using = () => {
   const submitted: SubmittedVerdict[] = [];
   const reviewing = {
-    comment: async () => 'comment_1',
-    submit: async (_on, review) => {
+    comment: () => Promise.resolve('comment_1'),
+    submit: (_on, review) => {
       submitted.push(review);
-      return 'review_1';
+      return Promise.resolve('review_1');
     },
   } satisfies PullRequestReviewingPort;
 

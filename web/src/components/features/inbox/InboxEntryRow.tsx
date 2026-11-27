@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ChatRow } from '@/components/features/inbox/ChatRow';
 import { InboxRow } from '@/components/features/inbox/InboxRow';
 import { InboxRunRow } from '@/components/features/inbox/InboxRunRow';
@@ -9,7 +11,10 @@ type InboxEntryRowProps = {
   entry: InboxEntry;
 };
 
-export function InboxEntryRow({ slug, entry }: InboxEntryRowProps) {
+export function InboxEntryRow({
+  slug,
+  entry,
+}: InboxEntryRowProps): ReactElement {
   if (entry.kind === 'run') {
     return <InboxRunRow slug={slug} run={entry} />;
   }

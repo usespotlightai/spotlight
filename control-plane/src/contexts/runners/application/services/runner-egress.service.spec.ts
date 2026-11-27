@@ -21,6 +21,7 @@ import { EgressReference } from '@runners/domain/value-objects/egress-reference.
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -50,26 +51,32 @@ const egressOf = (
   } = {},
 ) =>
   new RunnerEgress(
-    {
-      findByEgressTokenHash: async (hash: TokenHash) =>
-        stored?.egressTokenHash?.equals(hash) ? stored : null,
-      findByProxyCredentialHash: async (hash: TokenHash) =>
-        stored?.proxyCredentialHash?.equals(hash) ? stored : null,
-    } as unknown as RunnerRepository,
-    {
+    partial<RunnerRepository>({
+      findByEgressTokenHash: (hash: TokenHash) =>
+        Promise.resolve(
+          stored?.egressTokenHash?.equals(hash) === true ? stored : null,
+        ),
+      findByProxyCredentialHash: (hash: TokenHash) =>
+        Promise.resolve(
+          stored?.proxyCredentialHash?.equals(hash) === true ? stored : null,
+        ),
+    }),
+    partial<TokenIssuer>({
       hash: (token: string) => (HASHES[token] ?? 'f').repeat(64),
-    } as TokenIssuer,
-    {
-      find: async () => input.egress ?? null,
-      findByTokenHash: async (hash: TokenHash) =>
-        input.egress?.tokenHash.equals(hash) ? input.egress : null,
-    } as unknown as EgressRepository,
-    {
-      find: async () => input.pool ?? null,
-    } as unknown as RunnerPoolRepository,
-    {
-      isOpen: async () => input.open ?? true,
-    } as unknown as WorkspaceReaderPort,
+    }),
+    partial<EgressRepository>({
+      find: () => Promise.resolve(input.egress ?? null),
+      findByTokenHash: (hash: TokenHash) =>
+        Promise.resolve(
+          input.egress?.tokenHash.equals(hash) === true ? input.egress : null,
+        ),
+    }),
+    partial<RunnerPoolRepository>({
+      find: () => Promise.resolve(input.pool ?? null),
+    }),
+    partial<WorkspaceReaderPort>({
+      isOpen: () => Promise.resolve(input.open ?? true),
+    }),
     input.platform === undefined ? PLATFORM : input.platform,
   );
 

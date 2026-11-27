@@ -1,9 +1,10 @@
-import type { DragEndEvent } from '@dnd-kit/core';
+import type { Active, DragEndEvent, Over } from '@dnd-kit/core';
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { OPEN_DROP, RESOLVED_DROP, useInboxDrag } from '@/hooks/useInboxDrag';
-import type { InboxEntry } from '@/lib/inbox';
+import type { InboxEntry, InboxNotice } from '@/lib/inbox';
+import { partial } from '@/test/partial';
 
 const resolve = vi.fn();
 const reopen = vi.fn();
@@ -16,20 +17,20 @@ vi.mock('@/hooks/api/useReopenInboxEntry', () => ({
   useReopenInboxEntry: () => ({ mutate: reopen }),
 }));
 
-const notice = (over: Partial<InboxEntry> = {}) =>
-  ({
+const notice = (over: Partial<InboxNotice> = {}) =>
+  partial<InboxNotice>({
     kind: 'notice',
     id: 'notice_1',
     resolved: false,
     resolvable: true,
     ...over,
-  }) as InboxEntry;
+  });
 
 const dropped = (activeId: string, overId: string | null) =>
-  ({
-    active: { id: activeId },
-    over: overId === null ? null : { id: overId },
-  }) as unknown as DragEndEvent;
+  partial<DragEndEvent>({
+    active: partial<Active>({ id: activeId }),
+    over: overId === null ? null : partial<Over>({ id: overId }),
+  });
 
 const dropping = (entries: InboxEntry[], event: DragEndEvent) => {
   const { result } = renderHook(() => useInboxDrag('acme', entries));
@@ -86,13 +87,17 @@ describe('useInboxDrag', () => {
   });
 
   it('resolves an open chat dropped on Resolved and reopens it dropped on Open', () => {
-    const open = { kind: 'chat', id: 'chat_1', resolved: false } as InboxEntry;
-    const done = {
+    const open = partial<InboxEntry>({
+      kind: 'chat',
+      id: 'chat_1',
+      resolved: false,
+    });
+    const done = partial<InboxEntry>({
       kind: 'chat',
       id: 'chat_2',
       resolved: true,
       reopenable: true,
-    } as InboxEntry;
+    });
 
     dropping([open], dropped('chat:chat_1', RESOLVED_DROP));
     dropping([done], dropped('chat:chat_2', OPEN_DROP));

@@ -56,8 +56,16 @@ const commanded = (step: {
     return { kind: titled, text: step.text };
   }
 
-  const inputKind = step.input ? firstIn(step.input) : null;
-  return inputKind && step.input ? { kind: inputKind, text: step.input } : null;
+  const inputKind =
+    step.input !== null && step.input !== undefined && step.input !== ''
+      ? firstIn(step.input)
+      : null;
+  return inputKind &&
+    step.input !== null &&
+    step.input !== undefined &&
+    step.input !== ''
+    ? { kind: inputKind, text: step.input }
+    : null;
 };
 
 export const reasoningIn = (step: {

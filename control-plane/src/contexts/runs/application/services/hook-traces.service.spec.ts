@@ -7,6 +7,7 @@ import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -48,11 +49,12 @@ const CALL: HookCallTrace = {
 const tracing = (run: Run | null = onSecondAttempt()) => {
   let seq = -1_000_000;
   const appendControlPlaneEntry = vi.fn(
-    async (_: RunAttempt, entry: { type: string; at: Date }) => ({
-      seq: seq--,
-      type: entry.type,
-      at: entry.at,
-    }),
+    (_: RunAttempt, entry: { type: string; at: Date }) =>
+      Promise.resolve({
+        seq: seq--,
+        type: entry.type,
+        at: entry.at,
+      }),
   );
   const publish = vi.fn();
 
@@ -60,9 +62,9 @@ const tracing = (run: Run | null = onSecondAttempt()) => {
     appendControlPlaneEntry,
     publish,
     traces: new HookTraces(
-      { findById: async () => run } as unknown as RunRepository,
-      { appendControlPlaneEntry } as unknown as RunJournalPort,
-      { publish } as unknown as RunStreamPort,
+      partial<RunRepository>({ findById: () => Promise.resolve(run) }),
+      partial<RunJournalPort>({ appendControlPlaneEntry }),
+      partial<RunStreamPort>({ publish }),
     ),
   };
 };

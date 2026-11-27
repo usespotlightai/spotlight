@@ -18,7 +18,7 @@ export class TakeUpAnsweredRun {
     const runId = event.currentRunId;
     const task = await this.tasks.find(event.taskId);
 
-    if (!task?.takesUp(runId)) {
+    if (task?.takesUp(runId) !== true) {
       return;
     }
 
@@ -26,9 +26,10 @@ export class TakeUpAnsweredRun {
     const line = await this.lines.findByStation(
       subject?.kind === 'task' ? subject.stationId : task.stationId,
     );
-    const turn = event.awaitedTurn?.runId.equals(runId)
-      ? event.awaitedTurn.attempt
-      : null;
+    const turn =
+      event.awaitedTurn?.runId.equals(runId) === true
+        ? event.awaitedTurn.attempt
+        : null;
 
     await this.resuming.resume({
       task,

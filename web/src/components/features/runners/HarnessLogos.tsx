@@ -1,14 +1,20 @@
+import type { ReactElement } from 'react';
+
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
 import type { NamedHarness } from '@/lib/runner';
 
 const named = (harness: NamedHarness) =>
-  harness.version ? `${harness.name} ${harness.version}` : harness.name;
+  harness.version !== null &&
+  harness.version !== undefined &&
+  harness.version !== ''
+    ? `${harness.name} ${harness.version}`
+    : harness.name;
 
 export function HarnessLogos({
   harnesses,
 }: {
   harnesses: readonly NamedHarness[];
-}) {
+}): ReactElement {
   if (harnesses.length === 0) {
     return <span className="text-muted-foreground text-xs">–</span>;
   }

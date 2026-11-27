@@ -90,7 +90,7 @@ export class Sandboxes
           ? await this.sandboxes.openFor(workspaceId, key)
           : null;
 
-        if (open?.isRequested) {
+        if (open?.isRequested === true) {
           const placed = open
             .placeOn(host, tokenHash, at)
             .holdRun(RunId.of(run.runId), at);
@@ -348,11 +348,12 @@ export class Sandboxes
     at: Date,
   ): Promise<StartedSandbox | null> {
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
-    const host = found?.isRequested
-      ? await this.hosts.find(HostId.of(hostId))
-      : null;
+    const host =
+      found?.isRequested === true
+        ? await this.hosts.find(HostId.of(hostId))
+        : null;
 
-    if (!found?.isRequested || !host) {
+    if (found?.isRequested !== true || !host) {
       return null;
     }
 
@@ -386,9 +387,10 @@ export class Sandboxes
     at: Date,
   ): Promise<StartedWarmSandbox | null> {
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
-    const host = found?.warmFits(offer)
-      ? await this.hosts.find(HostId.of(hostId))
-      : null;
+    const host =
+      found?.warmFits(offer) === true
+        ? await this.hosts.find(HostId.of(hostId))
+        : null;
 
     if (!found?.warm || !host) {
       return null;
@@ -547,7 +549,7 @@ export class Sandboxes
   ): Promise<EditorSandbox | null> {
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
 
-    if (!found?.isOpen) {
+    if (found?.isOpen !== true) {
       return null;
     }
 
@@ -556,7 +558,7 @@ export class Sandboxes
       sandbox.holdEditor(editor, at),
     );
 
-    return held?.holdsEditor(editor)
+    return held?.holdsEditor(editor) === true
       ? editorSandboxOf(held, await this.hostOf(held), at)
       : null;
   }
@@ -569,7 +571,7 @@ export class Sandboxes
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
 
     return (
-      !!found?.isOpen &&
+      found?.isOpen === true &&
       found.withoutExpiredLeases(at).holdsEditor(LeaseHolder.editor(holder))
     );
   }
@@ -620,7 +622,7 @@ export class Sandboxes
 
     const host = found ? await this.hostOf(found) : null;
 
-    return found?.isReadyOn(host, this.clock.now()) && host
+    return found?.isReadyOn(host, this.clock.now()) === true && host
       ? host.id.value
       : null;
   }
@@ -628,7 +630,7 @@ export class Sandboxes
   async authenticate(
     token: string | undefined,
   ): Promise<AuthenticatedSandbox | null> {
-    if (!token) {
+    if (token === undefined || token === '') {
       return null;
     }
 

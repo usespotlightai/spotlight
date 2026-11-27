@@ -28,7 +28,9 @@ export const toolManifestOf = (declared: DeclaredTool): ToolManifestShape => ({
     ...declared.inputs.map((each) => ({
       name: each.name,
       schema: each.schema.written,
-      ...(each.description ? { description: each.description } : {}),
+      ...(each.description !== null && each.description !== ''
+        ? { description: each.description }
+        : {}),
       required: each.required,
       defaulted: each.defaulted,
       stdin: each.stdin,
@@ -36,7 +38,9 @@ export const toolManifestOf = (declared: DeclaredTool): ToolManifestShape => ({
     ...(declared.approval ? [INTENT] : []),
   ],
   approval: declared.approval ? { because: declared.approval.because } : null,
-  ...(declared.providedBy ? { integration: declared.providedBy } : {}),
+  ...(declared.providedBy !== null && declared.providedBy !== ''
+    ? { integration: declared.providedBy }
+    : {}),
   ...(declared.inferredOutput ? { output: declared.inferredOutput } : {}),
   ...(declared.callableInIsolatedRun ? { readOnly: true as const } : {}),
 });

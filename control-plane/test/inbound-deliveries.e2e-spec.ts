@@ -13,6 +13,7 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -42,8 +43,10 @@ describe('inbound deliveries, stored in the database (e2e)', () => {
     );
 
   const claimNext = async (now: Date): Promise<InboundDelivery | null> => {
-    const [next] = (await deliveries.claimCandidates(now, 20)).filter(
-      (candidate) => candidate.isClaimableAt(now),
+    const next = firstOf(
+      (await deliveries.claimCandidates(now, 20)).filter((candidate) =>
+        candidate.isClaimableAt(now),
+      ),
     );
 
     if (!next) {
@@ -158,12 +161,14 @@ describe('inbound deliveries, stored in the database (e2e)', () => {
     await deliveries.save((await claimed()).worked(NOW));
 
     const later = new Date(NOW.getTime() + 31 * 24 * 60 * 60 * 1000);
-    const [finished] = (
-      await deliveries.finishedBefore(
-        InboundDelivery.retentionCutoff(later),
-        500,
-      )
-    ).filter((each) => each.id.value === id);
+    const finished = firstOf(
+      (
+        await deliveries.finishedBefore(
+          InboundDelivery.retentionCutoff(later),
+          500,
+        )
+      ).filter((each) => each.id.value === id),
+    );
 
     expect(finished?.isPastRetention(later)).toBe(true);
 

@@ -6,7 +6,9 @@ export type MessageSource = {
   readonly logo: string | null;
 };
 
-const codeHosts: Readonly<Record<string, string>> = { github: 'GitHub' };
+const codeHosts: Readonly<Partial<Record<string, string>>> = {
+  github: 'GitHub',
+};
 
 export function useMessageSources(teamId: string | undefined) {
   const { data } = useConfiguration(teamId);

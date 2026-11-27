@@ -20,6 +20,7 @@ import type {
 } from '@runs/application/ports/run-facts.port';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import type { RunsPort as RunQueuePort } from '@runs/application/ports/runs.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { StationRunsPort } from '@work/application/ports/station-runs.port';
@@ -49,9 +50,9 @@ export class Runs implements RunsPort {
   ) {}
 
   async enqueue(order: AssistRunOrder): Promise<AssistRunEnqueueing> {
-    const [basedOn] = await this.facts.of([order.basedOn]);
+    const basedOn = firstOf(await this.facts.of([order.basedOn]));
 
-    if (!basedOn?.workspaceId.equals(order.workspaceId)) {
+    if (basedOn?.workspaceId.equals(order.workspaceId) !== true) {
       return { outcome: 'base-run-elsewhere' };
     }
 
@@ -96,7 +97,7 @@ export class Runs implements RunsPort {
         rejoinable: false,
         restores: 'when-continuing',
       },
-      restore: archive ? { archive } : null,
+      restore: archive !== null && archive !== '' ? { archive } : null,
       extensions: {
         assist: { purpose: order.purpose.value, files: { ...order.files } },
       },

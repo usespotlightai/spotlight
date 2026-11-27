@@ -17,6 +17,7 @@ import {
   type RunEndedIntegrationEvent,
   type RunRequesterPublished,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -143,20 +144,25 @@ export const runCancelled = (
 export const recordingRuns = (
   answers: Partial<RunsPort> = {},
 ): Mocked<RunsPort> => ({
-  enqueue: vi.fn(answers.enqueue ?? (async () => ({ outcome: 'enqueued' }))),
+  enqueue: vi.fn(
+    answers.enqueue ?? (() => Promise.resolve({ outcome: 'enqueued' })),
+  ),
   requestStop: vi.fn(
-    answers.requestStop ?? (async () => ({ pendingTurn: null })),
+    answers.requestStop ?? (() => Promise.resolve({ pendingTurn: null })),
   ),
   cancel: vi.fn(
-    answers.cancel ?? (async () => ({ was: 'unknown', started: false })),
+    answers.cancel ??
+      (() => Promise.resolve({ was: 'unknown', started: false })),
   ),
   cancelIfQueued: vi.fn(
-    answers.cancelIfQueued ?? (async () => ({ outcome: 'unknown' })),
+    answers.cancelIfQueued ?? (() => Promise.resolve({ outcome: 'unknown' })),
   ),
-  askedAPerson: vi.fn(answers.askedAPerson ?? (async () => undefined)),
-  keep: vi.fn(answers.keep ?? (async () => undefined)),
-  resume: vi.fn(answers.resume ?? (async () => 'resumed' as const)),
-  finish: vi.fn(answers.finish ?? (async () => undefined)),
+  askedAPerson: vi.fn(
+    answers.askedAPerson ?? (() => Promise.resolve(undefined)),
+  ),
+  keep: vi.fn(answers.keep ?? (() => Promise.resolve(undefined))),
+  resume: vi.fn(answers.resume ?? (() => Promise.resolve('resumed' as const))),
+  finish: vi.fn(answers.finish ?? (() => Promise.resolve(undefined))),
 });
 
 export const turnFacts = (part: Partial<TurnFacts> = {}): TurnFacts => ({
@@ -173,31 +179,44 @@ export const turnFacts = (part: Partial<TurnFacts> = {}): TurnFacts => ({
   ...part,
 });
 
-export const heldTurn = (held: TurnFacts | null) => {
+export interface HeldTurn {
+  readonly turns: RunTurnsPort;
+  readonly runs: Mocked<RunsPort>;
+  readonly hold: (facts: TurnFacts | null) => void;
+  readonly current: () => TurnFacts | null;
+}
+
+export const heldTurn = (held: TurnFacts | null): HeldTurn => {
   let current = held;
-  const turns = {
-    turnOf: async (runId: RunId, attempt: number) =>
-      current?.runId.equals(runId) && current.attempt === attempt
-        ? current
-        : null,
-  } as unknown as RunTurnsPort;
+  const turns = partial<RunTurnsPort>({
+    turnOf: (runId: RunId, attempt: number) =>
+      Promise.resolve(
+        current?.runId.equals(runId) === true && current.attempt === attempt
+          ? current
+          : null,
+      ),
+  });
   const runs = recordingRuns({
-    keep: async () => {
+    keep: () => {
       current = current && { ...current, turn: 'kept' };
+
+      return Promise.resolve();
     },
-    resume: async () => {
+    resume: () => {
       current = null;
-      return 'resumed' as const;
+      return Promise.resolve('resumed' as const);
     },
-    finish: async () => {
+    finish: () => {
       current = null;
+
+      return Promise.resolve();
     },
   });
 
   return {
     turns,
     runs,
-    hold: (facts: TurnFacts | null) => {
+    hold: (facts) => {
       current = facts;
     },
     current: () => current,
@@ -264,7 +283,7 @@ export const runLeasesOver = (
   const found = (runId: RunId): LeasedRunFacts | null => {
     const run = lookedUp();
 
-    return run?.runId.equals(runId) ? run : null;
+    return run?.runId.equals(runId) === true ? run : null;
   };
   const leased = (runId: RunId, runner: RunnerId): LeasedRunFacts | null => {
     const run = found(runId);
@@ -273,25 +292,27 @@ export const runLeasesOver = (
   };
 
   return {
-    leasedBy: async (runId, runner) => leased(runId, runner),
-    leaseOf: async (runId, runner) => {
+    leasedBy: (runId, runner) => Promise.resolve(leased(runId, runner)),
+    leaseOf: (runId, runner) => {
       const run = found(runId);
 
       if (!run) {
-        throw new RunNotFound(`Run ${runId.value} not found.`);
+        return Promise.reject(new RunNotFound(`Run ${runId.value} not found.`));
       }
       if (!isLeasedBy(run, runner)) {
-        throw new RunNotLeased(
-          `Run ${runId.value} is not leased by runner ${runner.value}.`,
+        return Promise.reject(
+          new RunNotLeased(
+            `Run ${runId.value} is not leased by runner ${runner.value}.`,
+          ),
         );
       }
 
-      return run;
+      return Promise.resolve(run);
     },
-    isStillOn: async (runId, attempt, runner) =>
-      leased(runId, runner)?.attempt === attempt,
-    claimedBy: async (runId, runner) =>
-      found(runId)?.claimedBy.equals(runner) ?? false,
+    isStillOn: (runId, attempt, runner) =>
+      Promise.resolve(leased(runId, runner)?.attempt === attempt),
+    claimedBy: (runId, runner) =>
+      Promise.resolve(found(runId)?.claimedBy.equals(runner) ?? false),
   };
 };
 

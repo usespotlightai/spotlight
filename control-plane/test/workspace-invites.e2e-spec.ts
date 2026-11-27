@@ -11,6 +11,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
@@ -52,19 +53,21 @@ describe('inviting people to a workspace (e2e)', () => {
   const tokenFor = (email: string) =>
     [...sent].reverse().find((each) => each.to === email)?.token ?? '';
   const members = async (): Promise<Member[]> =>
-    (
+    bodyOf<Member[]>(
       await as(seat.owner)
         .get(`/api/workspaces/${workspaceId}/members`)
-        .expect(200)
-    ).body as Member[];
+        .expect(200),
+    );
   const memberNamed = async (id: string) =>
     (await members()).find((each) => each.id === id);
 
   beforeAll(async () => {
     app = await openApp((module) =>
       module.overrideProvider(INVITE_MAIL).useValue({
-        send: async (invite: InviteToSend) => {
+        send: (invite: InviteToSend) => {
           sent.push(invite);
+
+          return Promise.resolve();
         },
       }),
     );
@@ -141,8 +144,9 @@ describe('inviting people to a workspace (e2e)', () => {
   });
 
   it('lists the invitations still waiting, with their role, teams and inviter', async () => {
-    const listed = (await as(seat.owner).get(invites).expect(200))
-      .body as Invite[];
+    const listed = bodyOf<Invite[]>(
+      await as(seat.owner).get(invites).expect(200),
+    );
 
     expect(listed).toHaveLength(3);
     expect(listed[0]).toMatchObject({
@@ -226,7 +230,7 @@ describe('inviting people to a workspace (e2e)', () => {
       .get(`/api/invites/${tokenFor(emailOf(ada))}`)
       .expect(200)
       .expect((read) =>
-        expect((read.body as { status: string }).status).toBe('accepted'),
+        expect(bodyOf<{ status: string }>(read).status).toBe('accepted'),
       );
     expect((await as(seat.owner).get(invites).expect(200)).body).toHaveLength(
       2,
@@ -238,17 +242,17 @@ describe('inviting people to a workspace (e2e)', () => {
       .post(invites, { emails: [emailOf(ada)], role: 'member', teamIds: [] })
       .expect(200);
 
-    expect((answer.body as { outcomes: unknown[] }).outcomes).toEqual([
+    expect(bodyOf<{ outcomes: unknown[] }>(answer).outcomes).toEqual([
       { email: emailOf(ada), outcome: 'already-a-member' },
     ]);
   });
 
   it('lists everyone in the workspace, with their role, teams, and what the caller may set', async () => {
-    const everyone = (
+    const everyone = bodyOf<Member[]>(
       await as(seat.member)
         .get(`/api/workspaces/${workspaceId}/members`)
-        .expect(200)
-    ).body as Member[];
+        .expect(200),
+    );
     const bea = (await members()).find((each) => each.id === seat.member);
 
     expect(everyone.map((each) => each.id).sort()).toEqual(
@@ -268,8 +272,8 @@ describe('inviting people to a workspace (e2e)', () => {
 
   it('sends an invitation again with a fresh link, so the old one stops working', async () => {
     const before = tokenFor(emailOf(grace));
-    const [invite] = (
-      (await as(seat.owner).get(invites).expect(200)).body as Invite[]
+    const [invite] = bodyOf<Invite[]>(
+      await as(seat.owner).get(invites).expect(200),
     ).filter((each) => each.email === emailOf(grace));
 
     const answer = await as(seat.owner)
@@ -285,8 +289,8 @@ describe('inviting people to a workspace (e2e)', () => {
   });
 
   it('takes an invitation back, so its link stops working', async () => {
-    const [invite] = (
-      (await as(seat.owner).get(invites).expect(200)).body as Invite[]
+    const [invite] = bodyOf<Invite[]>(
+      await as(seat.owner).get(invites).expect(200),
     ).filter((each) => each.email === emailOf(alan));
 
     await as(seat.member).delete(`${invites}/${invite.id}`).expect(404);
@@ -296,7 +300,7 @@ describe('inviting people to a workspace (e2e)', () => {
       .get(`/api/invites/${tokenFor(emailOf(alan))}`)
       .expect(200)
       .expect((read) =>
-        expect((read.body as { status: string }).status).toBe('revoked'),
+        expect(bodyOf<{ status: string }>(read).status).toBe('revoked'),
       );
     await as(alan)
       .post(`/api/invites/${tokenFor(emailOf(alan))}/accept`)
@@ -371,7 +375,7 @@ describe('inviting people to a workspace (e2e)', () => {
       .post(invites, { emails: [expired], role: 'member', teamIds: [] })
       .expect(200);
     const listed = async () =>
-      ((await as(seat.owner).get(invites).expect(200)).body as Invite[]).map(
+      bodyOf<Invite[]>(await as(seat.owner).get(invites).expect(200)).map(
         (each) => each.email,
       );
 

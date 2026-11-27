@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
 import { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
+import type { UpdatedPullRequest } from '@github/domain/events/pull-request-updated.event';
+import type { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
 import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleTaskActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-actions.repository';
@@ -41,8 +43,11 @@ import {
   type DispatchSupersededIntegrationEvent,
 } from '@shared-kernel/application/integration-events/dispatch-superseded.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -61,6 +66,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { endingFor } from './support/run-ended';
 import { aDispatch, requestedByTask } from './support/runs';
@@ -206,40 +212,43 @@ beforeAll(async () => {
         .at(workspaceId, PullRequestUrl.of(PULL))
     )?.ownedPullRequest ?? null;
   const updated = (version: number, merged: boolean) =>
-    new PullRequestUpdated(workspaceId, {
-      pullRequest: PullRequestUrl.of(PULL),
-      repository: { value: 'acme/api' },
-      number: 7,
-      title: 'Retry failed uploads',
-      author: 'grace',
-      authorIsBot: false,
-      branch: null,
-      additions: 1,
-      deletions: 1,
-      changedFiles: 1,
-      openedAt: ago(180),
-      state: merged ? 'merged' : 'open',
-      closedAt: merged ? ago(60) : null,
-      updatedAt: merged ? ago(60) : ago(120),
-      readyForReviewAt: ago(180),
-      draftPeriods: [],
-      reviews: [
-        {
-          id: 1,
-          state: 'approved',
-          login: 'ada',
-          byBot: false,
-          at: ago(120),
-        },
-      ],
-      dismissedReviews: [],
-      reviewComments: 0,
-      botComments: [],
-      threads: [],
-      isRevert: false,
-      revertedBy: null,
-      version,
-    } as never);
+    new PullRequestUpdated(
+      workspaceId,
+      partial<UpdatedPullRequest>({
+        pullRequest: PullRequestUrl.of(PULL),
+        repository: partial<Repository>({ value: 'acme/api' }),
+        number: 7,
+        title: 'Retry failed uploads',
+        author: 'grace',
+        authorIsBot: false,
+        branch: null,
+        additions: 1,
+        deletions: 1,
+        changedFiles: 1,
+        openedAt: ago(180),
+        state: merged ? 'merged' : 'open',
+        closedAt: merged ? ago(60) : null,
+        updatedAt: merged ? ago(60) : ago(120),
+        readyForReviewAt: ago(180),
+        draftPeriods: [],
+        reviews: [
+          partial<PullRequestReview>({
+            id: 1,
+            state: 'approved',
+            login: 'ada',
+            byBot: false,
+            at: ago(120),
+          }),
+        ],
+        dismissedReviews: [],
+        reviewComments: 0,
+        botComments: [],
+        threads: [],
+        isRevert: false,
+        revertedBy: null,
+        version,
+      }),
+    );
   const taskActions = () => app.get(DrizzleTaskActionsRepository).of(TASK);
   const failures = () => app.get(DrizzleTaskFailuresRepository).of(TASK);
   const delivered = async (
@@ -433,7 +442,7 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('what the insights context receives for a team (e2e)', () => {
@@ -467,7 +476,9 @@ describe('what the insights context receives for a team (e2e)', () => {
   });
 
   it('reads the tools a run used with each record it reads at once', async () => {
-    const [record] = await app.get(DrizzleRunRecordRepository).ofRuns([RUN]);
+    const record = firstOf(
+      await app.get(DrizzleRunRecordRepository).ofRuns([RUN]),
+    );
 
     expect(
       record?.tools?.servers.find((each) => each.server === 'linear')?.latency,
@@ -516,7 +527,7 @@ describe('what the insights context receives for a team (e2e)', () => {
 describe('the team’s insights (e2e)', () => {
   it('shows a team member the headline numbers', async () => {
     const answer = await asOwner(insights('overview'));
-    const body = answer.body as InsightsOverviewResponseDto;
+    const body = bodyOf<InsightsOverviewResponseDto>(answer);
 
     expect(answer.status).toBe(200);
     expect(body.period.name).toBe('7d');
@@ -542,7 +553,7 @@ describe('the team’s insights (e2e)', () => {
 
   it('lays the run and its merge out by day, against an empty period before', async () => {
     const answer = await asOwner(insights('overview'));
-    const body = answer.body as InsightsOverviewResponseDto;
+    const body = bodyOf<InsightsOverviewResponseDto>(answer);
     const { output } = body;
 
     expect(output).toHaveLength(7);
@@ -566,7 +577,7 @@ describe('the team’s insights (e2e)', () => {
     const token = await issued(team, ['read']);
 
     const answer = await bearing(insights('traces', 'range=7d'), token);
-    const body = answer.body as InsightsTracesResponseDto;
+    const body = bodyOf<InsightsTracesResponseDto>(answer);
 
     expect(answer.status).toBe(200);
     expect(body.matched).toBe(1);
@@ -623,18 +634,18 @@ describe('the team’s insights (e2e)', () => {
     const token = await issued(team, ['read']);
 
     const answer = await bearing(insights('agent-configs'), token);
-    const all = answer.body as InsightsAgentConfigsResponseDto;
-    const medium = (
+    const all = bodyOf<InsightsAgentConfigsResponseDto>(answer);
+    const medium = bodyOf<InsightsAgentConfigsResponseDto>(
       await asOwner(
         insights(
           'agent-configs',
           `period=7d&stationId=${team.stationId.value}&size=medium`,
         ),
-      )
-    ).body as InsightsAgentConfigsResponseDto;
-    const small = (
-      await asOwner(insights('agent-configs', 'period=7d&size=small'))
-    ).body as InsightsAgentConfigsResponseDto;
+      ),
+    );
+    const small = bodyOf<InsightsAgentConfigsResponseDto>(
+      await asOwner(insights('agent-configs', 'period=7d&size=small')),
+    );
 
     expect(answer.status).toBe(200);
     expect(all.agentConfigs).toEqual([
@@ -669,7 +680,7 @@ describe('the team’s insights (e2e)', () => {
 
   it('shows no config change while each station ran one config', async () => {
     const answer = await asOwner(insights('changes'));
-    const body = answer.body as InsightsChangesResponseDto;
+    const body = bodyOf<InsightsChangesResponseDto>(answer);
 
     expect(answer.status).toBe(200);
     expect(body.markers).toEqual([]);
@@ -678,7 +689,7 @@ describe('the team’s insights (e2e)', () => {
 
   it('sets runs with memories against runs without', async () => {
     const answer = await asOwner(insights('memory'));
-    const body = answer.body as InsightsMemoryResponseDto;
+    const body = bodyOf<InsightsMemoryResponseDto>(answer);
 
     expect(answer.status).toBe(200);
     expect(answer.body).toMatchObject({
@@ -700,18 +711,15 @@ describe('the team’s insights (e2e)', () => {
     );
     const failed = await asOwner(insights('traces', 'range=7d&outcome=failed'));
 
-    expect((atStation.body as InsightsTracesResponseDto).matched).toBe(1);
-    expect((elsewhereStation.body as InsightsTracesResponseDto).matched).toBe(
-      0,
-    );
-    expect((failed.body as InsightsTracesResponseDto).matched).toBe(0);
+    expect(bodyOf<InsightsTracesResponseDto>(atStation).matched).toBe(1);
+    expect(bodyOf<InsightsTracesResponseDto>(elsewhereStation).matched).toBe(0);
+    expect(bodyOf<InsightsTracesResponseDto>(failed).matched).toBe(0);
   });
 
   it('drills down by pull request state, human action, resolution, inbox asks, tasks, the harness’s own model and no repository', async () => {
     const total = async (query: string) =>
-      (
-        (await asOwner(insights('traces', `range=7d&${query}`)))
-          .body as InsightsTracesResponseDto
+      bodyOf<InsightsTracesResponseDto>(
+        await asOwner(insights('traces', `range=7d&${query}`)),
       ).matched;
 
     expect(await total('pullRequestState=merged')).toBe(1);
@@ -749,9 +757,8 @@ describe('the team’s insights (e2e)', () => {
 
   it('drills down by the skills and MCP servers a run used, and the tools a person dismissed', async () => {
     const total = async (query: string) =>
-      (
-        (await asOwner(insights('traces', `range=7d&${query}`)))
-          .body as InsightsTracesResponseDto
+      bodyOf<InsightsTracesResponseDto>(
+        await asOwner(insights('traces', `range=7d&${query}`)),
       ).matched;
     const ended = new Date(NOW - 240 * MINUTE);
     const monday = new Date(
@@ -796,7 +803,7 @@ describe('the team’s insights (e2e)', () => {
 
   it('shows which skills runs had enabled and read, and how each MCP server behaved', async () => {
     const answer = await asOwner(insights('tools'));
-    const body = answer.body as InsightsToolsResponseDto;
+    const body = bodyOf<InsightsToolsResponseDto>(answer);
 
     expect(answer.status).toBe(200);
     expect(body.runs).toBe(1);
@@ -853,9 +860,10 @@ describe('the team’s insights (e2e)', () => {
     const page = await asOwner(
       `/api/teams/${team.teamId.value}/lines/${team.line.id.value}/stations/${team.stationId.value}/insights`,
     );
-    const tab = (await asOwner(insights('stations')))
-      .body as InsightsStationsResponseDto;
-    const { groups } = page.body as StationInsightsResponseDto;
+    const tab = bodyOf<InsightsStationsResponseDto>(
+      await asOwner(insights('stations')),
+    );
+    const { groups } = bodyOf<StationInsightsResponseDto>(page);
 
     expect(page.status).toBe(200);
     expect(groups).toHaveLength(1);
@@ -865,7 +873,7 @@ describe('the team’s insights (e2e)', () => {
 
   it('shows each station’s tally and its task failures apart from its run failures', async () => {
     const answer = await asOwner(insights('stations'));
-    const body = answer.body as InsightsStationsResponseDto;
+    const body = bodyOf<InsightsStationsResponseDto>(answer);
 
     expect(answer.status).toBe(200);
     expect(body.stations[0]).toMatchObject({
@@ -905,7 +913,7 @@ describe('the team’s insights (e2e)', () => {
 
   it('shows where the task waited, on to its merge', async () => {
     const answer = await asOwner(insights('flow'));
-    const body = answer.body as InsightsFlowResponseDto;
+    const body = bodyOf<InsightsFlowResponseDto>(answer);
 
     expect(answer.status).toBe(200);
     expect(body.flow.stations[0]).toMatchObject({
@@ -925,7 +933,7 @@ describe('the team’s insights (e2e)', () => {
 
   it('shows what the work asks of people and who uses it, calling nobody new who set the team up long before', async () => {
     const answer = await asOwner(insights('people'));
-    const body = answer.body as InsightsPeopleResponseDto;
+    const body = bodyOf<InsightsPeopleResponseDto>(answer);
 
     expect(answer.status).toBe(200);
     expect(body.load).toMatchObject({
@@ -952,7 +960,7 @@ describe('the team’s insights (e2e)', () => {
 
   it('splits spend by model, station and repository', async () => {
     const answer = await asOwner(insights('cost'));
-    const body = answer.body as InsightsCostResponseDto;
+    const body = bodyOf<InsightsCostResponseDto>(answer);
 
     expect(answer.status).toBe(200);
     expect(body.cost.cache).toEqual({
@@ -994,9 +1002,8 @@ describe('the team’s insights (e2e)', () => {
 
 describe('the team’s Tools tab and its drill-downs (e2e)', () => {
   const total = async (query: string) =>
-    (
-      (await asOwner(insights('traces', `range=7d&${query}`)))
-        .body as InsightsTracesResponseDto
+    bodyOf<InsightsTracesResponseDto>(
+      await asOwner(insights('traces', `range=7d&${query}`)),
     ).matched;
 
   it('leaves a run cancelled before it ran out of the runs with a skill enabled, as the tab does', async () => {
@@ -1066,7 +1073,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
 
     const tools = await asOwner(insights('tools'));
 
-    expect((tools.body as InsightsToolsResponseDto).skills).toEqual([
+    expect(bodyOf<InsightsToolsResponseDto>(tools).skills).toEqual([
       expect.objectContaining({ key: 'grafana', enabled: 1 }),
     ]);
     expect(await total('skillEnabled=grafana')).toBe(1);
@@ -1235,7 +1242,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
               tool,
             ),
         ),
-        ...(seed.superseded ? [superseded] : []),
+        ...(seed.superseded === true ? [superseded] : []),
       ]);
     await eventually(async () => {
       await app.get(EventDelivery).drain(2_000);
@@ -1289,7 +1296,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       dismissed: [CalledTool.of({ server: null, tool: 'github.merge' })],
     });
 
-    const tools = (await asOwner(insights('tools'))).body as {
+    const tools = bodyOf<{
       servers: {
         server: string;
         runs: number;
@@ -1298,7 +1305,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       }[];
       skills: { key: string; enabled: number; used: number }[];
       dismissals: { tool: string; server: string | null; dismissed: number }[];
-    };
+    }>(await asOwner(insights('tools')));
 
     expect(tools.skills.length).toBeGreaterThan(0);
     expect(tools.servers).toEqual(

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
 import { TabSection } from '@/components/features/stations/TabSection';
 import type { TileBones } from '@/lib/insights-tiles';
@@ -19,7 +21,9 @@ type SummarySkeletonProps = {
   period: ActivityPeriod;
 };
 
-export function SummarySkeleton({ period }: SummarySkeletonProps) {
+export function SummarySkeleton({
+  period,
+}: SummarySkeletonProps): ReactElement {
   const title = summaryTitleOf(period);
 
   return (

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { TONE_FILL } from '@/components/shared/outcome-tones';
 import {
   outcomeTone,
@@ -20,7 +22,11 @@ const summaryOf = (runs: readonly StationRunOutcome[]): string => {
 
 const SHOWN = 16;
 
-export function RunStrip({ runs }: { runs: readonly StationRunOutcome[] }) {
+export function RunStrip({
+  runs,
+}: {
+  runs: readonly StationRunOutcome[];
+}): ReactElement {
   const latest = runs.slice(-SHOWN);
 
   return (

@@ -17,9 +17,10 @@ export class RedisConnection implements OnApplicationShutdown {
     url: string | undefined,
     private readonly logger: LoggerPort,
   ) {
-    this.client = url
-      ? this.watched(new IORedis(url, { commandTimeout: COMMAND_TIMEOUT_MS }))
-      : null;
+    this.client =
+      url !== undefined && url !== ''
+        ? this.watched(new IORedis(url, { commandTimeout: COMMAND_TIMEOUT_MS }))
+        : null;
   }
 
   pubSub(): RedisPubSub | null {

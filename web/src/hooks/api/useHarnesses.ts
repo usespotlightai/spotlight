@@ -1,13 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useParams } from 'react-router';
 
-import { listHarnesses } from '@/lib/api';
+import { listHarnesses, type HarnessResponseDto } from '@/lib/api';
 
 export const harnessKeys = {
   forWorkspace: (slug: string) => ['harnesses', slug] as const,
 };
 
-export function useHarnesses() {
+export function useHarnesses(): UseQueryResult<HarnessResponseDto[]> {
   const { slug = '' } = useParams();
 
   return useQuery({

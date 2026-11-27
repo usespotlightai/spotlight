@@ -26,6 +26,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -38,7 +39,8 @@ const toRecord = (row: RecordRow): RunRecord =>
   RunRecord.rehydrate({
     runId: RunId.of(row.runId),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    taskId: row.taskId ? TaskId.of(row.taskId) : null,
+    taskId:
+      row.taskId !== null && row.taskId !== '' ? TaskId.of(row.taskId) : null,
     end: endOf(row, 'run record'),
     supersededAt: row.supersededAt,
     asked: row.asked,
@@ -113,11 +115,13 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
   }
 
   async of(runId: RunId): Promise<RunRecord | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(runRecord)
-      .where(eq(runRecord.runId, runId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(runRecord)
+        .where(eq(runRecord.runId, runId.value))
+        .limit(1),
+    );
 
     return row ? toRecord(row) : null;
   }

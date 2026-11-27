@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { PlanHeredoc } from '@/components/features/insights/changes/PlanHeredoc';
 import { PlanLeafRow } from '@/components/features/insights/changes/PlanLeafRow';
 import { PlanRow } from '@/components/features/insights/changes/PlanRow';
@@ -12,8 +14,12 @@ type ConfigPlanProps = {
   firstLine?: boolean;
 };
 
-export function ConfigPlan({ entries, firstLine = false }: ConfigPlanProps) {
+export function ConfigPlan({
+  entries,
+  firstLine = false,
+}: ConfigPlanProps): ReactElement {
   const width = planNameWidth(entries);
+  const first = entries.at(0);
 
   if (firstLine) {
     return (
@@ -22,7 +28,7 @@ export function ConfigPlan({ entries, firstLine = false }: ConfigPlanProps) {
         data-slot="config-plan"
         className="min-w-0 font-mono text-xs text-foreground leading-4"
       >
-        {entries[0] && <FirstRow entry={entries[0]} width={width} />}
+        {first !== undefined && <FirstRow entry={first} width={width} />}
         <li aria-hidden className="h-4" />
       </ul>
     );

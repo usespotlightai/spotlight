@@ -128,7 +128,10 @@ export class Work implements WorkPort {
       notes?.map((each) => ({
         position: each.position,
         by: each.by,
-        author: each.author ? UserId.of(each.author) : null,
+        author:
+          each.author !== null && each.author !== ''
+            ? UserId.of(each.author)
+            : null,
         text: each.text,
       })) ?? null
     );

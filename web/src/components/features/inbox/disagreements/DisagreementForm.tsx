@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { type ReactElement, useId, useState } from 'react';
 
 import { DisagreementNote } from '@/components/features/inbox/disagreements/DisagreementNote';
 import { NotMetClaimPick } from '@/components/features/inbox/disagreements/NotMetClaimPick';
@@ -27,7 +27,7 @@ export function DisagreementForm({
   disagreement,
   pending,
   onAnswer,
-}: DisagreementFormProps) {
+}: DisagreementFormProps): ReactElement {
   const formId = useId();
   const [draft, setDraft] = useState<NotMetDraft>(EMPTY_NOT_MET_DRAFT);
   const answer = notMetAnswerOf(draft);

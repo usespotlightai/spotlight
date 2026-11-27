@@ -3,27 +3,31 @@ import type { EventDelivery } from '@platform/events/event-delivery';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { AdminEventWebhookController } from '@platform/http/controllers/admin-event-webhook.controller';
 import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const controller = (registered: boolean) => {
-  const redeliver = vi.fn(async () => ({ queued: 3, truncated: false }));
+  const redeliver = vi.fn(() =>
+    Promise.resolve({ queued: 3, truncated: false }),
+  );
   const subscribers = new EventSubscribers();
 
   if (registered) {
     subscribers.registerSink({
-      subscriber: subscribing(
-        'platform.send-event-webhook',
-        [],
-        async () => [],
+      subscriber: subscribing('platform.send-event-webhook', [], () =>
+        Promise.resolve([]),
       ),
       prefixes: [''],
       retry: null,
     });
   }
 
-  const admin = new AdminEventWebhookController(subscribers, {
-    redeliver,
-  } as unknown as EventDelivery);
+  const admin = new AdminEventWebhookController(
+    subscribers,
+    partial<EventDelivery>({
+      redeliver,
+    }),
+  );
 
   return { admin, redeliver };
 };

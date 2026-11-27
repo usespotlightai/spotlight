@@ -1,3 +1,4 @@
+import type { ScoreFields } from '@insights/domain/aggregates/score.aggregate';
 import { Citation } from '@insights/domain/value-objects/citation.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
@@ -52,7 +53,7 @@ export const storedReasonOf = (reason: JudgeReason): StoredReason => ({
   claim: reason.claim,
 });
 
-export const scoreFieldsOfRow = (row: ScoreRow) => ({
+export const scoreFieldsOfRow = (row: ScoreRow): ScoreFields => ({
   id: ScoreId.of(row.id),
   runId: RunId.of(row.runId),
   workspaceId: WorkspaceId.of(row.workspaceId),

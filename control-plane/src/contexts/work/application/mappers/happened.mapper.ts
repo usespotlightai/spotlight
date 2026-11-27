@@ -46,13 +46,16 @@ const reviewOf = (
 
   return ReviewRequest.of({
     trigger: reviewTrigger(review.trigger),
-    label: review.label?.trim() || null,
+    label: (review.label?.trim() ?? '') || null,
     pullRequest: PullRequestUrl.of(review.pullRequest),
-    author: review.author?.trim() || null,
+    author: (review.author?.trim() ?? '') || null,
     // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare -- a stored payload may lack it, and then it is outside
     outside: review.outside !== false,
     draft: review.draft,
-    branch: review.branch ? Branch.of(review.branch) : null,
+    branch:
+      review.branch !== null && review.branch !== ''
+        ? Branch.of(review.branch)
+        : null,
   });
 };
 
@@ -81,18 +84,24 @@ export const HappenedMapper = {
         summary: happened.summary,
         answers: happened.answers,
         state: happened.state,
-        closedPullRequest: happened.closedPullRequest
-          ? PullRequestUrl.of(happened.closedPullRequest)
-          : null,
+        closedPullRequest:
+          happened.closedPullRequest !== null &&
+          happened.closedPullRequest !== undefined &&
+          happened.closedPullRequest !== ''
+            ? PullRequestUrl.of(happened.closedPullRequest)
+            : null,
       },
       correlationKeys,
       anchor: happened.message ? Anchor.of(happened.message) : null,
-      authorEmail: happened.authorEmail?.trim() || null,
+      authorEmail: (happened.authorEmail?.trim() ?? '') || null,
       ourOwn: happened.ourOwn,
       opens: opens
         ? {
             lineRole: LineRole.of(opens.lineRole),
-            station: opens.station ? StationKey.parsed(opens.station) : null,
+            station:
+              opens.station !== null && opens.station !== ''
+                ? StationKey.parsed(opens.station)
+                : null,
             title: opens.title,
             description: opens.description,
             assignEmail: opens.assignEmail,
@@ -102,7 +111,7 @@ export const HappenedMapper = {
         : null,
       chat: happened.chat
         ? {
-            email: happened.chat.email?.trim() || null,
+            email: (happened.chat.email?.trim() ?? '') || null,
             harness: happened.chat.harness,
             marks: happened.chat.marks.map((each) =>
               ChatMark.of(HappenedMapper.markOf(each), each.finds),

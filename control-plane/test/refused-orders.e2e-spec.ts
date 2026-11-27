@@ -5,6 +5,7 @@ import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { RUNS, type RunsPort } from '@runs/application/ports/runs.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -77,7 +78,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('a task run whose order the catalog refuses (e2e)', () => {
@@ -147,10 +148,12 @@ describe('a task run whose order the catalog refuses (e2e)', () => {
       return written.length > 0 ? written : null;
     }, 30_000);
 
-    const [run] = await db
-      .select({ state: schema.run.state })
-      .from(schema.run)
-      .where(eq(schema.run.id, runId));
+    const run = firstOf(
+      await db
+        .select({ state: schema.run.state })
+        .from(schema.run)
+        .where(eq(schema.run.id, runId)),
+    );
     expect(run?.state).toBe('failed');
     expect(notes).toEqual([
       expect.objectContaining({

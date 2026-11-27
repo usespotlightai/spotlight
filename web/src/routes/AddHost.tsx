@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Navigate, useParams } from 'react-router';
 
 import { AddHostSteps } from '@/components/features/runners/AddHostSteps';
@@ -12,16 +13,18 @@ import { isAdmin } from '@/lib/role';
 import { runnersPath } from '@/lib/runner';
 import { useTrail } from '@/lib/trail';
 
-export function AddHost() {
+export function AddHost(): ReactElement | null {
   const { slug } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const base: BreadcrumbSegment[] = [
-    ...(slug ? [{ label: 'Runners', to: runnersPath(slug) }] : []),
+    ...(slug !== undefined && slug !== ''
+      ? [{ label: 'Runners', to: runnersPath(slug) }]
+      : []),
     { label: 'Add a host' },
   ];
   const { trail } = useTrail(base);
 
-  if (!slug) {
+  if (slug === undefined || slug === '') {
     return null;
   }
 

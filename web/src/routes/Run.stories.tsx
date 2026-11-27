@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { hoursAgo } from '@/mocks/clock';
+import { entryOf } from '@/mocks/entry';
 import { world } from '@/mocks/world';
 import { onHoldBy } from '@/mocks/world/holds';
 import { MAYA, SAM } from '@/mocks/world/people';
@@ -65,7 +66,7 @@ const meta = {
     world: ({ hold, waiting }) => {
       if (waiting !== 'none') {
         world().runs.task_retries = waitingFor(
-          world().runs.task_retries ?? [],
+          entryOf(world().runs, 'task_retries') ?? [],
           waiting,
           hoursAgo(0.1),
         );

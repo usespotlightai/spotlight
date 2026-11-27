@@ -1,5 +1,5 @@
 import { Play } from 'lucide-react';
-import { useRef } from 'react';
+import { type ReactElement, useRef } from 'react';
 
 import { RunRow } from '@/components/features/runs/RunRow';
 import { TeamRunsSkeleton } from '@/components/features/runs/TeamRunsSkeleton';
@@ -34,7 +34,13 @@ import { cn } from '@/lib/utils';
 const STORAGE_KEY = 'spotlight.collapsed-run-ages';
 const FILTER_KEY = 'spotlight.run-filter';
 
-export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
+export function TeamRuns({
+  slug,
+  teamId,
+}: {
+  slug: string;
+  teamId: string;
+}): ReactElement {
   const prefetch = usePrefetchTaskJournal(slug);
   const runs = useTeamRuns(teamId);
   const ages = useCollapsed(STORAGE_KEY);
@@ -136,7 +142,9 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
                       gutter
                       to={runPath(slug, teamId, run.id)}
                       onIntent={() =>
-                        run.taskId && prefetch(run.taskId, [run.id])
+                        run.taskId !== null &&
+                        run.taskId !== '' &&
+                        prefetch(run.taskId, [run.id])
                       }
                       taskTitle={run.taskTitle}
                       reviewTo={

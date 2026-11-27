@@ -1,4 +1,4 @@
-import { Children, type ReactNode } from 'react';
+import { Children, type ReactElement, type ReactNode } from 'react';
 
 import { tileGridOf } from '@/lib/insights-tiles';
 import { cn } from '@/lib/utils';
@@ -11,7 +11,7 @@ export function InsightsTiles({
   label: string;
   className?: string;
   children: ReactNode;
-}) {
+}): ReactElement {
   const count = Children.toArray(children).length;
 
   return (

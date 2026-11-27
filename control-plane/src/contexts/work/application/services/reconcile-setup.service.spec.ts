@@ -1,5 +1,7 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -24,6 +26,7 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
+import type { Mock } from 'vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const TEAM = TeamId.of('123e4567-e89b-42d3-a456-426614174000');
@@ -82,25 +85,25 @@ const done: SetupState = {
 
 const reconciling = (options: { task?: Task; state?: SetupState } = {}) => {
   const task = options.task ?? list();
-  const save = vi.fn(async () => {});
+  const save = vi.fn((_task: Task) => Promise.resolve());
 
   const tasks = {
     save,
-    settingUpIn: vi.fn(async () => [task]),
-    settingUp: vi.fn(async () => [task]),
-    withTurnAnsweredBetween: vi.fn(async () => []),
-    settingUpFor: vi.fn(async () => task),
-  } as unknown as TaskRepository;
+    settingUpIn: vi.fn(() => Promise.resolve([task])),
+    settingUp: vi.fn(() => Promise.resolve([task])),
+    withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
+    settingUpFor: vi.fn(() => Promise.resolve(task)),
+  } satisfies Partial<TaskRepository>;
 
-  const setup = {
-    stateFor: vi.fn(async () => options.state ?? done),
-  } as unknown as SetupStatus;
+  const setup = partial<SetupStatus>({
+    stateFor: vi.fn(() => Promise.resolve(options.state ?? done)),
+  });
 
-  const lines = {
-    findByStation: vi.fn(async () => DELIVERY),
-  } as unknown as LineMapsPort;
+  const lines = partial<LineMapsPort>({
+    findByStation: vi.fn(() => Promise.resolve(DELIVERY)),
+  });
 
-  const logger = { warn: vi.fn(), error: vi.fn() } as unknown as LoggerPort;
+  const logger = partial<LoggerPort>({ warn: vi.fn(), error: vi.fn() });
 
   return {
     save,
@@ -108,18 +111,25 @@ const reconciling = (options: { task?: Task; state?: SetupState } = {}) => {
     logger,
     setup,
     service: new ReconcileSetup(
-      tasks,
+      partial<TaskRepository>(tasks),
       lines,
       setup,
-      { now: () => NOW } as ClockPort,
+      partial<ClockPort>({ now: () => NOW }),
       logger,
       { inTransaction: (work) => work() },
     ),
   };
 };
 
-const savedTask = (save: ReturnType<typeof vi.fn>): Task =>
-  save.mock.calls[0]?.[0] as Task;
+const savedTask = (save: Mock<(task: Task) => Promise<void>>): Task => {
+  const saved = firstOf(save.mock.calls)?.[0];
+
+  if (!saved) {
+    throw new Error('expected a saved task');
+  }
+
+  return saved;
+};
 
 beforeEach(() => {
   ids = 0;
@@ -165,7 +175,8 @@ describe('ReconcileSetup', () => {
 
     await service.forWorkspace(WORKSPACE);
 
-    const last = savedTask(save).notes[savedTask(save).notes.length - 1];
+    const { notes } = savedTask(save);
+    const last = itemAt(notes, notes.length - 1);
     expect(last?.voice.isStation).toBe(true);
     expect(last?.station).toEqual(StationName.of('Inbox'));
     expect(last?.body).toEqual(
@@ -227,9 +238,7 @@ describe('ReconcileSetup', () => {
 
   it('says so and carries on where the lists cannot be looked for', async () => {
     const { service, tasks, logger } = reconciling();
-    (tasks.settingUpIn as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error('nope'),
-    );
+    tasks.settingUpIn.mockRejectedValue(new Error('nope'));
 
     await expect(service.forWorkspace(WORKSPACE)).resolves.toBeUndefined();
     expect(logger.warn).toHaveBeenCalled();
@@ -237,9 +246,7 @@ describe('ReconcileSetup', () => {
 
   it('says so and carries on where a list cannot be reconciled', async () => {
     const { service, tasks, logger } = reconciling();
-    (tasks.save as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error('nope'),
-    );
+    tasks.save.mockRejectedValue(new Error('nope'));
 
     await expect(service.forWorkspace(WORKSPACE)).resolves.toBeUndefined();
     expect(logger.warn).toHaveBeenCalled();

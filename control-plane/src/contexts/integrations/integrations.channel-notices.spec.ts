@@ -23,11 +23,13 @@ import {
   callingNoServer,
   discoveringNothing,
 } from '@integrations/integrations.mcp.fake-spec';
+import { valueAt } from '@integrations/integrations.requests.fake-spec';
 import {
   callAuthFor,
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { ChannelNoticeDto } from '@work/application/ports/channel-notices.port';
 import type { TaskLinksPort } from '@work/application/ports/task-links.port';
 import { describe, expect, it, vi } from 'vitest';
@@ -51,15 +53,15 @@ const channelNotices = (...args: ConstructorParameters<typeof NotifyChannel>) =>
 const expressions = new CelExpressionEngine();
 
 const runtimeWith = (
-  outbound: unknown,
-  exchange: unknown = {},
+  outbound: Partial<HttpOutbound>,
+  exchange: Partial<OAuth2Exchange> = {},
   clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsContaining()),
-    outbound as HttpOutbound,
+    partial<HttpOutbound>(outbound),
     clients,
-    exchange as OAuth2Exchange,
+    partial<OAuth2Exchange>(exchange),
     discoveringNothing(),
     callingNoServer(),
     unlimited,
@@ -103,27 +105,30 @@ const notice = (input: Partial<ChannelNoticeDto> = {}): ChannelNoticeDto => ({
 
 const notifying = (definition = SLACK) => {
   const run = vi.fn(
-    async (
+    (
       _action: unknown,
       _against: Record<string, unknown>,
       _credentials?: Credentials,
-    ): Promise<OutboundResult> => ({
-      ok: true,
-      status: 200,
-      response: { ok: true, ts: '1700.2' },
-      capture: {},
-    }),
+    ): Promise<OutboundResult> =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        response: { ok: true, ts: '1700.2' },
+        capture: {},
+      }),
   );
   const warn = vi.fn();
 
   const notices = channelNotices(
-    {
-      ofTeam: vi.fn(async () => [defined(definition)]),
-    } as unknown as DefinedIntegrationsPort,
+    partial<DefinedIntegrationsPort>({
+      ofTeam: vi.fn(() => Promise.resolve([defined(definition)])),
+    }),
     runtimeWith({ run }),
     callAuthFor(injecting().injection),
     new WebInboxLinks(
-      { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
+      partial<WorkspaceReaderPort>({
+        slugOf: vi.fn(() => Promise.resolve('acme')),
+      }),
       taskLinks,
     ),
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -133,14 +138,7 @@ const notifying = (definition = SLACK) => {
 };
 
 const posted = (run: ReturnType<typeof notifying>['run']) =>
-  run.mock.calls[0]?.[1] as {
-    reply: {
-      body: string;
-      link: string | null;
-      proposals: readonly unknown[];
-    };
-    target: { channel?: string; thread?: string };
-  };
+  run.mock.calls[0]?.[1];
 
 describe('ChannelNotices', () => {
   it('posts a reply into the thread of the chat, with a link to the chat', async () => {
@@ -149,8 +147,11 @@ describe('ChannelNotices', () => {
     await notices.notify(notice(), 'chat.replied');
 
     const action = posted(run);
-    expect(action.target).toEqual({ channel: 'C1', thread: '1700.1' });
-    expect(action.reply).toEqual({
+    expect(valueAt(action, 'target')).toEqual({
+      channel: 'C1',
+      thread: '1700.1',
+    });
+    expect(valueAt(action, 'reply')).toEqual({
       body: 'They time out.',
       link: 'https://app.example/w/acme/team/team_1/agent/chat_1',
       proposals: [],
@@ -162,7 +163,7 @@ describe('ChannelNotices', () => {
 
     await notices.notify(notice({ taskId: 'task_9' }), 'chat.replied');
 
-    expect(posted(run).reply.link).toBe(
+    expect(valueAt(posted(run), 'reply', 'link')).toBe(
       'https://app.example/w/acme/team/team_1/tasks/task_9',
     );
   });
@@ -182,9 +183,7 @@ describe('ChannelNotices', () => {
     await notices.notify(notice(), 'chat.run-assigned');
 
     expect(
-      run.mock.calls.map(
-        (each) => (each[1] as { target: { thread: string } }).target.thread,
-      ),
+      run.mock.calls.map((each) => valueAt(each[1], 'target', 'thread')),
     ).toEqual(['first', 'second']);
   });
 
@@ -218,7 +217,7 @@ describe('ChannelNotices', () => {
 
     await notices.notify(notice({ proposals: [proposal] }), 'chat.replied');
 
-    expect(posted(run).reply.proposals).toEqual([proposal]);
+    expect(valueAt(posted(run), 'reply', 'proposals')).toEqual([proposal]);
   });
 
   it('posts nothing for an event the integration does not bind', async () => {

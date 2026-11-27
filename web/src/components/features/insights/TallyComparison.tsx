@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ComparedLabel } from '@/components/features/insights/ComparedLabel';
 import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import {
@@ -23,7 +25,7 @@ export function TallyComparison({
   runs,
   verdicts,
   extra = [],
-}: TallyComparisonProps) {
+}: TallyComparisonProps): ReactElement {
   return (
     <table
       aria-label={label}

@@ -1,12 +1,14 @@
 import { createHmac } from 'node:crypto';
 
 import { GitHubWebhookSignature } from '@github/infrastructure/github/github-webhook.signature';
+import type { Env } from '@platform/config/env.schema';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const SECRET = 'a shared secret';
-const signing = new GitHubWebhookSignature({
-  GITHUB_WEBHOOK_SECRET: SECRET,
-} as never);
+const signing = new GitHubWebhookSignature(
+  partial<Env>({ GITHUB_WEBHOOK_SECRET: SECRET }),
+);
 
 const body = Buffer.from('{"action":"closed"}');
 const signed = (payload: Buffer, secret = SECRET) =>
@@ -32,9 +34,9 @@ describe('GitHubWebhookSignature', () => {
   });
 
   it('rejects everything where no secret was ever set', () => {
-    const unset = new GitHubWebhookSignature({
-      GITHUB_WEBHOOK_SECRET: '',
-    } as never);
+    const unset = new GitHubWebhookSignature(
+      partial<Env>({ GITHUB_WEBHOOK_SECRET: '' }),
+    );
 
     expect(unset.signs(body, signed(body, ''))).toBe(false);
   });

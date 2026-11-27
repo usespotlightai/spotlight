@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from 'react';
+import type { ComponentType, ReactNode, ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,7 @@ export function EmptyState({
   action,
   className,
   children,
-}: EmptyStateProps) {
+}: EmptyStateProps): ReactElement {
   return (
     <div
       className={cn(
@@ -28,7 +28,7 @@ export function EmptyState({
 
       <div className="flex flex-col gap-1">
         <p className="font-medium text-foreground text-sm">{title}</p>
-        {children && (
+        {Boolean(children) && (
           <p className="text-muted-foreground text-sm">{children}</p>
         )}
       </div>

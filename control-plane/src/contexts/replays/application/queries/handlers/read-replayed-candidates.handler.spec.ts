@@ -37,6 +37,7 @@ import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -113,9 +114,9 @@ describe('ReadReplayedCandidatesHandler', () => {
   });
 
   it('leaves out a candidate no search found', async () => {
-    const set = (await memory.setRepository.find(
-      ReplaySetId.of('set_1'),
-    )) as ReplaySet;
+    const set = present(
+      await memory.setRepository.find(ReplaySetId.of('set_1')),
+    );
     const elsewhere = candidateOf('searched', 'candidate_elsewhere');
 
     await memory.candidateRepository.add(elsewhere);
@@ -188,9 +189,9 @@ describe('ReadReplayedCandidatesHandler', () => {
   });
 
   it('covers the newest replays of the period, saying when it left older ones out, yet keeps the searches its sets started in it', async () => {
-    const set = (await memory.setRepository.find(
-      ReplaySetId.of('set_1'),
-    )) as ReplaySet;
+    const set = present(
+      await memory.setRepository.find(ReplaySetId.of('set_1')),
+    );
     const elsewhere = candidateOf('searched', 'candidate_elsewhere');
 
     for (let each = 0; each < MAX_REPLAYED; each += 1) {

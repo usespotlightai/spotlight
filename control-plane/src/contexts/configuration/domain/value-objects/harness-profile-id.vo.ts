@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class HarnessProfileId {
-  private readonly kind = 'harness-profile';
+  private readonly kind: string = 'harness-profile';
 
   private constructor(readonly value: string) {}
 

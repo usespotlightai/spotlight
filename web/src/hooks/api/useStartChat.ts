@@ -1,9 +1,13 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { chatKeys } from '@/hooks/api/useChats';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { journalKeys } from '@/hooks/api/useRunJournals';
-import { startChat } from '@/lib/api';
+import { startChat, type ChatResponseDto } from '@/lib/api';
 import type { ChatSetup } from '@/lib/chat';
 import { refreshAfterWrite } from '@/lib/live-writes';
 
@@ -20,7 +24,11 @@ type StartChatInput = {
   setup?: ChatSetup;
 };
 
-export function useStartChat() {
+export function useStartChat(): UseMutationResult<
+  ChatResponseDto,
+  Error,
+  StartChatInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -31,7 +39,7 @@ export function useStartChat() {
         throwOnError: true,
       });
       queryClient.setQueryData(chatKeys.one(data.id), data);
-      if (data.runId) {
+      if (data.runId !== null && data.runId !== '') {
         const fresh = { updatedAt: 0 };
         queryClient.setQueryData(
           journalKeys.runsOfChat(data.id),

@@ -65,9 +65,12 @@ export class CompleteRunHandler implements CommandHandlerPort<
               attachments: files.map((each) => HandedOverFile.of(each)),
             })
           : null,
-        session: command.sessionId
-          ? HarnessSession.of(command.sessionId)
-          : null,
+        session:
+          command.sessionId !== undefined &&
+          command.sessionId !== null &&
+          command.sessionId !== ''
+            ? HarnessSession.of(command.sessionId)
+            : null,
         heads: command.heads.map((each) => CheckoutHead.of(each)),
       });
 

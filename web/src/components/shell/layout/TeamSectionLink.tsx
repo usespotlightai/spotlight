@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { TEAM_SECTIONS, type TeamSectionId, teamSectionPath } from '@/lib/team';
 
@@ -11,7 +13,7 @@ export function TeamSectionLink({
   slug,
   teamId,
   section,
-}: TeamSectionLinkProps) {
+}: TeamSectionLinkProps): ReactElement {
   const { label, icon } = TEAM_SECTIONS[section];
 
   return (

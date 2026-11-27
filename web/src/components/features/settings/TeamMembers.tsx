@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { InviteDialog } from '@/components/features/members/InviteDialog';
 import { AddTeamMember } from '@/components/features/settings/AddTeamMember';
@@ -18,7 +18,12 @@ type TeamMembersProps = {
   teams: readonly Team[];
 };
 
-export function TeamMembers({ slug, teamId, admin, teams }: TeamMembersProps) {
+export function TeamMembers({
+  slug,
+  teamId,
+  admin,
+  teams,
+}: TeamMembersProps): ReactElement {
   const members = useMembers(teamId);
   const changeRole = useChangeMemberRole(slug);
   const [inviting, setInviting] = useState(false);
@@ -70,7 +75,7 @@ export function TeamMembers({ slug, teamId, admin, teams }: TeamMembersProps) {
             onOffer={member.assignableRoles}
             onChange={(role) => changeRole.mutate({ userId: member.id, role })}
             pending={
-              changeRole.isPending && changeRole.variables?.userId === member.id
+              changeRole.isPending && changeRole.variables.userId === member.id
             }
           />
         ))}
@@ -82,7 +87,7 @@ export function TeamMembers({ slug, teamId, admin, teams }: TeamMembersProps) {
           onOpenChange={setInviting}
           slug={slug}
           teams={teams}
-          teamIds={teamId ? [teamId] : []}
+          teamIds={teamId !== undefined && teamId !== '' ? [teamId] : []}
         />
       )}
     </>

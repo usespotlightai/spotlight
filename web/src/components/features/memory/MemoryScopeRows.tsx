@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { MemoryKindLabel } from '@/components/features/memory/MemoryKindLabel';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import { appliesTo, memoryFilesOf, type ProposedMemory } from '@/lib/memory';
@@ -6,7 +8,9 @@ type MemoryScopeRowsProps = {
   memory: Pick<ProposedMemory, 'kind' | 'scope' | 'repository' | 'paths'>;
 };
 
-export function MemoryScopeRows({ memory }: MemoryScopeRowsProps) {
+export function MemoryScopeRows({
+  memory,
+}: MemoryScopeRowsProps): ReactElement {
   const files = memoryFilesOf(memory);
 
   return (
@@ -23,7 +27,7 @@ export function MemoryScopeRows({ memory }: MemoryScopeRowsProps) {
         <dd className={FACT_VALUE}>{appliesTo(memory)}</dd>
       </FactRow>
 
-      {files && (
+      {files !== null && files !== '' && (
         <FactRow>
           <dt className={FACT_LABEL}>Files</dt>
           <dd className={FACT_VALUE}>{files}</dd>

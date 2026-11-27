@@ -4,6 +4,7 @@ import type {
   StationAlertFiringResponseDto,
 } from '@/lib/api';
 import type { LabelSource, RunScores } from '@/lib/judge';
+import { entryOf } from '@/mocks/entry';
 import { GROWTH_LINES } from '@/mocks/world/growth';
 import { ALERT_ID, COST_ALERT_ID } from '@/mocks/world/inbox';
 import {
@@ -101,7 +102,12 @@ const verdict = (
 
 const citedStep = (index: number, tool: string | null, text: string) => ({
   kind: 'step' as const,
-  step: { index, kind: tool ? 'tool' : 'message', tool, text },
+  step: {
+    index,
+    kind: tool !== null && tool !== '' ? 'tool' : 'message',
+    tool,
+    text,
+  },
   hunk: null,
 });
 
@@ -126,14 +132,16 @@ const citedStackHunk = (runId: string, path: string) => {
 };
 
 const citedMessage = (runId: string) => {
-  const steps = RUN_STORIES[runId]?.steps ?? [];
+  const steps = entryOf(RUN_STORIES, runId)?.steps ?? [];
   const index = steps.findLastIndex((step) => step.kind === 'message');
 
   return citedStep(index, null, steps[index]?.text ?? '');
 };
 
 const lastStepIndexOf = (runId: string, text: string): number =>
-  (RUN_STORIES[runId]?.steps ?? []).findLastIndex((step) => step.text === text);
+  (entryOf(RUN_STORIES, runId)?.steps ?? []).findLastIndex(
+    (step) => step.text === text,
+  );
 
 const JUDGED: Record<string, JudgeScoreResponseDto> = {
   run_postgres_2: verdict(
@@ -218,7 +226,7 @@ const calibrationOf = (stationId: string): JudgeCalibrationResponseDto => {
 
 const scoresOf = (runId: string): RunScores => {
   const stationId = stationOfRun(runId);
-  const judge = JUDGED[runId] ?? null;
+  const judge = entryOf(JUDGED, runId) ?? null;
   const run = historyRunOf(runId);
   const labelFrom = run ? labelOf(run) : null;
   const calibration = calibrationOf(stationId);
@@ -276,8 +284,7 @@ export const seedRunScores = (
 
 const rounded = (value: number) => Math.round(value * 100) / 100;
 
-const endOf = (run: HistoryRun) =>
-  run.endedAt ?? new Date(run.at).toISOString();
+const endOf = (run: HistoryRun) => run.endedAt;
 
 const firingFrom = (
   alertId: string,

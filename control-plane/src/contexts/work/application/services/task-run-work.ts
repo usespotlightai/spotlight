@@ -137,7 +137,8 @@ export class TaskRunWork implements RunWork {
     missing: ConnectionMissingDto,
   ): Promise<ConnectionAsked> {
     if (
-      !missing.personId ||
+      missing.personId === null ||
+      missing.personId === '' ||
       !ConnectionAsk.askableWhen(MISSING_CONNECTIONS[missing.because])
     ) {
       return { kind: 'denied', reason: ConnectionAskedText.denial(missing) };

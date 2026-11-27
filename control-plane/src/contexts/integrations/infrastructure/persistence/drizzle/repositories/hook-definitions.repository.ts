@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
 import { HookAlreadyExistsError } from '@integrations/domain/exceptions/hook-already-exists.error';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
@@ -153,12 +154,10 @@ export class DrizzleHookDefinitions implements HookDefinitionRepository {
   }
 
   private async first(where: SQL | undefined): Promise<Row | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(hookDefinition)
-      .where(where)
-      .limit(1);
-
-    return found ?? null;
+    return (
+      firstOf(
+        await this.context.db.select().from(hookDefinition).where(where).limit(1),
+      ) ?? null
+    );
   }
 }

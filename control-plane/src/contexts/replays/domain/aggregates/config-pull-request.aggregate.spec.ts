@@ -16,6 +16,8 @@ import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-r
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { describe, expect, it } from 'vitest';
@@ -66,11 +68,13 @@ describe('ConfigPullRequest', () => {
     expect(pullRequest.repository?.value).toBe('acme/platform');
     expect(pullRequest.isDue(NOW)).toBe(true);
     expect(wanted).toBeInstanceOf(ConfigPullRequestRequested);
-    expect((wanted as ConfigPullRequestRequested).change).toMatchObject({
-      resource: 'config-pull-request',
-      action: 'created',
-      key: 'spotlight/search-5d1e2f3a-terse',
-    });
+    expect(instanceOf(ConfigPullRequestRequested, wanted).change).toMatchObject(
+      {
+        resource: 'config-pull-request',
+        action: 'created',
+        key: 'spotlight/search-5d1e2f3a-terse',
+      },
+    );
   });
 
   it('fails at once when the line names no source, and says so', () => {
@@ -83,7 +87,7 @@ describe('ConfigPullRequest', () => {
       new ConfigPullRequestFailed(
         ConfigPullRequestId.of('pr_1'),
         STATION.workspaceId,
-        pullRequest.reason as ConfigPullRequestReason,
+        present(pullRequest.reason),
       ),
     );
   });

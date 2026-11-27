@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewVersionConflictError } from '@change-review/domain/exceptions/review-version-conflict.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
@@ -32,8 +33,8 @@ const toReview = (row: Row, comments: readonly string[]): Review =>
     taskId: TaskId.of(row.taskId),
     repository: RepositoryName.optional(row.repository),
     author: ReviewAuthor.rehydrate({
-      userId: row.authorId ? UserId.of(row.authorId) : null,
-      runId: row.authorRunId ? RunId.of(row.authorRunId) : null,
+      userId: row.authorId !== null && row.authorId !== '' ? UserId.of(row.authorId) : null,
+      runId: row.authorRunId !== null && row.authorRunId !== '' ? RunId.of(row.authorRunId) : null,
       login: null,
       name: AuthorName.of(row.authorName),
     }),
@@ -123,11 +124,11 @@ export class DrizzleReviewRepository implements ReviewRepository {
   }
 
   async find(id: ReviewId): Promise<Review | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(review)
       .where(eq(review.id, id.value))
-      .limit(1);
+      .limit(1));
 
     return row ? this.withComments(row) : null;
   }

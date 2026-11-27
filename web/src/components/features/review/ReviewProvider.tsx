@@ -1,4 +1,10 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import {
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
 
 import {
   type CodeReview,
@@ -31,7 +37,7 @@ export function ReviewProvider({
   alone,
   review: ofRun,
   children,
-}: ReviewProviderProps) {
+}: ReviewProviderProps): ReactElement {
   const [composer, setComposer] = useState<Composer>(CLOSED);
   const review = useMemo(
     () => reviewOfStack(ofRun, repository, alone),
@@ -47,7 +53,7 @@ export function ReviewProvider({
 
   const reviewing = useMemo(
     () =>
-      taskId
+      taskId !== null && taskId !== undefined && taskId !== ''
         ? {
             teamId,
             taskId,

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { authClient } from '@/lib/authClient';
 
@@ -31,6 +31,6 @@ const readSession = async (): Promise<Session | null> => {
   return { user: { id, name, email, image: image ?? null } };
 };
 
-export function useSession() {
+export function useSession(): UseQueryResult<Session | null> {
   return useQuery({ queryKey: sessionQueryKey, queryFn: readSession });
 }

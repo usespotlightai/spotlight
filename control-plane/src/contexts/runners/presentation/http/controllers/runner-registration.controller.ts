@@ -41,7 +41,9 @@ export class RunnerRegistrationController {
         (body.harnesses ?? []).map((each) => ({
           id: each.id,
           models: each.models ?? [],
-          ...(each.version ? { version: each.version } : {}),
+          ...(each.version !== undefined && each.version !== ''
+            ? { version: each.version }
+            : {}),
         })),
       ),
     );

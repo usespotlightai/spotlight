@@ -21,6 +21,7 @@ import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runn
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -57,31 +58,32 @@ const deleting = (
   input: { open?: boolean; naming?: readonly RunnerPool[] } = {},
 ) => {
   const open = input.open ?? false;
-  const saved: { pullEvents(): DomainEvent[] }[] = [];
-  const save = vi.fn(async (each: (typeof saved)[number]) => {
+  const saved: { pullEvents(): readonly DomainEvent[] }[] = [];
+  const save = vi.fn((each: (typeof saved)[number]) => {
     saved.push(each);
+    return Promise.resolve();
   });
   const service = new DeleteRunnersOfDeletedWorkspace(
-    {
-      inWorkspace: async () => [trust],
+    partial<RunnerTrustRepository>({
+      inWorkspace: () => Promise.resolve([trust]),
       save,
-    } as unknown as RunnerTrustRepository,
-    {
-      ofWorkspace: async () => declared,
+    }),
+    partial<WorkspaceRunnersRepository>({
+      ofWorkspace: () => Promise.resolve(declared),
       save,
-    } as unknown as WorkspaceRunnersRepository,
-    {
-      inWorkspace: async () => input.naming ?? [pool],
+    }),
+    partial<RunnerPoolRepository>({
+      inWorkspace: () => Promise.resolve(input.naming ?? [pool]),
       save,
-    } as unknown as RunnerPoolRepository,
-    {
-      inWorkspace: async () => [egress],
+    }),
+    partial<EgressRepository>({
+      inWorkspace: () => Promise.resolve([egress]),
       save,
-    } as unknown as EgressRepository,
-    { isOpen: async () => open } as unknown as WorkspaceReaderPort,
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
+    }),
+    partial<WorkspaceReaderPort>({ isOpen: () => Promise.resolve(open) }),
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
   );
 
   const changes = () =>

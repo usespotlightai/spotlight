@@ -7,6 +7,8 @@ import {
   type DroppableContainer,
   pointerWithin,
   rectIntersection,
+  type SensorDescriptor,
+  type SensorOptions,
 } from '@dnd-kit/core';
 import { useState } from 'react';
 
@@ -17,17 +19,18 @@ import type { StationResponseDto } from '@/lib/api';
 import { type Landing, landingFor } from '@/lib/dragging';
 import { mayLand, type Task } from '@/lib/task';
 
-const kindOf = (collision: Collision): unknown => {
-  const container = collision.data?.droppableContainer as
-    | DroppableContainer
-    | undefined;
-  return container?.data.current?.kind;
-};
+const kindOf = (
+  collision: Collision,
+  containers: readonly DroppableContainer[],
+): unknown =>
+  containers.find((each) => each.id === collision.id)?.data.current?.kind;
 
 const dropping: CollisionDetection = (args) => {
   const under = pointerWithin(args);
   const collisions = under.length > 0 ? under : rectIntersection(args);
-  const onTasks = collisions.filter((each) => kindOf(each) === 'task');
+  const onTasks = collisions.filter(
+    (each) => kindOf(each, args.droppableContainers) === 'task',
+  );
 
   return onTasks.length > 0 ? onTasks : collisions;
 };
@@ -39,7 +42,20 @@ type Board = {
   readonly stations: readonly StationResponseDto[];
 };
 
-export function useBoardDrag(board: Board) {
+type BoardDragResult = {
+  sensors: SensorDescriptor<SensorOptions>[];
+  collisionDetection: CollisionDetection;
+  draggedId: string | null;
+  landing: Landing | null;
+  handlers: {
+    onDragStart: ({ active }: DragStartEvent) => void;
+    onDragOver: ({ active, over }: DragOverEvent) => void;
+    onDragCancel: () => void;
+    onDragEnd: (event: DragEndEvent) => void;
+  };
+};
+
+export function useBoardDrag(board: Board): BoardDragResult {
   const moveTask = useMoveTask();
   const swallowNextClick = useDragGuard();
 
@@ -81,7 +97,8 @@ export function useBoardDrag(board: Board) {
   const drop = ({ active, over }: DragEndEvent) => {
     if (
       !over ||
-      !board.teamId ||
+      board.teamId === undefined ||
+      board.teamId === '' ||
       active.id === over.id ||
       active.data.current?.kind !== 'task'
     ) {

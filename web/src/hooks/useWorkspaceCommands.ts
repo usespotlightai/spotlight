@@ -32,17 +32,20 @@ const SECTION_KEYS = {
   memory: 'go.memory',
 } as const satisfies Record<TeamSectionId, Command['id']>;
 
+const isSection = (key: string): key is TeamSectionId =>
+  Object.hasOwn(SECTION_KEYS, key);
+
 export function useWorkspaceCommands({
   slug,
   teams,
   onPalette,
   onTogglePalette,
   onShortcuts,
-}: WorkspaceCommands) {
+}: WorkspaceCommands): void {
   const navigate = useNavigate();
   const team = useCurrentTeam(teams);
   const { data: lines = [] } = useLines(team?.id);
-  const [firstLine] = lines;
+  const firstLine = lines.at(0);
   const go = (to: string) => ({ to, run: () => void navigate(to) });
 
   useCommands([
@@ -51,10 +54,12 @@ export function useWorkspaceCommands({
     { id: 'shortcuts.show', run: onShortcuts },
     { id: 'go.inbox', ...go(inboxPath(slug)) },
     ...(team
-      ? (Object.keys(SECTION_KEYS) as TeamSectionId[]).map((section) => ({
-          id: SECTION_KEYS[section],
-          ...go(teamSectionPath(slug, team.id, section)),
-        }))
+      ? Object.keys(SECTION_KEYS)
+          .filter(isSection)
+          .map((section) => ({
+            id: SECTION_KEYS[section],
+            ...go(teamSectionPath(slug, team.id, section)),
+          }))
       : []),
     ...(team && lines.length === 1 && firstLine
       ? [

@@ -1,3 +1,4 @@
+import type { PeoplePort } from '@insights/application/ports/people.port';
 import type {
   LiveJudgedRun,
   LiveJudgedSince,
@@ -185,7 +186,8 @@ export const factsWith = (
       PullRequestRecord.taskPullRequestsOf(
         pullRequests.filter(
           (each) =>
-            record.taskId !== null && each.owner?.taskId.equals(record.taskId),
+            record.taskId !== null &&
+            each.owner?.taskId.equals(record.taskId) === true,
         ),
       ),
       followedAtOf(record, records),
@@ -223,12 +225,16 @@ export class RunRecordsInMemory implements RunRecordRepository {
   readonly stored = new Map<string, RunRecord>();
   readonly raised: DomainEvent[] = [];
 
-  async add(record: RunRecord): Promise<void> {
+  add(record: RunRecord): Promise<void> {
     if (this.stored.has(record.runId.value)) {
-      throw new RunRecordVersionConflictError(record.runId.value);
+      return Promise.reject(
+        new RunRecordVersionConflictError(record.runId.value),
+      );
     }
     this.raised.push(...record.pullEvents());
     this.stored.set(record.runId.value, record);
+
+    return Promise.resolve();
   }
 
   async save(record: RunRecord): Promise<void> {
@@ -248,94 +254,105 @@ export class RunRecordsInMemory implements RunRecordRepository {
     );
   }
 
-  async of(runId: RunId): Promise<RunRecord | null> {
-    return this.stored.get(runId.value) ?? null;
+  of(runId: RunId): Promise<RunRecord | null> {
+    return Promise.resolve(this.stored.get(runId.value) ?? null);
   }
 
-  async ofRuns(runIds: readonly RunId[]): Promise<readonly RunRecord[]> {
-    return runIds.flatMap((each) => {
-      const existing = this.stored.get(each.value);
-      return existing ? [existing] : [];
-    });
-  }
-
-  async ofTasks(taskIds: readonly TaskId[]): Promise<readonly RunRecord[]> {
-    return [...this.stored.values()].filter((each) =>
-      taskIds.some((taskId) => each.taskId?.equals(taskId)),
+  ofRuns(runIds: readonly RunId[]): Promise<readonly RunRecord[]> {
+    return Promise.resolve(
+      runIds.flatMap((each) => {
+        const existing = this.stored.get(each.value);
+        return existing ? [existing] : [];
+      }),
     );
   }
 
-  async ofTaskAt(
+  ofTasks(taskIds: readonly TaskId[]): Promise<readonly RunRecord[]> {
+    return Promise.resolve(
+      [...this.stored.values()].filter((each) =>
+        taskIds.some((taskId) => each.taskId?.equals(taskId) === true),
+      ),
+    );
+  }
+
+  ofTaskAt(
     taskId: TaskId,
     stationId: StationId,
   ): Promise<readonly RunRecord[]> {
-    return this.ended().filter(
-      (each) =>
-        each.end?.location.taskId.equals(taskId) &&
-        each.end.location.stationId.equals(stationId),
+    return Promise.resolve(
+      this.ended().filter(
+        (each) =>
+          each.end?.location.taskId.equals(taskId) === true &&
+          each.end.location.stationId.equals(stationId),
+      ),
     );
   }
 
-  async runIdsOf(
+  runIdsOf(
     owner: RecordsOwner,
     after: RunId | null,
     max: number,
   ): Promise<readonly RunId[]> {
-    return [...this.stored.values()]
-      .filter(
-        (each) =>
-          each.workspaceId.equals(owner.workspaceId) &&
-          (owner.teamId === null ||
-            each.end?.location.teamId.equals(owner.teamId) === true) &&
-          (after === null || each.runId.value > after.value),
-      )
-      .map((each) => each.runId)
-      .sort((one, other) => (one.value < other.value ? -1 : 1))
-      .slice(0, max);
+    return Promise.resolve(
+      [...this.stored.values()]
+        .filter(
+          (each) =>
+            each.workspaceId.equals(owner.workspaceId) &&
+            (owner.teamId === null ||
+              each.end?.location.teamId.equals(owner.teamId) === true) &&
+            (after === null || each.runId.value > after.value),
+        )
+        .map((each) => each.runId)
+        .sort((one, other) => (one.value < other.value ? -1 : 1))
+        .slice(0, max),
+    );
   }
 
-  async endedSince(
+  endedSince(
     since: Date,
     after: RunId | null,
     max: number,
   ): Promise<readonly RunRecord[]> {
-    return this.ended()
-      .filter(
-        (each) =>
-          (each.end?.endedAt.getTime() ?? 0) >= since.getTime() &&
-          (after === null || each.runId.value > after.value),
-      )
-      .sort((one, other) => (one.runId.value < other.runId.value ? -1 : 1))
-      .slice(0, max);
+    return Promise.resolve(
+      this.ended()
+        .filter(
+          (each) =>
+            (each.end?.endedAt.getTime() ?? 0) >= since.getTime() &&
+            (after === null || each.runId.value > after.value),
+        )
+        .sort((one, other) => (one.runId.value < other.runId.value ? -1 : 1))
+        .slice(0, max),
+    );
   }
 
   ended(): RunRecord[] {
     return [...this.stored.values()].filter((each) => each.hasEnded);
   }
 
-  async ofScope(
-    scope: DeletionScope,
-    max: number,
-  ): Promise<readonly RunRecord[]> {
-    return inScope(
-      this.stored,
-      scope,
-      (each) => ({
-        workspaceId: each.workspaceId,
-        teamId: each.end?.location.teamId ?? null,
-        taskId: each.taskId,
-      }),
-      max,
+  ofScope(scope: DeletionScope, max: number): Promise<readonly RunRecord[]> {
+    return Promise.resolve(
+      inScope(
+        this.stored,
+        scope,
+        (each) => ({
+          workspaceId: each.workspaceId,
+          teamId: each.end?.location.teamId ?? null,
+          taskId: each.taskId,
+        }),
+        max,
+      ),
     );
   }
 
-  private async removed(removed: RunRecord): Promise<void> {
+  private removed(removed: RunRecord): Promise<void> {
     removeVersioned(
       this.stored,
       removed.runId.value,
       removed,
       () => new RunRecordVersionConflictError(removed.runId.value),
     );
+
+    return Promise.resolve();
   }
 }
 
@@ -402,7 +419,8 @@ export class StationFactsInMemory implements StationFactsPort {
         opening ? { by: opening.by, at: opening.at } : null,
         PullRequestRecord.taskPullRequestsOf(
           owned.filter(
-            (each) => taskId !== null && each.owner?.taskId.equals(taskId),
+            (each) =>
+              taskId !== null && each.owner?.taskId.equals(taskId) === true,
           ),
         ),
         followedAtOf(record, ended),
@@ -448,76 +466,81 @@ export class StationFactsInMemory implements StationFactsPort {
     );
   }
 
-  async failuresOfRuns(
-    runIds: readonly RunId[],
-  ): Promise<readonly LocatedFailure[]> {
+  failuresOfRuns(runIds: readonly RunId[]): Promise<readonly LocatedFailure[]> {
     const wanted = new Set(runIds.map((each) => each.value));
 
-    return [...(this.sources.failures?.stored.values() ?? [])]
-      .sort((one, other) => (one.taskId.value < other.taskId.value ? -1 : 1))
-      .flatMap((each) =>
-        each.occurrences
-          .filter(
-            (occurrence) =>
-              occurrence.runId !== null && wanted.has(occurrence.runId),
-          )
-          .map((occurrence) => ({ taskId: each.taskId.value, occurrence })),
-      );
-  }
-
-  async scoresOfRuns(runIds: readonly RunId[]): Promise<readonly ScoreFact[]> {
-    return this.scores().filter((each) =>
-      runIds.some((runId) => runId.equals(each.runId)),
+    return Promise.resolve(
+      [...(this.sources.failures?.stored.values() ?? [])]
+        .sort((one, other) => (one.taskId.value < other.taskId.value ? -1 : 1))
+        .flatMap((each) =>
+          each.occurrences
+            .filter(
+              (occurrence) =>
+                occurrence.runId !== null && wanted.has(occurrence.runId),
+            )
+            .map((occurrence) => ({ taskId: each.taskId.value, occurrence })),
+        ),
     );
   }
 
-  async judgedAtStation(
-    criteria: StationScores,
-  ): Promise<readonly ScoreFact[]> {
-    return [...(this.sources.scores?.stored.values() ?? [])]
-      .filter(
-        (each) =>
-          each.workspaceId.equals(criteria.workspaceId) &&
-          each.location.teamId.equals(criteria.teamId) &&
-          each.location.lineId.equals(criteria.lineId) &&
-          each.location.stationId.equals(criteria.stationId) &&
-          (criteria.rubricVersion === undefined ||
-            each.rubricVersion === criteria.rubricVersion),
-      )
-      .sort(
-        (a, b) =>
-          b.at.getTime() - a.at.getTime() ||
-          (b.id.value < a.id.value ? -1 : b.id.value > a.id.value ? 1 : 0),
-      )
-      .slice(0, criteria.last)
-      .map(scoreFactOf);
+  scoresOfRuns(runIds: readonly RunId[]): Promise<readonly ScoreFact[]> {
+    return Promise.resolve(
+      this.scores().filter((each) =>
+        runIds.some((runId) => runId.equals(each.runId)),
+      ),
+    );
   }
 
-  async liveJudgedSince(
+  judgedAtStation(criteria: StationScores): Promise<readonly ScoreFact[]> {
+    return Promise.resolve(
+      [...(this.sources.scores?.stored.values() ?? [])]
+        .filter(
+          (each) =>
+            each.workspaceId.equals(criteria.workspaceId) &&
+            each.location.teamId.equals(criteria.teamId) &&
+            each.location.lineId.equals(criteria.lineId) &&
+            each.location.stationId.equals(criteria.stationId) &&
+            (criteria.rubricVersion === undefined ||
+              each.rubricVersion === criteria.rubricVersion),
+        )
+        .sort(
+          (a, b) =>
+            b.at.getTime() - a.at.getTime() ||
+            (b.id.value < a.id.value ? -1 : b.id.value > a.id.value ? 1 : 0),
+        )
+        .slice(0, criteria.last)
+        .map(scoreFactOf),
+    );
+  }
+
+  liveJudgedSince(
     criteria: LiveJudgedSince,
   ): Promise<readonly LiveJudgedRun[]> {
-    return [...(this.sources.scores?.stored.values() ?? [])]
-      .filter(
-        (each) =>
-          each.origin === LIVE &&
-          each.at.getTime() >= criteria.since.getTime() &&
-          (criteria.after === null ||
-            each.at.getTime() > criteria.after.at.getTime() ||
-            (each.at.getTime() === criteria.after.at.getTime() &&
-              each.id.value > criteria.after.scoreId.value)),
-      )
-      .sort(
-        (a, b) =>
-          a.at.getTime() - b.at.getTime() || (a.id.value < b.id.value ? -1 : 1),
-      )
-      .slice(0, criteria.max)
-      .map((each) => ({
-        scoreId: each.id,
-        at: each.at,
-        runId: each.runId,
-        workspaceId: each.workspaceId,
-        location: each.location,
-      }));
+    return Promise.resolve(
+      [...(this.sources.scores?.stored.values() ?? [])]
+        .filter(
+          (each) =>
+            each.origin === LIVE &&
+            each.at.getTime() >= criteria.since.getTime() &&
+            (criteria.after === null ||
+              each.at.getTime() > criteria.after.at.getTime() ||
+              (each.at.getTime() === criteria.after.at.getTime() &&
+                each.id.value > criteria.after.scoreId.value)),
+        )
+        .sort(
+          (a, b) =>
+            a.at.getTime() - b.at.getTime() ||
+            (a.id.value < b.id.value ? -1 : 1),
+        )
+        .slice(0, criteria.max)
+        .map((each) => ({
+          scoreId: each.id,
+          at: each.at,
+          runId: each.runId,
+          workspaceId: each.workspaceId,
+          location: each.location,
+        })),
+    );
   }
 
   async judgedAtStations(
@@ -575,9 +598,9 @@ export const SET_UP = {
   runningMs: 0,
 };
 
-export const NOBODY_ELSE = {
-  viewerOf: async () => null,
-  namesOf: async () => new Map<string, string>(),
+export const NOBODY_ELSE: PeoplePort = {
+  viewerOf: () => Promise.resolve(null),
+  namesOf: () => Promise.resolve(new Map<string, string>()),
 };
 
 export const inTransaction = {

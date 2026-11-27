@@ -1,5 +1,5 @@
 import { Waypoints } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { type ReactElement, useRef, useState } from 'react';
 import { Sankey, Tooltip } from 'recharts';
 
 import { CostFlowList } from '@/components/features/insights/CostFlowList';
@@ -129,7 +129,7 @@ const TipContent = ({
 }) => {
   const hovered = payload?.[0];
 
-  if (!active || !hovered) {
+  if (active !== true || !hovered) {
     return null;
   }
 
@@ -215,7 +215,10 @@ function SankeyChart({
   );
 }
 
-export function CostSankey({ shown, currency }: CostSankeyProps) {
+export function CostSankey({
+  shown,
+  currency,
+}: CostSankeyProps): ReactElement | null {
   const frame = useRef<HTMLDivElement>(null);
   const width = useElementWidth(frame);
 

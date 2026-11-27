@@ -5,7 +5,7 @@ export const clientsFrom = (json = '{}'): OAuth2ClientsPort => {
   const configured = OAuth2Clients.from(json);
 
   return {
-    existingFor: async (_teamId, integration) =>
-      configured.of(integration.value),
+    existingFor: (_teamId, integration) =>
+      Promise.resolve(configured.of(integration.value)),
   };
 };

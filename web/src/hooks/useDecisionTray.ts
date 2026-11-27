@@ -28,7 +28,7 @@ export function useDecisionTray(
   }
 
   const shown =
-    decisions.find((decision) => decision.id === at) ?? decisions[0] ?? null;
+    decisions.find((decision) => decision.id === at) ?? decisions.at(0) ?? null;
   const place = shown ? decisions.indexOf(shown) : -1;
 
   return {
@@ -43,9 +43,9 @@ export function useDecisionTray(
     },
     collapse: () => storeCollapsed('true'),
     step: (by) => {
-      const next = decisions[place + by];
+      const next = decisions.at(place + by);
 
-      if (next) {
+      if (next && place + by >= 0) {
         setAt(next.id);
       }
     },

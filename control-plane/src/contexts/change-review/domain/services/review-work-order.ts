@@ -1,5 +1,6 @@
 import type { PushDiff } from '@change-review/domain/aggregates/push-diff.aggregate';
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 export type ReviewWorkItem =
   | { readonly kind: 'diff'; readonly diff: PushDiff }
@@ -34,7 +35,7 @@ const tiePrecedes = (
   other: readonly string[],
 ): boolean => {
   for (const [index, each] of one.entries()) {
-    const against = other[index];
+    const against = itemAt(other, index);
 
     if (against === undefined || each !== against) {
       return against !== undefined && each < against;

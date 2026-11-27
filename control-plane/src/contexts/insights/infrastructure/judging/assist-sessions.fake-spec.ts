@@ -30,14 +30,14 @@ export class FakeAssistSessions implements AssistSessionsPort {
     this.#states.set(sessionOf(order), state);
   }
 
-  async request(order: AssistOrder): Promise<AssistState> {
+  request(order: AssistOrder): Promise<AssistState> {
     const session = sessionOf(order);
 
     if (!this.orders.some((each) => sessionOf(each) === session)) {
       this.orders.push(order);
     }
 
-    return this.#states.get(session) ?? this.fallback;
+    return Promise.resolve(this.#states.get(session) ?? this.fallback);
   }
 }
 

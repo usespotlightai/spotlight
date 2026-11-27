@@ -49,4 +49,7 @@ export const CHANGED_WITHIN: Partial<Record<ConfigChange['part'], string>> = {
 export const shownValue = (
   part: ConfigChange['part'],
   value: string | null,
-): string | null => (value && part === 'image' ? formatImage(value) : value);
+): string | null =>
+  value !== null && value !== '' && part === 'image'
+    ? formatImage(value)
+    : value;

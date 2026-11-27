@@ -8,6 +8,7 @@ import {
   quoted,
   withoutInterpolation,
 } from '@platform/hcl/hcl';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 type Line =
   | { readonly indent: number; readonly text: string }
@@ -169,7 +170,7 @@ const bodyLines = (
   indent: number,
 ): readonly Line[] =>
   items.flatMap((item, at) => {
-    const previous = items[at - 1];
+    const previous = itemAt(items, at - 1);
     const apart =
       previous !== undefined &&
       (item.kind === 'block' || previous.kind === 'block');

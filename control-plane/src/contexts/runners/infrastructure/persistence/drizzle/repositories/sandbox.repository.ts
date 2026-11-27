@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -199,11 +200,11 @@ export class DrizzleSandboxRepository implements SandboxRepository {
   }
 
   async find(id: SandboxId): Promise<Sandbox | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(sandbox)
       .where(eq(sandbox.id, id.value))
-      .limit(1);
+      .limit(1));
 
     return found ? toSandbox(found) : null;
   }
@@ -212,7 +213,7 @@ export class DrizzleSandboxRepository implements SandboxRepository {
     workspaceId: WorkspaceId,
     key: SandboxKey,
   ): Promise<Sandbox | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(sandbox)
       .where(
@@ -222,17 +223,17 @@ export class DrizzleSandboxRepository implements SandboxRepository {
           eq(sandbox.state, 'open'),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return found ? toSandbox(found) : null;
   }
 
   async liveByTokenHash(hash: TokenHash): Promise<Sandbox | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(sandbox)
       .where(and(eq(sandbox.tokenHash, hash.value), ne(sandbox.state, 'gone')))
-      .limit(1);
+      .limit(1));
 
     return found ? toSandbox(found) : null;
   }

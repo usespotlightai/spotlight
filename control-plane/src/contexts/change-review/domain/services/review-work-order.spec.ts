@@ -5,19 +5,22 @@ import {
   placeOf,
   reviewWorkOrder,
 } from '@change-review/domain/services/review-work-order';
+import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const at = (minute: number) => new Date(Date.UTC(2026, 10, 21, 9, minute, 0));
 
 const diff = (id: string, minute: number) =>
-  ({ id: { value: id }, recordedAt: at(minute) }) as unknown as PushDiff;
+  partial<PushDiff>({ id: PushDiffId.of(id), recordedAt: at(minute) });
 
 const check = (stackId: string, minute: number, recheck = false) =>
-  ({
-    stackId: { value: stackId },
+  partial<StackCheck>({
+    stackId: ChangeStackId.of(stackId),
     recheck,
     waitingSince: at(minute),
-  }) as unknown as StackCheck;
+  });
 
 describe('reviewWorkOrder', () => {
   it('puts every push diff before any check, each kind by its time', () => {

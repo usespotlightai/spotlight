@@ -17,6 +17,7 @@ import {
   answeredDisagreement,
 } from '@insights/judge-repair.fake-spec';
 import { inTransaction } from '@insights/runs.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { describe, expect, it } from 'vitest';
 
 const answeredAt = (runId: string, at: Date): JudgeDisagreement =>
@@ -94,7 +95,7 @@ describe('StartClaimsRevisions', () => {
 
     await starting.disagreed(eventOf(answered[2]));
 
-    const [revision] = [...revisions.stored.values()];
+    const revision = firstOf([...revisions.stored.values()]);
     expect(revision?.trigger).toBe('claim-wrong');
     expect(revision?.hasPendingJob).toBe(true);
     expect(revisions.events.map((each) => each.kind)).toEqual([

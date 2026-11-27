@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -113,14 +114,15 @@ const committed: DomainEvent[] = [];
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 
 const dispatch: TaskDispatching = {
-  runIdFor: async () => RunId.of(randomUUID()),
+  runIdFor: () => Promise.resolve(RunId.of(randomUUID())),
 };
 
-const placements: TaskPlacementsPort = { placementsAt: async () => [] };
-
-const unused = async (): Promise<never> => {
-  throw new Error('a happening without files touches no attachment');
+const placements: TaskPlacementsPort = {
+  placementsAt: () => Promise.resolve([]),
 };
+
+const unused = (): Promise<never> =>
+  Promise.reject(new Error('a happening without files touches no attachment'));
 
 const files: AttachmentStorePort = {
   grant: unused,
@@ -135,10 +137,10 @@ const files: AttachmentStorePort = {
 };
 
 const lines: LineMapsPort = {
-  find: async () => line,
-  findByStation: async () => line,
-  ofTeam: async () => [line],
-  ofWorkspace: async () => [line],
+  find: () => Promise.resolve(line),
+  findByStation: () => Promise.resolve(line),
+  ofTeam: () => Promise.resolve([line]),
+  ofWorkspace: () => Promise.resolve([line]),
   candidate: unused,
 };
 
@@ -158,16 +160,16 @@ const reactions = (): ReactToHappenings =>
     context,
     clock,
     { generate: () => randomUUID() },
-    { byEmail: async () => null },
+    { byEmail: () => Promise.resolve(null) },
     files,
     processedEventsInMemory(),
     silent,
-    {
-      reached: async () => null,
+    partial<ChannelChats>({
+      reached: () => Promise.resolve(null),
       answer: async () => {},
-    } as unknown as ChannelChats,
-    { of: async () => [] },
-    { membersOf: async () => TeamMembers.of([owner]) },
+    }),
+    { of: () => Promise.resolve([]) },
+    { membersOf: () => Promise.resolve(TeamMembers.of([owner])) },
   );
 
 const stationAt = (key: string): Station => {
@@ -184,8 +186,8 @@ beforeAll(async () => {
   database = await openDatabase('task_reaction_races');
   context = new DrizzleContext(database.db);
   tasks = new DrizzleTaskRepository(context, {
-    dispatch: async (events) =>
-      context.afterCommit(() => committed.push(...events)),
+    dispatch: (events) =>
+      Promise.resolve(context.afterCommit(() => committed.push(...events))),
   });
 
   const team = await createTeam(
@@ -223,7 +225,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const asking = (task: Task, run: RunId, how: Waiting): Task => {

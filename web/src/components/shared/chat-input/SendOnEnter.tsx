@@ -5,7 +5,7 @@ type SendOnEnterProps = {
   blank: boolean;
 };
 
-export function SendOnEnter({ send, blank }: SendOnEnterProps) {
+export function SendOnEnter({ send, blank }: SendOnEnterProps): null {
   useSendOnEnter(send, blank);
 
   return null;

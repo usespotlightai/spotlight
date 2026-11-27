@@ -78,11 +78,13 @@ describe('the work of a trial', () => {
     ).rejects.toThrow(NotAllowedForIsolatedRunError);
   });
 
-  it('reads the files its original was briefed with, and no others', async () => {
+  it('reads the files its original was briefed with, and no others', () => {
     const { work } = working();
 
     expect(work.attachment(SCREENSHOT.id.value)?.equals(SCREENSHOT)).toBe(true);
     expect(work.attachment('another')).toBeNull();
+
+    return Promise.resolve();
   });
 
   it('calls a tool on the task of its original, acting as no person', async () => {

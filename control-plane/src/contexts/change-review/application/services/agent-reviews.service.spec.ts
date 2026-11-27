@@ -13,6 +13,7 @@ import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -41,27 +42,31 @@ const reviewing = (
     pullRequests: [],
     openPullRequests: [],
     reviewedPullRequest:
-      pullRequest && reviewsIt ? PullRequestUrl.of(pullRequest) : null,
+      pullRequest !== null && pullRequest !== '' && reviewsIt
+        ? PullRequestUrl.of(pullRequest)
+        : null,
     reviewing: pullRequest !== null && reviewsIt,
     currentRunId: null,
   };
 
-  const commentRepository = {
-    add: async (comment: ReviewComment) =>
-      void comments.set(comment.id.value, comment),
-    save: async (comment: ReviewComment) =>
-      void comments.set(comment.id.value, comment),
-    draftsOn: async () =>
-      [...comments.values()].filter((each) => each.state === 'draft'),
-  } as unknown as ReviewCommentRepository;
+  const commentRepository = partial<ReviewCommentRepository>({
+    add: (comment: ReviewComment) =>
+      Promise.resolve(void comments.set(comment.id.value, comment)),
+    save: (comment: ReviewComment) =>
+      Promise.resolve(void comments.set(comment.id.value, comment)),
+    draftsOn: () =>
+      Promise.resolve(
+        [...comments.values()].filter((each) => each.state === 'draft'),
+      ),
+  });
   const agent = new AgentReviews(
-    { task: async () => task } as unknown as WorkPort,
+    partial<WorkPort>({ task: () => Promise.resolve(task) }),
     commentRepository,
     new SubmitReview(
       commentRepository,
-      {
-        add: async (review: Review) => void reviews.push(review),
-      } as unknown as ReviewRepository,
+      partial<ReviewRepository>({
+        add: (review: Review) => Promise.resolve(void reviews.push(review)),
+      }),
       { inTransaction: (work) => work() },
       { generate: () => `id_${++ids}` },
       { now: () => NOW, sleep: async () => {} },

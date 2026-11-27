@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class StateVersionId {
-  private readonly kind = 'state-version';
+  private readonly kind: string = 'state-version';
 
   private constructor(readonly value: string) {}
 

@@ -37,6 +37,7 @@ export class DrizzleContext implements TransactionPort {
       }
     }
 
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return results as unknown as T;
   }
 

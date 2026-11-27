@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 type ThreadEntryProps = {
   avatar: ReactNode;
@@ -14,7 +14,7 @@ export function ThreadEntry({
   meta,
   first = true,
   children,
-}: ThreadEntryProps) {
+}: ThreadEntryProps): ReactElement {
   return (
     <li
       data-slot="thread-entry"

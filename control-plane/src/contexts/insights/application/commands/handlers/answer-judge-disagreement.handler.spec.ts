@@ -20,6 +20,7 @@ import {
   NOBODY_ELSE,
   WORKSPACE,
 } from '@insights/runs.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -41,10 +42,12 @@ const disagreeing = async (
   );
   const access = new InsightsAccess({
     ...NOBODY_ELSE,
-    viewerOf: async (_teamId, principal) =>
-      principal.userId.equals(UserId.of('user_stranger'))
-        ? null
-        : { workspaceId: WORKSPACE, by: principal.userId },
+    viewerOf: (_teamId, principal) =>
+      Promise.resolve(
+        principal.userId.equals(UserId.of('user_stranger'))
+          ? null
+          : { workspaceId: WORKSPACE, by: principal.userId },
+      ),
   });
   const onTeam = new TeamJudgeDisagreements(access, disagreements);
   const clock = {
@@ -212,7 +215,7 @@ describe('answering a judge disagreement', () => {
 
   it('says why Spotlight withdrew the question, and takes no answer after', async () => {
     const run = await disagreeing();
-    const [open] = [...run.disagreements.stored.values()];
+    const open = firstOf([...run.disagreements.stored.values()]);
     if (open) {
       await run.disagreements.save(open.withdraw(ANSWERED_AT, 'label-gone'));
     }

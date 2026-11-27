@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { StationBody } from '@/components/features/stations/StationBody';
@@ -17,7 +18,7 @@ import { failed, loading } from '@/lib/query';
 import { DEFAULT_STATION_TAB, stationTab } from '@/lib/station';
 import { TrailContext, useTrail } from '@/lib/trail';
 
-export function Station() {
+export function Station(): ReactElement {
   const { slug, teamId, lineId, stationId, tab: shown } = useParams();
   const tab = stationTab(shown);
   const { lines, line, station } = useStation(teamId, lineId, stationId);
@@ -48,7 +49,15 @@ export function Station() {
     );
   }
 
-  if (!line || !station || !slug || !teamId || !tab) {
+  if (
+    !line ||
+    !station ||
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === '' ||
+    !tab
+  ) {
     return (
       <PageNotice title="Station not found">
         <p className="text-muted-foreground text-sm">

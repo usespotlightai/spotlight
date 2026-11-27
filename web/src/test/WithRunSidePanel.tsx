@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { PaneScroller } from '@/components/shared/PaneScroller';
@@ -10,7 +10,11 @@ function Scrolled({ children }: { children: ReactNode }) {
   return <PaneScroller sidePanel={sidePanel}>{children}</PaneScroller>;
 }
 
-export function WithRunSidePanel({ children }: { children: ReactNode }) {
+export function WithRunSidePanel({
+  children,
+}: {
+  children: ReactNode;
+}): ReactElement {
   return (
     <RunSidePanel>
       <Scrolled>{children}</Scrolled>

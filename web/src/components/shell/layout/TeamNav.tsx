@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { SidebarHeading } from '@/components/shell/layout/SidebarHeading';
 import { TeamNavItem } from '@/components/shell/layout/TeamNavItem';
 import { useCollapsed } from '@/hooks/useCollapsed';
@@ -10,7 +12,7 @@ type TeamNavProps = {
   teams: readonly Team[];
 };
 
-export function TeamNav({ slug, teams }: TeamNavProps) {
+export function TeamNav({ slug, teams }: TeamNavProps): ReactElement {
   const { isExpanded, toggle } = useCollapsed(TEAMS_STORAGE_KEY);
 
   return (

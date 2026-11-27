@@ -20,7 +20,7 @@ const earliest = (seen: readonly Seen[]): ReadonlyMap<string, Date> => {
   for (const each of seen) {
     const at = each.at === null ? null : new Date(each.at);
 
-    if (!each.person || !at) {
+    if (each.person === null || each.person === '' || !at) {
       continue;
     }
 

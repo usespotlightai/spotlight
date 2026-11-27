@@ -1,20 +1,23 @@
 import type { StationKind } from '@lines/domain/entities/station.entity';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 
-export type IdleStationSetting =
-  | 'judge'
-  | 'alerts'
-  | 'search'
-  | 'harness'
-  | 'model'
-  | 'effort'
-  | 'profile'
-  | 'prompt'
-  | 'check'
-  | 'runners'
-  | 'diffs'
-  | 'decisions'
-  | 'memories';
+const IDLE_STATION_SETTINGS = [
+  'judge',
+  'alerts',
+  'search',
+  'harness',
+  'model',
+  'effort',
+  'profile',
+  'prompt',
+  'check',
+  'runners',
+  'diffs',
+  'decisions',
+  'memories',
+] as const;
+
+export type IdleStationSetting = (typeof IDLE_STATION_SETTINGS)[number];
 
 export interface StationSettings {
   readonly kind?: StationKind;
@@ -88,9 +91,7 @@ export const idleStationProblem = (
   }
 
   const settings = settingsOf(station);
-  const setting = (Object.keys(BECAUSE) as IdleStationSetting[]).find(
-    (each) => settings[each],
-  );
+  const setting = IDLE_STATION_SETTINGS.find((each) => settings[each]);
 
   return setting
     ? {

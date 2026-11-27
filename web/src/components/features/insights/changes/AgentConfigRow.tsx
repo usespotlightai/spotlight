@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
 import {
   OUTER_DIVIDER,
@@ -26,7 +28,7 @@ export function AgentConfigRow({
   agentConfig,
   measure,
   judged,
-}: AgentConfigRowProps) {
+}: AgentConfigRowProps): ReactElement {
   return (
     <li
       data-slot="agent-config-row"
@@ -51,7 +53,9 @@ export function AgentConfigRow({
         {formatCount(agentConfig.tally.runs)}
       </NestedCell>
       <NestedCell heading="Cost per run" strong>
-        {agentConfig.costPerRun === null || !agentConfig.currency
+        {agentConfig.costPerRun === null ||
+        agentConfig.currency === null ||
+        agentConfig.currency === ''
           ? '–'
           : spentIn(agentConfig.costPerRun, agentConfig.currency)}
       </NestedCell>

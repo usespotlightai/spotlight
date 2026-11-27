@@ -12,6 +12,7 @@ import type { StationContext } from '@memory/domain/value-objects/run-context';
 import { DrizzleMemoryProposalSetRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-proposal-set.repository';
 import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -105,7 +106,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 describe('storing a task’s memory proposal set', () => {
@@ -116,7 +117,7 @@ describe('storing a task’s memory proposal set', () => {
     const read = await stored(set);
     await sets.save(read.remember(proposal(read, 'remembered')));
 
-    const [remembered] = (await stored(set)).proposals;
+    const remembered = firstOf((await stored(set)).proposals);
     expect(remembered?.kind).toBe('correction');
     expect(remembered?.source).toBe('run');
     expect(remembered?.scope.teamId.equals(TEAM)).toBe(true);
@@ -136,7 +137,7 @@ describe('storing a task’s memory proposal set', () => {
     const set = newSet();
     await sets.add(proposing(set, [proposal(set, 'drafted', [4])]));
 
-    const [drafted] = (await stored(set)).proposals;
+    const drafted = firstOf((await stored(set)).proposals);
     expect(drafted?.provenance.notes).toEqual([4]);
   });
 
@@ -173,12 +174,14 @@ describe('storing a task’s memory proposal set', () => {
     await sets.save((await stored(set)).delete());
 
     expect(await sets.forTask(set.taskId)).toBeNull();
-    const [{ n }] = (
-      await database.db.execute(
-        sql`select count(*)::int as n from memory_proposal where set_id = ${set.id.value}`,
-      )
-    ).rows as { n: number }[];
-    expect(n).toBe(0);
+    const left = firstOf(
+      (
+        await database.db.execute(
+          sql`select count(*)::int as n from memory_proposal where set_id = ${set.id.value}`,
+        )
+      ).rows,
+    );
+    expect(left?.n).toBe(0);
   });
 });
 

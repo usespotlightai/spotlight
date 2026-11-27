@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { PlanRow } from '@/components/features/insights/changes/PlanRow';
 import type { PlanEntry } from '@/lib/config-plan';
 
@@ -9,7 +11,7 @@ type PlanHeredocProps = {
 const lines = (count: number): string =>
   `${count} ${count === 1 ? 'line' : 'lines'}`;
 
-export function PlanHeredoc({ entry, width }: PlanHeredocProps) {
+export function PlanHeredoc({ entry, width }: PlanHeredocProps): ReactElement {
   return (
     <li>
       <ul>

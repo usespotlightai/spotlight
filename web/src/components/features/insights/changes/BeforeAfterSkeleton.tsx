@@ -1,9 +1,11 @@
+import type { ReactElement } from 'react';
+
 import { PillSkeleton } from '@/components/shared/skeleton/PillSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
 const ROWS = 6;
 
-export function BeforeAfterSkeleton() {
+export function BeforeAfterSkeleton(): ReactElement {
   return (
     <div
       role="status"

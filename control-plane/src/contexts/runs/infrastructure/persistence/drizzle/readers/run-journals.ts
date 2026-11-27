@@ -26,6 +26,7 @@ import {
   run,
   runJournalEntry,
 } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import {
   and,
@@ -55,12 +56,11 @@ export class DrizzleRunJournals implements RunJournalsPort {
     const journals = await this.readings(ids);
 
     return [...journals.entries()].map(([at, reading]) => {
-      const [runId, attempt] = at.split(':');
-
-      const attempted = Number(attempt ?? 1);
+      const parts = at.split(':');
+      const attempted = Number(itemAt(parts, 1) ?? 1);
 
       return {
-        runId: runId ?? '',
+        runId: itemAt(parts, 0) ?? '',
         attempt: attempted,
         firstStep: stepNumber(attempted, 0),
         steps: reading.journal.steps(),
@@ -109,7 +109,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
       and(
         inArray(runJournalEntry.runId, ids),
         inArray(runJournalEntry.type, [...CHANGED_PATHS_TYPES]),
-      ) as SQL,
+      ),
       [
         asc(run.createdAt),
         asc(run.id),
@@ -197,7 +197,11 @@ export class DrizzleRunJournals implements RunJournalsPort {
         event?.type === 'message' &&
         event.data.role === 'agent' &&
         event.data.text.length > 0 &&
-        !(event.data.session && children.has(event.data.session));
+        !(
+          event.data.session !== undefined &&
+          event.data.session !== '' &&
+          children.has(event.data.session)
+        );
 
       if (toThePerson && (!latest || row.receivedAt > latest)) {
         latest = row.receivedAt;
@@ -212,7 +216,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
       and(
         inArray(runJournalEntry.runId, ids),
         ne(runJournalEntry.type, HARNESS_FRAME),
-      ) as SQL,
+      ),
       [
         asc(runJournalEntry.runId),
         asc(runJournalEntry.attempt),
@@ -245,7 +249,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
     return journals;
   }
 
-  private async journalled(which: SQL, order: SQL[]) {
+  private async journalled(which: SQL | undefined, order: SQL[]) {
     const rows = await this.db
       .select({
         runId: runJournalEntry.runId,

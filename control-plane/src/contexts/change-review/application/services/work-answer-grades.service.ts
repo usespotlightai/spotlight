@@ -95,7 +95,7 @@ export class WorkAnswerGrades implements PendingJobsPort {
         stack.taskId ? await this.stacks.ofTask(stack.taskId) : [],
       );
 
-    if (!stack || !basis || !answer.reply) {
+    if (!stack || !basis || answer.reply === null || answer.reply === '') {
       this.logger.warn(
         {
           questionAnswerId: answer.id.value,

@@ -13,7 +13,7 @@ const jwk = () => {
 };
 
 const answering = () =>
-  vi.fn(async () => new Response(JSON.stringify({ keys: [jwk()] })));
+  vi.fn(() => Promise.resolve(new Response(JSON.stringify({ keys: [jwk()] }))));
 
 describe('JwksCache', () => {
   it('reads the keys a host publishes, by id', async () => {
@@ -82,7 +82,7 @@ describe('JwksCache', () => {
     const cache = new JwksCache(
       allowingOutbound([]),
       1000,
-      vi.fn(async () => new Response('down', { status: 503 })),
+      vi.fn(() => Promise.resolve(new Response('down', { status: 503 }))),
     );
 
     await expect(cache.keys('https://issuer/jwks.json')).rejects.toThrow('503');

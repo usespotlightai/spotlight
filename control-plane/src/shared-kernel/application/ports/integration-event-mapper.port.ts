@@ -12,5 +12,6 @@ export const mapping = <E extends DomainEvent>(
   publish: (event: E, at: Date) => IntegrationEvent | null,
 ): IntegrationEventMapper => ({
   from,
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   map: (event, at) => publish(event as E, at),
 });

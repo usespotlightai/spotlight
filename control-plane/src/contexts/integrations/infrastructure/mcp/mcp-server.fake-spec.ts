@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto';
 import {
   createServer,
   type IncomingMessage,
+  type Server,
   type ServerResponse,
 } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -30,6 +30,16 @@ type Other = (
   origin: string,
 ) => Promise<boolean>;
 
+export const portOf = (server: Server): number => {
+  const address = server.address();
+
+  if (address === null || typeof address === 'string') {
+    throw new Error('expected a TCP address');
+  }
+
+  return address.port;
+};
+
 export interface FakeMcpServer {
   readonly origin: string;
   readonly url: string;
@@ -54,15 +64,15 @@ const registered = (server: McpServer, called: McpCalled[]): McpServer => {
       },
       annotations: { readOnlyHint: true },
     },
-    async (args) => {
+    (args) => {
       called.push({ tool: 'search_issues', args });
 
-      return {
+      return Promise.resolve({
         content: [{ type: 'text', text: 'ENG-1 Queue stuck' }],
         structuredContent: {
           issues: [{ id: 'ENG-1', title: 'Queue stuck' }],
         },
-      };
+      });
     },
   );
   server.registerTool(
@@ -72,10 +82,12 @@ const registered = (server: McpServer, called: McpCalled[]): McpServer => {
       inputSchema: { id: z.string() },
       annotations: { destructiveHint: true },
     },
-    async (args) => {
+    (args) => {
       called.push({ tool: 'delete_issue', args });
 
-      return { content: [{ type: 'text', text: `{"deleted":"${args.id}"}` }] };
+      return Promise.resolve({
+        content: [{ type: 'text', text: `{"deleted":"${args.id}"}` }],
+      });
     },
   );
   server.registerTool(
@@ -85,13 +97,13 @@ const registered = (server: McpServer, called: McpCalled[]): McpServer => {
       inputSchema: { tool: z.string() },
       annotations: { readOnlyHint: true },
     },
-    async (args) => {
+    (args) => {
       called.push({ tool: 'check_policy', args });
 
-      return {
+      return Promise.resolve({
         isError: true,
         content: [{ type: 'text', text: 'Deleting is frozen this week.' }],
-      };
+      });
     },
   );
   server.registerTool(
@@ -150,14 +162,18 @@ export const fakeMcpServer = async (
       });
 
       if (path !== PATH) {
-        if (!(await options.other?.(request, reply, origin))) {
+        if ((await options.other?.(request, reply, origin)) !== true) {
           reply.writeHead(404).end();
         }
 
         return;
       }
 
-      if (options.token && authorization !== `Bearer ${options.token}`) {
+      if (
+        options.token !== undefined &&
+        options.token !== '' &&
+        authorization !== `Bearer ${options.token}`
+      ) {
         reply
           .writeHead(401, {
             'www-authenticate': `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource${PATH}"`,
@@ -167,9 +183,10 @@ export const fakeMcpServer = async (
       }
 
       const id = headerOf(request, 'mcp-session-id');
-      const existing = id ? sessions.get(id) : undefined;
+      const existing =
+        id !== undefined && id !== '' ? sessions.get(id) : undefined;
 
-      if (id && !existing) {
+      if (id !== undefined && id !== '' && !existing) {
         reply.writeHead(404).end();
         return;
       }
@@ -196,7 +213,7 @@ export const fakeMcpServer = async (
   });
 
   await new Promise<void>((resolve) => http.listen(0, '127.0.0.1', resolve));
-  origin = `http://127.0.0.1:${(http.address() as AddressInfo).port}`;
+  origin = `http://127.0.0.1:${portOf(http)}`;
 
   return {
     origin,

@@ -3,7 +3,7 @@ import { InvalidTeamNameError } from '@identity/domain/exceptions/invalid-team-n
 const MAX_LENGTH = 100;
 
 export class TeamName {
-  private readonly kind = 'team-name' as const;
+  private readonly kind: string = 'team-name';
 
   private constructor(readonly value: string) {}
 

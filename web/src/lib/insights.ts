@@ -41,6 +41,7 @@ import {
 } from '@/lib/insights-pull-requests';
 import { formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
+import { isKeyOf, isOneOf, keysOf } from '@/lib/one-of';
 import { RANGES, type Range, rangeOf } from '@/lib/range';
 import { teamSectionPath } from '@/lib/team';
 import { fitToWidth } from '@/lib/textFit';
@@ -78,7 +79,7 @@ const PERIOD_IDS: readonly InsightsPeriod[] = ['7d', '30d', '90d'];
 export const DEFAULT_PERIOD: InsightsPeriod = '30d';
 
 export const PERIOD_RANGES: readonly Range[] = RANGES.filter((range) =>
-  PERIOD_IDS.includes(range.id as InsightsPeriod),
+  isOneOf(PERIOD_IDS, range.id),
 );
 
 export const asPeriod = (raw: string | null): InsightsPeriod =>
@@ -194,10 +195,10 @@ const runFilterOf = (params: URLSearchParams): RunFilter =>
     RUN_FILTER_KEYS.flatMap((key) => {
       const value = params.get(key);
 
-      if (!value) {
+      if (value === null || value === '') {
         return [];
       }
-      if (key === 'outcome' && !RUN_ENDINGS.includes(value as RunEnding)) {
+      if (key === 'outcome' && !isOneOf(RUN_ENDINGS, value)) {
         return [];
       }
       if (
@@ -258,7 +259,7 @@ export const paramsOf = (view: InsightsView): Record<string, string> =>
       : [['period', view.period] as const]),
     ...filterKeysOf(view.tab).flatMap((key) => {
       const value = view.filter[key];
-      return value ? [[key, value] as const] : [];
+      return value !== undefined && value !== '' ? [[key, value] as const] : [];
     }),
     ...(LISTED_TABS.includes(view.tab) && view.page > 1
       ? [['page', String(view.page)] as const]
@@ -554,7 +555,7 @@ export const signalValue = (
     return '–';
   }
   if (reading.signal === 'cost') {
-    return reading.currency
+    return reading.currency !== null && reading.currency !== ''
       ? spentIn(value, reading.currency)
       : value.toFixed(2);
   }
@@ -609,7 +610,9 @@ export const signalTick = (reading: SignalReading, value: number): string => {
 
   const number = value.toLocaleString('en', { maximumFractionDigits: 2 });
 
-  return reading.signal === 'cost' && reading.currency
+  return reading.signal === 'cost' &&
+    reading.currency !== null &&
+    reading.currency !== ''
     ? value.toLocaleString('en', {
         style: 'currency',
         currency: reading.currency,
@@ -873,14 +876,20 @@ const STAGE_NAMES: Record<CostFlowNode['kind'], string> = {
   repository: 'Repository',
 };
 
+const nodeAt = (
+  shown: SankeyShown,
+  index: number,
+): SankeyNodeShown | undefined => shown.nodes[index];
+
 export const flowLinkRows = (shown: SankeyShown): FlowLinkRow[] =>
   shown.links.map((link) => {
-    const source = shown.nodes[link.source];
+    const source = nodeAt(shown, link.source);
+    const target = nodeAt(shown, link.target);
 
     return {
-      stage: source ? STAGE_NAMES[source.kind] : '–',
+      stage: source !== undefined ? STAGE_NAMES[source.kind] : '–',
       from: source?.name ?? '–',
-      to: shown.nodes[link.target]?.name ?? '–',
+      to: target?.name ?? '–',
       amount: link.value,
     };
   });
@@ -948,6 +957,12 @@ const HUMAN_ACTIONS: Record<RunHumanAction, string> = {
   'held-as-wrong': 'Held as wrong',
 };
 
+export const RUN_PULL_REQUEST_STATES: readonly RunPullRequestState[] =
+  keysOf(PULL_REQUEST_STATES);
+
+export const RUN_HUMAN_ACTIONS: readonly RunHumanAction[] =
+  keysOf(HUMAN_ACTIONS);
+
 export const humanActionLabelOf = (action: RunHumanAction): string =>
   HUMAN_ACTIONS[action];
 
@@ -958,6 +973,8 @@ const RESOLUTIONS: Record<RunResolution, string> = {
   failed: 'Failed',
   other: 'Other',
 };
+
+export const RUN_RESOLUTIONS: readonly RunResolution[] = keysOf(RESOLUTIONS);
 
 export const resolutionLabelOf = (resolution: RunResolution): string =>
   RESOLUTIONS[resolution];
@@ -976,11 +993,13 @@ export const formatFilterValue = (key: RunFilterKey, value: string): string => {
       return `${count} ${count === 1 ? 'task' : 'tasks'}`;
     }
     case 'pullRequestState':
-      return PULL_REQUEST_STATES[value as RunPullRequestState] ?? value;
+      return isKeyOf(PULL_REQUEST_STATES, value)
+        ? PULL_REQUEST_STATES[value]
+        : value;
     case 'humanAction':
-      return HUMAN_ACTIONS[value as RunHumanAction] ?? value;
+      return isKeyOf(HUMAN_ACTIONS, value) ? HUMAN_ACTIONS[value] : value;
     case 'resolution':
-      return RESOLUTIONS[value as RunResolution] ?? value;
+      return isKeyOf(RESOLUTIONS, value) ? RESOLUTIONS[value] : value;
     case 'asked':
       return 'Yes';
     case 'fingerprint':

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ExpandChevron } from '@/components/shared/ExpandChevron';
 
 type FoldToggleProps = {
@@ -6,7 +8,11 @@ type FoldToggleProps = {
   onToggle: () => void;
 };
 
-export function FoldToggle({ folded, what, onToggle }: FoldToggleProps) {
+export function FoldToggle({
+  folded,
+  what,
+  onToggle,
+}: FoldToggleProps): ReactElement {
   return (
     <button
       type="button"

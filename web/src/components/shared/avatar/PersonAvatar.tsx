@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +18,7 @@ export function PersonAvatar({
   person,
   size = 'sm',
   className,
-}: PersonAvatarProps) {
+}: PersonAvatarProps): ReactElement {
   const [initial] = Array.from(person.name.trim());
 
   return (
@@ -28,7 +30,9 @@ export function PersonAvatar({
         className,
       )}
     >
-      {person.image && <AvatarImage src={person.image} alt={person.name} />}
+      {person.image !== null && person.image !== '' && (
+        <AvatarImage src={person.image} alt={person.name} />
+      )}
 
       <AvatarFallback className="bg-card text-[0.625rem] text-muted-foreground uppercase group-data-[size=sm]/avatar:text-[0.625rem]">
         {initial}

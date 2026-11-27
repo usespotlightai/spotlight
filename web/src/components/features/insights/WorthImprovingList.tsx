@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, type ReactElement } from 'react';
 
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
@@ -38,7 +38,7 @@ export function WorthImprovingList({
   teamId,
   stations,
   names,
-}: WorthImprovingListProps) {
+}: WorthImprovingListProps): ReactElement {
   const collapsibles = useCollapsibles();
 
   return (

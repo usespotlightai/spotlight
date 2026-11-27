@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
 import { SkillAlreadyExistsError } from '@configuration/domain/exceptions/skill-already-exists.error';
 import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
@@ -102,11 +103,11 @@ export class DrizzleSkillDefinitions implements SkillDefinitionRepository {
   }
 
   private async first(where: SQL | undefined): Promise<SkillDefinition | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(skillDefinition)
       .where(where)
-      .limit(1);
+      .limit(1));
 
     return found ? rehydrated(found) : null;
   }

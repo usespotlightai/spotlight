@@ -14,6 +14,6 @@ const subscribe = (changed: () => void) => {
 
 const coarse = () => query()?.matches ?? false;
 
-export function useCoarsePointer() {
+export function useCoarsePointer(): boolean {
   return useSyncExternalStore(subscribe, coarse, () => false);
 }

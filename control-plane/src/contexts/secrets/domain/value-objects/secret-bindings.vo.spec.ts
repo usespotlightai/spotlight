@@ -45,7 +45,7 @@ describe('SecretBindings', () => {
       { host: 'maps.googleapis.com', location: 'query', name: 'apiKey' },
     ]).all;
 
-    expect(binding?.target).toMatchObject({
+    expect(binding.target).toMatchObject({
       location: 'query',
       name: 'apiKey',
     });

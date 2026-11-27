@@ -17,6 +17,7 @@ import {
 } from '@platform/expressions/expression.errors';
 import type { Scope } from '@platform/expressions/scope';
 import { suggestionFor } from '@platform/expressions/suggestion';
+import { fieldOf } from '@platform/json/field-of';
 
 const LONGEST_EXPRESSION = 2_000;
 
@@ -47,11 +48,12 @@ const PERMISSIVE = withFunctions(
 );
 
 const spanOf = (error: unknown): ExpressionSpan | null => {
-  const range = (error as { range?: { start?: unknown; end?: unknown } })
-    ?.range;
+  const range = fieldOf(error, 'range');
+  const start = fieldOf(range, 'start');
+  const end = fieldOf(range, 'end');
 
-  return typeof range?.start === 'number' && typeof range.end === 'number'
-    ? { start: range.start, end: range.end }
+  return typeof start === 'number' && typeof end === 'number'
+    ? { start, end }
     : null;
 };
 

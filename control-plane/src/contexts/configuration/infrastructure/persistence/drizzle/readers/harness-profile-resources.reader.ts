@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   HarnessProfileRecord,
   HarnessProfileResourcesPort,
@@ -51,11 +52,11 @@ export class DrizzleHarnessProfileResources
   private async stored(
     where: SQL | undefined,
   ): Promise<HarnessProfileRecord | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(harnessProfile)
       .where(where)
-      .limit(1);
+      .limit(1));
 
     return found ? recordFrom(found) : null;
   }

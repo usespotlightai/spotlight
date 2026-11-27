@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import type { INestApplication } from '@nestjs/common';
+import { fieldOf } from '@platform/json/field-of';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { liveChannel } from '@platform/persistence/drizzle/schemas/live.schema';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import {
   NOTICES,
   type NoticesPort,
@@ -32,16 +34,21 @@ const sequencesOn = (
 ): number[] =>
   watching
     .of('changed')
-    .map((each) => each.data as { channel?: string; sequence?: number })
-    .filter((data) => data.channel === channel)
-    .map((data) => data.sequence ?? 0);
+    .filter((each) => fieldOf(each.data, 'channel') === channel)
+    .map((each) => {
+      const sequence = fieldOf(each.data, 'sequence');
+
+      return typeof sequence === 'number' ? sequence : 0;
+    });
 
 const headOf = async (app: INestApplication, channel: string) => {
-  const [row] = await app
-    .get<DrizzleDatabase>(DRIZZLE)
-    .select({ lastSequence: liveChannel.lastSequence })
-    .from(liveChannel)
-    .where(eq(liveChannel.channel, channel));
+  const row = firstOf(
+    await app
+      .get<DrizzleDatabase>(DRIZZLE)
+      .select({ lastSequence: liveChannel.lastSequence })
+      .from(liveChannel)
+      .where(eq(liveChannel.channel, channel)),
+  );
 
   return row?.lastSequence ?? 0;
 };
@@ -70,7 +77,7 @@ describe('live changes on one instance', () => {
   }, 60_000);
 
   afterAll(async () => {
-    await app?.close();
+    await app.close();
   });
 
   it('tells a member what changed in the workspace, and a stranger nothing', async () => {
@@ -78,14 +85,18 @@ describe('live changes on one instance', () => {
     const stranger = watchedLive(app, randomUUID());
 
     try {
-      await eventually(async () => member.of('ready').length === 1);
-      await eventually(async () => stranger.of('ready').length === 1);
+      await eventually(() => Promise.resolve(member.of('ready').length === 1));
+      await eventually(() =>
+        Promise.resolve(stranger.of('ready').length === 1),
+      );
       expect(member.status()).toBe(200);
 
       await noticeIn(app, team, `drift-${randomUUID()}`);
 
-      await eventually(async () => member.of('changed').length > 0);
-      await eventually(async () => member.of('notification').length > 0);
+      await eventually(() => Promise.resolve(member.of('changed').length > 0));
+      await eventually(() =>
+        Promise.resolve(member.of('notification').length > 0),
+      );
 
       expect(member.of('changed')).toContainEqual({
         type: 'changed',
@@ -113,9 +124,11 @@ describe('live changes on one instance', () => {
     let applied: number;
 
     try {
-      await eventually(async () => first.of('ready').length === 1);
+      await eventually(() => Promise.resolve(first.of('ready').length === 1));
       await noticeIn(app, team, `drift-${randomUUID()}`);
-      await eventually(async () => sequencesOn(first, channel).length > 0);
+      await eventually(() =>
+        Promise.resolve(sequencesOn(first, channel).length > 0),
+      );
       applied = Math.max(...sequencesOn(first, channel));
     } finally {
       first.close();
@@ -129,14 +142,17 @@ describe('live changes on one instance', () => {
     ]);
 
     try {
-      await eventually(async () => second.of('ready').length === 1);
+      await eventually(() => Promise.resolve(second.of('ready').length === 1));
 
       const ready = second.heard.findIndex((each) => each.type === 'ready');
       const before = second.heard.slice(0, ready);
       const replayed = before
-        .map((each) => each.data as { channel?: string; sequence?: number })
-        .filter((data) => data.channel === channel)
-        .map((data) => data.sequence ?? 0);
+        .filter((each) => fieldOf(each.data, 'channel') === channel)
+        .map((each) => {
+          const sequence = fieldOf(each.data, 'sequence');
+
+          return typeof sequence === 'number' ? sequence : 0;
+        });
 
       expect(before.every((each) => each.type === 'changed')).toBe(true);
       expect(replayed[0]).toBe(applied + 1);
@@ -165,74 +181,85 @@ describe('live changes on one instance', () => {
   });
 });
 
-describe.skipIf(!E2E_REDIS_URL)('live changes across two instances', () => {
-  let first: INestApplication;
-  let second: INestApplication;
-  let team: Team;
+describe.skipIf(E2E_REDIS_URL === undefined || E2E_REDIS_URL === '')(
+  'live changes across two instances',
+  () => {
+    let first: INestApplication;
+    let second: INestApplication;
+    let team: Team;
 
-  beforeAll(async () => {
-    first = await openApp((module) => module, {
-      env: { REDIS_URL: E2E_REDIS_URL },
-    });
-    second = await openApp((module) => module, {
-      env: { REDIS_URL: E2E_REDIS_URL },
-      sharingDatabaseOf: first,
-    });
-    team = await teamIn(first);
-  }, 60_000);
-
-  afterAll(async () => {
-    await second?.close();
-    await first?.close();
-  });
-
-  it('tells a stream on one instance about a task changed through the other', async () => {
-    const watching = watchedLive(second, team.owner.value);
-
-    try {
-      await eventually(async () => watching.of('ready').length === 1);
-
-      const assigned = await served(first)
-        .put(
-          `/api/teams/${team.teamId.value}/tasks/${team.list.id.value}/assignee`,
-        )
-        .set(TEST_USER_HEADER, team.owner.value)
-        .send({ assigneeId: null });
-      expect(assigned.status).toBeLessThan(300);
-
-      await eventually(async () =>
-        watching.of('changed').some((each) => {
-          const data = each.data as { topic?: string; ids?: unknown };
-
-          return (
-            data.topic === 'task' &&
-            JSON.stringify(data.ids) ===
-              JSON.stringify({ taskId: team.list.id.value })
-          );
-        }),
-      );
-    } finally {
-      watching.close();
-    }
-  });
-
-  it('reaches a stream on one instance with a change committed on the other', async () => {
-    const watching = watchedLive(second, team.owner.value);
-
-    try {
-      await eventually(async () => watching.of('ready').length === 1);
-
-      await noticeIn(first, team, `drift-${randomUUID()}`);
-
-      await eventually(async () => watching.of('changed').length > 0);
-      await eventually(async () => watching.of('notification').length > 0);
-
-      expect(watching.of('changed')).toContainEqual({
-        type: 'changed',
-        data: expect.objectContaining({ topic: 'inbox', ids: {} }) as unknown,
+    beforeAll(async () => {
+      first = await openApp((module) => module, {
+        env: { REDIS_URL: E2E_REDIS_URL },
       });
-    } finally {
-      watching.close();
-    }
-  });
-});
+      second = await openApp((module) => module, {
+        env: { REDIS_URL: E2E_REDIS_URL },
+        sharingDatabaseOf: first,
+      });
+      team = await teamIn(first);
+    }, 60_000);
+
+    afterAll(async () => {
+      await second.close();
+      await first.close();
+    });
+
+    it('tells a stream on one instance about a task changed through the other', async () => {
+      const watching = watchedLive(second, team.owner.value);
+
+      try {
+        await eventually(() =>
+          Promise.resolve(watching.of('ready').length === 1),
+        );
+
+        const assigned = await served(first)
+          .put(
+            `/api/teams/${team.teamId.value}/tasks/${team.list.id.value}/assignee`,
+          )
+          .set(TEST_USER_HEADER, team.owner.value)
+          .send({ assigneeId: null });
+        expect(assigned.status).toBeLessThan(300);
+
+        await eventually(() =>
+          Promise.resolve(
+            watching.of('changed').some((each) => {
+              return (
+                fieldOf(each.data, 'topic') === 'task' &&
+                JSON.stringify(fieldOf(each.data, 'ids')) ===
+                  JSON.stringify({ taskId: team.list.id.value })
+              );
+            }),
+          ),
+        );
+      } finally {
+        watching.close();
+      }
+    });
+
+    it('reaches a stream on one instance with a change committed on the other', async () => {
+      const watching = watchedLive(second, team.owner.value);
+
+      try {
+        await eventually(() =>
+          Promise.resolve(watching.of('ready').length === 1),
+        );
+
+        await noticeIn(first, team, `drift-${randomUUID()}`);
+
+        await eventually(() =>
+          Promise.resolve(watching.of('changed').length > 0),
+        );
+        await eventually(() =>
+          Promise.resolve(watching.of('notification').length > 0),
+        );
+
+        expect(watching.of('changed')).toContainEqual({
+          type: 'changed',
+          data: expect.objectContaining({ topic: 'inbox', ids: {} }) as unknown,
+        });
+      } finally {
+        watching.close();
+      }
+    });
+  },
+);

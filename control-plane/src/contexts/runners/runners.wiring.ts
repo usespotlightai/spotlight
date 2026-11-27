@@ -252,7 +252,10 @@ const PLATFORM_EGRESS = Symbol('PLATFORM_EGRESS');
 const PLATFORM_POOL = Symbol('PLATFORM_POOL');
 
 const platformPoolOf = (env: Env): PlatformPoolSettings | null =>
-  env.SPOTLIGHT_PLATFORM_POOL_URL && env.SPOTLIGHT_PLATFORM_POOL_SECRET
+  env.SPOTLIGHT_PLATFORM_POOL_URL !== undefined &&
+  env.SPOTLIGHT_PLATFORM_POOL_URL !== '' &&
+  env.SPOTLIGHT_PLATFORM_POOL_SECRET !== undefined &&
+  env.SPOTLIGHT_PLATFORM_POOL_SECRET !== ''
     ? {
         url: ProvisionUrl.of(env.SPOTLIGHT_PLATFORM_POOL_URL),
         secret: SigningSecret.of(env.SPOTLIGHT_PLATFORM_POOL_SECRET),
@@ -297,7 +300,10 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       env: Env,
       tokens: TokenIssuer,
     ): PlatformEgressSettings | null =>
-      env.SPOTLIGHT_PLATFORM_EGRESS_URL && env.SPOTLIGHT_PLATFORM_EGRESS_TOKEN
+      env.SPOTLIGHT_PLATFORM_EGRESS_URL !== undefined &&
+      env.SPOTLIGHT_PLATFORM_EGRESS_URL !== '' &&
+      env.SPOTLIGHT_PLATFORM_EGRESS_TOKEN !== undefined &&
+      env.SPOTLIGHT_PLATFORM_EGRESS_TOKEN !== ''
         ? {
             url: EgressUrl.of(env.SPOTLIGHT_PLATFORM_EGRESS_URL),
             tokenHash: TokenHash.of(

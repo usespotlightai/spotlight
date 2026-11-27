@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactElement, type ReactNode, useMemo, useState } from 'react';
 
 import { COLLAPSE_MS } from '@/components/shared/Collapsible';
 import { useTimeout } from '@/hooks/useTimeout';
@@ -15,7 +15,7 @@ export function StepAnchorsProvider({
   runId,
   journals,
   children,
-}: StepAnchorsProviderProps) {
+}: StepAnchorsProviderProps): ReactElement {
   const [focused, setFocused] = useState<string | null>(null);
   const later = useTimeout();
 

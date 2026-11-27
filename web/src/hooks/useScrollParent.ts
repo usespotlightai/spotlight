@@ -12,7 +12,13 @@ const scrollerOf = (element: HTMLElement | null): HTMLElement | null => {
   return null;
 };
 
-export function useScrollParent() {
+type ScrollParentResult = {
+  attach: (element: HTMLElement | null) => void;
+  scroller: HTMLElement | null;
+  margin: number;
+};
+
+export function useScrollParent(): ScrollParentResult {
   const [scroller, setScroller] = useState<HTMLElement | null>(null);
   const [margin, setMargin] = useState(0);
 

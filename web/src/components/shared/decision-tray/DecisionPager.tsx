@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { IconAction } from '@/components/shared/IconAction';
 
@@ -8,7 +9,11 @@ type DecisionPagerProps = {
   onStep: (by: 1 | -1) => void;
 };
 
-export function DecisionPager({ place, count, onStep }: DecisionPagerProps) {
+export function DecisionPager({
+  place,
+  count,
+  onStep,
+}: DecisionPagerProps): ReactElement {
   return (
     <span className="flex items-center text-muted-foreground text-xs tabular-nums">
       <IconAction

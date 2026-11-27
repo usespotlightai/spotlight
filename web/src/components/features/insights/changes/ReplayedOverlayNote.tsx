@@ -1,4 +1,5 @@
 import type { UseQueryResult } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import {
@@ -26,8 +27,8 @@ export function ReplayedOverlayNote({
   scattered,
   hiddenFor,
   candidates,
-}: ReplayedOverlayNoteProps) {
-  if (!stationId) {
+}: ReplayedOverlayNoteProps): ReactElement | null {
+  if (stationId === null || stationId === '') {
     return null;
   }
 
@@ -46,7 +47,7 @@ export function ReplayedOverlayNote({
     return null;
   }
 
-  if (hiddenFor) {
+  if (hiddenFor !== null && hiddenFor !== '') {
     return (
       <p data-slot="replayed-note" className={NOTE}>
         Replayed points show success only. They’re hidden while the chart shows{' '}

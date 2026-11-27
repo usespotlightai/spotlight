@@ -1,3 +1,4 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 
@@ -13,7 +14,7 @@ export interface StationUse<K extends UsedKey<K>> {
 }
 
 export class StationUses<K extends UsedKey<K>> {
-  private readonly kind = 'station-uses';
+  private readonly kind: string = 'station-uses';
 
   private constructor(readonly uses: readonly StationUse<K>[]) {}
 
@@ -46,7 +47,7 @@ export class StationUses<K extends UsedKey<K>> {
       this.kind === other.kind &&
       this.uses.length === other.uses.length &&
       this.uses.every((each, index) => {
-        const theirs = other.uses[index];
+        const theirs = itemAt(other.uses, index);
 
         return (
           theirs !== undefined &&

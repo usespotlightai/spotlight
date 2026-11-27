@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 
 import { changesInPlace } from '@/lib/disclosure';
 import { prefersReducedMotion } from '@/lib/motion';
@@ -11,7 +11,9 @@ const READ_ON = 0.6;
 
 export const SETTLE_MS = 1_000;
 
-export function useStickToBottom<T extends HTMLElement>(jump?: unknown) {
+export function useStickToBottom<T extends HTMLElement>(
+  jump?: unknown,
+): RefObject<T | null> {
   const ref = useRef<T>(null);
   const following = useRef(true);
   const pinnedAt = useRef(0);

@@ -10,6 +10,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -136,7 +137,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('pull requests merged, across the Insights tabs (e2e)', () => {
@@ -150,10 +151,10 @@ describe('pull requests merged, across the Insights tabs (e2e)', () => {
     expect(overview.status).toBe(200);
     expect(flow.status).toBe(200);
     expect(pullRequests.status).toBe(200);
-    const { headline } = overview.body as InsightsOverviewResponseDto;
-    const { delivery } = (flow.body as InsightsFlowResponseDto).flow;
+    const { headline } = bodyOf<InsightsOverviewResponseDto>(overview);
+    const { delivery } = bodyOf<InsightsFlowResponseDto>(flow).flow;
     const { comparison, spotlightShare } =
-      pullRequests.body as InsightsPullRequestsResponseDto;
+      bodyOf<InsightsPullRequestsResponseDto>(pullRequests);
 
     expect(headline).toMatchObject({
       mergedPullRequests: 3,
@@ -166,7 +167,7 @@ describe('pull requests merged, across the Insights tabs (e2e)', () => {
 
   it('leaves out another team’s pull request, but keeps one whose task the team ran', async () => {
     const overview = await insights('overview');
-    const { headline } = overview.body as InsightsOverviewResponseDto;
+    const { headline } = bodyOf<InsightsOverviewResponseDto>(overview);
 
     expect(headline.mergedTaskIds).toHaveLength(3);
     expect(headline.mergedTaskIds).not.toContain(elsewhereTask);
@@ -175,7 +176,7 @@ describe('pull requests merged, across the Insights tabs (e2e)', () => {
 
   it('counts a pull request merged in the period before only in the change', async () => {
     const overview = await insights('overview');
-    const { headline, changes } = overview.body as InsightsOverviewResponseDto;
+    const { headline, changes } = bodyOf<InsightsOverviewResponseDto>(overview);
 
     expect(headline.mergedTaskIds).not.toContain(earlierTask);
     expect(changes.mergedPullRequests).toMatchObject({

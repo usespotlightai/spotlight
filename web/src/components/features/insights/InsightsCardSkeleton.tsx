@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
@@ -22,7 +22,7 @@ export function InsightsCardSkeleton({
   switchable = false,
   children,
   ...card
-}: InsightsCardSkeletonProps) {
+}: InsightsCardSkeletonProps): ReactElement {
   return (
     <SkeletonBlock label={label}>
       <InsightsCard {...card} table={switchable ? children : undefined}>

@@ -7,6 +7,9 @@ import type {
 } from '@runs/application/ports/run-turns.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -23,6 +26,7 @@ import {
   STUCK_TURNS_METRIC,
   Turns,
 } from '@work/application/services/turns.service';
+import type { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -67,7 +71,7 @@ class TickingClock implements ClockPort {
 
   now = () => this.at;
 
-  sleep = async () => undefined;
+  sleep = () => Promise.resolve(undefined);
 }
 
 const turning = (
@@ -85,46 +89,54 @@ const turning = (
 ) => {
   const take = vi.fn(async (): Promise<void> => {
     await over.taking?.();
-    if (over.takeFails) {
+    if (over.takeFails === true) {
       throw new Error('Runs unavailable');
     }
   });
   const clock = over.clock ?? new TickingClock();
-  const resume = vi.fn(async () => 'resumed' as const);
-  const dispatches = {
-    find: async () => ({
-      subject: {
-        kind: 'task',
-        taskId: TaskId.of('task_1'),
-        revision: TaskRevision.of(0),
-        stationId: StationId.of('station_1'),
-      },
+  const resume = vi.fn(() => Promise.resolve('resumed' as const));
+  const dispatches = partial<DispatchRepository>({
+    find: () =>
+      Promise.resolve(
+        partial<Dispatch>({
+          subject: {
+            kind: 'task',
+            taskId: TaskId.of('task_1'),
+            revision: TaskRevision.of(0),
+            stationId: StationId.of('station_1'),
+            driver: 'line' as const,
+          },
+        }),
+      ),
+  });
+  const cancel = vi.fn(() =>
+    Promise.resolve({
+      was: 'suspended' as const,
+      started: true,
     }),
-  } as unknown as DispatchRepository;
-  const cancel = vi.fn(async () => ({
-    was: 'suspended' as const,
-    started: true,
-  }));
+  );
   const count = vi.fn();
-  const forget = vi.fn(async () => undefined);
+  const forget = vi.fn(() => Promise.resolve(undefined));
   const error = vi.fn();
   const stored = over.retakes ?? new Map<string, StoredRetake>();
   const key = (runId: RunId, suspendedAt: Date) =>
     `${runId.value}@${suspendedAt.getTime()}`;
   const turns = new Turns(
     {
-      turnOf: async () => null,
-      olderThan: async (_owner, _state, before) =>
-        (over.turns ?? []).filter((each) => each.suspendedAt < before),
+      turnOf: () => Promise.resolve(null),
+      olderThan: (_owner, _state, before) =>
+        Promise.resolve(
+          (over.turns ?? []).filter((each) => each.suspendedAt < before),
+        ),
     } satisfies RunTurnsPort,
     {
-      checkedAt: async (runId, suspendedAt) =>
-        stored.get(key(runId, suspendedAt))?.checkedAt ?? null,
-      claim: async ({ runId, suspendedAt, attempt, from, to, retakes }) => {
+      checkedAt: (runId, suspendedAt) =>
+        Promise.resolve(stored.get(key(runId, suspendedAt))?.checkedAt ?? null),
+      claim: ({ runId, suspendedAt, attempt, from, to, retakes }) => {
         const was = stored.get(key(runId, suspendedAt));
 
         if ((was?.checkedAt ?? null) !== from) {
-          return false;
+          return Promise.resolve(false);
         }
         stored.set(key(runId, suspendedAt), {
           runId,
@@ -136,23 +148,25 @@ const turning = (
           leasedUntil: retakes ? null : (was?.leasedUntil ?? null),
           leaseToken: retakes ? null : (was?.leaseToken ?? null),
         });
-        return true;
+        return Promise.resolve(true);
       },
-      leaseNextDue: async ({ token, now, leasedUntil, maxTries }) => {
-        if (over.crashesBeforeRetaking) {
-          throw new Error('The process stopped');
+      leaseNextDue: ({ token, now, leasedUntil, maxTries }) => {
+        if (over.crashesBeforeRetaking === true) {
+          return Promise.reject(new Error('The process stopped'));
         }
-        const [due] = [...stored.values()]
-          .filter(
-            (each) =>
-              each.due &&
-              each.tries < maxTries &&
-              (each.leasedUntil === null || each.leasedUntil <= now),
-          )
-          .sort((a, b) => a.suspendedAt.getTime() - b.suspendedAt.getTime());
+        const due = firstOf(
+          [...stored.values()]
+            .filter(
+              (each) =>
+                each.due &&
+                each.tries < maxTries &&
+                (each.leasedUntil === null || each.leasedUntil <= now),
+            )
+            .sort((a, b) => a.suspendedAt.getTime() - b.suspendedAt.getTime()),
+        );
 
         if (!due) {
-          return null;
+          return Promise.resolve(null);
         }
 
         const leased = {
@@ -162,15 +176,15 @@ const turning = (
           leaseToken: token,
         };
         stored.set(key(due.runId, due.suspendedAt), leased);
-        return {
+        return Promise.resolve({
           runId: leased.runId,
           suspendedAt: leased.suspendedAt,
           attempt: leased.attempt,
           tries: leased.tries,
           leaseToken: token,
-        };
+        });
       },
-      retaken: async (retake) => {
+      retaken: (retake) => {
         const was = stored.get(key(retake.runId, retake.suspendedAt));
 
         if (was && was.leaseToken === retake.leaseToken) {
@@ -181,8 +195,10 @@ const turning = (
             leaseToken: null,
           });
         }
+
+        return Promise.resolve();
       },
-      retakeFailed: async (retake, retryAt) => {
+      retakeFailed: (retake, retryAt) => {
         const was = stored.get(key(retake.runId, retake.suspendedAt));
 
         if (was && was.leaseToken === retake.leaseToken) {
@@ -192,22 +208,28 @@ const turning = (
             leaseToken: null,
           });
         }
+
+        return Promise.resolve();
       },
       forgetSuspendedBefore: forget,
     } satisfies TurnRetakesPort,
-    { of: async () => over.facts ?? [] },
-    { resume, cancel } as unknown as RunsPort,
+    { of: () => Promise.resolve(over.facts ?? []) },
+    partial<RunsPort>({ resume, cancel }),
     dispatches,
-    {
-      withTurnAnsweredBetween: async () => over.tasks ?? [],
-      find: async () =>
-        ({ hasCurrentRun: () => over.holds ?? true }) as unknown as Task,
-    } as unknown as TaskRepository,
-    { findByStation: async () => null } as unknown as LineMapsPort,
-    { take } as unknown as TakeTurn,
+    partial<TaskRepository>({
+      withTurnAnsweredBetween: () => Promise.resolve(over.tasks ?? []),
+      find: () =>
+        Promise.resolve(
+          partial<Task>({
+            hasCurrentRun: () => over.holds ?? true,
+          }),
+        ),
+    }),
+    partial<LineMapsPort>({ findByStation: () => Promise.resolve(null) }),
+    partial<TakeTurn>({ take }),
     clock,
     { generate: () => randomUUID() },
-    { count, inSpan: vi.fn(), measure: vi.fn() } as never,
+    partial<TelemetryPort>({ count, inSpan: vi.fn(), measure: vi.fn() }),
     { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error },
     resumingWith({ resume }, dispatches),
   );
@@ -287,8 +309,10 @@ describe('Turns', () => {
       turns: [turnAged(45 * MINUTE + 30_000)],
       takeFails: true,
       clock,
-      taking: async () => {
+      taking: () => {
         clock.at = new Date(clock.at.getTime() + 10 * MINUTE);
+
+        return Promise.resolve();
       },
     });
 
@@ -417,14 +441,14 @@ describe('Turns', () => {
   });
 
   it('resumes a kept turn whose task was answered but whose resume never came', async () => {
-    const task = {
+    const task = partial<Task>({
       currentRunId: RUN,
       stationId: StationId.of('station_1'),
       takesUp: () => true,
-    } as unknown as Task;
+    });
     const { turns, resume } = turning({
       tasks: [task],
-      facts: [{ runId: RUN, turn: 'kept', attempt: 3 } as RunFacts],
+      facts: [partial<RunFacts>({ runId: RUN, turn: 'kept', attempt: 3 })],
     });
 
     await turns.resumeAnswered();

@@ -45,8 +45,11 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
       runId,
       placement: proposalPlacementWithin(lines, named),
       title: TaskTitle.of(inputs.requiredText(this.tool, 'title')),
-      description: description ? TaskDescription.of(description) : null,
-      base: base ? Branch.of(base) : null,
+      description:
+        description !== undefined && description !== ''
+          ? TaskDescription.of(description)
+          : null,
+      base: base !== undefined && base !== '' ? Branch.of(base) : null,
       replaces: this.replacedIn(inputs),
     };
     const position = chat.proposalPositionFor(runId).value;

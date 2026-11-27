@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { HostRow } from '@/components/features/runners/HostRow';
 import { HostSelectionBar } from '@/components/features/runners/HostSelectionBar';
@@ -26,7 +26,7 @@ export function RunnerList({
   pools,
   harnesses,
   selectable,
-}: RunnerListProps) {
+}: RunnerListProps): ReactElement {
   const [picked, setPicked] = useState<readonly string[]>([]);
   const deleting = useDeleteHosts();
   const shown = new Set(hosts.map((host) => host.id));

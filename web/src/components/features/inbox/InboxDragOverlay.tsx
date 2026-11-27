@@ -1,4 +1,5 @@
 import { DragOverlay } from '@dnd-kit/core';
+import type { ReactElement } from 'react';
 
 import { InboxEntryRow } from '@/components/features/inbox/InboxEntryRow';
 import type { InboxEntry } from '@/lib/inbox';
@@ -8,7 +9,10 @@ type InboxDragOverlayProps = {
   entry: InboxEntry | null;
 };
 
-export function InboxDragOverlay({ slug, entry }: InboxDragOverlayProps) {
+export function InboxDragOverlay({
+  slug,
+  entry,
+}: InboxDragOverlayProps): ReactElement {
   return (
     <DragOverlay dropAnimation={null}>
       {entry && (

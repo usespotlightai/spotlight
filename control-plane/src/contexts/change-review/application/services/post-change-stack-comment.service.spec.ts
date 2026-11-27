@@ -71,8 +71,8 @@ const ready = (repository: string | null = null, run = 'run-1') =>
     NOW,
   );
 
-const unreachable = async (): Promise<never> => {
-  throw new Error('unreachable');
+const unreachable = (): Promise<never> => {
+  return Promise.reject(new Error('unreachable'));
 };
 
 const posting = (
@@ -89,37 +89,41 @@ const posting = (
     over.pullRequest === undefined
       ? 'https://github.com/acme/widgets/pull/66'
       : over.pullRequest;
-  const pullRequests = over.pullRequests ?? (pullRequest ? [pullRequest] : []);
+  const pullRequests =
+    over.pullRequests ??
+    (pullRequest !== null && pullRequest !== '' ? [pullRequest] : []);
 
   const poster = new PostChangeStackComment(
     {
-      latestForTask: async () => null,
-      publicOfRun: async () => [],
-      publicOfTask: async () => [],
-      latestPerRepository: async () =>
-        (over.stacks ?? [{ repository: null, run: 'run-1' }]).map((each) => {
-          const stack = ready(each.repository, each.run);
+      latestForTask: () => Promise.resolve(null),
+      publicOfRun: () => Promise.resolve([]),
+      publicOfTask: () => Promise.resolve([]),
+      latestPerRepository: () =>
+        Promise.resolve(
+          (over.stacks ?? [{ repository: null, run: 'run-1' }]).map((each) => {
+            const stack = ready(each.repository, each.run);
 
-          return {
-            id: stack.id.value,
-            repository: stack.repository?.value ?? null,
-            state: stack.state,
-            cohorts: stack.cohorts,
-            check: null,
-            added: 0,
-            removed: 0,
-          };
-        }),
-      ofRun: async () => [],
-      ofTask: async () => [],
-      visibilityOf: async () => null,
-      repositoryOf: async () => null,
-      answerOf: async () => null,
+            return {
+              id: stack.id.value,
+              repository: stack.repository?.value ?? null,
+              state: stack.state,
+              cohorts: stack.cohorts,
+              check: null,
+              added: 0,
+              removed: 0,
+            };
+          }),
+        ),
+      ofRun: () => Promise.resolve([]),
+      ofTask: () => Promise.resolve([]),
+      visibilityOf: () => Promise.resolve(null),
+      repositoryOf: () => Promise.resolve(null),
+      answerOf: () => Promise.resolve(null),
     },
     {
-      slugOf: async () => 'acme',
-      idOf: async () => null,
-      mayView: async () => true,
+      slugOf: () => Promise.resolve('acme'),
+      idOf: () => Promise.resolve(null),
+      mayView: () => Promise.resolve(true),
     },
     {
       run: async () => {
@@ -142,8 +146,8 @@ const posting = (
           placement: RunnerPlacement.anywhere(),
         };
       },
-      teamOfRun: async () => null,
-      repositoriesOfRun: async () => [],
+      teamOfRun: () => Promise.resolve(null),
+      repositoriesOfRun: () => Promise.resolve([]),
       task: async () => {
         if (over.failing === 'task') {
           return unreachable();
@@ -160,7 +164,7 @@ const posting = (
           currentRunId: null,
         };
       },
-      taskWithPullRequest: async () => null,
+      taskWithPullRequest: () => Promise.resolve(null),
     },
     {
       isConnected: async () =>
@@ -173,12 +177,12 @@ const posting = (
         }
         upserted.push(comment);
       },
-      delete: async () => undefined,
+      delete: () => Promise.resolve(),
     },
-    { now: () => NOW, sleep: async () => undefined },
+    { now: () => NOW, sleep: () => Promise.resolve() },
     {
       changeStackOf: ({ taskId, repository }) =>
-        `https://app.example/tasks/${taskId.value}/changes${repository ? `?repository=${repository}` : ''}`,
+        `https://app.example/tasks/${taskId.value}/changes${repository !== null && repository !== '' ? `?repository=${repository}` : ''}`,
       decisionsOf: ({ taskId }) =>
         `https://app.example/tasks/${taskId.value}#decisions`,
     },

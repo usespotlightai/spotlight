@@ -35,7 +35,9 @@ const causeIn = (headers: DeliveryHeaders): string | null => {
   const named = headers[CAUSE_HEADER];
   const cause = Array.isArray(named) ? named[0] : named;
 
-  return cause?.trim() || null;
+  const trimmed = cause?.trim();
+
+  return trimmed === undefined || trimmed === '' ? null : trimmed;
 };
 
 @ApiTags('webhooks')

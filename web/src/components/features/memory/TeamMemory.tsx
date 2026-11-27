@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { TeamMemoryList } from '@/components/features/memory/TeamMemoryList';
@@ -9,7 +10,7 @@ type TeamMemoryProps = {
   teamId: string;
 };
 
-export function TeamMemory({ slug, teamId }: TeamMemoryProps) {
+export function TeamMemory({ slug, teamId }: TeamMemoryProps): ReactElement {
   const [params, setParams] = useSearchParams();
   const lines = useLines(teamId);
 

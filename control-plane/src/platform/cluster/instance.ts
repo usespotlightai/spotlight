@@ -16,13 +16,13 @@ export class Instance {
     port: number;
     clustered: boolean;
   }): Instance {
-    if (options.address) {
+    if (options.address !== undefined && options.address !== '') {
       return new Instance(options.address);
     }
 
     const reachable = reachableAddress();
 
-    if (!reachable && options.clustered) {
+    if ((reachable === undefined || reachable === '') && options.clustered) {
       throw new Error(
         'Sorry, Spotlight found no network address that other control-plane instances can reach. Set SPOTLIGHT_INSTANCE_URL.',
       );

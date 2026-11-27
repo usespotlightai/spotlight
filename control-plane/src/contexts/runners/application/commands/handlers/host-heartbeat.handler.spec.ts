@@ -32,6 +32,7 @@ import { CredentialSource } from '@runners/domain/value-objects/credential-sourc
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -82,8 +83,8 @@ const reporting = (
   let now = STARTED_AT;
   let authenticated =
     input.authenticated === undefined ? aPullPool() : input.authenticated;
-  const authenticate = vi.fn(async () =>
-    authenticated ? authenticatedThrough(authenticated) : null,
+  const authenticate = vi.fn(() =>
+    Promise.resolve(authenticated ? authenticatedThrough(authenticated) : null),
   );
 
   const handler = new HostHeartbeatHandler(
@@ -96,10 +97,10 @@ const reporting = (
       DRAIN_POLICY,
       { generate: () => 'sandbox_new' },
       sandboxTokens(),
-      { now: () => now } as ClockPort,
-      { info: vi.fn() } as unknown as LoggerPort,
+      partial<ClockPort>({ now: () => now }),
+      partial<LoggerPort>({ info: vi.fn() }),
     ),
-    { now: () => now } as ClockPort,
+    partial<ClockPort>({ now: () => now }),
   );
 
   return {

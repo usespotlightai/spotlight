@@ -325,7 +325,9 @@ export const workSubscribers = (reactions: {
       reactions.taskPullRequests.closed(
         WorkspaceId.of(event.workspaceId),
         PullRequestUrl.of(event.pullRequest),
-        event.closedAt ? new Date(event.closedAt) : null,
+        event.closedAt !== null && event.closedAt !== ''
+          ? new Date(event.closedAt)
+          : null,
         event.merged,
       ),
   ),

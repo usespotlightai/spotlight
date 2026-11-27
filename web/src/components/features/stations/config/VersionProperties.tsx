@@ -1,4 +1,5 @@
 import { ArrowUpRight } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import {
   Property,
@@ -22,7 +23,7 @@ export function VersionProperties({
   teamId,
   lineId,
   stationId,
-}: VersionPropertiesProps) {
+}: VersionPropertiesProps): ReactElement {
   const outcomes = useStationInsights(teamId, lineId, stationId);
   const live = configFingerprint(outcomes.data?.groups ?? []);
 
@@ -44,11 +45,13 @@ export function VersionProperties({
             <Property label="Since">
               <WithTooltip tooltip={`Config ${live.fingerprint}`}>
                 <span>
-                  {live.since ? formatDay(live.since) : 'No run ended yet'}
+                  {live.since !== null && live.since !== ''
+                    ? formatDay(live.since)
+                    : 'No run ended yet'}
                 </span>
               </WithTooltip>
             </Property>
-            {live.pullRequest && (
+            {live.pullRequest !== null && live.pullRequest !== '' && (
               <Property label="Change">
                 <a
                   href={live.pullRequest}

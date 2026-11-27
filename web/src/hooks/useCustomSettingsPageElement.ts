@@ -3,12 +3,17 @@ import { useCallback, useEffect, useState } from 'react';
 import type { CustomSettingsPageDto } from '@/lib/api';
 import { loadCustomSettingsPageElement } from '@/lib/custom-settings-page-element';
 
-export type CustomSettingsPageElementState = 'loading' | 'ready' | 'failed';
+type CustomSettingsPageElementState = 'loading' | 'ready' | 'failed';
+
+type CustomSettingsPageElementResult = {
+  state: CustomSettingsPageElementState;
+  retry: () => void;
+};
 
 // Loads the script of a custom settings page, until its element is defined. retry loads it again from a new URL.
 export function useCustomSettingsPageElement(
   page: Pick<CustomSettingsPageDto, 'script' | 'element'>,
-) {
+): CustomSettingsPageElementResult {
   const { script, element } = page;
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<CustomSettingsPageElementState>(() =>

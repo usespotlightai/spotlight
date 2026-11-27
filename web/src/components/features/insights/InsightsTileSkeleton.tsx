@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
@@ -12,7 +14,7 @@ export function InsightsTileSkeleton({
   delta,
   detail,
   trend,
-}: TileBones) {
+}: TileBones): ReactElement {
   return (
     <SkeletonBlock className="@max-xl/pane:odd:last:col-span-2">
       <div
@@ -25,23 +27,32 @@ export function InsightsTileSkeleton({
           ) : (
             <span className="line-clamp-1">{label}</span>
           )}
-          {tooltip && <InfoTooltip tooltip={tooltip} />}
+          {tooltip !== undefined && tooltip !== '' && (
+            <InfoTooltip tooltip={tooltip} />
+          )}
         </dt>
         <dd className="flex flex-1 flex-col">
           <span className="flex flex-col items-start gap-0.5">
             <SkeletonLine
-              className={cn(wide ? 'w-20' : 'w-12', 'text-xl leading-7')}
+              className={cn(
+                wide === true ? 'w-20' : 'w-12',
+                'text-xl leading-7',
+              )}
             />
-            {delta && <SkeletonLine className="w-12 text-sm leading-5" />}
+            {delta === true && (
+              <SkeletonLine className="w-12 text-sm leading-5" />
+            )}
             {typeof detail === 'string' ? (
               <span className="text-muted-foreground text-sm leading-5">
                 {detail}
               </span>
             ) : (
-              detail && <SkeletonLine className="w-20 text-sm leading-5" />
+              detail === true && (
+                <SkeletonLine className="w-20 text-sm leading-5" />
+              )
             )}
           </span>
-          {trend && (
+          {trend === true && (
             <span className="mt-auto pt-2">
               <Skeleton className="h-6 w-full" />
             </span>

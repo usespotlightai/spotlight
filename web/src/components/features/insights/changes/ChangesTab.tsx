@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { AgentConfigComparison } from '@/components/features/insights/changes/AgentConfigComparison';
 import { ChangeMarkerList } from '@/components/features/insights/changes/ChangeMarkerList';
@@ -24,7 +24,12 @@ type ChangesTabProps = {
   names: StationNames;
 };
 
-export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
+export function ChangesTab({
+  slug,
+  teamId,
+  period,
+  names,
+}: ChangesTabProps): ReactElement {
   const [narrowed, setNarrowed] =
     useState<AgentConfigsNarrowed>(EVERY_AGENT_CONFIG);
   const [measure, setMeasure] = useState<OutcomeMeasure>(DEFAULT_OUTCOME);

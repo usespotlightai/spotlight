@@ -1,10 +1,16 @@
-import { noop, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  noop,
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { workspaceQuery } from '@/hooks/api/useWorkspace';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import {
   createWorkspaceWithTeam,
   type SignupSurveyRequestDto,
+  type CreatedWorkspaceResponseDto,
 } from '@/lib/api';
 import { messageOf } from '@/lib/error';
 
@@ -15,7 +21,11 @@ export type CreateWorkspaceInput = {
   survey: SignupSurveyRequestDto;
 };
 
-export function useCreateWorkspace() {
+export function useCreateWorkspace(): UseMutationResult<
+  CreatedWorkspaceResponseDto,
+  Error,
+  CreateWorkspaceInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

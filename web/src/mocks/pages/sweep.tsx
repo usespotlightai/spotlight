@@ -70,7 +70,7 @@ export const runPages = (): string[] =>
     ...(world().tasks[teamId] ?? []).flatMap((task) =>
       (world().runs[task.id] ?? []).flatMap((run) => [
         `${teamPath(teamId)}/runs/${run.id}`,
-        ...(RUN_CHANGE_STACKS[run.id]
+        ...(Object.hasOwn(RUN_CHANGE_STACKS, run.id)
           ? [`${teamPath(teamId)}/runs/${run.id}/changes`]
           : []),
       ]),
@@ -104,12 +104,12 @@ const emptyStates = (): string[] => [
           each.children.length === 0 &&
           !each.closest('nav, aside, [data-sidebar]'),
       )
-      .map((each) => each.textContent ?? '')
+      .map((each) => each.textContent)
       .filter((text) => EMPTY.test(text)),
   ),
 ];
 
-export const sweepPages = (pages: readonly string[]) => {
+export const sweepPages = (pages: readonly string[]): void => {
   describe('every page with data', () => {
     serveMockApi();
     quietBrowser();

@@ -1,4 +1,4 @@
-import { type ReactNode, useRef } from 'react';
+import { type ReactNode, useRef, type ReactElement } from 'react';
 
 import { useHeightTransition } from '@/hooks/useHeightTransition';
 import { cn } from '@/lib/utils';
@@ -17,7 +17,7 @@ export function Disclosure({
   label,
   className,
   children,
-}: DisclosureProps) {
+}: DisclosureProps): ReactElement {
   const panel = useRef<HTMLDivElement>(null);
 
   useHeightTransition(panel, open);

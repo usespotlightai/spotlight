@@ -6,6 +6,7 @@ import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-con
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -31,18 +32,19 @@ const claimedBy = (id: string, runner: string, at = NOON) =>
 
 const leasing = (stored: Run[], conflicting: string[] = []) => {
   const saved: Run[] = [];
-  const runs = {
-    expiredLeases: async (now: Date) =>
-      stored.filter((each) => each.leaseExpired(now)),
-    claimedBy: async (runner: RunnerId) =>
-      stored.filter((each) => each.wasClaimedBy(runner)),
-    save: async (run: Run) => {
+  const runs = partial<RunRepository>({
+    expiredLeases: (now: Date) =>
+      Promise.resolve(stored.filter((each) => each.leaseExpired(now))),
+    claimedBy: (runner: RunnerId) =>
+      Promise.resolve(stored.filter((each) => each.wasClaimedBy(runner))),
+    save: (run: Run) => {
       if (conflicting.includes(run.id.value)) {
-        throw new RunVersionConflictError(run.id.value);
+        return Promise.reject(new RunVersionConflictError(run.id.value));
       }
       saved.push(run);
+      return Promise.resolve();
     },
-  } as unknown as RunRepository;
+  });
 
   return { leases: new RunLeases(runs), saved };
 };

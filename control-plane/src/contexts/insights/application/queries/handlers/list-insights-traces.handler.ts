@@ -75,7 +75,9 @@ export class ListInsightsTracesHandler implements QueryHandlerPort<
         known.has(trace.taskId),
       );
       const ids = traces.flatMap((trace) =>
-        trace.runs.flatMap((run) => (run.openedBy ? [run.openedBy] : [])),
+        trace.runs.flatMap((run) =>
+          run.openedBy !== null && run.openedBy !== '' ? [run.openedBy] : [],
+        ),
       );
 
       return insightsTracesOf(

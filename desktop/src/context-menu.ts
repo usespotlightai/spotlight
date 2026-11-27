@@ -11,9 +11,36 @@ const MAX_SUGGESTIONS = 5;
 
 const isWebLink = (url: string) => /^https?:\/\//.test(url);
 
+export type MenuParams = Pick<
+  ContextMenuParams,
+  | 'misspelledWord'
+  | 'dictionarySuggestions'
+  | 'linkURL'
+  | 'mediaType'
+  | 'isEditable'
+  | 'selectionText'
+  | 'x'
+  | 'y'
+> & {
+  readonly editFlags: Pick<
+    ContextMenuParams['editFlags'],
+    'canCut' | 'canCopy' | 'canPaste' | 'canSelectAll'
+  >;
+};
+
+export type MenuContents = Pick<
+  WebContents,
+  'replaceMisspelling' | 'copyImageAt'
+> & {
+  readonly session: Pick<
+    WebContents['session'],
+    'addWordToSpellCheckerDictionary'
+  >;
+};
+
 export const contextMenuOf = (
-  params: ContextMenuParams,
-  contents: WebContents,
+  params: MenuParams,
+  contents: MenuContents,
 ): MenuItemConstructorOptions[] => {
   const spelling: MenuItemConstructorOptions[] = params.misspelledWord
     ? [
@@ -85,7 +112,7 @@ export const contextMenuOf = (
   return items;
 };
 
-export const withContextMenu = (contents: WebContents) => {
+export const withContextMenu = (contents: WebContents): void => {
   contents.on('context-menu', (_event, params) => {
     const items = contextMenuOf(params, contents);
 

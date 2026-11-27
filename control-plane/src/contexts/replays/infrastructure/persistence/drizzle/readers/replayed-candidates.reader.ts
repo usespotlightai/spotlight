@@ -181,7 +181,7 @@ export class DrizzleReplayedCandidatesReader
           and(
             inArray(replaySearch.setId, distinct(setIds)),
             gte(replaySearch.startedAt, since),
-          ) as SQL,
+          ),
         );
   }
 
@@ -300,7 +300,7 @@ export class DrizzleReplayedCandidatesReader
     }));
   }
 
-  private async outcomesWhere(where: SQL): Promise<readonly ReplayOutcome[]> {
+  private async outcomesWhere(where: SQL | undefined): Promise<readonly ReplayOutcome[]> {
     const rows = await this.context.db
       .select()
       .from(replayOutcome)
@@ -311,7 +311,7 @@ export class DrizzleReplayedCandidatesReader
   }
 
   private async searchesWhere(
-    where: SQL,
+    where: SQL | undefined,
   ): Promise<readonly ReplayedSearchRow[]> {
     const rows = await this.context.db
       .select()

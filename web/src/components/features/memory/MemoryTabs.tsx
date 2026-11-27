@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { TabLinks } from '@/components/shared/TabLinks';
 import { type MemoryFilter, memoryListPath, STATUS_VIEWS } from '@/lib/memory';
 
@@ -7,7 +9,11 @@ type MemoryTabsProps = {
   filter: MemoryFilter;
 };
 
-export function MemoryTabs({ slug, teamId, filter }: MemoryTabsProps) {
+export function MemoryTabs({
+  slug,
+  teamId,
+  filter,
+}: MemoryTabsProps): ReactElement {
   return (
     <TabLinks
       label="Memory"

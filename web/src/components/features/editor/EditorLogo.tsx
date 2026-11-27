@@ -1,4 +1,4 @@
-import type { SVGProps } from 'react';
+import type { ReactElement, SVGProps } from 'react';
 
 import { CursorLogo, VscodeLogo } from '@/components/shared/icons';
 import type { EditorApp } from '@/lib/editor';
@@ -10,7 +10,11 @@ type EditorLogoProps = SVGProps<SVGSVGElement> & {
   app: EditorApp;
 };
 
-export function EditorLogo({ app, className, ...props }: EditorLogoProps) {
+export function EditorLogo({
+  app,
+  className,
+  ...props
+}: EditorLogoProps): ReactElement {
   const Logo = LOGOS[app];
 
   return (

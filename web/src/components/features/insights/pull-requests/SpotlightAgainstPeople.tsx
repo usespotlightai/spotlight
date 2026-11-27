@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
@@ -72,7 +72,7 @@ type SpotlightAgainstPeopleProps = {
 
 export function SpotlightAgainstPeople({
   comparison,
-}: SpotlightAgainstPeopleProps) {
+}: SpotlightAgainstPeopleProps): ReactElement {
   const cell =
     (author: 'spotlight' | 'people') =>
     (measure: Measure): ReactNode => {

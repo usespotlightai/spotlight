@@ -5,17 +5,12 @@ import type {
 import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import type { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { fieldOf } from '@platform/json/field-of';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
 type Fetch = typeof globalThis.fetch;
 
 const ANSWERS_WITHIN_MS = 15_000;
-
-interface RegistrationResponse {
-  client_id?: unknown;
-  client_secret?: unknown;
-  client_secret_expires_at?: unknown;
-}
 
 export class OAuth2Registrar implements OAuth2ClientRegistrarPort {
   constructor(
@@ -51,33 +46,32 @@ export class OAuth2Registrar implements OAuth2ClientRegistrarPort {
       return this.refused(endpoint, { status: reply.status });
     }
 
-    const answered = (await reply
-      .json()
-      .catch(() => null)) as RegistrationResponse | null;
-
+    const answered: unknown = await reply.json().catch(() => null);
+    const writtenId = fieldOf(answered, 'client_id');
     const clientId =
-      typeof answered?.client_id === 'string'
-        ? OAuth2ClientId.parsed(answered.client_id)
-        : null;
+      typeof writtenId === 'string' ? OAuth2ClientId.parsed(writtenId) : null;
 
-    if (!answered || !clientId) {
+    const json = Boolean(answered);
+
+    if (!json || clientId === null) {
       return this.refused(endpoint, {
         status: reply.status,
-        answer: answered ? 'no-client-id' : 'not-json',
+        answer: json ? 'no-client-id' : 'not-json',
       });
     }
 
+    const secretExpiresAt = fieldOf(answered, 'client_secret_expires_at');
     const expiresAt =
-      typeof answered.client_secret_expires_at === 'number' &&
-      answered.client_secret_expires_at > 0
-        ? new Date(answered.client_secret_expires_at * 1000)
+      typeof secretExpiresAt === 'number' && secretExpiresAt > 0
+        ? new Date(secretExpiresAt * 1000)
         : null;
+    const clientSecret = fieldOf(answered, 'client_secret');
 
     return {
       clientId,
       clientSecret:
-        typeof answered.client_secret === 'string' && answered.client_secret
-          ? answered.client_secret
+        typeof clientSecret === 'string' && clientSecret !== ''
+          ? clientSecret
           : null,
       secretExpiresAt: expiresAt,
     };

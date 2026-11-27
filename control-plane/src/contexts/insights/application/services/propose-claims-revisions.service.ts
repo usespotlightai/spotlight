@@ -16,10 +16,12 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 const notesOf = (disagreement: JudgeDisagreement): DisagreementRunNote[] => {
   const { notMet } = disagreement;
   const answered = disagreement.claimAnswers.flatMap((each) =>
-    each.note ? [{ claim: each.claim, text: each.note }] : [],
+    each.note !== null && each.note !== ''
+      ? [{ claim: each.claim, text: each.note }]
+      : [],
   );
 
-  return notMet?.note
+  return notMet !== null && notMet.note !== null && notMet.note !== ''
     ? [...answered, { claim: notMet.shouldHaveFailed, text: notMet.note }]
     : answered;
 };
@@ -50,7 +52,7 @@ export class ProposeClaimsRevisions implements ClaimsRevisionPullRequestsPort {
 
   async picked(event: ClaimsRevisionPicked): Promise<void> {
     const revision = await this.revisions.find(event.revisionId);
-    const pick = revision?.awaitsPullRequest ? revision.pick : null;
+    const pick = revision?.awaitsPullRequest === true ? revision.pick : null;
 
     if (!revision || !pick) {
       return;

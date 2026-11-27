@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { RetirementNote } from '@/components/features/memory/RetirementNote';
 import { MemoryCard } from '@/components/features/runs/memories/MemoryCard';
 import { MemoryHandleLink } from '@/components/features/runs/memories/MemoryHandleLink';
@@ -9,7 +11,11 @@ type BriefedMemoryProps = {
   memory: TeamMemory;
 };
 
-export function BriefedMemory({ slug, teamId, memory }: BriefedMemoryProps) {
+export function BriefedMemory({
+  slug,
+  teamId,
+  memory,
+}: BriefedMemoryProps): ReactElement {
   return (
     <MemoryCard
       slot="run-briefed-memory"

@@ -13,8 +13,8 @@ import { describe, expect, it } from 'vitest';
 const SERVER = 'https://mcp.example.com/mcp';
 
 const failureOf = async (error: unknown): Promise<HookFailure> => {
-  const attempt = await attempted(async () => {
-    throw mcpFailureOf('using search_issues', SERVER, error);
+  const attempt = await attempted(() => {
+    return Promise.reject(mcpFailureOf('using search_issues', SERVER, error));
   }, 1_000);
 
   if (attempt.kind !== 'failed') {
@@ -75,8 +75,8 @@ describe('mcpFailureOf', () => {
   });
 
   it('throttles a call over the workspace outbound limit', async () => {
-    const attempt = await attempted(async () => {
-      throw new OutboundLimitReachedError(20);
+    const attempt = await attempted(() => {
+      return Promise.reject(new OutboundLimitReachedError(20));
     }, 1_000);
 
     expect(

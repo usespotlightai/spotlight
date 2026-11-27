@@ -113,7 +113,7 @@ export class DialBackTunnels {
     const local = this.openPeer(peer);
     const owner = local ? null : await this.ownerOf(peer);
 
-    if (!local && !owner) {
+    if (!local && (owner === null || owner === '')) {
       return null;
     }
 
@@ -143,7 +143,7 @@ export class DialBackTunnels {
             error ? failed(error) : sent(),
           ),
         );
-      } else if (owner) {
+      } else if (owner !== null && owner !== '') {
         await this.directory.claimStream(stream);
 
         if (!(await this.directory.ask(owner, peer, asked))) {
@@ -166,7 +166,7 @@ export class DialBackTunnels {
   ): Promise<void> {
     const { refusals, logger } = this.options;
 
-    if (request.headers.origin) {
+    if (request.headers.origin !== undefined && request.headers.origin !== '') {
       refuseUpgrade(socket, 403, refusals.browser);
       return;
     }
@@ -188,7 +188,7 @@ export class DialBackTunnels {
         ? null
         : await this.directory.ownerOfStream(stream).catch(() => null);
 
-      if (owner && owner !== this.directory.address) {
+      if (owner !== null && owner !== '' && owner !== this.directory.address) {
         forwardUpgrade(request, socket, head, owner);
         return;
       }

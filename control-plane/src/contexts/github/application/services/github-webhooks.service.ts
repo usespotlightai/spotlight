@@ -262,6 +262,8 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
   private installationIn(delivery: GitHubDelivery): GitHubInstallation | null {
     const installation = this.parser.parse(delivery).installation;
 
-    return installation ? GitHubInstallation.parsed(installation) : null;
+    return installation !== null && installation !== ''
+      ? GitHubInstallation.parsed(installation)
+      : null;
   }
 }

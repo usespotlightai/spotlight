@@ -253,15 +253,17 @@ beforeAll(async () => {
     return (
       mine?.owner &&
       mine.seen?.state === 'merged' &&
-      theirs?.seen?.revertedBy &&
-      theirs.seen.reviewComments === 1 &&
+      theirs?.seen !== null &&
+      theirs?.seen.revertedBy !== null &&
+      theirs?.seen.revertedBy !== '' &&
+      theirs?.seen.reviewComments === 1 &&
       revert?.seen
     );
   });
 }, 180_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('every pull request in an installed repository (e2e)', () => {

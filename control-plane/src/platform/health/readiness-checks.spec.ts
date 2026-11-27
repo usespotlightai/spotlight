@@ -6,8 +6,11 @@ const never = () => new Promise<void>(() => undefined);
 describe('ReadinessChecks', () => {
   it('reports every check that answers as ok', async () => {
     const checks = new ReadinessChecks();
-    checks.register({ name: 'postgres', check: async () => undefined });
-    checks.register({ name: 's3', check: async () => undefined });
+    checks.register({
+      name: 'postgres',
+      check: () => Promise.resolve(undefined),
+    });
+    checks.register({ name: 's3', check: () => Promise.resolve(undefined) });
 
     expect(await checks.run()).toEqual([
       { name: 'postgres', ok: true },
@@ -20,8 +23,8 @@ describe('ReadinessChecks', () => {
     const refused = new Error('connection refused');
     checks.register({
       name: 'postgres',
-      check: async () => {
-        throw refused;
+      check: () => {
+        return Promise.reject(refused);
       },
     });
 
@@ -52,8 +55,9 @@ describe('ReadinessChecks', () => {
     let asked = 0;
     checks.register({
       name: 'postgres',
-      check: async () => {
+      check: () => {
         asked += 1;
+        return Promise.resolve();
       },
     });
 
@@ -65,10 +69,16 @@ describe('ReadinessChecks', () => {
 
   it('refuses two checks with the same name', () => {
     const checks = new ReadinessChecks();
-    checks.register({ name: 'postgres', check: async () => undefined });
+    checks.register({
+      name: 'postgres',
+      check: () => Promise.resolve(undefined),
+    });
 
     expect(() =>
-      checks.register({ name: 'postgres', check: async () => undefined }),
+      checks.register({
+        name: 'postgres',
+        check: () => Promise.resolve(undefined),
+      }),
     ).toThrow('postgres');
   });
 });

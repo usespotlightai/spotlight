@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -46,7 +47,7 @@ const PULL_REQUEST = NoticeExternalLink.of({
 const notifying = (notice: Notice | null) => {
   const notify = vi.fn<TeamNoticesPort['notify']>(async () => {});
   const handler = new NotifyOutsideToolsOfNotices(
-    { find: async () => notice } as unknown as NoticeRepository,
+    partial<NoticeRepository>({ find: () => Promise.resolve(notice) }),
     { notify },
   );
 

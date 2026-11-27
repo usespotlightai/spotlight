@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   DirectoryPageRequest,
   DirectoryWorkspace,
@@ -77,11 +78,11 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectoryPort {
   }
 
   async find(workspaceId: WorkspaceId): Promise<DirectoryWorkspace | null> {
-    const [found] = await this.db
+    const found = firstOf(await this.db
       .select(COLUMNS)
       .from(workspace)
       .where(eq(workspace.id, workspaceId.value))
-      .limit(1);
+      .limit(1));
 
     return found ? listed(found) : null;
   }

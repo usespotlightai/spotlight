@@ -4,13 +4,13 @@ export const processedEventsInMemory = (): ProcessedEventsPort => {
   const processed = new Set<string>();
 
   return {
-    wasProcessed: async (workspaceId, key) =>
-      processed.has(`${workspaceId.value}/${key}`),
-    markProcessed: async (workspaceId, key) => {
+    wasProcessed: (workspaceId, key) =>
+      Promise.resolve(processed.has(`${workspaceId.value}/${key}`)),
+    markProcessed: (workspaceId, key) => {
       const first = !processed.has(`${workspaceId.value}/${key}`);
       processed.add(`${workspaceId.value}/${key}`);
-      return first;
+      return Promise.resolve(first);
     },
-    purgeBefore: async () => 0,
+    purgeBefore: () => Promise.resolve(0),
   };
 };

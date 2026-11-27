@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { MemoryPlaceToggle } from '@/components/features/memory/MemoryPlaceToggle';
 import type { PlaceNode } from '@/lib/memory';
 import { cn } from '@/lib/utils';
@@ -40,7 +42,7 @@ export function MemoryPlaceNode({
   open,
   collapsed,
   onToggle,
-}: MemoryPlaceNodeProps) {
+}: MemoryPlaceNodeProps): ReactElement {
   const branches = node.children.length > 0;
   const hidden = collapsed.has(at);
 
@@ -65,7 +67,7 @@ export function MemoryPlaceNode({
             onToggle={() => onToggle(at)}
           />
         )}
-        {node.joinedBy && (
+        {node.joinedBy !== null && node.joinedBy !== '' && (
           <span
             aria-hidden
             data-transition-part

@@ -31,6 +31,7 @@ import { CLAIMS, judgeScore } from '@insights/judging.fake-spec';
 import { inTransaction } from '@insights/runs.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WAIT_MS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -113,62 +114,68 @@ const revising = async (options: Options = {}) => {
       labelled: new LabelledRuns(station.facts),
       judges: judgesWith(options.judge ?? judgeOf()),
       evidence: {
-        hasTask: async () => true,
-        of: async (runId) => ({
-          runId,
-          taskId: TaskId.of(`task_${runId.value}`),
-          title: runId.value,
-          description: null,
-          steps: [
-            {
-              index: 1,
-              kind: 'message',
-              tool: null,
-              text: 'Retrying.',
-              input: null,
-              output: null,
-            },
-          ],
-          hunks: [],
-        }),
+        hasTask: () => Promise.resolve(true),
+        of: (runId) =>
+          Promise.resolve({
+            runId,
+            taskId: TaskId.of(`task_${runId.value}`),
+            title: runId.value,
+            description: null,
+            steps: [
+              {
+                index: 1,
+                kind: 'message',
+                tool: null,
+                text: 'Retrying.',
+                input: null,
+                output: null,
+              },
+            ],
+            hunks: [],
+          }),
       },
       judge: {
-        judge: async (request) => {
+        judge: (request) => {
           judged.push(request);
           spentWhenJudged.push(
             [...revisions.stored.values()][0]?.judgeCalls ?? -1,
           );
-          if (options.pending?.(request)) {
-            return SESSION_WAITING;
+          if (options.pending?.(request) === true) {
+            return Promise.resolve(SESSION_WAITING);
           }
           if (options.failing) {
-            return { status: 'failed', failure: options.failing };
+            return Promise.resolve({
+              status: 'failed',
+              failure: options.failing,
+            });
           }
-          return verdictFor(
-            request,
-            request.claims[0] === BETTER[0]
-              ? accepts(request.title)
-              : request.claims[0] === WORSE[0]
-                ? !accepts(request.title)
-                : false,
+          return Promise.resolve(
+            verdictFor(
+              request,
+              request.claims[0] === BETTER[0]
+                ? accepts(request.title)
+                : request.claims[0] === WORSE[0]
+                  ? !accepts(request.title)
+                  : false,
+            ),
           );
         },
         roundOf: (session) =>
-          session.purpose === 'insights.judge' && judged[0]?.round
+          session.purpose === 'insights.judge' && firstOf(judged)?.round
             ? judged[0].round
             : null,
       },
       drafter: {
-        drafted: async (request) => {
+        drafted: (request) => {
           drafts.push(request);
-          if (options.pendingDraft) {
-            return SESSION_WAITING;
+          if (options.pendingDraft === true) {
+            return Promise.resolve(SESSION_WAITING);
           }
-          return (
+          return Promise.resolve(
             options.drafts ?? {
               status: 'drafted',
               candidates: options.drafted ?? [WORSE, CLAIMS, BETTER],
-            }
+            },
           );
         },
         roundOf: (session) =>
@@ -188,8 +195,10 @@ const revising = async (options: Options = {}) => {
     revisions,
     disagreements,
     {
-      request: async (request) => {
+      request: (request) => {
         requested.push(request);
+
+        return Promise.resolve();
       },
     },
     inTransaction,
@@ -199,7 +208,7 @@ const revising = async (options: Options = {}) => {
   await work.processDue();
   await work.idle();
 
-  const revised = () => [...revisions.stored.values()][0];
+  const revised = () => firstOf([...revisions.stored.values()]);
   const picked = async () => {
     const revision = revised();
 
@@ -367,11 +376,11 @@ describe('WorkClaimsRevisions', () => {
 
   it('drafts from the newest disagreement’s run and judges each run from its own, in the revision’s round', async () => {
     const { drafts, judged, revised } = await revising({ drafted: [BETTER] });
-    const round = drafts[0]?.round;
+    const round = firstOf(drafts)?.round;
 
     expect(round?.revisionId).toEqual(revised()?.id);
     expect(round?.attempt).toBe(1);
-    expect(drafts[0]?.draftedFrom.value).toBe('run_0');
+    expect(firstOf(drafts)?.draftedFrom.value).toBe('run_0');
     expect(
       judged.every(
         (each) =>

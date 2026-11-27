@@ -12,6 +12,8 @@ import type {
   StoredHookDefinition,
 } from '@integrations/infrastructure/persistence/drizzle/readers/hook-definitions.reader';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -77,23 +79,23 @@ const setUp = (document: Record<string, unknown> = DOCUMENT) => {
     version: 1,
   };
   const hooks = {
-    listening: vi.fn(async (_team: TeamId, on: string) =>
-      on === 'tool.used' ? [definition] : [],
+    listening: vi.fn((_team: TeamId, on: string) =>
+      Promise.resolve(on === 'tool.used' ? [definition] : []),
     ),
-    withId: vi.fn(async () => definition),
+    withId: vi.fn(() => Promise.resolve(definition)),
   };
 
   return {
     hooks,
     hooked: new CompiledHookRuntime(
-      hooks as unknown as DrizzleHookDefinitionsReader,
+      partial<DrizzleHookDefinitionsReader>(hooks),
       new CelExpressionEngine(),
     ),
   };
 };
 
 const listened = async (hooked: CompiledHookRuntime) => {
-  const [hook] = await hooked.listening(TEAM, 'tool.used');
+  const hook = firstOf(await hooked.listening(TEAM, 'tool.used'));
 
   if (!hook) throw new Error('no hook listens');
 

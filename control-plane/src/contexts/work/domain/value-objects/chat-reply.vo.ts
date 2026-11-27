@@ -1,9 +1,14 @@
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import type { NumberedProposal } from '@work/domain/aggregates/chat.aggregate';
 import type { TaskProposal } from '@work/domain/entities/task-proposal.entity';
 
 export type ProposalDecision = 'accept' | 'dismiss';
 
 const DECIDES = /^(accept|dismiss)(?:\s+#?(\d+))?[.!]?$/i;
+
+const isProposalDecision = (
+  value: string | undefined,
+): value is ProposalDecision => value === 'accept' || value === 'dismiss';
 
 export type ProposalPick =
   | { readonly kind: 'picked'; readonly proposal: TaskProposal }
@@ -26,12 +31,13 @@ export class ChatReply {
       return new ChatReply(trimmed, null, null);
     }
 
-    const [, decision, number] = decides;
+    const decision = itemAt(decides, 1)?.toLowerCase();
+    const number = itemAt(decides, 2);
 
     return new ChatReply(
       trimmed,
-      decision?.toLowerCase() as ProposalDecision,
-      number ? Number(number) : null,
+      isProposalDecision(decision) ? decision : null,
+      number !== undefined && number !== '' ? Number(number) : null,
     );
   }
 
@@ -43,9 +49,9 @@ export class ChatReply {
     }
 
     if (this.number === null) {
-      const [only] = open;
+      const only = firstOf(open);
 
-      return open.length === 1 && only
+      return open.length === 1 && only !== undefined
         ? { kind: 'picked', proposal: only.proposal }
         : { kind: 'unnamed', open: open.length };
     }

@@ -10,6 +10,7 @@ import { RepositoryName } from '@change-review/domain/value-objects/repository-n
 import type { PullRequestCommentsPort } from '@github/application/ports/pull-request-comments.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
@@ -44,7 +45,8 @@ export class PostChangeStackComment implements StickyCommentPosterPort {
       task,
       await this.stacks.latestPerRepository(taskId, this.clock.now()),
       (stack) => RepositoryName.optional(stack.repository),
-    ).flatMap(({ pullRequest, items: [latest] }) => {
+    ).flatMap(({ pullRequest, items }) => {
+      const latest = firstOf(items);
       const repository = pullRequest.repository;
 
       return latest?.state === 'ready' && repository
@@ -58,7 +60,11 @@ export class PostChangeStackComment implements StickyCommentPosterPort {
 
     const slug = await this.workspaces.slugOf(task.workspaceId);
 
-    if (!slug || !(await this.connections.isConnected(task.workspaceId))) {
+    if (
+      slug === null ||
+      slug === '' ||
+      !(await this.connections.isConnected(task.workspaceId))
+    ) {
       return;
     }
 

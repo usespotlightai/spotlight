@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class ReviewWorkId {
-  private readonly kind = 'review-work';
+  private readonly kind: string = 'review-work';
 
   private constructor(readonly value: string) {}
 

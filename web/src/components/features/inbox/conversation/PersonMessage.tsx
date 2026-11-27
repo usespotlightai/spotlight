@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
@@ -17,7 +19,7 @@ export function PersonMessage({
   body,
   attachments,
   authors,
-}: PersonMessageProps) {
+}: PersonMessageProps): ReactElement {
   const signed = authors.length > 0;
 
   return (

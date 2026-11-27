@@ -1,8 +1,9 @@
 import { ChangeJudging } from '@replays/domain/aggregates/change-judging.aggregate';
-import type { ChangeJudged } from '@replays/domain/events/change-judged.event';
-import type { ChangeJudgingFailed } from '@replays/domain/events/change-judging-failed.event';
+import { ChangeJudged } from '@replays/domain/events/change-judged.event';
+import { ChangeJudgingFailed } from '@replays/domain/events/change-judging-failed.event';
 import { InvalidJudgingError } from '@replays/domain/exceptions/invalid-judging.error';
 import type { JudgedChange } from '@replays/domain/value-objects/change-judgment';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { WAIT_MS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -60,11 +61,11 @@ describe('ChangeJudging', () => {
 
   it('records the verdict on its own criteria', () => {
     const judging = judgedOnce('Cover the retry path with its own test.');
-    const [event] = judging.pullEvents() as ChangeJudged[];
+    const event = instanceOf(ChangeJudged, judging.pullEvents()[0]);
 
     expect(judging.hasPendingJob).toBe(false);
-    expect(event?.verdict.claims).toEqual(CLAIMS);
-    expect(event?.verdict.guidance).toBe(
+    expect(event.verdict.claims).toEqual(CLAIMS);
+    expect(event.verdict.guidance).toBe(
       'Cover the retry path with its own test.',
     );
   });
@@ -76,16 +77,19 @@ describe('ChangeJudging', () => {
     expect(requested().guidanceRequested).toBe(true);
     expect(again.guidanceRequested).toBe(false);
 
-    const [event] = again
-      .leaseJob(NOW)
-      .recordJudgment(
-        judged('Cover the retry path.', [false, false, false]),
-        NOW,
-      )
-      .pullEvents() as ChangeJudged[];
+    const event = instanceOf(
+      ChangeJudged,
+      again
+        .leaseJob(NOW)
+        .recordJudgment(
+          judged('Cover the retry path.', [false, false, false]),
+          NOW,
+        )
+        .pullEvents()[0],
+    );
 
-    expect(event?.attempt).toBe(2);
-    expect(event?.verdict.guidance).toBeNull();
+    expect(event.attempt).toBe(2);
+    expect(event.verdict.guidance).toBeNull();
   });
 
   it('retries an unreadable answer later, then gives up', () => {
@@ -101,12 +105,12 @@ describe('ChangeJudging', () => {
     const due = once.job?.nextAttemptAt ?? NOW;
     const twice = once.leaseJob(due).recordJudgment(unreadable, due);
     const later = twice.job?.nextAttemptAt ?? NOW;
-    const [event] = twice
-      .leaseJob(later)
-      .recordJudgment(unreadable, later)
-      .pullEvents() as ChangeJudgingFailed[];
+    const event = instanceOf(
+      ChangeJudgingFailed,
+      twice.leaseJob(later).recordJudgment(unreadable, later).pullEvents()[0],
+    );
 
-    expect(event?.failure.code).toBe('unreadable');
+    expect(event.failure.code).toBe('unreadable');
   });
 
   it('waits for its assist session without spending the attempt it leased', () => {
@@ -127,10 +131,10 @@ describe('ChangeJudging', () => {
       failure: 'insufficient-credits',
     } as const;
     const failed = requested().leaseJob(NOW).recordJudgment(broke, NOW);
-    const [event] = failed.pullEvents() as ChangeJudgingFailed[];
+    const event = instanceOf(ChangeJudgingFailed, failed.pullEvents()[0]);
 
     expect(failed.hasPendingJob).toBe(false);
-    expect(event?.failure.code).toBe('insufficient-credits');
+    expect(event.failure.code).toBe('insufficient-credits');
   });
 
   it('can be judged again only once it was judged', () => {

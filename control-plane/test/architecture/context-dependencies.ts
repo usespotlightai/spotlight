@@ -1,4 +1,5 @@
 import { INTEGRATION_EVENT_KIND } from '@shared-kernel/application/integration-events/integration-event';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import ts from 'typescript';
 
 import {
@@ -37,7 +38,7 @@ export const reachableFrom = (context: string): ReadonlySet<string> => {
   const pending = [...(UPSTREAM_CONTEXTS[context] ?? [])];
 
   while (pending.length > 0) {
-    const next = pending.pop() as string;
+    const next = present(pending.pop());
 
     if (!reached.has(next)) {
       reached.add(next);
@@ -57,7 +58,9 @@ const publisherOf = (module: string): string | null => {
   ).flatMap((literal) => {
     const context = INTEGRATION_EVENT_KIND.exec(literal.text)?.[1];
 
-    return context && CONTEXTS.includes(context) ? [context] : [];
+    return context !== undefined && context !== '' && CONTEXTS.includes(context)
+      ? [context]
+      : [];
   });
 
   return kinds[0] ?? null;
@@ -72,24 +75,24 @@ type ContextDependency = {
 
 const contextDependencies = (): ContextDependency[] =>
   sourceFiles('contexts', { specs: true }).flatMap((file) => {
-    const from = contextOf(file.path) as string;
+    const from = present(contextOf(file.path));
 
     return moduleSpecifiersOf(file).flatMap(
       (specifier): ContextDependency[] => {
         const target = moduleTarget(file.path, specifier);
-        const to = target ? contextOf(target) : null;
+        const to = target !== null && target !== '' ? contextOf(target) : null;
 
-        if (to && to !== from) {
+        if (to !== null && to !== '' && to !== from) {
           return [{ from, to, through: 'import', file: file.path }];
         }
 
         if (
-          target?.startsWith(INTEGRATION_EVENTS) &&
+          target?.startsWith(INTEGRATION_EVENTS) === true &&
           target !== `${INTEGRATION_EVENTS}integration-event`
         ) {
           const publisher = publisherOf(target);
 
-          return publisher && publisher !== from
+          return publisher !== null && publisher !== '' && publisher !== from
             ? [
                 {
                   from,

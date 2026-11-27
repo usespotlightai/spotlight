@@ -4,10 +4,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import type { Env } from '@platform/config/env.schema';
 import { ADMIN_ONLY } from '@platform/http/decorators/admin-only.decorator';
 import { AdminGuard } from '@platform/http/guards/admin.guard';
 import { RandomTokenIssuer } from '@platform/tokens/random-token-issuer.service';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const ADMIN_TOKEN = 'admin-token-0123456789abcdefghijklmnop';
@@ -21,17 +23,14 @@ function setup(options: {
   vi.spyOn(reflector, 'getAllAndOverride').mockImplementation(
     (marker) => marker === ADMIN_ONLY && (options.adminOnly ?? true),
   );
-  const env = { SPOTLIGHT_ADMIN_TOKEN: options.configured } as Env;
+  const env = partial<Env>({ SPOTLIGHT_ADMIN_TOKEN: options.configured });
   const request = {
-    headers: options.authorization
-      ? { authorization: options.authorization }
-      : {},
+    headers:
+      options.authorization !== undefined && options.authorization !== ''
+        ? { authorization: options.authorization }
+        : {},
   };
-  const context = {
-    getHandler: () => undefined,
-    getClass: () => undefined,
-    switchToHttp: () => ({ getRequest: () => request }),
-  } as unknown as ExecutionContext;
+  const context: ExecutionContext = new ExecutionContextHost([request]);
 
   return {
     guard: new AdminGuard(reflector, env, new RandomTokenIssuer()),

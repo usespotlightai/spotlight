@@ -35,7 +35,9 @@ export class DrizzleQueuedPlacements implements QueuedPlacementsPort {
       .map((row) =>
         RunnerPlacement.ofLabelGroups(
           row.placement,
-          row.image ? RunnerImage.of(row.image) : null,
+          row.image !== null && row.image !== ''
+            ? RunnerImage.of(row.image)
+            : null,
         ),
       );
   }

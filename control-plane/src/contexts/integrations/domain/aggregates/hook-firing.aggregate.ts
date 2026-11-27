@@ -165,7 +165,7 @@ export class HookFiring extends EventRecorder {
 
     const trail = impossibleTrail(state.steps);
 
-    if (trail) {
+    if (trail !== null && trail !== '') {
       throw new InconsistentStateError(
         'hook firing',
         `${trail} (${state.id.value})`,

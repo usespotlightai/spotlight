@@ -136,7 +136,7 @@ const KAPPA_BODY =
 
 const kappaNoteOf = (lead: string | null = null): TooltipNote => ({
   title: 'Cohen’s kappa',
-  body: lead ? `${lead} ${KAPPA_BODY}` : KAPPA_BODY,
+  body: lead !== null && lead !== '' ? `${lead} ${KAPPA_BODY}` : KAPPA_BODY,
   rows: KAPPA_ROWS,
 });
 
@@ -225,32 +225,40 @@ export const formatDay = (day: string): string =>
 const NEW_SIDE = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))?/;
 
 export const formatHunk = (hunk: CitedHunk): string => {
-  if (!hunk.path) {
+  if (hunk.path === null || hunk.path === '') {
     return hunk.id;
   }
 
   const file = hunk.path.slice(hunk.path.lastIndexOf('/') + 1);
-  const line = hunk.header?.match(NEW_SIDE)?.[1];
+  const line = hunk.header?.match(NEW_SIDE)?.at(1);
 
-  return line ? `${file}:${line}` : file;
+  return line !== undefined && line !== '' ? `${file}:${line}` : file;
 };
 
 export const lineRangeOf = (hunk: CitedHunk): LineRange | null => {
   const found = hunk.header?.match(NEW_SIDE);
 
-  if (!found?.[1]) {
+  const first = found?.at(1);
+
+  if (
+    found === undefined ||
+    found === null ||
+    first === undefined ||
+    first === ''
+  ) {
     return null;
   }
 
-  const start = Number(found[1]);
-  const count = found[2] === undefined ? 1 : Number(found[2]);
+  const start = Number(first);
+  const last = found.at(2);
+  const count = last === undefined ? 1 : Number(last);
 
   return { start, end: start + Math.max(count, 1) - 1 };
 };
 
 export const formatStep = (citation: Citation): string =>
   [citation.step?.tool ?? citation.step?.kind, 'step']
-    .filter((each) => each)
+    .filter((each) => each !== undefined && each !== null && each !== '')
     .join(' ');
 
 export const COVERAGE_PARTS = [

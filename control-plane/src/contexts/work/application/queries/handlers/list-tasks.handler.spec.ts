@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import type {
@@ -72,15 +73,17 @@ const reader = (result: TaskSummary[]): TaskReaderPort => ({
 });
 
 const seeing = (sees = true, acts = sees, joined = acts): WorkAccess =>
-  ({
-    standingOn: vi.fn(async () =>
-      TeamStanding.of({
-        seesTeam: sees,
-        actsOnTeam: acts,
-        memberOfTeam: joined,
-      }),
+  partial<WorkAccess>({
+    standingOn: vi.fn(() =>
+      Promise.resolve(
+        TeamStanding.of({
+          seesTeam: sees,
+          actsOnTeam: acts,
+          memberOfTeam: joined,
+        }),
+      ),
     ),
-  }) as unknown as WorkAccess;
+  });
 
 const ALICE = { id: 'user_alice', name: 'Alice', image: null };
 
@@ -92,12 +95,13 @@ const asking = (
   assignee,
   awaitingReview: {
     conversationId: 'task_1:3',
-    ask: askedOf
-      ? {
-          approval: { open: true, askedOf: UserId.of(askedOf) },
-          connectionAsk: null,
-        }
-      : null,
+    ask:
+      askedOf !== null && askedOf !== ''
+        ? {
+            approval: { open: true, askedOf: UserId.of(askedOf) },
+            connectionAsk: null,
+          }
+        : null,
   },
 });
 

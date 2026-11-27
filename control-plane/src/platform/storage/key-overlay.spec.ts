@@ -1,18 +1,21 @@
 import type { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { KeyOverlay } from '@platform/storage/key-overlay';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const bucketWith = (keys: readonly string[]) => {
-  const send = vi.fn(async (command: HeadObjectCommand) => {
+  const send = vi.fn((command: HeadObjectCommand) => {
     if (keys.includes(command.input.Key ?? '')) {
-      return { ContentLength: 1 };
+      return Promise.resolve({ ContentLength: 1 });
     }
-    throw Object.assign(new Error('NotFound'), {
-      $metadata: { httpStatusCode: 404 },
-    });
+    return Promise.reject(
+      Object.assign(new Error('NotFound'), {
+        $metadata: { httpStatusCode: 404 },
+      }),
+    );
   });
 
-  return { send, client: { send } as unknown as S3Client };
+  return { send, client: partial<S3Client>({ send }) };
 };
 
 describe('KeyOverlay', () => {

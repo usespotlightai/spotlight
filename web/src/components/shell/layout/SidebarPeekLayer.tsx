@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { BELOW_TABS } from '@/components/shell/layout/SidebarAside';
 import type { useCollapsedSidebar } from '@/hooks/useCollapsedSidebar';
 import { SPRING } from '@/lib/motion';
@@ -17,7 +19,7 @@ export function SidebarPeekLayer({
   peeking,
   peekIntent,
   onUnpeek,
-}: SidebarPeekLayerProps) {
+}: SidebarPeekLayerProps): ReactElement {
   return (
     <>
       {(collapsed || docking) && (

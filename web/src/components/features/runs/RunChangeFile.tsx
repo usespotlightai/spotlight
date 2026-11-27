@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
+import { type ReactElement, useMemo } from 'react';
 
 import { DiffStat } from '@/components/shared/DiffStat';
 import { type FileChange, fileName, tallyFile } from '@/lib/changes';
 import { useRunSidePanel } from '@/lib/run-side-panel';
 import { cn } from '@/lib/utils';
 
-export function RunChangeFile({ file }: { file: FileChange }) {
+export function RunChangeFile({ file }: { file: FileChange }): ReactElement {
   const { selected, open } = useRunSidePanel();
   const { added, removed } = useMemo(() => tallyFile(file), [file]);
 

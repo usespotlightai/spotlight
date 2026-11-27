@@ -1,4 +1,9 @@
-import { type SubmitEvent, type KeyboardEvent, useState } from 'react';
+import {
+  type KeyboardEvent,
+  type ReactElement,
+  type SubmitEvent,
+  useState,
+} from 'react';
 
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { NOTE_BOX, PersonNote } from '@/components/features/memory/PersonNote';
@@ -24,7 +29,7 @@ export function RetireInPlace({
   teamId,
   memoryId,
   onCancel,
-}: RetireInPlaceProps) {
+}: RetireInPlaceProps): ReactElement {
   const me = useMe() ?? YOU;
   const retire = useRetireMemory();
   const [reason, setReason] = useState('');

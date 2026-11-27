@@ -4,7 +4,7 @@ export type Keys = readonly Chord[];
 
 export const SEQUENCE_MS = 1000;
 
-const NAMED_KEYS: Record<string, string> = {
+const NAMED_KEYS: Partial<Record<string, string>> = {
   Escape: 'escape',
   Enter: 'enter',
   Backspace: 'backspace',
@@ -24,22 +24,24 @@ export const chordOf = (event: KeyboardEvent): Chord | null => {
   const key =
     named ?? (event.key.length === 1 ? event.key.toLowerCase() : null);
 
-  if (!key) {
+  if (key === null || key === '') {
     return null;
   }
+
+  const isNamed = named !== undefined && named !== '';
 
   const altGraph =
     event.getModifierState('AltGraph') ||
     (event.ctrlKey &&
       event.altKey &&
       !event.metaKey &&
-      !named &&
+      !isNamed &&
       !LETTER.test(key));
 
   return [
     (event.metaKey || (event.ctrlKey && !altGraph)) && 'mod',
     event.altKey && !altGraph && 'alt',
-    event.shiftKey && (named || LETTER.test(key)) && 'shift',
+    event.shiftKey && (isNamed || LETTER.test(key)) && 'shift',
     key,
   ]
     .filter(Boolean)
@@ -54,21 +56,21 @@ export const onMac = (): boolean =>
   typeof navigator !== 'undefined' &&
   /Mac|iPhone|iPad/.test(navigator.userAgent);
 
-const MAC_CAPS: Record<string, string> = {
+const MAC_CAPS: Partial<Record<string, string>> = {
   mod: '⌘',
   alt: '⌥',
   shift: '⇧',
   backspace: '⌫',
 };
 
-const OTHER_CAPS: Record<string, string> = {
+const OTHER_CAPS: Partial<Record<string, string>> = {
   mod: 'Ctrl',
   alt: 'Alt',
   shift: 'Shift',
   backspace: 'Backspace',
 };
 
-const SHARED_CAPS: Record<string, string> = {
+const SHARED_CAPS: Partial<Record<string, string>> = {
   ctrl: 'Ctrl',
   enter: 'Enter',
   escape: 'Esc',
@@ -89,17 +91,17 @@ const capOf = (part: string, mac: boolean): string =>
 export const capsOf = (chord: Chord, mac: boolean): string[] =>
   chord.split('+').map((part) => capOf(part, mac));
 
-const MAC_NAMES: Record<string, string> = {
+const MAC_NAMES: Partial<Record<string, string>> = {
   mod: 'Command',
   alt: 'Option',
 };
 
-const OTHER_NAMES: Record<string, string> = {
+const OTHER_NAMES: Partial<Record<string, string>> = {
   mod: 'Control',
   alt: 'Alt',
 };
 
-const SHARED_NAMES: Record<string, string> = {
+const SHARED_NAMES: Partial<Record<string, string>> = {
   ctrl: 'Control',
   shift: 'Shift',
   enter: 'Enter',

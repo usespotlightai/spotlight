@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
 import type { MemberLookupPort } from '@identity/application/ports/member-lookup.port';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
@@ -31,11 +32,11 @@ export class DrizzleMemberDirectory
   }
 
   async emailsOf(userId: UserId): Promise<readonly string[]> {
-    const [primary] = await this.db
+    const primary = firstOf(await this.db
       .select({ email: user.email })
       .from(user)
       .where(eq(user.id, userId.value))
-      .limit(1);
+      .limit(1));
     const verified = await this.db
       .select({ email: userEmail.email })
       .from(userEmail)
@@ -66,7 +67,7 @@ export class DrizzleMemberDirectory
       return null;
     }
 
-    const [found] = await this.db
+    const found = firstOf(await this.db
       .select({ id: user.id })
       .from(workspaceMember)
       .innerJoin(user, eq(user.id, workspaceMember.userId))
@@ -90,7 +91,7 @@ export class DrizzleMemberDirectory
         ),
       )
       .orderBy(sql`lower(${user.email}) = lower(${wanted}) desc`)
-      .limit(1);
+      .limit(1));
 
     return found ? UserId.of(found.id) : null;
   }

@@ -16,7 +16,7 @@ import { z } from 'zod';
 const filePath = z.string().superRefine((path, context) => {
   const problem = skillFileProblem(path);
 
-  if (problem) {
+  if (problem !== null && problem !== '') {
     context.addIssue({ code: 'custom', message: problem });
   }
 });

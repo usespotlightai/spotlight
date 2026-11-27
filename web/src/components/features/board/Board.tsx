@@ -1,6 +1,7 @@
 import { DndContext } from '@dnd-kit/core';
 import {
   type Dispatch,
+  type ReactElement,
   type ReactNode,
   type SetStateAction,
   useRef,
@@ -44,7 +45,7 @@ export function Board({
   onSelectedChange,
   onAddTask,
   after,
-}: BoardProps) {
+}: BoardProps): ReactElement {
   const stations = useCollapsed(STATIONS_STORAGE_KEY);
   const rows = useRef<HTMLDivElement>(null);
   const moveTask = useMoveTask();

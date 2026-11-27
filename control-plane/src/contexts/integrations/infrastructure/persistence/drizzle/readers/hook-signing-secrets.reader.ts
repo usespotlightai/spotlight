@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { secretLabel } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-definitions.repository';
@@ -22,16 +23,22 @@ export class DrizzleHookSigningSecrets implements HookSigningSecretsPort {
   async signingSecretOf(
     hookId: HookDefinitionId,
   ): Promise<SigningSecret | null> {
-    const [found] = await this.context.db
+    const found = firstOf(
+      await this.context.db
       .select({
         workspaceId: hookDefinition.workspaceId,
         signingSecret: hookDefinition.signingSecret,
       })
       .from(hookDefinition)
-      .where(eq(hookDefinition.id, hookId.value))
-      .limit(1);
+        .where(eq(hookDefinition.id, hookId.value))
+        .limit(1),
+    );
 
-    if (!found?.signingSecret) {
+    if (
+      found === undefined ||
+      found.signingSecret === null ||
+      found.signingSecret === ''
+    ) {
       return null;
     }
 

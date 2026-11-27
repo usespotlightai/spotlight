@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 const SIZE = 14;
 const RADIUS = 5;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -7,7 +8,7 @@ type ContextDonutProps = {
   size: number;
 };
 
-export function ContextDonut({ used, size }: ContextDonutProps) {
+export function ContextDonut({ used, size }: ContextDonutProps): ReactElement {
   const share = size > 0 ? Math.min(used / size, 1) : 0;
 
   return (

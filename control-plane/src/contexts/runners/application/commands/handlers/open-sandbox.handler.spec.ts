@@ -8,6 +8,7 @@ import {
   storedSandboxes,
 } from '@runners/domain/aggregates/sandbox.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-10-30T10:00:00.000Z');
@@ -24,7 +25,7 @@ describe('OpenSandboxHandler', () => {
         { generate: () => 'sandbox_1' },
         sandboxTokens(),
         { now: () => NOW, sleep: async () => {} },
-        { info: vi.fn() } as unknown as LoggerPort,
+        partial<LoggerPort>({ info: vi.fn() }),
       ),
       { now: () => NOW, sleep: async () => {} },
     );

@@ -66,7 +66,7 @@ export class JoseHookTokens implements HookTokensPort {
     pem: string | undefined,
     readonly issuer: string,
   ) {
-    this.signer = pem ? signerFrom(pem) : null;
+    this.signer = pem !== undefined && pem !== '' ? signerFrom(pem) : null;
   }
 
   get signs(): boolean {
@@ -95,7 +95,7 @@ export class JoseHookTokens implements HookTokensPort {
       .sign(this.signer.key);
   }
 
-  async keys(): Promise<PublishedKeys> {
-    return { keys: this.signer ? [this.signer.jwk] : [] };
+  keys(): Promise<PublishedKeys> {
+    return Promise.resolve({ keys: this.signer ? [this.signer.jwk] : [] });
   }
 }

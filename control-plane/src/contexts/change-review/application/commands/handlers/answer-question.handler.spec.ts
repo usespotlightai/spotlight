@@ -12,7 +12,7 @@ import { TeamMembershipRequiredError } from '@change-review/domain/exceptions/te
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
@@ -20,6 +20,7 @@ import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import type { StackVisibility } from '@change-review/domain/value-objects/stack-visibility.vo';
 import { TeamStanding } from '@change-review/domain/value-objects/team-standing.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -114,48 +115,63 @@ const answering = (
 
   const handler = new AnswerQuestionHandler(
     over.access ??
-      ({
-        actingOnStack: async (
+      partial<TeamWorkAccess>({
+        actingOnStack: (
           _teamId: string,
           visibility: StackVisibility | null,
           _viewerId: string,
           unseen: () => Error,
-        ) => {
-          TeamStanding.of({ actsOnTeam: over.onTeam !== false }).actingOn(
-            over.seen === false ? null : visibility,
-            unseen,
-          );
-        },
-      } as unknown as TeamWorkAccess),
+        ) =>
+          new Promise<void>((resolve) => {
+            TeamStanding.of({ actsOnTeam: over.onTeam !== false }).actingOn(
+              over.seen === false ? null : visibility,
+              unseen,
+            );
+            resolve();
+          }),
+      }),
+    partial<ChangeStackRepository>({
+      find: () => Promise.resolve(over.stack ?? asking()),
+    }),
     {
-      find: async () => over.stack ?? asking(),
-    } as unknown as ChangeStackRepository,
-    {
-      find: async () => stored,
-      nextDueGrading: async () => null,
-      of: async () => stored,
-      add: async (answer: QuestionAnswer) => {
+      find: () => Promise.resolve(stored),
+      nextDueGrading: () => Promise.resolve(null),
+      of: () => Promise.resolve(stored),
+      add: (answer: QuestionAnswer) => {
         if (over.answeredMeanwhile && !stored) {
           stored = over.answeredMeanwhile;
-          throw new QuestionAnswerVersionConflictError(answer.id.value);
+          return Promise.reject(
+            new QuestionAnswerVersionConflictError(answer.id.value),
+          );
         }
         if (over.takenOnTask && !taken) {
           taken = over.takenOnTask;
-          throw new QuestionAnswerVersionConflictError(answer.id.value);
+          return Promise.reject(
+            new QuestionAnswerVersionConflictError(answer.id.value),
+          );
         }
         added.push(answer);
+        return Promise.resolve();
       },
-      save: async (answer: QuestionAnswer) => {
+      save: (answer: QuestionAnswer) => {
         if (over.takenOnSave && !taken) {
           taken = over.takenOnSave;
-          throw new QuestionAnswerVersionConflictError(answer.id.value);
+          return Promise.reject(
+            new QuestionAnswerVersionConflictError(answer.id.value),
+          );
         }
         saved.push(answer);
+        return Promise.resolve();
       },
-      ofTask: async () => over.inTask ?? [],
-      ofTaskBy: async () =>
-        over.inTask ?? [...(stored ? [stored] : []), ...(taken ? [taken] : [])],
-      ofTeam: async () => [],
+      ofTask: () => Promise.resolve(over.inTask ?? []),
+      ofTaskBy: () =>
+        Promise.resolve(
+          over.inTask ?? [
+            ...(stored ? [stored] : []),
+            ...(taken ? [taken] : []),
+          ],
+        ),
+      ofTeam: () => Promise.resolve([]),
       remove: async () => {},
     } satisfies QuestionAnswerRepository,
     { generate: () => 'answer-1' },
@@ -330,10 +346,7 @@ describe('AnswerQuestionHandler', () => {
   });
 
   describe('for a stack a person pushed, with no run', () => {
-    const PUSHED = StackOrigin.push(
-      CommitSha.parsed('b'.repeat(40)) as CommitSha,
-      Pusher.of('octocat'),
-    );
+    const PUSHED = StackOrigin.push(commitSha('b'), Pusher.of('octocat'));
     const TASK: ReviewedTask = {
       id: TaskId.of('task-1'),
       workspaceId: WorkspaceId.of('workspace-1'),
@@ -345,25 +358,26 @@ describe('AnswerQuestionHandler', () => {
       currentRunId: null,
     };
     const accessTo = (task: ReviewedTask | null, actsOnTeam = true) => {
-      const run = vi.fn(async () => null);
+      const run = vi.fn(() => Promise.resolve(null));
 
       return {
         run,
         access: new TeamWorkAccess(
           {
-            viewerOf: async () => ({
-              workspaceId: WorkspaceId.of('workspace-1'),
-              teamId: TeamId.of('team_1'),
-              by: UserId.of('user-1'),
-            }),
-            actsOnTeam: async () => actsOnTeam,
-            find: async () => null,
+            viewerOf: () =>
+              Promise.resolve({
+                workspaceId: WorkspaceId.of('workspace-1'),
+                teamId: TeamId.of('team_1'),
+                by: UserId.of('user-1'),
+              }),
+            actsOnTeam: () => Promise.resolve(actsOnTeam),
+            find: () => Promise.resolve(null),
           },
-          {
+          partial<WorkPort>({
             run,
-            task: async () => task,
-            teamOfRun: async () => null,
-          } as unknown as WorkPort,
+            task: () => Promise.resolve(task),
+            teamOfRun: () => Promise.resolve(null),
+          }),
         ),
       };
     };

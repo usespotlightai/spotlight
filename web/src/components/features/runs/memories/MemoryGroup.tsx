@@ -1,11 +1,14 @@
-import { type ReactNode, useId } from 'react';
+import { type ReactElement, type ReactNode, useId } from 'react';
 
 type MemoryGroupProps = {
   title: string;
   children: ReactNode;
 };
 
-export function MemoryGroup({ title, children }: MemoryGroupProps) {
+export function MemoryGroup({
+  title,
+  children,
+}: MemoryGroupProps): ReactElement {
   const titleId = useId();
 
   return (

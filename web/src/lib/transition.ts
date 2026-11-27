@@ -45,7 +45,12 @@ export const transitionMove = (
     return null;
   }
 
-  const ghost = to.cloneNode(true) as HTMLElement;
+  const ghost = to.cloneNode(true);
+
+  if (!(ghost instanceof HTMLElement)) {
+    return null;
+  }
+
   ghost.setAttribute('aria-hidden', 'true');
   ghost.inert = true;
   Object.assign(ghost.style, {

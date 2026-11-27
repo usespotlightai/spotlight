@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -79,14 +80,14 @@ const accessOf = (row: Row): PoolAccess => {
     });
   }
 
-  if (row.tokenHash) {
+  if (row.tokenHash !== null && row.tokenHash !== '') {
     return PullAccess.of(
       TokenHash.of(row.tokenHash),
       RotationVersion.of(row.tokenVersion),
     );
   }
 
-  if (row.provisionUrl && row.provisionSecret) {
+  if (row.provisionUrl !== null && row.provisionUrl !== '' && row.provisionSecret !== null && row.provisionSecret !== '') {
     return PushAccess.of(
       ProvisionUrl.of(row.provisionUrl),
       EncryptedProvisionSecret.of(row.provisionSecret),
@@ -224,31 +225,31 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
       and(
         eq(runnerPool.workspaceId, workspaceId.value),
         eq(runnerPool.key, key.value),
-      ) as SQL,
+      ),
       { locked: false },
     );
   }
 
   findOwned(id: PoolId): Promise<RunnerPool | null> {
-    return this.one(and(eq(runnerPool.id, id.value), ownedPools) as SQL, {
+    return this.one(and(eq(runnerPool.id, id.value), ownedPools), {
       locked: false,
     });
   }
 
   ownedIn(workspaceId: WorkspaceId): Promise<readonly RunnerPool[]> {
     return this.all(
-      and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools) as SQL,
+      and(eq(runnerPool.workspaceId, workspaceId.value), ownedPools),
     );
   }
 
-  private async all(where: SQL): Promise<readonly RunnerPool[]> {
+  private async all(where: SQL | undefined): Promise<readonly RunnerPool[]> {
     const rows = await this.context.db.select().from(runnerPool).where(where);
 
     return rows.map(toPool);
   }
 
   private async one(
-    where: SQL,
+    where: SQL | undefined,
     { locked }: { locked: boolean },
   ): Promise<RunnerPool | null> {
     const chosen = this.context.db
@@ -256,7 +257,7 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
       .from(runnerPool)
       .where(where)
       .limit(1);
-    const [found] = locked ? await chosen.for('update') : await chosen;
+    const found = firstOf(locked ? await chosen.for('update') : await chosen);
 
     return found ? toPool(found) : null;
   }

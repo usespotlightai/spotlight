@@ -424,7 +424,7 @@ const heldForRun = (
 ): World => {
   const open = openWithKey(world, key);
 
-  if (open?.isRequested) {
+  if (open?.isRequested === true) {
     return replaced(world, open, (each) =>
       each
         .placeOn(world.host, tokenHashOf(each.id.value), now)

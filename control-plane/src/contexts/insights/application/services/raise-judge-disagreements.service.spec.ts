@@ -38,6 +38,8 @@ import {
   TEAM,
   WORKSPACE,
 } from '@insights/runs.fake-spec';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -83,7 +85,7 @@ describe('RaiseJudgeDisagreements', () => {
 
     await raising.scoreRecorded(recordedOf(score));
 
-    const [disagreement] = [...disagreements.stored.values()];
+    const disagreement = firstOf([...disagreements.stored.values()]);
     expect(disagreement?.direction).toBe('judge-failed');
     expect(disagreement?.labelFrom).toBe('accepted');
     expect(disagreement?.disputedClaims).toEqual([1, 2]);
@@ -176,8 +178,8 @@ describe('RaiseJudgeDisagreements', () => {
     const score = FAILED();
     let judge = judgeOf();
     const { disagreements, raising } = await setUp('accepted', [score], {
-      judgeAt: async () => judge,
-      judgesOnTeam: async () => new Map(),
+      judgeAt: () => Promise.resolve(judge),
+      judgesOnTeam: () => Promise.resolve(new Map()),
     });
     await raising.scoreRecorded(recordedOf(score));
     const changed = {
@@ -199,8 +201,8 @@ describe('RaiseJudgeDisagreements', () => {
 
   it('withdraws every outdated disagreement of a station, more than one batch holds', async () => {
     const { disagreements, raising } = await setUp('accepted', [], {
-      judgeAt: async () => NEXT_JUDGE,
-      judgesOnTeam: async () => new Map(),
+      judgeAt: () => Promise.resolve(NEXT_JUDGE),
+      judgesOnTeam: () => Promise.resolve(new Map()),
     });
     const outdated = Array.from({ length: 250 }, (_, at) =>
       openDisagreement(`run_${at + 2}`),
@@ -231,8 +233,8 @@ describe('RaiseJudgeDisagreements', () => {
       'accepted',
       [score],
       {
-        judgeAt: async () => judge,
-        judgesOnTeam: async () => new Map(),
+        judgeAt: () => Promise.resolve(judge),
+        judgesOnTeam: () => Promise.resolve(new Map()),
       },
     );
     await raising.scoreRecorded(recordedOf(score));
@@ -260,7 +262,7 @@ describe('RaiseJudgeDisagreements', () => {
   it('opens one disagreement when two subscribers try at once, and the late one ends quietly', async () => {
     const score = FAILED();
     const { disagreements, raising } = await setUp('accepted', [score]);
-    disagreements.ofRun = async () => [];
+    disagreements.ofRun = () => Promise.resolve([]);
 
     await raising.scoreRecorded(recordedOf(score));
     await expect(
@@ -368,7 +370,7 @@ describe('RaiseJudgeDisagreements', () => {
         new RunOutcomeChanged(RunId.of('run_1'), WORKSPACE, score.location),
       );
 
-      const [disagreement] = [...disagreements.stored.values()];
+      const disagreement = firstOf([...disagreements.stored.values()]);
       expect(disagreement?.state).toBe('withdrawn');
       expect(disagreement?.withdrawnBecause).toBe('verdicts-agree');
     });
@@ -404,9 +406,9 @@ describe('RaiseJudgeDisagreements', () => {
       expect([...disagreements.stored.values()][0]?.labelFrom).toBe('merged');
 
       const [ended] = await added(endedRun('run_2', 12));
-      await raising.runEnded(ended as RunRecordEnded);
+      await raising.runEnded(instanceOf(RunRecordEnded, ended));
 
-      const [disagreement] = [...disagreements.stored.values()];
+      const disagreement = firstOf([...disagreements.stored.values()]);
       expect(disagreement?.state).toBe('withdrawn');
       expect(disagreement?.withdrawnBecause).toBe('label-gone');
     });
@@ -423,7 +425,7 @@ describe('RaiseJudgeDisagreements', () => {
 
       await raising.scoreRecorded(recordedOf(score));
 
-      const [disagreement] = [...disagreements.stored.values()];
+      const disagreement = firstOf([...disagreements.stored.values()]);
       expect(disagreement?.state).toBe('withdrawn');
       expect(disagreement?.withdrawnBecause).toBe('label-gone');
     });
@@ -436,18 +438,20 @@ describe('RaiseJudgeDisagreements', () => {
       const [ended] = await added(endedRun('run_2', 12));
       const saved = disagreements.save.bind(disagreements);
       let conflicts = 0;
-      disagreements.save = async (disagreement) => {
+      disagreements.save = (disagreement) => {
         conflicts += 1;
-        throw new JudgeDisagreementVersionConflictError(disagreement.id.value);
+        return Promise.reject(
+          new JudgeDisagreementVersionConflictError(disagreement.id.value),
+        );
       };
 
-      await expect(raising.runEnded(ended as RunRecordEnded)).rejects.toThrow(
-        JudgeDisagreementVersionConflictError,
-      );
+      await expect(
+        raising.runEnded(instanceOf(RunRecordEnded, ended)),
+      ).rejects.toThrow(JudgeDisagreementVersionConflictError);
       expect(conflicts).toBe(2);
 
       disagreements.save = saved;
-      await raising.runEnded(ended as RunRecordEnded);
+      await raising.runEnded(instanceOf(RunRecordEnded, ended));
       expect([...disagreements.stored.values()][0]?.state).toBe('withdrawn');
     });
 
@@ -458,7 +462,7 @@ describe('RaiseJudgeDisagreements', () => {
       await raising.scoreRecorded(recordedOf(score));
       const [ended] = await added(endedRun('run_2', 12, 'station_2'));
 
-      await raising.runEnded(ended as RunRecordEnded);
+      await raising.runEnded(instanceOf(RunRecordEnded, ended));
 
       expect([...disagreements.stored.values()][0]?.state).not.toBe(
         'withdrawn',
@@ -479,7 +483,7 @@ describe('RaiseJudgeDisagreements', () => {
       };
 
       await expect(
-        raising.runEnded(ended as RunRecordEnded),
+        raising.runEnded(instanceOf(RunRecordEnded, ended)),
       ).resolves.toBeUndefined();
       expect([...disagreements.stored.values()][0]?.state).toBe('withdrawn');
     });
@@ -510,7 +514,7 @@ describe('RaiseJudgeDisagreements', () => {
     it('considers only the runs of the event’s workspace', async () => {
       const { disagreements, raising, endedRun, added } = await onTheTask();
       const [ended] = await added(endedRun('run_1', 10));
-      const event = ended as RunRecordEnded;
+      const event = instanceOf(RunRecordEnded, ended);
 
       await raising.runEnded(
         new RunRecordEnded(event.runId, WorkspaceId.of('ws_2'), event.location),

@@ -1,6 +1,10 @@
 import { useEffect } from 'react';
 
-export function useResetAfter(done: boolean, reset: () => void, ms: number) {
+export function useResetAfter(
+  done: boolean,
+  reset: () => void,
+  ms: number,
+): void {
   useEffect(() => {
     if (!done) {
       return;

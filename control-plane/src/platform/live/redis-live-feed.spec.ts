@@ -1,15 +1,16 @@
 import type { LiveMessage } from '@platform/live/live-feed.port';
 import { RedisLiveFeed } from '@platform/live/redis-live-feed';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import RedisMock from 'ioredis-mock';
 import { describe, expect, it, vi } from 'vitest';
 
-const logger = {
+const logger = partial<LoggerPort>({
   info: vi.fn(),
   warn: vi.fn(),
   error: vi.fn(),
   debug: vi.fn(),
-} as unknown as LoggerPort;
+});
 
 const CHANGED: LiveMessage = {
   type: 'changed',
@@ -68,7 +69,7 @@ describe('RedisLiveFeed', () => {
     expect(watched).toBe(true);
   });
 
-  it('subscribes to a channel once and lets go after the last listener', async () => {
+  it('subscribes to a channel once and lets go after the last listener', () => {
     const { feed, subscriber } = instance();
     const subscribe = vi.spyOn(subscriber, 'subscribe');
     const unsubscribe = vi.spyOn(subscriber, 'unsubscribe');
@@ -84,9 +85,10 @@ describe('RedisLiveFeed', () => {
     second();
 
     expect(unsubscribe).toHaveBeenCalledWith('spotlight-live:person:user_1');
+    return Promise.resolve();
   });
 
-  it('tells every listener to resync when Redis comes back', async () => {
+  it('tells every listener to resync when Redis comes back', () => {
     const { feed, subscriber } = instance();
     const heard: string[] = [];
     feed.subscribe(['workspace:ws_1'], (message) => heard.push(message.type));
@@ -96,6 +98,7 @@ describe('RedisLiveFeed', () => {
 
     subscriber.emit('ready');
     expect(heard).toEqual(['resync']);
+    return Promise.resolve();
   });
 
   it('skips a message it cannot read', async () => {

@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Avatar } from '@identity/domain/aggregates/avatar.aggregate';
 import { AvatarVersionConflictError } from '@identity/domain/exceptions/avatar-version-conflict.error';
 import type { AvatarRepository } from '@identity/domain/repositories/avatar.repository';
@@ -44,7 +45,7 @@ const rehydrated = (workspaceId: WorkspaceId, row: AvatarRow): Avatar => {
   }
 
   return Avatar.rehydrate({
-    owner: row.teamId
+    owner: row.teamId !== null && row.teamId !== ''
       ? AvatarOwner.team(workspaceId, TeamId.of(row.teamId))
       : AvatarOwner.workspace(workspaceId),
     digest,
@@ -62,11 +63,11 @@ export class DrizzleAvatarRepository implements AvatarRepository {
   ) {}
 
   async find(owner: AvatarOwner): Promise<Avatar | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select(COLUMNS)
       .from(avatar)
       .where(ownedBy(owner))
-      .limit(1);
+      .limit(1));
 
     return found ? rehydrated(owner.workspaceId, found) : null;
   }

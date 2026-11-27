@@ -25,6 +25,7 @@ import {
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import { runFact } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { type SQL, sql } from 'drizzle-orm';
 
 const MOST_READ_CUTS = 5;
@@ -88,7 +89,7 @@ const useOf = async (
       ) as memories
     from ${endedInWindow(team)}
   `);
-  const [row] = result.rows;
+  const row = firstOf(result.rows);
 
   return { runs: row?.runs ?? 0, memories: row?.memories ?? 0 };
 };
@@ -114,7 +115,7 @@ const cutsReadIn = async (
     order by runs desc, memory
     limit ${MOST_READ_CUTS}
   `);
-  const [total] = totals.rows;
+  const total = firstOf(totals.rows);
 
   return {
     runs: total?.runs ?? 0,

@@ -26,7 +26,7 @@ export class CompleteSandboxArchiveHandler implements CommandHandlerPort<
         ? await this.archives.find(WorkingCopyArchiveId.of(command.archiveId))
         : null;
 
-      if (!sandbox || !archive?.grantedForSandbox(sandbox.id)) {
+      if (!sandbox || archive?.grantedForSandbox(sandbox.id) !== true) {
         return false;
       }
 

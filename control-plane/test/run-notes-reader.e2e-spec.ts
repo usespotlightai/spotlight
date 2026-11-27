@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -31,7 +34,7 @@ beforeAll(async () => {
   const facts = runFactsOver(db);
   reader = new DrizzleRunReader(
     db,
-    { findMany: async () => new Map() } as never,
+    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
     facts,
     facts,
   );
@@ -43,7 +46,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 type RunState = (typeof schema.run.$inferInsert)['state'];
@@ -95,8 +98,8 @@ const taskOnLine = async (...names: string[]) => {
       stationId: at.stationId,
       body,
       at: new Date('2026-10-20T09:00:00.000Z'),
-      voice: runId ? 'station' : 'person',
-      authorId: runId ? null : 'user_1',
+      voice: runId !== null && runId !== '' ? 'station' : 'person',
+      authorId: runId !== null && runId !== '' ? null : 'user_1',
       runId,
       kind,
       ...from,
@@ -227,14 +230,14 @@ describe('the notes of a run', () => {
     const [visit, ...others] = found?.folded ?? [];
 
     expect(others).toEqual([]);
-    expect(visit?.first.body).toBe('Which queue?');
-    expect(visit?.to).toBe(3);
-    expect(visit?.closing?.body).toBe('Drain the billing queue.');
-    expect(visit?.answers.map((each) => each.body)).toEqual([
+    expect(visit.first.body).toBe('Which queue?');
+    expect(visit.to).toBe(3);
+    expect(visit.closing?.body).toBe('Drain the billing queue.');
+    expect(visit.answers.map((each) => each.body)).toEqual([
       'The billing queue.',
       'Only the EU part.',
     ]);
-    expect(visit?.passedBack).toBe(false);
+    expect(visit.passedBack).toBe(false);
     expect(
       (await reader.taskNotesBetween(TaskId.of(taskId), 0, 3))?.found.map(
         (each) => each.body,
@@ -554,10 +557,12 @@ describe('the progress of a run once a person answered it', () => {
 
   it('carries the open hold of the task in every run list, and whether an agent chat holds it', async () => {
     const { taskId, runId } = await paused('suspended', false);
-    const [found] = await db
-      .select({ stationId: schema.task.stationId })
-      .from(schema.task)
-      .where(eq(schema.task.id, taskId));
+    const found = firstOf(
+      await db
+        .select({ stationId: schema.task.stationId })
+        .from(schema.task)
+        .where(eq(schema.task.id, taskId)),
+    );
     await db.insert(schema.taskHold).values({
       id: randomUUID(),
       workspaceId: 'ws_1',

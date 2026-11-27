@@ -36,7 +36,7 @@ const SLOTS = new ThreadSlots(2);
 const TOO_SLOW = `took longer than ${READ_WITHIN_MS / 1000} seconds to make sense of`;
 
 const hostOf = (url: string | null): string | null =>
-  url ? new URL(url).host.toLowerCase() : null;
+  url !== null && url !== '' ? new URL(url).host.toLowerCase() : null;
 
 export class ThreadedSpecReader implements SpecReaderPort {
   constructor(private readonly fetching: SpecFetch) {}

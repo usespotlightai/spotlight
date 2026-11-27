@@ -6,7 +6,7 @@ export const feedbackAfter = (
   run: RunId,
 ): readonly string[] => {
   const last = notes.reduce(
-    (found, note, at) => (note.voice.run?.equals(run) ? at : found),
+    (found, note, at) => (note.voice.run?.equals(run) === true ? at : found),
     -1,
   );
 

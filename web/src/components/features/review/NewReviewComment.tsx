@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ReviewerAvatar } from '@/components/features/review/ReviewerAvatar';
 import { Collapsible } from '@/components/shared/Collapsible';
 import { Composer } from '@/components/shared/form/Composer';
@@ -10,7 +12,10 @@ type NewReviewCommentProps = {
   open: boolean;
 };
 
-export function NewReviewComment({ spot, open }: NewReviewCommentProps) {
+export function NewReviewComment({
+  spot,
+  open,
+}: NewReviewCommentProps): ReactElement | null {
   const reviewing = useReviewing();
   const draft = useDraftReviewComment();
 

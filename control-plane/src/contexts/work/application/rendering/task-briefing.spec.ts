@@ -660,14 +660,15 @@ describe('TaskBriefing', () => {
         body: TaskNoteBody.of(body),
         at: new Date('2026-08-31T12:00:00.000Z'),
         voice: Voice.world(),
-        anchor: named
-          ? Anchor.of({
-              body: 'pin this.',
-              path: 'compose.yml',
-              from: 22,
-              reviewComment: named,
-            })
-          : null,
+        anchor:
+          named !== null && named !== ''
+            ? Anchor.of({
+                body: 'pin this.',
+                path: 'compose.yml',
+                from: 22,
+                reviewComment: named,
+              })
+            : null,
         kind: 'message',
       });
 

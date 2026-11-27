@@ -89,7 +89,7 @@ export class ClaimsTaken {
     for (let attempt = 1; ; attempt++) {
       const existing = await this.runs.findById(claimed.id);
 
-      if (!existing?.isLeasedBy(runner)) {
+      if (existing?.isLeasedBy(runner) !== true) {
         return;
       }
 

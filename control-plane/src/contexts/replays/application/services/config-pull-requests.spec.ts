@@ -65,6 +65,7 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -84,33 +85,33 @@ class FakeConfigs implements ConfigRepositoryPort {
   failing: Error | null = null;
   hasFile = true;
 
-  async fileAt(_workspace: unknown, _repository: unknown, path: string) {
+  fileAt(_workspace: unknown, _repository: unknown, path: string) {
     if (this.failing) {
-      throw this.failing;
+      return Promise.reject(this.failing);
     }
 
-    return this.hasFile
-      ? { path, content: 'resource "spotlight_line" "x" {}\n', commit: 'c1' }
-      : null;
-  }
-
-  async filesUnder() {
-    return ['teams/core/delivery.tf', 'teams/core/skills.tf', 'README.md'].map(
-      (path) => ({ path, content: 'resource "spotlight_line" "x" {}\n' }),
+    return Promise.resolve(
+      this.hasFile
+        ? { path, content: 'resource "spotlight_line" "x" {}\n', commit: 'c1' }
+        : null,
     );
   }
 
-  async committed(
-    _workspace: unknown,
-    _repository: unknown,
-    commit: ConfigCommit,
-  ) {
-    this.commits.push(commit);
-
-    return `commit_${this.commits.length}`;
+  filesUnder() {
+    return Promise.resolve(
+      ['teams/core/delivery.tf', 'teams/core/skills.tf', 'README.md'].map(
+        (path) => ({ path, content: 'resource "spotlight_line" "x" {}\n' }),
+      ),
+    );
   }
 
-  async opened(
+  committed(_workspace: unknown, _repository: unknown, commit: ConfigCommit) {
+    this.commits.push(commit);
+
+    return Promise.resolve(`commit_${this.commits.length}`);
+  }
+
+  opened(
     _workspace: unknown,
     repository: { value: string },
     opening: ConfigPullRequestOpening,
@@ -125,38 +126,45 @@ class FakeConfigs implements ConfigRepositoryPort {
 
     const number = at < 0 ? this.openings.length : at + 1;
 
-    return {
+    return Promise.resolve({
       url: `https://github.com/${repository.value}/pull/${number}`,
       number,
       hostId: 100 + number,
       repository: 'Acme/Platform',
-    };
+    });
   }
 
-  async statusOf(_workspace: unknown, at: ConfigPullRequestAt) {
+  statusOf(
+    _workspace: unknown,
+    at: ConfigPullRequestAt,
+  ): Promise<ConfigPullRequestStatus> {
     this.statusChecks.push(at.number);
 
     if (this.closeFailing) {
-      throw this.closeFailing;
+      return Promise.reject(this.closeFailing);
     }
 
-    return this.statuses.get(at.number) ?? { state: 'open', closedAt: null };
+    return Promise.resolve(
+      this.statuses.get(at.number) ?? { state: 'open', closedAt: null },
+    );
   }
 
-  async closed(_workspace: unknown, at: ConfigPullRequestAt) {
+  closed(_workspace: unknown, at: ConfigPullRequestAt) {
     if (this.closeFailing) {
-      throw this.closeFailing;
+      return Promise.reject(this.closeFailing);
     }
 
     this.closings.push(at.number);
+    return Promise.resolve();
   }
 
-  async commented(_workspace: unknown, at: ConfigPullRequestAt, body: string) {
+  commented(_workspace: unknown, at: ConfigPullRequestAt, body: string) {
     if (this.commentFailing) {
-      throw this.commentFailing;
+      return Promise.reject(this.commentFailing);
     }
 
     this.comments.push({ number: at.number, body });
+    return Promise.resolve();
   }
 }
 
@@ -168,10 +176,10 @@ class FakeEditor implements StationSourceEditorPort {
     unchecked: [],
   };
 
-  async edited(edit: StationSourceEdit) {
+  edited(edit: StationSourceEdit) {
     this.edits.push(edit);
 
-    return this.answer;
+    return Promise.resolve(this.answer);
   }
 }
 
@@ -345,10 +353,11 @@ const opened = async () => {
 };
 
 const only = (): ConfigPullRequest => {
-  const [pullRequest, ...rest] = pullRequests.stored.values();
+  const stored = [...pullRequests.stored.values()];
+  const pullRequest = firstOf(stored);
 
-  if (!pullRequest || rest.length > 0) {
-    throw new Error(`expected one pull request, found ${rest.length + 1}`);
+  if (pullRequest === undefined || stored.length > 1) {
+    throw new Error(`expected one pull request, found ${stored.length}`);
   }
 
   return pullRequest;
@@ -377,7 +386,7 @@ describe('picking a search candidate', () => {
     await pick();
     await pick();
 
-    expect(only()?.repository?.value).toBe('acme/platform');
+    expect(only().repository?.value).toBe('acme/platform');
     expect(only()).toMatchObject({
       current: 'opening',
       path: 'teams/core/delivery.tf',
@@ -392,7 +401,7 @@ describe('picking a search candidate', () => {
     await opening().processDue();
     await opening().processDue();
 
-    expect(only()?.url?.value).toBe('https://github.com/acme/platform/pull/1');
+    expect(only().url?.value).toBe('https://github.com/acme/platform/pull/1');
     expect(only()).toMatchObject({
       current: 'opened',
       lastCommit: 'commit_1',
@@ -498,10 +507,12 @@ describe('picking a search candidate', () => {
     configs.failing = null;
     await pick();
 
-    configs.opened = async () => {
-      throw new ConfigRepositoryError(
-        'github-error',
-        'Resource not accessible by integration',
+    configs.opened = () => {
+      return Promise.reject(
+        new ConfigRepositoryError(
+          'github-error',
+          'Resource not accessible by integration',
+        ),
       );
     };
     await opening().processDue();
@@ -561,7 +572,8 @@ describe('picking a search candidate', () => {
   });
 
   it('fails at once when the line names no source', async () => {
-    suppliers.lines.station = async () => ({ ...STATION_VIEW, source: null });
+    suppliers.lines.station = () =>
+      Promise.resolve({ ...STATION_VIEW, source: null });
     await pick();
     await opening().processDue();
 
@@ -600,7 +612,7 @@ describe('following a config pull request after it opened', () => {
   it('records the canonical repository, GitHub id and number, and the live config it was based on', async () => {
     await opened();
 
-    expect(only()?.repository?.value).toBe('Acme/Platform');
+    expect(only().repository?.value).toBe('Acme/Platform');
     expect(only()).toMatchObject({
       current: 'opened',
       number: 1,
@@ -815,9 +827,9 @@ describe('following a config pull request after it opened', () => {
     await opened();
     now = new Date(now.getTime() + 6 * 60 * 60_000 + 1);
     const checkedWhenAsked: (Date | null)[] = [];
-    configs.statusOf = async () => {
+    configs.statusOf = () => {
       checkedWhenAsked.push(only().checkedAt);
-      throw new Error('GitHub is down');
+      return Promise.reject(new Error('GitHub is down'));
     };
     await reconciling().processDue();
 

@@ -1,4 +1,4 @@
-import { type ReactNode, use } from 'react';
+import { type ReactNode, use, type ReactElement } from 'react';
 
 import { CommandScopeContext } from '@/lib/commands/context';
 
@@ -12,7 +12,7 @@ export function CommandScope({
   active,
   rank = 1,
   children,
-}: CommandScopeProps) {
+}: CommandScopeProps): ReactElement {
   const parent = use(CommandScopeContext);
 
   return (

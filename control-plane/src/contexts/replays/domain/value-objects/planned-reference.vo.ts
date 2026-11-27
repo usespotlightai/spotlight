@@ -12,7 +12,8 @@ export class PlannedReference {
     commit?: string | null;
     pullRequest?: number | null;
   }): PlannedReference {
-    const commit = input.commit?.trim().toLowerCase() || null;
+    const written = input.commit?.trim().toLowerCase();
+    const commit = written === undefined || written === '' ? null : written;
     const pullRequest = input.pullRequest ?? null;
 
     if (commit !== null && !COMMIT.test(commit)) {

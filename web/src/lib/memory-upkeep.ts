@@ -55,7 +55,9 @@ export const changeTitleOf = (proposal: UpkeepProposal): string => {
       : `Kept ${named}`;
   const who = proposal.decidedBy?.name;
 
-  return who ? `${done} by ${who}` : done;
+  return who !== undefined && who !== null && who !== ''
+    ? `${done} by ${who}`
+    : done;
 };
 
 const STATUSES: Record<UpkeepProposal['state'], ApprovalStatus> = {

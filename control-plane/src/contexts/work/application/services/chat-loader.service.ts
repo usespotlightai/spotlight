@@ -19,7 +19,7 @@ export class ChatLoader {
   ): Promise<Chat | null> {
     const chat = await this.chats.find(ChatId.of(chatId));
 
-    return chat?.isOf(TeamId.of(teamId)) &&
+    return chat?.isOf(TeamId.of(teamId)) === true &&
       (await this.access.opensChat(chat, UserId.of(viewer)))
       ? chat
       : null;

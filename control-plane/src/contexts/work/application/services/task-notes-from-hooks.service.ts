@@ -58,7 +58,8 @@ export class TaskNotesFromHooks implements TaskNotesFromHooksPort {
       }
 
       if (
-        receivedAs &&
+        receivedAs !== null &&
+        receivedAs !== '' &&
         !(await this.processed.markProcessed(
           task.workspaceId,
           receivedAs,

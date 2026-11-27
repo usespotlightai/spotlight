@@ -1,4 +1,5 @@
 import { ChevronsUpDown, CodeXml } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { ModelEffortMenu } from '@/components/features/stations/ModelEffortMenu';
 import { ModelEffortSummary } from '@/components/features/stations/ModelEffortSummary';
@@ -29,7 +30,7 @@ export function ModelEffortSelect({
   readOnly = false,
   iconless = false,
   className,
-}: ModelEffortSelectProps) {
+}: ModelEffortSelectProps): ReactElement {
   const { data: harnesses } = useHarnesses();
 
   const offered = harnesses?.find((each) => each.id === harness);

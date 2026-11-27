@@ -28,6 +28,7 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaysRequester } from '@replays/domain/value-objects/replays-requester.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -69,7 +70,7 @@ class FakeTrials implements StationTrialsPort {
   readonly withdrawn: string[] = [];
   onOrder: () => Promise<void> = async () => {};
 
-  answers = async () => [];
+  answers = () => Promise.resolve([]);
 
   order = async (request: TrialRequest) => {
     this.requests.push(request);
@@ -77,8 +78,9 @@ class FakeTrials implements StationTrialsPort {
     return this.ordering;
   };
 
-  withdraw = async (run: RunId) => {
+  withdraw = (run: RunId) => {
     this.withdrawn.push(run.value);
+    return Promise.resolve();
   };
 }
 
@@ -101,38 +103,40 @@ class FakeRuns implements RunsPort {
     return this.enqueueing;
   };
 
-  enqueueSearch = async () => this.enqueueing;
+  enqueueSearch = () => Promise.resolve(this.enqueueing);
 
-  cancel = async (run: RunId) => {
+  cancel = (run: RunId) => {
     this.cancelled.push(run.value);
     this.queuedRuns.delete(run.value);
-    return { known: this.known.has(run.value) };
+    return Promise.resolve({ known: this.known.has(run.value) });
   };
 
-  cancelIfQueued = async (run: RunId) => {
+  cancelIfQueued = (run: RunId) => {
     if (!this.known.has(run.value)) {
-      return { outcome: 'unknown' } as const;
+      return Promise.resolve({ outcome: 'unknown' } as const);
     }
     if (this.queued.outcome === 'cancelled') {
       this.queuedRuns.delete(run.value);
     }
-    return this.queued;
+    return Promise.resolve(this.queued);
   };
 
-  statuses = async (runs: readonly RunId[]): Promise<RunStatus[]> =>
-    runs
-      .filter((each) => this.known.has(each.value))
-      .map((each) => ({
-        run: each,
-        requester: ReplaysRequester.replayOf(each),
-        state: 'queued',
-        askedAPerson: false,
-        started: false,
-        queuedAt: new Date(0),
-        endedAt: null,
-      }));
+  statuses = (runs: readonly RunId[]): Promise<RunStatus[]> =>
+    Promise.resolve(
+      runs
+        .filter((each) => this.known.has(each.value))
+        .map((each) => ({
+          run: each,
+          requester: ReplaysRequester.replayOf(each),
+          state: 'queued',
+          askedAPerson: false,
+          started: false,
+          queuedAt: new Date(0),
+          endedAt: null,
+        })),
+    );
 
-  leasedBy = async () => null;
+  leasedBy = () => Promise.resolve(null);
 
   agentProblem = () => null;
 }
@@ -150,7 +154,7 @@ beforeEach(() => {
   replayKept = true;
   dispatch = new ReplayRunDispatch(
     decisions,
-    { find: async () => (replayKept ? ({} as Replay) : null) },
+    { find: () => Promise.resolve(replayKept ? partial<Replay>({}) : null) },
     trials,
     runs,
   );
@@ -340,8 +344,8 @@ describe('ReplayRunDispatch', () => {
     });
 
     it('stops a run an earlier dispatch queued when the replay is gone at the next try', async () => {
-      runs.onEnqueue = async () => {
-        throw new Error('the process stopped');
+      runs.onEnqueue = () => {
+        return Promise.reject(new Error('the process stopped'));
       };
       await expect(dispatch.dispatch(ORDER)).rejects.toThrow(
         'the process stopped',
@@ -419,8 +423,8 @@ describe('ReplayRunDispatch', () => {
     });
 
     it('withdraws a trial Work stored when the run was never enqueued', async () => {
-      runs.onEnqueue = async () => {
-        throw new Error('the process stopped');
+      runs.onEnqueue = () => {
+        return Promise.reject(new Error('the process stopped'));
       };
       await expect(dispatch.dispatch(ORDER)).rejects.toThrow(
         'the process stopped',

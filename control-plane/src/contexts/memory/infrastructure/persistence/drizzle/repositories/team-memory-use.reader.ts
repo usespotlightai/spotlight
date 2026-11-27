@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   DescribedMemory,
   MemoryUseWindow,
@@ -47,10 +48,10 @@ export class DrizzleTeamMemoryUse implements TeamMemoryUsePort {
       eq(memory.workspaceId, window.workspaceId),
       eq(memory.teamId, window.teamId),
     );
-    const [active] = await this.context.db
+    const active = firstOf(await this.context.db
       .select({ memories: count() })
       .from(memory)
-      .where(and(ofTeam, eq(memory.status, 'active')));
+      .where(and(ofTeam, eq(memory.status, 'active'))));
 
     const retired = await this.context.db
       .select({
@@ -81,9 +82,9 @@ export class DrizzleTeamMemoryUse implements TeamMemoryUsePort {
 
         const retirement = MemoryRetirement.rehydrate({
           at: row.at,
-          by: row.by ? UserId.of(row.by) : null,
+          by: row.by !== null && row.by !== '' ? UserId.of(row.by) : null,
           reason: row.reason,
-          supersededBy: row.supersededBy ? MemoryId.of(row.supersededBy) : null,
+          supersededBy: row.supersededBy !== null && row.supersededBy !== '' ? MemoryId.of(row.supersededBy) : null,
         });
 
         return retirement.flaggedWrong

@@ -26,6 +26,7 @@ import { NetworkResponse } from '@runs/domain/value-objects/network-response.vo'
 import type { CallSecretFetch } from '@secrets/application/ports/call-secret-fetches.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -74,49 +75,57 @@ const hosting = (
   let now = NOW;
   const clock: ClockPort = {
     now: () => now,
-    sleep: async (ms) => {
+    sleep: (ms) => {
       now = new Date(now.getTime() + ms);
+      return Promise.resolve();
     },
   };
   const authenticator: RunnerAuthenticatorPort = {
-    authenticate: vi.fn(async (credential: HostCredentials) =>
-      credential.bearer === 'pool-token'
-        ? {
-            source: { kind: 'pool' as const, id: 'pool_1' },
-            workspaceId: WorkspaceId.of('ws_1'),
-            workingCopies: null,
-          }
-        : null,
+    authenticate: vi.fn((credential: HostCredentials) =>
+      Promise.resolve(
+        credential.bearer === 'pool-token'
+          ? {
+              source: { kind: 'pool' as const, id: 'pool_1' },
+              workspaceId: WorkspaceId.of('ws_1'),
+              workingCopies: null,
+            }
+          : null,
+      ),
     ),
   };
   const saved: NetworkCall[] = [];
   const tokens = issuing();
   const fetches = {
-    sealedForCall: vi.fn(async (request: CallSecretFetch) => ({
-      secrets: request.secrets.map((secret) => ({
-        secret,
-        host: 'slack.com',
-        location: 'header',
-        name: 'authorization',
-        prefix: 'Bearer ',
-        sealed: `v1.sealed-for-${request.callId}`,
-      })),
-      denied: [],
-    })),
-  };
-  const runners = {
-    reports: vi.fn(async () => over.reported ?? true),
-  } as unknown as RunnersPort;
-  const calls = {
-    claimNext: vi.fn(async () => over.next ?? null),
-    find: vi.fn(async () =>
-      over.found === undefined ? claimedCall() : over.found,
+    sealedForCall: vi.fn((request: CallSecretFetch) =>
+      Promise.resolve({
+        secrets: request.secrets.map((secret) => ({
+          secret,
+          host: 'slack.com',
+          location: 'header',
+          name: 'authorization',
+          prefix: 'Bearer ',
+          sealed: `v1.sealed-for-${request.callId}`,
+        })),
+        denied: [],
+      }),
     ),
-    save: vi.fn(async (call: NetworkCall) => {
-      if (over.clash) {
-        throw new NetworkCallVersionConflictError(call.id.value);
+  };
+  const runners = partial<RunnersPort>({
+    reports: vi.fn(() => Promise.resolve(over.reported ?? true)),
+  });
+  const calls = {
+    claimNext: vi.fn(() => Promise.resolve(over.next ?? null)),
+    find: vi.fn(() =>
+      Promise.resolve(over.found === undefined ? claimedCall() : over.found),
+    ),
+    save: vi.fn((call: NetworkCall) => {
+      if (over.clash === true) {
+        return Promise.reject(
+          new NetworkCallVersionConflictError(call.id.value),
+        );
       }
       saved.push(call);
+      return Promise.resolve();
     }),
   };
 
@@ -127,19 +136,19 @@ const hosting = (
     claim: new ClaimHostCallHandler(
       authenticator,
       runners,
-      { next: calls.claimNext } as unknown as NetworkCallClaims,
+      partial<NetworkCallClaims>({ next: calls.claimNext }),
       clock,
       new LongPoll(clock),
       tokens,
     ),
     response: new RecordHostCallResponseHandler(
       authenticator,
-      calls as unknown as NetworkCallRepository,
+      partial<NetworkCallRepository>(calls),
       clock,
     ),
     fetches,
     redeem: new RedeemCallSecretsHandler(
-      calls as unknown as NetworkCallRepository,
+      partial<NetworkCallRepository>(calls),
       fetches,
       tokens,
       clock,

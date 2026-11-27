@@ -16,34 +16,35 @@ export class InMemoryInferredOutputSchemas
 {
   readonly stored = new Map<string, InferredOutputSchema>();
 
-  async of(
-    teamId: TeamId,
-    tool: ToolName,
-  ): Promise<InferredOutputSchema | null> {
-    return this.stored.get(keyOf(teamId, tool)) ?? null;
+  of(teamId: TeamId, tool: ToolName): Promise<InferredOutputSchema | null> {
+    return Promise.resolve(this.stored.get(keyOf(teamId, tool)) ?? null);
   }
 
-  async ofTools(
+  ofTools(
     teamId: TeamId,
     tools: readonly ToolName[],
   ): Promise<ReadonlyMap<string, JsonObject>> {
-    return new Map(
-      [...this.stored.values()]
-        .filter(
-          (each) =>
-            each.teamId.equals(teamId) &&
-            tools.some((tool) => tool.equals(each.tool)),
-        )
-        .map((each) => [each.tool.value, each.shape.schema]),
+    return Promise.resolve(
+      new Map(
+        [...this.stored.values()]
+          .filter(
+            (each) =>
+              each.teamId.equals(teamId) &&
+              tools.some((tool) => tool.equals(each.tool)),
+          )
+          .map((each) => [each.tool.value, each.shape.schema]),
+      ),
     );
   }
 
-  async save(schema: InferredOutputSchema): Promise<void> {
+  save(schema: InferredOutputSchema): Promise<void> {
     const key = keyOf(schema.teamId, schema.tool);
     const current = this.stored.get(key);
 
     if ((current?.version ?? 0) !== schema.version) {
-      throw new InferredOutputSchemaVersionConflictError(schema.tool.value);
+      return Promise.reject(
+        new InferredOutputSchemaVersionConflictError(schema.tool.value),
+      );
     }
 
     this.stored.set(
@@ -57,32 +58,40 @@ export class InMemoryInferredOutputSchemas
         version: schema.version + 1,
       }),
     );
+
+    return Promise.resolve();
   }
 
-  async ofIntegration(
+  ofIntegration(
     teamId: TeamId,
     integration: IntegrationKey,
   ): Promise<readonly InferredOutputSchema[]> {
-    return [...this.stored.values()].filter(
-      (each) =>
-        each.teamId.equals(teamId) && each.integration.equals(integration),
+    return Promise.resolve(
+      [...this.stored.values()].filter(
+        (each) =>
+          each.teamId.equals(teamId) && each.integration.equals(integration),
+      ),
     );
   }
 
-  async ofTeam(teamId: TeamId): Promise<readonly InferredOutputSchema[]> {
-    return [...this.stored.values()].filter((each) =>
-      each.teamId.equals(teamId),
+  ofTeam(teamId: TeamId): Promise<readonly InferredOutputSchema[]> {
+    return Promise.resolve(
+      [...this.stored.values()].filter((each) => each.teamId.equals(teamId)),
     );
   }
 
-  async remove(schema: InferredOutputSchema): Promise<void> {
+  remove(schema: InferredOutputSchema): Promise<void> {
     const key = keyOf(schema.teamId, schema.tool);
 
     if (this.stored.get(key)?.version !== schema.version) {
-      throw new InferredOutputSchemaVersionConflictError(schema.tool.value);
+      return Promise.reject(
+        new InferredOutputSchemaVersionConflictError(schema.tool.value),
+      );
     }
 
     this.stored.delete(key);
+
+    return Promise.resolve();
   }
 }
 
@@ -100,7 +109,7 @@ export const inferringInto = (
     schemas,
     {
       now: () => new Date('2026-10-05T12:00:00.000Z'),
-      sleep: async () => undefined,
+      sleep: () => Promise.resolve(undefined),
     },
     QUIET,
   );

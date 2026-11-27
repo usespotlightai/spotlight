@@ -10,6 +10,7 @@ import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { TEAM, WORKSPACE } from '@insights/runs.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -65,7 +66,7 @@ const deleting = async (alertStates: StationAlertStatesInMemory) => {
   await alertStates.add(firedAt('station_2'));
 
   const insights = new DeleteInsights(
-    { alertStates } as unknown as InsightsRepositories,
+    partial<InsightsRepositories>({ alertStates }),
     deletions,
     {
       inTransaction: <T>(work: () => Promise<T>) => {

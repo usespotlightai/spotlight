@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
@@ -31,7 +31,11 @@ type CostSlicesProps = {
   named: SliceNamer;
 };
 
-export function CostSlices({ slicesOf, currency, named }: CostSlicesProps) {
+export function CostSlices({
+  slicesOf,
+  currency,
+  named,
+}: CostSlicesProps): ReactElement {
   const [dimension, setDimension] = useState<CostDimension>('harness');
   const slices = slicesOf(dimension);
   const heading =

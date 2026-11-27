@@ -1,4 +1,5 @@
 import { CornerDownRight } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import {
   HOST_COLUMNS,
@@ -39,7 +40,7 @@ function LastRunTitle({
   const label = idleSandboxLabel(sandbox);
   const path = leasedRunPath(slug, sandbox.lastRun);
 
-  if (path) {
+  if (path !== null && path !== '') {
     return (
       <TrailLink
         to={path}
@@ -69,7 +70,12 @@ type SandboxRowProps = {
   harnesses: readonly NamedHarness[] | undefined;
 };
 
-export function SandboxRow({ slug, host, row, harnesses }: SandboxRowProps) {
+export function SandboxRow({
+  slug,
+  host,
+  row,
+  harnesses,
+}: SandboxRowProps): ReactElement {
   const [first] = row.sandboxes;
   const lineNames = useLineNames(slug, isWarm(first));
   const lineName =
@@ -105,7 +111,9 @@ export function SandboxRow({ slug, host, row, harnesses }: SandboxRowProps) {
       </span>
 
       <span className="flex min-w-0">
-        {first.image && <ImagePill image={first.image} title={first.image} />}
+        {first.image !== null && first.image !== '' && (
+          <ImagePill image={first.image} title={first.image} />
+        )}
       </span>
 
       <HarnessLogos harnesses={imageHarnesses(host, first.image, harnesses)} />

@@ -11,6 +11,7 @@ import {
   RunRecordsInMemory,
   WORKSPACE,
 } from '@insights/runs.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -27,22 +28,26 @@ type Ended =
   | [string, number, Parameters<typeof endedRecord>[1]];
 
 const workOfTeam = (teamId: string): WorkPort => ({
-  unfinishedRuns: async () => [],
-  traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
-  endedRun: async (runId) =>
-    ({
+  unfinishedRuns: () => Promise.resolve([]),
+  traced: () =>
+    Promise.resolve({ tasks: [], stations: [], outputs: new Map() }),
+  endedRun: (runId) =>
+    Promise.resolve(
+      partial<EndedRun>({
+        runId,
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TeamId.of(teamId),
+        taskId: TaskId.of('task_1'),
+      }),
+    ),
+  taskRunOf: (runId) =>
+    Promise.resolve({
       runId,
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of(teamId),
       taskId: TaskId.of('task_1'),
-    }) as EndedRun,
-  taskRunOf: async (runId) => ({
-    runId,
-    workspaceId: WorkspaceId.of('ws_1'),
-    teamId: TeamId.of(teamId),
-    taskId: TaskId.of('task_1'),
-  }),
-  configsInOrder: async () => [],
+    }),
+  configsInOrder: () => Promise.resolve([]),
 });
 
 const acting = async (...runs: Ended[]) => {
@@ -91,7 +96,7 @@ const acting = async (...runs: Ended[]) => {
     next: async (runId: string) =>
       (await records.of(RunId.of(runId)))?.actions.decidingAction?.kind ?? null,
     actor: async (runId: string) =>
-      (await records.of(RunId.of(runId)))?.actions.decidingAction?.by?.value ??
+      (await records.of(RunId.of(runId)))?.actions.decidingAction?.by.value ??
       null,
     answeredAt: async (runId: string) =>
       (await records.of(RunId.of(runId)))?.actions.answer?.at ?? null,
@@ -417,7 +422,7 @@ describe('recording how a run used its tools', () => {
     const records = new RunRecordsInMemory();
     const noTask: WorkPort = {
       ...workOfTeam('team_1'),
-      taskRunOf: async () => null,
+      taskRunOf: () => Promise.resolve(null),
     };
 
     await new RecordRunUsageSummary(

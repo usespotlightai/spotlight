@@ -7,6 +7,7 @@ import { inboxKeys } from '@/hooks/api/useInbox';
 import { useInboxItemRefresh } from '@/hooks/api/useInboxItemRefresh';
 import { journalKeys } from '@/hooks/api/useRunJournals';
 import type { InboxItem } from '@/lib/inbox';
+import { partial } from '@/test/partial';
 
 const opened: string[] = [];
 const streams: Stream[] = [];
@@ -41,12 +42,12 @@ describe('a bump while the run is live', () => {
 
   it('refreshes the journal of the live run and not the whole task', () => {
     const invalidated = vi.spyOn(client, 'invalidateQueries');
-    const item = {
+    const item = partial<InboxItem>({
       id: 'task_1:2',
       taskId: 'task_1',
       runId: 'run_1',
       progress: 'in-progress',
-    } as unknown as InboxItem;
+    });
 
     renderHook(() => useInboxItemRefresh('acme', item), { wrapper });
     invalidated.mockClear();
@@ -69,11 +70,11 @@ describe('the stream of a run that is stopping', () => {
   });
 
   it('stays open in the inbox while its run has not ended', () => {
-    const item = {
+    const item = partial<InboxItem>({
       taskId: 'task_1',
       runId: 'run_1',
       progress: null,
-    } as unknown as InboxItem;
+    });
 
     renderHook(() => useInboxItemRefresh('acme', item), { wrapper });
 

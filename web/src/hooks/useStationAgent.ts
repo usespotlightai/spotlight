@@ -32,8 +32,7 @@ export function useStationAgent({
     return null;
   }
 
-  const models = offered.models ?? [];
-  const efforts = offered.efforts ?? [];
+  const { models, efforts } = offered;
 
   return {
     harnessId: offered.id,
@@ -42,8 +41,14 @@ export function useStationAgent({
     effort:
       efforts.length > 0
         ? {
-            name: effort ? capitalized(effort) : 'Default',
-            at: effort ? efforts.indexOf(effort) + 1 : 0,
+            name:
+              effort !== undefined && effort !== null && effort !== ''
+                ? capitalized(effort)
+                : 'Default',
+            at:
+              effort !== undefined && effort !== null && effort !== ''
+                ? efforts.indexOf(effort) + 1
+                : 0,
             levels: efforts.map(capitalized),
           }
         : null,

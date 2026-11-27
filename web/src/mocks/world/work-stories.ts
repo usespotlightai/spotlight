@@ -8,6 +8,7 @@ import type {
   StepChangeResponseDto,
   TaskPersonResponseDto,
 } from '@/lib/api';
+import { entryOf } from '@/mocks/entry';
 import { MAYA, PRIYA, SAM, TOM } from '@/mocks/world/people';
 
 export type StepScript = {
@@ -1017,12 +1018,23 @@ export const RUN_STORIES: Record<string, RunStory> = {
   },
 };
 
-export const stepIndexOf = (runId: string, text: string): number =>
-  RUN_STORIES[runId]?.steps.findIndex((step) => step.text === text) ?? -1;
+type ProvenanceStep = {
+  readonly index: number;
+  readonly kind: string;
+  readonly text: string;
+};
 
-export const provenanceStep = (runId: string, text: string, kind?: string) => {
+export const stepIndexOf = (runId: string, text: string): number =>
+  entryOf(RUN_STORIES, runId)?.steps.findIndex((step) => step.text === text) ??
+  -1;
+
+export const provenanceStep = (
+  runId: string,
+  text: string,
+  kind?: string,
+): ProvenanceStep => {
   const index = stepIndexOf(runId, text);
-  const step = RUN_STORIES[runId]?.steps[index];
+  const step = entryOf(RUN_STORIES, runId)?.steps.at(index);
 
   return {
     index,

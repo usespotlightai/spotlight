@@ -1,7 +1,8 @@
 import type { ObservedPullRequest } from '@insights/domain/value-objects/seen-pull-request.vo';
 import type { PullRequestUpdatedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
 
-const dateOf = (at: string | null): Date | null => (at ? new Date(at) : null);
+const dateOf = (at: string | null): Date | null =>
+  at !== null && at !== '' ? new Date(at) : null;
 
 export const observedPullRequestOf = (
   event: PullRequestUpdatedIntegrationEvent,

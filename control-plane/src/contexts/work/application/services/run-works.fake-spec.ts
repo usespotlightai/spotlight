@@ -9,6 +9,7 @@ import type {
 } from '@runs/application/ports/run-leases.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -104,10 +105,10 @@ export const aTrialDispatch = (
 export const dispatchesOf = (
   ...dispatches: readonly Dispatch[]
 ): DispatchRepository =>
-  ({
-    find: async (id: RunId) =>
-      dispatches.find((each) => each.id.equals(id)) ?? null,
-  }) as unknown as DispatchRepository;
+  partial<DispatchRepository>({
+    find: (id: RunId) =>
+      Promise.resolve(dispatches.find((each) => each.id.equals(id)) ?? null),
+  });
 
 export type RunRequested = 'task' | 'chat' | 'trial' | 'search' | 'spec';
 
@@ -172,6 +173,6 @@ export const runWorksOver = (
   new RunWorks(leases, runs, tasks, chats, lines, dispatches, settings, clock);
 
 export const defaultBranchIs = (name: string): RepositorySettingsPort =>
-  ({
-    defaultBranchNameOf: async () => name,
-  }) as unknown as RepositorySettingsPort;
+  partial<RepositorySettingsPort>({
+    defaultBranchNameOf: () => Promise.resolve(name),
+  });

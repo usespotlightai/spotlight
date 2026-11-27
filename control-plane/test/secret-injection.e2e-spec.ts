@@ -20,13 +20,14 @@ import {
   RUN_GRANTS,
   type RunGrantsPort,
 } from '@secrets/application/ports/run-grants.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import {
   INTEGRATION_TOOL_CALLS,
-  type IntegrationTool,
   type IntegrationToolCallsPort,
 } from '@work/application/ports/integration-tool-calls.port';
 import {
@@ -47,6 +48,7 @@ import {
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { overriding } from './support/overriding';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -91,11 +93,12 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
   let workspaceId: string;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
-  const fetch = vi.fn(
-    async (_url: string | URL | Request, _init?: RequestInit) =>
+  const fetch = vi.fn((_url: string | URL | Request, _init?: RequestInit) =>
+    Promise.resolve(
       new Response(JSON.stringify({ url: 'https://linear.app/c/1' }), {
         status: 200,
       }),
+    ),
   );
 
   const post = (path: string, body: object) =>
@@ -119,14 +122,11 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
   });
 
   const comment = async (runId = 'run_1', attempt = 1) => {
-    const resolved = (await app
-      .get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS)
-      .resolve(
-        'linear.comment',
-        task(),
-        { runId, attempt },
-        null,
-      )) as IntegrationTool;
+    const resolved = present(
+      await app
+        .get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS)
+        .resolve('linear.comment', task(), { runId, attempt }, null),
+    );
 
     return resolved.call({ body: 'Fixed in the queue worker.' });
   };
@@ -151,7 +151,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
             env.SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK,
           );
 
-          return Object.assign(Object.create(guard) as OutboundGuard, {
+          return overriding(guard, {
             fetch: (url: string | URL | Request, init?: RequestInit) =>
               hostOf(url) === 'api.linear.app'
                 ? fetch(url, init)
@@ -218,12 +218,14 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
       output: 'https://linear.app/c/1',
     });
 
-    const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('https://api.linear.app/graphql');
-    expect((init.headers as Record<string, string>).authorization).toBe(
-      `Bearer ${VALUE}`,
+    const [url, init] = fetch.mock.calls[0];
+    const authorization: unknown = Reflect.get(
+      init?.headers ?? {},
+      'authorization',
     );
-    expect(init.redirect).toBe('manual');
+    expect(url).toBe('https://api.linear.app/graphql');
+    expect(authorization).toBe(`Bearer ${VALUE}`);
+    expect(init?.redirect).toBe('manual');
   });
 
   it('reaches the host with a secret bound to a query parameter, and keeps it out of the answer', async () => {
@@ -243,11 +245,14 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
       output: 'https://linear.app/c/1?key=[secret]',
     });
 
-    const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetch.mock.calls[0];
+
+    if (typeof url !== 'string') {
+      throw new Error('expected the tool to fetch a string url');
+    }
+
     expect(new URL(url).searchParams.get('key')).toBe(VALUE);
-    expect(
-      (init.headers as Record<string, string>).authorization,
-    ).toBeUndefined();
+    expect(Reflect.get(init?.headers ?? {}, 'authorization')).toBeUndefined();
   });
 
   it('infers an output schema from what the tool answered, without its values, for the next run’s manifest', async () => {
@@ -258,19 +263,23 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
 
     await comment();
 
-    const [stored] = await eventually(() =>
-      db
-        .select()
-        .from(schema.inferredOutputSchema)
-        .where(eq(schema.inferredOutputSchema.teamId, workspaceId))
-        .then((rows) => (rows.length > 0 ? rows : null)),
+    const stored = firstOf(
+      await eventually(() =>
+        db
+          .select()
+          .from(schema.inferredOutputSchema)
+          .where(eq(schema.inferredOutputSchema.teamId, workspaceId))
+          .then((rows) => (rows.length > 0 ? rows : null)),
+      ),
     );
     expect(stored?.tool).toBe('linear.comment');
     expect(JSON.stringify(stored?.shape)).not.toContain('linear.app');
 
-    const [provided] = await app
-      .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-      .provided(TeamId.of(workspaceId), ['linear.comment']);
+    const provided = firstOf(
+      await app
+        .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
+        .provided(TeamId.of(workspaceId), ['linear.comment']),
+    );
     expect(provided?.inferredOutput).toEqual({ type: 'string' });
   });
 
@@ -316,10 +325,12 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     await expect(comment('run_8', 1)).rejects.toThrow(/for attempt 1 is over/);
     expect(fetch).toHaveBeenCalledTimes(2);
 
-    const [stored] = await db
-      .select({ attempt: schema.runGrants.attempt })
-      .from(schema.runGrants)
-      .where(eq(schema.runGrants.runId, 'run_8'));
+    const stored = firstOf(
+      await db
+        .select({ attempt: schema.runGrants.attempt })
+        .from(schema.runGrants)
+        .where(eq(schema.runGrants.runId, 'run_8')),
+    );
 
     expect(stored?.attempt).toBe(2);
   });
@@ -359,10 +370,12 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     await expect(comment('run_10', 1)).rejects.toThrow(/has ended/);
     expect(fetch).not.toHaveBeenCalled();
 
-    const [stored] = await db
-      .select({ endedAt: schema.runGrants.endedAt })
-      .from(schema.runGrants)
-      .where(eq(schema.runGrants.runId, 'run_10'));
+    const stored = firstOf(
+      await db
+        .select({ endedAt: schema.runGrants.endedAt })
+        .from(schema.runGrants)
+        .where(eq(schema.runGrants.runId, 'run_10')),
+    );
 
     expect(stored?.endedAt).toBeInstanceOf(Date);
   });
@@ -408,15 +421,17 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
       }),
     );
 
-    const [row] = await db
-      .select()
-      .from(schema.integrationConnection)
-      .where(
-        and(
-          eq(schema.integrationConnection.teamId, workspaceId),
-          eq(schema.integrationConnection.integration, 'slack'),
+    const row = firstOf(
+      await db
+        .select()
+        .from(schema.integrationConnection)
+        .where(
+          and(
+            eq(schema.integrationConnection.teamId, workspaceId),
+            eq(schema.integrationConnection.integration, 'slack'),
+          ),
         ),
-      );
+    );
     const read = await connections.of(
       TeamId.of(workspaceId),
       IntegrationKey.of('slack'),

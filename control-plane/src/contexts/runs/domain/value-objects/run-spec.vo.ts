@@ -177,18 +177,22 @@ export const checkoutFoldersOf = (
   checkouts: readonly RunCheckout[],
 ): readonly string[] =>
   checkouts.flatMap((each) =>
-    each.path && !blank(each.path) ? [each.path] : [],
+    each.path !== undefined && !blank(each.path) ? [each.path] : [],
   );
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const jsonCopied = (
+  session: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> => {
+  const copy: unknown = JSON.parse(JSON.stringify(session));
+  return isRecord(copy) ? copy : {};
+};
 
 const setupCopied = (setup: RunHarnessSetup): RunHarnessSetup => ({
   files: setup.files.map(({ path, text }) => ({ path, text })),
-  ...(setup.session
-    ? {
-        session: JSON.parse(JSON.stringify(setup.session)) as NonNullable<
-          RunHarnessSetup['session']
-        >,
-      }
-    : {}),
+  ...(setup.session ? { session: jsonCopied(setup.session) } : {}),
   mcpServers: setup.mcpServers.map((server) => ({
     name: server.name,
     command: server.command,
@@ -217,13 +221,14 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     args: [...parts.command.args],
     ...(parts.command.protocol ? { protocol: parts.command.protocol } : {}),
     ...(parts.command.env ? { env: { ...parts.command.env } } : {}),
-    ...(parts.command.sessionOptions?.length
+    ...(parts.command.sessionOptions !== undefined &&
+    parts.command.sessionOptions.length > 0
       ? {
           sessionOptions: parts.command.sessionOptions.map(
             ({ id, value, optional }) => ({
               id,
               value,
-              ...(optional ? { optional: true } : {}),
+              ...(optional === true ? { optional: true } : {}),
             }),
           ),
         }
@@ -238,13 +243,17 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     ...(parts.resume.sessionId !== undefined
       ? { sessionId: parts.resume.sessionId }
       : {}),
-    ...(parts.resume.resumeSession ? { resumeSession: true } : {}),
-    ...(parts.resume.followUp ? { followUp: parts.resume.followUp } : {}),
+    ...(parts.resume.resumeSession === true ? { resumeSession: true } : {}),
+    ...(parts.resume.followUp !== undefined && parts.resume.followUp !== ''
+      ? { followUp: parts.resume.followUp }
+      : {}),
   },
   ...(parts.skills
     ? { skills: parts.skills.map(({ path, text }) => ({ path, text })) }
     : {}),
-  ...(parts.skillHomes?.length ? { skillHomes: [...parts.skillHomes] } : {}),
+  ...(parts.skillHomes !== undefined && parts.skillHomes.length > 0
+    ? { skillHomes: [...parts.skillHomes] }
+    : {}),
   ...(parts.manifest
     ? {
         manifest: parts.manifest.map((each) => ({
@@ -285,17 +294,17 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     : {}),
   ...(parts.diffs === undefined ? {} : { diffs: parts.diffs }),
   ...(parts.check !== undefined ? { check: parts.check } : {}),
-  ...(parts.startingPoint ? { startingPoint: true } : {}),
+  ...(parts.startingPoint === true ? { startingPoint: true } : {}),
   ...(parts.harnessSetup
     ? { harnessSetup: setupCopied(parts.harnessSetup) }
     : {}),
-  ...(parts.settingFiles?.length
+  ...(parts.settingFiles !== undefined && parts.settingFiles.length > 0
     ? { settingFiles: [...parts.settingFiles] }
     : {}),
-  ...(parts.injectedSecrets?.length
+  ...(parts.injectedSecrets !== undefined && parts.injectedSecrets.length > 0
     ? { injectedSecrets: [...parts.injectedSecrets] }
     : {}),
-  ...(parts.sandboxEnv?.length
+  ...(parts.sandboxEnv !== undefined && parts.sandboxEnv.length > 0
     ? {
         sandboxEnv: parts.sandboxEnv.map(({ variable, secret }) => ({
           variable,
@@ -303,8 +312,10 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
         })),
       }
     : {}),
-  ...(parts.harnessKeys?.length ? { harnessKeys: [...parts.harnessKeys] } : {}),
-  ...(parts.spotlightApi ? { spotlightApi: true } : {}),
+  ...(parts.harnessKeys !== undefined && parts.harnessKeys.length > 0
+    ? { harnessKeys: [...parts.harnessKeys] }
+    : {}),
+  ...(parts.spotlightApi === true ? { spotlightApi: true } : {}),
 });
 
 export const actsBeyondItselfIn = (parts: RunSpecParts): string | null => {
@@ -316,7 +327,7 @@ export const actsBeyondItselfIn = (parts: RunSpecParts): string | null => {
     return 'puts secrets in its sandbox';
   }
 
-  if (parts.spotlightApi) {
+  if (parts.spotlightApi === true) {
     return 'uses Spotlight’s API';
   }
 
@@ -336,11 +347,14 @@ export const actsBeyondItselfIn = (parts: RunSpecParts): string | null => {
     return 'starts MCP servers';
   }
 
-  if (parts.resume.sessionId || parts.resume.resumeSession) {
+  if (
+    (parts.resume.sessionId !== undefined && parts.resume.sessionId !== '') ||
+    parts.resume.resumeSession === true
+  ) {
     return 'carries on a conversation';
   }
 
-  if (parts.startingPoint) {
+  if (parts.startingPoint === true) {
     return 'reports where it started';
   }
 
@@ -365,14 +379,14 @@ const samePart = (a: unknown, b: unknown): boolean => {
     );
   }
 
-  const left = a as Record<string, unknown>;
-  const right = b as Record<string, unknown>;
-  const keys = Object.keys(left);
-  const rightKeys = new Set(Object.keys(right));
+  const left: [string, unknown][] = Object.entries(a);
+  const right = new Map<string, unknown>(Object.entries(b));
 
   return (
-    keys.length === rightKeys.size &&
-    keys.every((key) => rightKeys.has(key) && samePart(left[key], right[key]))
+    left.length === right.size &&
+    left.every(
+      ([key, value]) => right.has(key) && samePart(value, right.get(key)),
+    )
   );
 };
 
@@ -389,7 +403,7 @@ export class RunSpec {
     if (
       parts.command.sessionOptions?.some(
         (option) => blank(option.id) || blank(option.value),
-      )
+      ) === true
     ) {
       throw new InvalidRunSpecError(
         'must name each harness session option and its value',
@@ -558,7 +572,8 @@ export class RunSpec {
               ? { sessionId: this.parts.resume.sessionId }
               : {}),
           resumeSession: true,
-          ...(this.parts.resume.followUp
+          ...(this.parts.resume.followUp !== undefined &&
+          this.parts.resume.followUp !== ''
             ? { followUp: this.parts.resume.followUp }
             : {}),
         },

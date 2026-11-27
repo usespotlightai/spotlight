@@ -137,7 +137,9 @@ export const agentConfigsFrom = (
   });
 
   const currency = mostUsed(
-    measured.flatMap((each) => (each.currency ? [each.currency] : [])),
+    measured.flatMap((each) =>
+      each.currency !== null && each.currency !== '' ? [each.currency] : [],
+    ),
   );
   const frontiers = new Map(
     OUTCOME_MEASURES.map((measure) => [
@@ -169,8 +171,8 @@ export const agentConfigsFrom = (
         priced: each.costPerRun !== null && each.currency === currency,
         outcomes: each.outcomes,
         judge: each.judge,
-        frontier: OUTCOME_MEASURES.filter((measure) =>
-          frontiers.get(measure)?.has(each.key),
+        frontier: OUTCOME_MEASURES.filter(
+          (measure) => frontiers.get(measure)?.has(each.key) === true,
         ),
       }))
       .sort(

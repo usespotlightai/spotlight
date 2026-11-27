@@ -1,9 +1,11 @@
+import type { ReactElement } from 'react';
+
 import { HOST_COLUMNS, HOST_ROW } from '@/components/features/runners/columns';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { cn } from '@/lib/utils';
 
-export function HostRowSkeleton() {
+export function HostRowSkeleton(): ReactElement {
   return (
     <li className={cn(HOST_ROW, HOST_COLUMNS)}>
       <SkeletonLine className="w-24" />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { FileThread } from '@/components/features/changes/FileThread';
 import { LayerFileDiff } from '@/components/features/changes/LayerFileDiff';
@@ -15,7 +15,11 @@ type LayerFileCardProps = {
   onToggle: () => void;
 };
 
-export function LayerFileCard({ placed, open, onToggle }: LayerFileCardProps) {
+export function LayerFileCard({
+  placed,
+  open,
+  onToggle,
+}: LayerFileCardProps): ReactElement {
   const { file, hunks, note } = placed;
   const tally = tallyOf(hunks);
   const [replying, setReplying] = useState(false);

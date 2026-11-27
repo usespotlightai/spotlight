@@ -3,7 +3,6 @@ import type {
   StationSourceEditsPort,
   StationSourceField,
 } from '@configuration/application/ports/station-source-edits.port';
-import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
 import type {
   StationSourceEdit,
   StationSourceEdited,
@@ -51,8 +50,8 @@ export class ConfigurationStationSourceEditor implements StationSourceEditorPort
       teamKey: edit.teamKey,
       lineKey: LineKey.of(edit.lineKey),
       stationKey: StationKey.of(edit.stationKey),
-      seed: edit.seed.value as LineDefinitionStation,
-      candidate: edit.candidate.value as LineDefinitionStation,
+      seed: edit.seed.value,
+      candidate: edit.candidate.value,
       fields: SEARCHABLE_FIELDS.map((each) => SOURCE_FIELDS[each]),
       configFiles: edit.configFiles,
     });

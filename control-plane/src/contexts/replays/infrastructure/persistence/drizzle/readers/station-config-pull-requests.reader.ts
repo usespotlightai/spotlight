@@ -45,7 +45,7 @@ export class DrizzleStationConfigPullRequests
 
     return new Map(
       rows.flatMap((row) =>
-        row.fingerprint && row.url
+        row.fingerprint !== null && row.fingerprint !== '' && row.url !== null && row.url !== ''
           ? [[row.fingerprint, PullRequestUrl.of(row.url)] as const]
           : [],
       ),

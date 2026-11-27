@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ContinueWithGitHub } from '@/components/shell/auth/ContinueWithGitHub';
 import { useSignIn } from '@/hooks/api/useSignIn';
 
@@ -5,7 +7,9 @@ type SignInToContinueProps = {
   callbackURL: string;
 };
 
-export function SignInToContinue({ callbackURL }: SignInToContinueProps) {
+export function SignInToContinue({
+  callbackURL,
+}: SignInToContinueProps): ReactElement {
   const signIn = useSignIn(callbackURL);
 
   return (

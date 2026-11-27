@@ -7,6 +7,8 @@ import type {
   RunRequesterContract,
 } from '@runs/application/contracts/run-order.contract';
 import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -268,11 +270,11 @@ const claimed = (
     pins: over.catalog ?? [],
   });
 
-const LINE = {
-  id: 'line_1',
+const LINE = partial<LineMap>({
+  id: LineId.of('line_1'),
   teamId: TeamId.of('team_1'),
   stationAt: () => null,
-} as unknown as LineMap;
+});
 
 const TASK_VIEW: TaskViewDto = {
   taskId: 'task_1',
@@ -333,63 +335,71 @@ const using = (
     because: 'denied here',
   });
   const catalog = new RunCatalog({
-    resolve: async (named) =>
-      over.denied?.when === 'before'
-        ? {
-            tools: [],
-            skills: [],
-            denied: named.tools.map(denial),
-          }
-        : {
-            tools: named.tools.map((id) => ({
-              id,
-              description: 'Search the web.',
-              inputs: [
-                {
-                  name: 'query',
-                  schema: { type: 'string' },
-                  description: null,
-                  required: true,
-                  defaulted: false,
-                  stdin: false,
-                },
-              ],
-            })),
-            skills: [],
-            denied: [],
-          },
-    call: async (request) => {
+    resolve: (named) =>
+      Promise.resolve(
+        over.denied?.when === 'before'
+          ? {
+              tools: [],
+              skills: [],
+              denied: named.tools.map(denial),
+            }
+          : {
+              tools: named.tools.map((id) => ({
+                id,
+                description: 'Search the web.',
+                inputs: [
+                  {
+                    name: 'query',
+                    schema: { type: 'string' },
+                    description: null,
+                    required: true,
+                    defaulted: false,
+                    stdin: false,
+                  },
+                ],
+              })),
+              skills: [],
+              denied: [],
+            },
+      ),
+    call: (request) => {
       if (over.denied?.when === 'during') {
-        return { kind: 'denied', denial: denial(request.id) };
+        return Promise.resolve({ kind: 'denied', denial: denial(request.id) });
       }
 
       called.push({
         tool: request.id,
-        context: { kind: 'task' } as TaskToolContext,
+        context: partial<TaskToolContext>({ kind: 'task' }),
         inputs: ToolInputs.of(request.inputs),
       });
 
-      if (over.changedWhileCalling) {
+      if (over.changedWhileCalling === true) {
         current = Task.rehydrate({ ...current, version: current.version + 1 });
       }
 
-      return { kind: 'answered', output: 'Three pages.' };
+      return Promise.resolve({ kind: 'answered', output: 'Three pages.' });
     },
   });
   let current = over.task ?? task();
-  const tasks = {
-    find: async () => current,
-    save: async (saved: Task) => {
-      if (over.changedWhileCalling && saved.version !== current.version) {
-        throw new TaskVersionConflictError(saved.id.value);
+  const tasks = partial<TaskRepository>({
+    find: () => Promise.resolve(current),
+    save: (saved: Task) => {
+      if (
+        over.changedWhileCalling === true &&
+        saved.version !== current.version
+      ) {
+        return Promise.reject(new TaskVersionConflictError(saved.id.value));
       }
-      current = over.changedWhileCalling
-        ? Task.rehydrate({ ...saved, version: saved.version + 1 })
-        : saved;
+      current =
+        over.changedWhileCalling === true
+          ? Task.rehydrate({ ...saved, version: saved.version + 1 })
+          : saved;
+
+      return Promise.resolve();
     },
-  } as unknown as TaskRepository;
+  });
   const linear =
-    over.approval || over.readOnly
+    over.approval || over.readOnly === true
       ? DeclaredTool.of({
           tool: LINEAR_COMMENT.tool,
           description: LINEAR_COMMENT.description,
@@ -404,16 +414,16 @@ const using = (
     [
       {
         tool: PULL_REQUEST,
-        call: async (context, inputs) => {
+        call: (context, inputs) => {
           called.push({ tool: PULL_REQUEST.value, context, inputs });
-          return 'https://github.com/acme/widgets/pull/7';
+          return Promise.resolve('https://github.com/acme/widgets/pull/7');
         },
       },
       {
         tool: PROPOSE_TASK,
-        call: async (context, inputs) => {
+        call: (context, inputs) => {
           called.push({ tool: PROPOSE_TASK.value, context, inputs });
-          return 'Proposed.';
+          return Promise.resolve('Proposed.');
         },
       },
       ...[
@@ -425,45 +435,49 @@ const using = (
         OPEN_TASKS,
       ].map((tool) => ({
         tool,
-        call: async () => null,
+        call: () => Promise.resolve(null),
       })),
     ],
-    new ChatToolExtensions({
-      find: async () => chat(),
-    } as unknown as ChatRepository),
+    new ChatToolExtensions(
+      partial<ChatRepository>({
+        find: () => Promise.resolve(chat()),
+      }),
+    ),
   );
 
   const integrationTools: IntegrationToolResolver = {
-    resolve: async (tool, context): Promise<ResolvedTool | null> =>
-      tool.equals(LINEAR_COMMENT.tool) && context.kind === 'task'
-        ? {
-            declared: linear,
-            actingAs: over.actingAs ?? null,
-            missing: over.missing ?? null,
-            personRule: over.personRule ?? null,
-            defaultFor: (input) =>
-              input.name === 'issue' ? 'ENG-12' : undefined,
-            call: async (inputs) => {
-              if (over.movedOnWhileCalling) {
-                throw new LeaseLostError('run_1', 1);
-              }
-              called.push({ tool: tool.value, context, inputs });
-              if (over.failing) {
-                return {
-                  outcome: 'failed',
-                  failure: {
-                    blocked: false,
-                    reason: 'using linear.comment: down',
-                  },
-                };
-              }
-              return {
-                outcome: 'answered',
-                output: 'https://linear.app/acme/issue/ENG-12#comment-1',
-              };
-            },
-          }
-        : null,
+    resolve: (tool, context): Promise<ResolvedTool | null> =>
+      Promise.resolve(
+        tool.equals(LINEAR_COMMENT.tool) && context.kind === 'task'
+          ? {
+              declared: linear,
+              actingAs: over.actingAs ?? null,
+              missing: over.missing ?? null,
+              personRule: over.personRule ?? null,
+              defaultFor: (input) =>
+                input.name === 'issue' ? 'ENG-12' : undefined,
+              call: (inputs) => {
+                if (over.movedOnWhileCalling === true) {
+                  return Promise.reject(new LeaseLostError('run_1', 1));
+                }
+                called.push({ tool: tool.value, context, inputs });
+                if (over.failing === true) {
+                  return Promise.resolve({
+                    outcome: 'failed',
+                    failure: {
+                      blocked: false,
+                      reason: 'using linear.comment: down',
+                    },
+                  });
+                }
+                return Promise.resolve({
+                  outcome: 'answered',
+                  output: 'https://linear.app/acme/issue/ENG-12#comment-1',
+                });
+              },
+            }
+          : null,
+      ),
   };
 
   const lineAt = over.lineAt === undefined ? 'station_1' : over.lineAt;
@@ -471,27 +485,29 @@ const using = (
   const hooked: Hooked = { before: [], after: [], asked: [] };
   const recorded: ToolUsed[] = [];
   const taskViews: TaskViewsPort = {
-    of: async (taskId: string, runId: string | null) => {
+    of: (taskId: string, runId: string | null) => {
       hooked.asked.push({ taskId, runId });
-      return TASK_VIEW;
+      return Promise.resolve(TASK_VIEW);
     },
-    ofNew: async () => TASK_VIEW,
-    ofPullRequest: async () => null,
+    ofNew: () => Promise.resolve(TASK_VIEW),
+    ofPullRequest: () => Promise.resolve(null),
   };
   const hooks: LifecycleHooksPort = {
-    listens: async () => true,
-    before: async (_task, event) => {
-      if (over.hooksDown) {
-        throw new Error('the hooks are unreachable');
+    listens: () => Promise.resolve(true),
+    before: (_task, event) => {
+      if (over.hooksDown === true) {
+        return Promise.reject(new Error('the hooks are unreachable'));
       }
       hooked.before.push(event);
-      return over.decision ?? { kind: 'allowed' };
+      return Promise.resolve(over.decision ?? { kind: 'allowed' });
     },
-    after: async (_task, event, occurrence) => {
-      if (over.afterFails) {
-        throw new Error('the hooks are down');
+    after: (_task, event, occurrence) => {
+      if (over.afterFails === true) {
+        return Promise.reject(new Error('the hooks are down'));
       }
       hooked.after.push({ event, occurrence });
+
+      return Promise.resolve();
     },
   };
   const afterwards = new ToolUsedHooks(taskViews, hooks);
@@ -526,12 +542,12 @@ const using = (
         () => (found.length > 1 ? found.shift() : found[0]) ?? null,
       ),
       tasks,
-      { find: async () => chat() } as unknown as ChatRepository,
-      {
-        findByStation: async (stationId: StationId) =>
-          stationId.value === lineAt ? LINE : null,
-        ofTeam: async () => [LINE],
-      } as unknown as LineMapsPort,
+      partial<ChatRepository>({ find: () => Promise.resolve(chat()) }),
+      partial<LineMapsPort>({
+        findByStation: (stationId: StationId) =>
+          Promise.resolve(stationId.value === lineAt ? LINE : null),
+        ofTeam: () => Promise.resolve([LINE]),
+      }),
       dispatches,
       { now: () => NOW, sleep: async () => {} },
     ),
@@ -540,13 +556,15 @@ const using = (
     hooks,
     { generate: () => 'occurrence_1' },
     {
-      record: async (use) => {
-        if (over.recordingFails) {
-          throw new Error('the outbox is unreachable');
+      record: (use) => {
+        if (over.recordingFails === true) {
+          return Promise.reject(new Error('the outbox is unreachable'));
         }
         recorded.push(use.used);
+
+        return Promise.resolve();
       },
-      purgeBefore: async () => 0,
+      purgeBefore: () => Promise.resolve(0),
     },
     { now: () => NOW, sleep: async () => {} },
   );
@@ -566,7 +584,7 @@ const using = (
         new UseToolCommand('run_1', 'runner_1', tool, input),
       );
     } finally {
-      if (!over.afterFails) {
+      if (over.afterFails !== true) {
         await delivered();
       }
     }
@@ -653,7 +671,12 @@ describe('UseToolHandler', () => {
     });
     expect(called).toHaveLength(1);
     expect(called[0]?.inputs.values).toEqual({ title: 'Fix the queue' });
-    const context = called[0]?.context as TaskToolContext;
+    const context = firstOf(called)?.context;
+
+    if (context?.kind !== 'task') {
+      throw new Error('expected a task tool context');
+    }
+
     expect(context.taskId.value).toBe('task_1');
     expect(context.stationId.value).toBe('station_1');
   });
@@ -797,7 +820,7 @@ describe('UseToolHandler', () => {
     ).rejects.toMatchObject({ kind: 'conflict' });
     expect(called).toEqual([]);
 
-    const asked = current().notes[current().notes.length - 1];
+    const asked = itemAt(current().notes, current().notes.length - 1);
     expect(asked?.kind).toBe('asked');
     expect(asked?.form).toBe('approval');
     expect(asked?.approval?.subject.kind).toBe('tool-call');
@@ -1303,9 +1326,9 @@ describe('UseToolHandler', () => {
       useTool('linear.comment', { body: 'Fixed.' }),
     ).rejects.toMatchObject({ kind: 'conflict' });
     expect(called).toEqual([]);
-    expect(current().notes.filter((note) => note.approval?.open)).toHaveLength(
-      2,
-    );
+    expect(
+      current().notes.filter((note) => note.approval?.open === true),
+    ).toHaveLength(2);
     expect(current().awaitingReview).toBe(true);
   });
 
@@ -1681,7 +1704,7 @@ describe('UseToolHandler', () => {
         message: expect.stringContaining("haven't connected Linear") as unknown,
       });
 
-      const asked = current().notes[current().notes.length - 1];
+      const asked = itemAt(current().notes, current().notes.length - 1);
       expect(called).toEqual([]);
       expect(recorded).toEqual([]);
       expect(asked?.form).toBe('connection');
@@ -1790,7 +1813,7 @@ describe('UseToolHandler', () => {
         },
       });
 
-      const [used] = recorded;
+      const used = firstOf(recorded);
       expect(used?.actingAs?.personId?.value).toBe('user_1');
       expect(used?.actingAs?.linkedAccount).toBe('@alice');
     });

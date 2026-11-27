@@ -53,7 +53,7 @@ export class StationConfigCandidates implements StationConfigCandidatesPort {
       line ? line.repositories : undefined,
     );
 
-    if (!validated?.ok) {
+    if (validated?.ok !== true) {
       return validated;
     }
 

@@ -11,6 +11,7 @@ import type {
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -181,9 +182,11 @@ describe('ChangeStack following the previous stack', () => {
     });
 
     it('marks its layers against the previous stack, keeping an unchanged layer’s questions', () => {
-      const layers = following().propose(drafted, LATER, {
-        previous: PREVIOUS,
-      }).cohorts[0]?.layers;
+      const layers = optionalItems(
+        following().propose(drafted, LATER, {
+          previous: PREVIOUS,
+        }).cohorts,
+      )[0]?.layers;
 
       expect(layers?.map((each) => each.revision)).toEqual([
         { status: 'unchanged', previous: 'c1.l1' },

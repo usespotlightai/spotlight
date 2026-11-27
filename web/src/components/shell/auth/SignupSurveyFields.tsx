@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, type ReactElement } from 'react';
 
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { FieldInput } from '@/components/shared/form/FieldInput';
@@ -20,7 +20,7 @@ export function SignupSurveyFields({
   referralSource,
   onJobFunctionChange,
   onReferralSourceChange,
-}: SignupSurveyFieldsProps) {
+}: SignupSurveyFieldsProps): ReactElement {
   const referralId = useId();
 
   return (

@@ -1,4 +1,5 @@
 import { Webhook } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -10,8 +11,8 @@ export function IntegrationLogo({
   logo: string | null;
   name: string;
   className?: string;
-}) {
-  if (!logo) {
+}): ReactElement {
+  if (logo === null || logo === '') {
     return (
       <Webhook
         className={cn('size-5 shrink-0 text-muted-foreground', className)}

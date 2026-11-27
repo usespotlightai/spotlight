@@ -1,4 +1,4 @@
-import { SetMetadata } from '@nestjs/common';
+import { type CustomDecorator, SetMetadata } from '@nestjs/common';
 
 export const RATE_LIMIT = Symbol('RATE_LIMIT');
 
@@ -8,4 +8,5 @@ export interface RateLimit {
   readonly windowSeconds: number;
 }
 
-export const RateLimited = (limit: RateLimit) => SetMetadata(RATE_LIMIT, limit);
+export const RateLimited = (limit: RateLimit): CustomDecorator<symbol> =>
+  SetMetadata(RATE_LIMIT, limit);

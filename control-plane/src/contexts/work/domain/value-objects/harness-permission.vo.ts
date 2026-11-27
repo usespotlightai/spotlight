@@ -13,10 +13,12 @@ const canonical = (value: unknown): unknown => {
     return value;
   }
 
+  const entries: [string, unknown][] = Object.entries(value);
+
   return Object.fromEntries(
-    Object.keys(value)
-      .sort()
-      .map((key) => [key, canonical((value as Record<string, unknown>)[key])]),
+    entries
+      .sort(([one], [other]) => (one < other ? -1 : one > other ? 1 : 0))
+      .map(([key, each]) => [key, canonical(each)]),
   );
 };
 

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { pillClass } from '@/lib/pill';
 
 type GitHubAppLinkProps = {
@@ -5,7 +7,10 @@ type GitHubAppLinkProps = {
   installed: boolean;
 };
 
-export function GitHubAppLink({ href, installed }: GitHubAppLinkProps) {
+export function GitHubAppLink({
+  href,
+  installed,
+}: GitHubAppLinkProps): ReactElement {
   return (
     <a
       href={href}

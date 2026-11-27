@@ -80,7 +80,11 @@ export const GO_GRAMMAR: Grammar = {
             .filter((part) => !/^v\d+$/.test(part))
             .pop();
 
-        return specifier && local && local !== '_' && local !== '.'
+        return specifier &&
+          local !== undefined &&
+          local !== '' &&
+          local !== '_' &&
+          local !== '.'
           ? [{ local, imported: '*', specifier }]
           : [];
       });

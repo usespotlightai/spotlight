@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { DisagreementAnswered } from '@/components/features/inbox/disagreements/DisagreementAnswered';
 import { DisagreementCardHeader } from '@/components/features/inbox/disagreements/DisagreementCardHeader';
 import { DisagreementClaimsRow } from '@/components/features/inbox/disagreements/DisagreementClaimsRow';
@@ -22,7 +24,7 @@ export function JudgeDisagreementCard({
   teamId,
   disagreement,
   answerer,
-}: JudgeDisagreementCardProps) {
+}: JudgeDisagreementCardProps): ReactElement {
   const send = useAnswerJudgeDisagreement();
 
   const { notMet, state, withdrawnAt } = disagreement;

@@ -15,6 +15,7 @@ import {
   LiveStreams,
 } from '@platform/live/live-streams';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const CHANNELS: readonly LiveChannel[] = ['workspace:ws_1', 'person:user_1'];
@@ -23,33 +24,35 @@ const logged = (
   kept: readonly SequencedNotice[],
   heads: Partial<Record<LiveChannel, number>> = {},
 ): LiveNoticeLogPort => ({
-  append: async () => [],
-  logs: async (channels, since) =>
-    new Map<LiveChannel, ChannelLog>(
-      channels.map((channel) => [
-        channel,
-        {
-          head: heads[channel] ?? 0,
-          after: kept.filter(
-            (notice) =>
-              notice.channel === channel &&
-              (notice.sequence ?? 0) > (since.get(channel) ?? 0),
-          ),
-        },
-      ]),
+  append: () => Promise.resolve([]),
+  logs: (channels, since) =>
+    Promise.resolve(
+      new Map<LiveChannel, ChannelLog>(
+        channels.map((channel) => [
+          channel,
+          {
+            head: heads[channel] ?? 0,
+            after: kept.filter(
+              (notice) =>
+                notice.channel === channel &&
+                (notice.sequence ?? 0) > (since.get(channel) ?? 0),
+            ),
+          },
+        ]),
+      ),
     ),
-  prune: async () => 0,
+  prune: () => Promise.resolve(0),
 });
 
 const failing: LiveNoticeLogPort = {
-  append: async () => [],
-  logs: async () => {
-    throw new Error('database gone');
+  append: () => Promise.resolve([]),
+  logs: () => {
+    return Promise.reject(new Error('database gone'));
   },
-  prune: async () => 0,
+  prune: () => Promise.resolve(0),
 };
 
-const logger = { warn: vi.fn() } as unknown as LoggerPort;
+const logger = partial<LoggerPort>({ warn: vi.fn() });
 
 const watching = ({
   random = 0,

@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { usePushKey } from '@/hooks/api/usePushKey';
 import { subscribeToPush, unsubscribeFromPush } from '@/lib/api';
@@ -26,7 +32,12 @@ const browserPushKeys = {
 const permission = (): NotificationPermission =>
   notificationsSupported() ? Notification.permission : 'denied';
 
-export function useBrowserPush() {
+type BrowserPush = {
+  permission: NotificationPermission;
+  endpoint: string | null;
+};
+
+export function useBrowserPush(): UseQueryResult<BrowserPush> {
   return useQuery({
     queryKey: browserPushKeys.all,
     queryFn: async () => {
@@ -41,7 +52,7 @@ export function useBrowserPush() {
 }
 
 const stateOf = (
-  browser: { permission: NotificationPermission; endpoint: string | null },
+  browser: BrowserPush,
   publicKey: string | null,
 ): BrowserNotificationState => {
   if (desktopApp()) {
@@ -60,14 +71,22 @@ const stateOf = (
     return 'off';
   }
 
-  if (publicKey && pushSupported()) {
-    return browser.endpoint ? 'on' : 'off';
+  if (publicKey !== null && publicKey !== '' && pushSupported()) {
+    return browser.endpoint !== null && browser.endpoint !== '' ? 'on' : 'off';
   }
 
   return 'on-while-open';
 };
 
-export function useBrowserNotifications() {
+type BrowserNotificationsResult = {
+  key: UseQueryResult<string | null>;
+  browser: UseQueryResult<BrowserPush>;
+  state: BrowserNotificationState | null;
+  turnOn: UseMutationResult<void, Error, void>;
+  turnOff: UseMutationResult<void, Error, void>;
+};
+
+export function useBrowserNotifications(): BrowserNotificationsResult {
   const queryClient = useQueryClient();
   const key = usePushKey();
   const browser = useBrowserPush();
@@ -82,7 +101,12 @@ export function useBrowserNotifications() {
         return;
       }
 
-      if (publicKey && pushSupported() && !desktopApp()) {
+      if (
+        publicKey !== null &&
+        publicKey !== '' &&
+        pushSupported() &&
+        !desktopApp()
+      ) {
         await subscribeToPush({
           body: keysOf(await subscribedPush(publicKey)),
           throwOnError: true,

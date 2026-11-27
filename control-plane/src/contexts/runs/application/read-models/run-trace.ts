@@ -38,7 +38,7 @@ export const tracedRunsOf = (
 ): TracedRun[] => {
   return runs.map((run) => ({
     id: RunId.of(run.id),
-    label: run.label || null,
+    label: run.label === '' ? null : run.label,
     harness: run.harness,
     failed: run.failed,
     attempt: run.attempt,
@@ -186,7 +186,11 @@ const nested = (
   const roots: RunSpan[] = [];
 
   for (const span of spans) {
-    if (span.parentId && ids.has(span.parentId)) {
+    if (
+      span.parentId !== null &&
+      span.parentId !== '' &&
+      ids.has(span.parentId)
+    ) {
       under.set(span.parentId, [...(under.get(span.parentId) ?? []), span]);
     } else {
       roots.push(span);

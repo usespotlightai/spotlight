@@ -2,13 +2,14 @@ import type { ReviewCommentReply } from '@github/application/ports/review-commen
 import { GitHubReviewComments } from '@github/infrastructure/github/github-review-comments';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const access = {
-  credential: async () => ({ username: 'x', password: 'token' }),
+  credential: () => Promise.resolve({ username: 'x', password: 'token' }),
 };
 
 const replying = (
@@ -40,14 +41,16 @@ let requests: { url: string; body: unknown }[] = [];
 let replies: unknown[] = [];
 
 const fetching = () =>
-  vi.fn(async (url: string, init?: { body?: string }) => {
+  vi.fn((url: string, init?: { body?: string }) => {
     requests.push({ url, body: JSON.parse(init?.body ?? '{}') });
 
-    return {
-      ok: true,
-      status: 200,
-      json: async () => replies.shift() ?? { data: {} },
-    } as unknown as Response;
+    return Promise.resolve(
+      partial<Response>({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(replies.shift() ?? { data: {} }),
+      }),
+    );
   });
 
 const queried = () =>
@@ -57,7 +60,13 @@ const queried = () =>
 
 const named = (query: string) =>
   queried().filter((each) =>
-    ((each as { query?: string }).query ?? '').includes(query),
+    (typeof each === 'object' &&
+    each !== null &&
+    'query' in each &&
+    typeof each.query === 'string'
+      ? each.query
+      : ''
+    ).includes(query),
   );
 
 describe('GitHubReviewComments', () => {

@@ -1,7 +1,4 @@
-import {
-  ACTS_AS,
-  type ActsAsKind,
-} from '@integrations/domain/value-objects/acts-as.vo';
+import { ACTS_AS } from '@integrations/domain/value-objects/acts-as.vo';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ConnectIntegrationRequestDto {
@@ -11,7 +8,7 @@ export class ConnectIntegrationRequestDto {
     enum: ACTS_AS,
     default: 'team',
   })
-  readonly actsAs?: ActsAsKind;
+  readonly actsAs?: string;
 
   @ApiPropertyOptional({
     description:

@@ -45,12 +45,13 @@ const recording = (runs: readonly EndedRun[]) => {
   const records = new RunRecordsInMemory();
   const deletions = deletionsInMemory();
   const work: WorkPort = {
-    unfinishedRuns: async () => [],
-    traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
-    taskRunOf: async () => null,
-    endedRun: async (runId) =>
-      runs.find((each) => each.runId.equals(runId)) ?? null,
-    configsInOrder: async () => [],
+    unfinishedRuns: () => Promise.resolve([]),
+    traced: () =>
+      Promise.resolve({ tasks: [], stations: [], outputs: new Map() }),
+    taskRunOf: () => Promise.resolve(null),
+    endedRun: (runId) =>
+      Promise.resolve(runs.find((each) => each.runId.equals(runId)) ?? null),
+    configsInOrder: () => Promise.resolve([]),
   };
 
   return {

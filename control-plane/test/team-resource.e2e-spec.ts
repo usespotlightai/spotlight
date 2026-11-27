@@ -30,6 +30,7 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -119,7 +120,7 @@ describe('a team, created through the resource API (e2e)', () => {
 
   it('is created bare, with none of the lines or the welcome a team made at sign-up gets', async () => {
     const created = await create(fixture.valid);
-    const made = created.body as Team;
+    const made = bodyOf<Team>(created);
     const recorded = await app
       .get<DrizzleDatabase>(DRIZZLE)
       .select({ kind: schema.eventOutbox.kind })
@@ -141,7 +142,7 @@ describe('a team, created through the resource API (e2e)', () => {
   });
 
   it('counts whoever created it among its members', async () => {
-    const made = (await create(fixture.valid)).body as Team;
+    const made = bodyOf<Team>(await create(fixture.valid));
 
     expect(
       await app
@@ -153,20 +154,20 @@ describe('a team, created through the resource API (e2e)', () => {
   });
 
   it('keeps the key it was created with', async () => {
-    const made = (await create(fixture.valid)).body as Team;
+    const made = bodyOf<Team>(await create(fixture.valid));
     const moved = await change(made.id, made.version, {
       key: 'platform',
       name: 'Core',
     });
 
     expect(moved.status).toBe(422);
-    expect((moved.body as { errors: unknown[] }).errors).toEqual([
+    expect(bodyOf<{ errors: unknown[] }>(moved).errors).toEqual([
       expect.objectContaining({ path: 'key' }),
     ]);
   });
 
   it('will not be deleted while it has a line', async () => {
-    const made = (await create(fixture.valid)).body as Team;
+    const made = bodyOf<Team>(await create(fixture.valid));
 
     await app.get<DrizzleDatabase>(DRIZZLE).insert(schema.line).values({
       id: randomUUID(),

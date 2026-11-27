@@ -1,8 +1,14 @@
+import type { ReactElement } from 'react';
+
 import { DailyRunBars } from '@/components/features/insights/DailyRunBars';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { type StationReport, shownDeltaOf, trendOf } from '@/lib/insights';
 
-export function StationTrend({ report }: { report: StationReport }) {
+export function StationTrend({
+  report,
+}: {
+  report: StationReport;
+}): ReactElement {
   const delta = shownDeltaOf(report.changes.runs);
 
   return (

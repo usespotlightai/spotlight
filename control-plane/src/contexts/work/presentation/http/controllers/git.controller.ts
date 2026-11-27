@@ -21,7 +21,7 @@ import {
 } from '@work/application/dto/git-call.dto';
 
 const isService = (value: string): value is GitService =>
-  GIT_SERVICES.includes(value as GitService);
+  GIT_SERVICES.some((each) => each === value);
 
 interface Incoming extends AsyncIterable<Uint8Array> {
   headers: Record<string, string | string[] | undefined>;

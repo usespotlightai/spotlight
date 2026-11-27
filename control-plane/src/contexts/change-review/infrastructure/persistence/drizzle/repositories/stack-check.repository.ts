@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
@@ -36,9 +37,9 @@ type Row = typeof stackCheck.$inferSelect;
 export const toStackCheck = (row: Row): StackCheck =>
   StackCheck.rehydrate({
     id: StackCheckId.of(ChangeStackId.of(row.stackId), row.recheck),
-    runId: row.runId ? RunId.of(row.runId) : null,
-    taskId: row.taskId ? TaskId.of(row.taskId) : null,
-    teamId: row.teamId ? TeamId.of(row.teamId) : null,
+    runId: row.runId !== null && row.runId !== '' ? RunId.of(row.runId) : null,
+    taskId: row.taskId !== null && row.taskId !== '' ? TaskId.of(row.taskId) : null,
+    teamId: row.teamId !== null && row.teamId !== '' ? TeamId.of(row.teamId) : null,
     trial: row.trial,
     workspaceId: WorkspaceId.of(row.workspaceId),
     request: CheckRequest.of(
@@ -46,7 +47,7 @@ export const toStackCheck = (row: Row): StackCheck =>
       row.setup,
       RunnerPlacement.ofLabelGroups(
         row.placement,
-        row.placementImage ? RunnerImage.of(row.placementImage) : null,
+        row.placementImage !== null && row.placementImage !== '' ? RunnerImage.of(row.placementImage) : null,
       ),
     ),
     stack: RepositoryStack.of({
@@ -70,14 +71,16 @@ export const toStackCheck = (row: Row): StackCheck =>
       checkedAt: new Date(row.outcome.checkedAt),
     },
     claim: RunnerClaim.rehydrate({
-      claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
+      claimedBy: row.claimedBy !== null && row.claimedBy !== '' ? RunnerId.of(row.claimedBy) : null,
       attempts: row.attempts,
       leaseExpiresAt: row.leaseExpiresAt,
       claimedAt: row.claimedAt,
     }),
     waitingSince: row.waitingSince,
     reservation:
-      row.reservedFor && row.reservedPool && row.reservedUntil
+      row.reservedFor !== null &&
+      row.reservedFor !== '' &&
+      row.reservedPool !== null && row.reservedPool !== '' && row.reservedUntil
         ? RunnerReservation.of(
             RunnerId.of(row.reservedFor),
             PoolId.of(row.reservedPool),
@@ -172,7 +175,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
   }
 
   async find(id: StackCheckId): Promise<StackCheck | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(stackCheck)
       .where(
@@ -181,7 +184,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
           eq(stackCheck.recheck, id.recheck),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return row ? toStackCheck(row) : null;
   }

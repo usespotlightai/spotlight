@@ -21,7 +21,7 @@ function Page({ title, to }: PageProps) {
   return (
     <>
       <Breadcrumbs segments={[{ label: title }]} />
-      {to && <Link to={to}>Open</Link>}
+      {to !== undefined && to !== '' && <Link to={to}>Open</Link>}
     </>
   );
 }
@@ -60,8 +60,8 @@ function Shell() {
       <button
         type="button"
         onClick={() => {
-          const [first, ...rest] = tabs.tabs;
-          const last = rest.at(-1);
+          const first = tabs.tabs.at(0);
+          const last = tabs.tabs.slice(1).at(-1);
 
           if (first && last) {
             tabs.move(first.id, last.id);
@@ -157,13 +157,14 @@ describe('useAppTabs', () => {
     expect(backButton).toBeDisabled();
     expect(forwardButton).toBeEnabled();
 
-    const stored = JSON.parse(
+    const stored: unknown = JSON.parse(
       localStorage.getItem(`${APP_TABS_KEY}.acme`) ?? '{}',
-    ) as { tabs: { forward: unknown }[] };
+    );
 
-    expect(stored.tabs[0].forward).toEqual([
-      { path: '/w/acme/team/team_2/runs/run_1' },
-    ]);
+    expect(stored).toHaveProperty(
+      ['tabs', 0, 'forward'],
+      [{ path: '/w/acme/team/team_2/runs/run_1' }],
+    );
 
     await user.click(forwardButton);
 

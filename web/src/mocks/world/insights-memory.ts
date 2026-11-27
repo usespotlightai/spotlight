@@ -41,7 +41,9 @@ const recalled = (run: HistoryRun): boolean =>
 const flaggedOf = (
   memory: TeamMemoryResponseDto,
 ): FlaggedMemoryResponseDto | null =>
-  memory.retirement?.by && !memory.retirement.supersededBy
+  memory.retirement?.by &&
+  (memory.retirement.supersededBy === null ||
+    memory.retirement.supersededBy === '')
     ? {
         memoryId: memory.id,
         handle: memory.handle,

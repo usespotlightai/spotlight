@@ -14,6 +14,7 @@ import {
   toolWordsOf,
 } from '@integrations/infrastructure/specs/operation-record';
 import { SchemaBudget } from '@integrations/infrastructure/specs/schema-budget';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 type Node = Readonly<Record<string, unknown>>;
 
@@ -28,6 +29,9 @@ const METHODS: readonly HttpMethod[] = [
 ];
 
 const PLACES: readonly ParameterPlace[] = ['path', 'query', 'header'];
+
+const isPlace = (place: string): place is ParameterPlace =>
+  PLACES.some((each) => each === place);
 
 const SENT_BY_SPOTLIGHT = ['accept', 'content-type', 'authorization'];
 
@@ -167,7 +171,7 @@ interface Reading {
 }
 
 const serverIn = (servers: unknown, url: string | null): string | null => {
-  const [first] = listOf(servers).filter(isNode);
+  const first = firstOf(listOf(servers).filter(isNode));
   const written =
     first && typeof first.url === 'string'
       ? serverVariables(first.url, first.variables)
@@ -187,17 +191,17 @@ const serverIn = (servers: unknown, url: string | null): string | null => {
 };
 
 const serverOf = (document: Node, at: Reading): string => {
-  if (at.baseUrl) {
+  if (at.baseUrl !== null && at.baseUrl !== '') {
     return at.baseUrl.replace(/\/+$/, '');
   }
 
   const named = serverIn(document.servers, at.url);
 
-  if (named) {
+  if (named !== null && named !== '') {
     return named;
   }
 
-  if (at.url) {
+  if (at.url !== null && at.url !== '') {
     return new URL('/', at.url).href.replace(/\/+$/, '');
   }
 
@@ -253,9 +257,12 @@ const jsonBodyOf = (
       /^application\/[\w.-]+\+json$/.test(each) ||
       each.startsWith('application/json;'),
   );
-  const media = contentType ? content[contentType] : undefined;
+  const media =
+    contentType !== undefined && contentType !== ''
+      ? content[contentType]
+      : undefined;
 
-  return contentType && isNode(media)
+  return contentType !== undefined && contentType !== '' && isNode(media)
     ? { contentType, schema: media.schema }
     : null;
 };
@@ -288,15 +295,16 @@ const operationOf = (
     return skip('It has no name that a tool can take');
   }
 
-  const server = at.baseUrl
-    ? input.server
-    : (serverIn(operation.servers, at.url) ??
-      serverIn(input.servers, at.url) ??
-      input.server);
+  const server =
+    at.baseUrl !== null && at.baseUrl !== ''
+      ? input.server
+      : (serverIn(operation.servers, at.url) ??
+        serverIn(input.servers, at.url) ??
+        input.server);
 
   if (
     at.connected &&
-    !at.baseUrl &&
+    (at.baseUrl === null || at.baseUrl === '') &&
     (at.url === null || hostOf(server) !== hostOf(at.url))
   ) {
     return skip(
@@ -321,8 +329,9 @@ const operationOf = (
   const params: OperationParameter[] = [];
 
   for (const parameter of byPlace.values()) {
+    const place = parameter.in;
     const sendable =
-      (PLACES as readonly string[]).includes(parameter.in) &&
+      isPlace(place) &&
       isNameable(parameter.name) &&
       !(
         parameter.in === 'header' &&
@@ -357,7 +366,7 @@ const operationOf = (
 
     params.push({
       name: parameter.name,
-      in: parameter.in as ParameterPlace,
+      in: place,
       style,
       explode: parameter.explode ?? style === 'form',
     });

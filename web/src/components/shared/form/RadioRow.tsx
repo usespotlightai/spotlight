@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -22,7 +22,7 @@ export function RadioRow({
   onChange,
   children,
   description,
-}: RadioRowProps) {
+}: RadioRowProps): ReactElement {
   return (
     <label
       data-slot="radio-row"
@@ -42,7 +42,7 @@ export function RadioRow({
       />
       <span className="flex min-w-0 flex-col">
         <span className="text-foreground leading-5">{children}</span>
-        {description && (
+        {Boolean(description) && (
           <span className="text-muted-foreground text-xs">{description}</span>
         )}
       </span>

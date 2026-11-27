@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { MeterBar } from '@/components/features/stations/judge/MeterBar';
@@ -13,7 +15,7 @@ export function JudgeStatistics({
   pairs,
   stats,
   minAgreement,
-}: JudgeStatisticsProps) {
+}: JudgeStatisticsProps): ReactElement {
   const leads = stats.length % 2 === 0;
 
   return (
@@ -39,7 +41,9 @@ export function JudgeStatistics({
             label={stat.label}
             value={stat.value}
             detail={
-              stat.failing && stat.detail ? (
+              stat.failing === true &&
+              stat.detail !== null &&
+              stat.detail !== '' ? (
                 <span className="text-destructive">{stat.detail}</span>
               ) : (
                 stat.detail

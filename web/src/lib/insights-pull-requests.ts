@@ -8,6 +8,7 @@ import type {
   TypeShareResponseDto,
   WeekShareResponseDto,
 } from '@/lib/api';
+import { isOneOf } from '@/lib/one-of';
 
 export type InsightsPullRequests = InsightsPullRequestsResponseDto;
 export type InsightsPullRequestList = InsightsPullRequestListResponseDto;
@@ -45,7 +46,7 @@ export const PULL_REQUEST_STATES: readonly PullRequestState[] = [
   'open',
 ];
 
-const ROUND_BUCKETS: readonly RoundBucket[] = ['0', '1', '2', '3+'];
+export const ROUND_BUCKETS: readonly RoundBucket[] = ['0', '1', '2', '3+'];
 
 const MAX_REPOSITORIES = 50;
 
@@ -71,13 +72,13 @@ export type PullRequestFilter = {
 const valid = (key: PullRequestFilterKey, value: string): boolean => {
   switch (key) {
     case 'author':
-      return PULL_REQUEST_AUTHORS.includes(value as PullRequestAuthor);
+      return isOneOf(PULL_REQUEST_AUTHORS, value);
     case 'type':
-      return PULL_REQUEST_TYPES.includes(value as PullRequestType);
+      return isOneOf(PULL_REQUEST_TYPES, value);
     case 'state':
-      return PULL_REQUEST_STATES.includes(value as PullRequestState);
+      return isOneOf(PULL_REQUEST_STATES, value);
     case 'rounds':
-      return ROUND_BUCKETS.includes(value as RoundBucket);
+      return isOneOf(ROUND_BUCKETS, value);
     case 'reverted':
     case 'compared':
       return value === 'true';
@@ -95,7 +96,9 @@ export const pullRequestFilterOf = (
     PULL_REQUEST_FILTER_KEYS.flatMap((key) => {
       const value = params.get(key);
 
-      return value && valid(key, value) ? [[key, value] as const] : [];
+      return value !== null && value !== '' && valid(key, value)
+        ? [[key, value] as const]
+        : [];
     }),
   );
 
@@ -162,13 +165,13 @@ export const formatPullRequestFilterValue = (
 ): string => {
   switch (key) {
     case 'author':
-      return AUTHORS[value as PullRequestAuthor] ?? value;
+      return isOneOf(PULL_REQUEST_AUTHORS, value) ? AUTHORS[value] : value;
     case 'type':
-      return TYPES[value as PullRequestType] ?? value;
+      return isOneOf(PULL_REQUEST_TYPES, value) ? TYPES[value] : value;
     case 'state':
-      return STATES[value as PullRequestState] ?? value;
+      return isOneOf(PULL_REQUEST_STATES, value) ? STATES[value] : value;
     case 'rounds':
-      return ROUNDS[value as RoundBucket] ?? value;
+      return isOneOf(ROUND_BUCKETS, value) ? ROUNDS[value] : value;
     case 'reverted':
       return 'Yes';
     case 'compared':
@@ -208,7 +211,7 @@ export const weekFilter = (
 ): PullRequestFilter =>
   mergedPullRequestsFilter({
     week,
-    ...(repository ? { repository } : {}),
+    ...(repository !== null && repository !== '' ? { repository } : {}),
     ...(author ? { author } : {}),
   });
 

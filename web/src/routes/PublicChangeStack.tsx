@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 
 import { PublicChangeStackPage } from '@/components/features/changes/ChangeStackPage';
@@ -14,14 +15,14 @@ import { useSession } from '@/hooks/api/useSession';
 import { failed, loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
 
-export function PublicChangeStack() {
+export function PublicChangeStack(): ReactElement {
   const { data: session } = useSession();
   const signedIn = Boolean(session?.user);
   const { taskId, runId } = useParams();
   const location = useLocation();
   const task = usePublicTaskChangeStacks(taskId);
   const run = usePublicRunChangeStacks(runId);
-  const stacks = taskId ? task : run;
+  const stacks = taskId !== undefined && taskId !== '' ? task : run;
 
   return (
     <div className="@container/pane flex h-dvh flex-col bg-surface">

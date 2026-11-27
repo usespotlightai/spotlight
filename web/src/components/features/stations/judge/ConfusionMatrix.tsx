@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import {
   confusionCellNote,
@@ -37,7 +39,7 @@ export function ConfusionMatrix({
   measured,
   confusion,
   distribution,
-}: ConfusionMatrixProps) {
+}: ConfusionMatrixProps): ReactElement {
   const max = Math.max(1, ...confusion.cells.flat());
   const totals = new Map(distribution.map((each) => [each.label, each]));
 

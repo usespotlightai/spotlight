@@ -34,7 +34,7 @@ export const guardedFetch =
   (
     fetch: Fetch,
     policy: OutboundPolicy,
-    inject: Injecting = async () => InjectedSecrets.none(),
+    inject: Injecting = () => Promise.resolve(InjectedSecrets.none()),
   ): GuardedFetch =>
   async (url, init) => {
     const headers = Object.fromEntries(new Headers(init?.headers));

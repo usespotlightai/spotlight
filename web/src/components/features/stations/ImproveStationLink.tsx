@@ -1,4 +1,5 @@
 import { MousePointer2 } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { PillLink } from '@/components/shared/PillLink';
 import type { TargetStation } from '@/lib/chat';
@@ -25,11 +26,14 @@ export function ImproveStationLink({
   variant,
   size,
   className,
-}: ImproveStationLinkProps) {
+}: ImproveStationLinkProps): ReactElement {
   return (
     <PillLink
       to={teamSectionPath(slug, teamId, 'agent')}
-      state={{ targetStation, ...(prompt ? { prompt } : {}) }}
+      state={{
+        targetStation,
+        ...(prompt !== undefined && prompt !== '' ? { prompt } : {}),
+      }}
       variant={variant}
       size={size}
       className={className}

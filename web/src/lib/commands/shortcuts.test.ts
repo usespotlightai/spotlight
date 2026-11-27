@@ -7,7 +7,9 @@ import {
   shortcutOf,
 } from '@/lib/commands/shortcuts';
 
-const runByListener = SHORTCUT_IDS.filter((id) => !shortcutOf(id).focused);
+const runByListener = SHORTCUT_IDS.filter(
+  (id) => shortcutOf(id).focused !== true,
+);
 
 const pairs = runByListener.flatMap((left, at) =>
   runByListener.slice(at + 1).map((right) => [left, right] as const),
@@ -30,7 +32,7 @@ describe('SHORTCUTS', () => {
     }
   });
 
-  it.each(SHORTCUT_IDS.filter((id) => shortcutOf(id).typing))(
+  it.each(SHORTCUT_IDS.filter((id) => shortcutOf(id).typing === true))(
     'keeps single keys without a modifier out of text fields: %s',
     (id) => {
       expect(

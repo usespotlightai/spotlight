@@ -11,13 +11,17 @@ export class StationAlertStatesInMemory implements StationAlertStateRepository {
   readonly stored = new Map<string, StationAlertState>();
   readonly raised: DomainEvent[] = [];
 
-  async add(alertState: StationAlertState): Promise<void> {
+  add(alertState: StationAlertState): Promise<void> {
     if (this.stored.has(alertState.station.stationId.value)) {
-      throw new StationAlertStateVersionConflictError(
-        alertState.station.stationId.value,
+      return Promise.reject(
+        new StationAlertStateVersionConflictError(
+          alertState.station.stationId.value,
+        ),
       );
     }
     this.store(alertState, [], alertState.version);
+
+    return Promise.resolve();
   }
 
   async save(alertState: StationAlertState): Promise<void> {
@@ -35,46 +39,52 @@ export class StationAlertStatesInMemory implements StationAlertStateRepository {
     this.store(alertState, existing.firings, alertState.version + 1);
   }
 
-  async of(stationId: StationId): Promise<StationAlertState | null> {
-    return this.stored.get(stationId.value) ?? null;
+  of(stationId: StationId): Promise<StationAlertState | null> {
+    return Promise.resolve(this.stored.get(stationId.value) ?? null);
   }
 
-  async ofAlert(alertId: AlertId): Promise<StationAlertState | null> {
-    return (
-      [...this.stored.values()].find((each) => each.firing(alertId)) ?? null
+  ofAlert(alertId: AlertId): Promise<StationAlertState | null> {
+    return Promise.resolve(
+      [...this.stored.values()].find((each) => each.firing(alertId)) ?? null,
     );
   }
 
-  async ofScope(
+  ofScope(
     scope: DeletionScope,
     max: number,
   ): Promise<readonly StationAlertState[]> {
-    return [...this.stored.values()]
-      .filter(
-        (each) =>
-          each.station.workspaceId.equals(scope.workspaceId) &&
-          (scope.kind === 'workspace' ||
-            (scope.kind === 'team' &&
-              each.station.teamId.equals(scope.teamId)) ||
-            (scope.kind === 'task' &&
-              each.firings.some((firing) =>
-                firing.taskId.equals(scope.taskId),
-              ))),
-      )
-      .slice(0, max);
+    return Promise.resolve(
+      [...this.stored.values()]
+        .filter(
+          (each) =>
+            each.station.workspaceId.equals(scope.workspaceId) &&
+            (scope.kind === 'workspace' ||
+              (scope.kind === 'team' &&
+                each.station.teamId.equals(scope.teamId)) ||
+              (scope.kind === 'task' &&
+                each.firings.some((firing) =>
+                  firing.taskId.equals(scope.taskId),
+                ))),
+        )
+        .slice(0, max),
+    );
   }
 
-  private async removed(removed: StationAlertState): Promise<void> {
+  private removed(removed: StationAlertState): Promise<void> {
     if (
       this.stored.get(removed.station.stationId.value)?.version !==
       removed.version
     ) {
-      throw new StationAlertStateVersionConflictError(
-        removed.station.stationId.value,
+      return Promise.reject(
+        new StationAlertStateVersionConflictError(
+          removed.station.stationId.value,
+        ),
       );
     }
 
     this.stored.delete(removed.station.stationId.value);
+
+    return Promise.resolve();
   }
 
   private store(

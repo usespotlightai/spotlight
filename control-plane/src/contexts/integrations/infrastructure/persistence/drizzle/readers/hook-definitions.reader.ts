@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   HookTools,
   HookToolsPort,
@@ -52,11 +53,11 @@ export class DrizzleHookDefinitionsReader implements HookToolsPort {
   }
 
   async withId(id: HookDefinitionId): Promise<StoredHookDefinition | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(hookDefinition)
       .where(eq(hookDefinition.id, id.value))
-      .limit(1);
+      .limit(1));
 
     return row ? storedOf(row) : null;
   }

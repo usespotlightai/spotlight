@@ -5,6 +5,7 @@ import type {
 } from '@memory/application/ports/work.port';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { TeamNotFoundError } from '@memory/domain/exceptions/team-not-found.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -23,16 +24,20 @@ const access = (input: {
   task?: Partial<RememberedTask> | null;
 }) =>
   new MemoryAccess(
-    {
-      viewerOf: async () =>
-        (input.member ?? true)
-          ? { workspaceId: WorkspaceId.of('ws_1'), by: UserId.of('user_ada') }
-          : null,
-    } as unknown as PeoplePort,
-    {
-      task: async () =>
-        input.task === null ? null : { ...TASK, ...input.task },
-    } as unknown as WorkPort,
+    partial<PeoplePort>({
+      viewerOf: () =>
+        Promise.resolve(
+          (input.member ?? true)
+            ? { workspaceId: WorkspaceId.of('ws_1'), by: UserId.of('user_ada') }
+            : null,
+        ),
+    }),
+    partial<WorkPort>({
+      task: () =>
+        Promise.resolve(
+          input.task === null ? null : { ...TASK, ...input.task },
+        ),
+    }),
   ).ofTask(TeamId.of('team_1'), TaskId.of('task_1'), UserId.of('user_ada'));
 
 describe('MemoryAccess', () => {

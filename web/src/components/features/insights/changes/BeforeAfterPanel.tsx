@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { BeforeAfter } from '@/components/features/insights/changes/BeforeAfter';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
@@ -38,7 +39,7 @@ export function BeforeAfterPanel({
   names,
   open,
   onClose,
-}: BeforeAfterPanelProps) {
+}: BeforeAfterPanelProps): ReactElement {
   return (
     <SidePane pane={BEFORE_AFTER_PANE} open={open}>
       <aside
@@ -54,7 +55,8 @@ export function BeforeAfterPanel({
             <p className="truncate text-muted-foreground text-xs">
               {[
                 names.get(change.stationId)?.lineName,
-                change.firstRunAt &&
+                change.firstRunAt !== undefined &&
+                  change.firstRunAt !== '' &&
                   `first run ${formatDay(change.firstRunAt.slice(0, 10))}`,
               ]
                 .filter(Boolean)

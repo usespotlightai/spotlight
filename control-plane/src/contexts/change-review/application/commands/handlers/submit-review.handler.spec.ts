@@ -1,5 +1,6 @@
 import { SubmitReviewHandler } from '@change-review/application/commands/handlers/submit-review.handler';
 import { SubmitReviewCommand } from '@change-review/application/commands/submit-review.command';
+import type { ReviewedTask } from '@change-review/application/ports/work.port';
 import { SubmitReview } from '@change-review/application/services/submit-review.service';
 import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
@@ -12,6 +13,7 @@ import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -39,27 +41,33 @@ const submitting = (over: { racing?: boolean } = {}) => {
   let ids = 0;
 
   const handler = new SubmitReviewHandler(
-    {
-      actingInReview: async () => ({
-        task: { id: TASK, workspaceId: WORKSPACE },
-        by: ADA,
-        author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
-      }),
-    } as unknown as TeamWorkAccess,
+    partial<TeamWorkAccess>({
+      actingInReview: () =>
+        Promise.resolve({
+          task: partial<ReviewedTask>({ id: TASK, workspaceId: WORKSPACE }),
+          by: ADA,
+          author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
+        }),
+    }),
     new SubmitReview(
-      {
-        draftsOn: async () =>
-          [...comments.values()].filter((each) => each.state === 'draft'),
-        save: async (comment: ReviewComment) => {
-          if (over.racing) {
-            throw new ReviewCommentVersionConflictError(comment.id.value);
+      partial<ReviewCommentRepository>({
+        draftsOn: () =>
+          Promise.resolve(
+            [...comments.values()].filter((each) => each.state === 'draft'),
+          ),
+        save: (comment: ReviewComment) => {
+          if (over.racing === true) {
+            return Promise.reject(
+              new ReviewCommentVersionConflictError(comment.id.value),
+            );
           }
           comments.set(comment.id.value, comment);
+          return Promise.resolve();
         },
-      } as unknown as ReviewCommentRepository,
-      {
-        add: async (review: Review) => void reviews.push(review),
-      } as unknown as ReviewRepository,
+      }),
+      partial<ReviewRepository>({
+        add: (review: Review) => Promise.resolve(void reviews.push(review)),
+      }),
       {
         inTransaction: async (work) => {
           const kept = reviews.length;

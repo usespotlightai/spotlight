@@ -1,7 +1,10 @@
 import type { ListedProposal } from '@work/application/contracts/listed-proposal.contract';
 
 const placed = (proposal: ListedProposal): string =>
-  proposal.line && proposal.station
+  proposal.line !== null &&
+  proposal.line !== '' &&
+  proposal.station !== null &&
+  proposal.station !== ''
     ? ` (${proposal.line} › ${proposal.station})`
     : '';
 
@@ -58,7 +61,7 @@ export const ChannelReplies = {
     );
 
     return [
-      ...(said ? [said, ''] : []),
+      ...(said !== null && said !== '' ? [said, ''] : []),
       only ? 'Open proposal:' : 'Open proposals:',
       ...listed,
       only

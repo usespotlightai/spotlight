@@ -1,8 +1,9 @@
 import { Inbox } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { Pill } from '@/components/shared/Pill';
 
-export function WaitingForYouPill() {
+export function WaitingForYouPill(): ReactElement {
   return (
     <Pill lead={<Inbox className="size-3.5 shrink-0" aria-hidden />}>
       Waiting for you

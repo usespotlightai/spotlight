@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   DefinedIntegration,
   DefinedIntegrationsPort,
@@ -116,11 +117,11 @@ export class DrizzleDefinedIntegrations
   private async findOne(
     where: SQL | undefined,
   ): Promise<IntegrationRecord | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select(DEFINED)
       .from(integrationDefinition)
       .where(where)
-      .limit(1);
+      .limit(1));
 
     return found ? recordOf(found, TeamId.of(found.teamId)) : null;
   }

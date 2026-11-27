@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
-export function useOpenWhenFocused(focused: boolean) {
+type OpenWhenFocusedResult = { open: boolean; toggle: () => void };
+
+export function useOpenWhenFocused(focused: boolean): OpenWhenFocusedResult {
   const [open, setOpen] = useState(false);
   const [wasFocused, setWasFocused] = useState(false);
 

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   FRONTIER_INK,
   REPLAYED_INK,
@@ -22,7 +24,7 @@ export function ReplayedPointMark({
   cy,
   payload,
   hollow = false,
-}: ReplayedPointMarkProps) {
+}: ReplayedPointMarkProps): ReactElement | null {
   if (!payload) {
     return null;
   }

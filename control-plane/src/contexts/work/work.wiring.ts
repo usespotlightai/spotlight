@@ -1089,7 +1089,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     provide: CONTROL_PLANE_RELEASE,
     inject: [ENV],
     useFactory: (env: Env): ControlPlaneReleasePort => ({
-      release: env.SPOTLIGHT_RELEASE || null,
+      release:
+        env.SPOTLIGHT_RELEASE === undefined || env.SPOTLIGHT_RELEASE === ''
+          ? null
+          : env.SPOTLIGHT_RELEASE,
     }),
   },
 

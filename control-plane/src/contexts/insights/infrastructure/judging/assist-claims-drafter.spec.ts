@@ -7,6 +7,7 @@ import {
   FakeAssistSessions,
   submitted,
 } from '@insights/infrastructure/judging/assist-sessions.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -51,7 +52,7 @@ describe('drafting claims in an assist session', () => {
 
     const drafted = await drafting(sessions);
 
-    const [order] = sessions.orders;
+    const order = firstOf(sessions.orders);
     expect(order).toMatchObject({
       purpose: 'insights.claims',
       key: 'claims-revision:revision_1:1',

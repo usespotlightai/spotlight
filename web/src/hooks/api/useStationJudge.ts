@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { readStationJudge } from '@/lib/api';
 import type { StationJudgeAgreement } from '@/lib/judge';
+import { required } from '@/lib/required';
 
 const stationJudgeKeys = {
   forStation: (stationId?: string) =>
@@ -12,16 +13,16 @@ export function useStationJudge(
   teamId: string | undefined,
   lineId: string | undefined,
   stationId: string | undefined,
-) {
+): UseQueryResult<StationJudgeAgreement> {
   return useQuery({
     queryKey: stationJudgeKeys.forStation(stationId),
-    enabled: Boolean(teamId && lineId && stationId),
+    enabled: Boolean(teamId) && Boolean(lineId) && Boolean(stationId),
     queryFn: async (): Promise<StationJudgeAgreement> => {
       const { data } = await readStationJudge({
         path: {
-          teamId: teamId as string,
-          lineId: lineId as string,
-          stationId: stationId as string,
+          teamId: required(teamId),
+          lineId: required(lineId),
+          stationId: required(stationId),
         },
         throwOnError: true,
       });

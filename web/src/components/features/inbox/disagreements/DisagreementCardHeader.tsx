@@ -1,4 +1,5 @@
 import { Binoculars } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
@@ -25,7 +26,7 @@ export function DisagreementCardHeader({
   sending,
   at,
   trace,
-}: DisagreementCardHeaderProps) {
+}: DisagreementCardHeaderProps): ReactElement {
   return (
     <DecisionHeader
       title={
@@ -44,7 +45,8 @@ export function DisagreementCardHeader({
               {sending ? SENDING_ANSWER : null}
             </span>
           ) : (
-            at && (
+            at !== null &&
+            at !== '' && (
               <p className="text-muted-foreground text-xs tabular-nums">
                 {formatDay(at.slice(0, 10))}
               </p>

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
 import type { Run } from '@/lib/run';
+import { partial } from '@/test/partial';
 
 const runs = vi.fn<() => Run[]>();
 
@@ -17,7 +18,7 @@ vi.mock('@/hooks/api/useStopRun', () => ({
 }));
 
 const run = (review: Run['review'], waitingForYou: boolean) =>
-  ({
+  partial<Run>({
     id: 'run_1',
     driver: 'line',
     state: 'completed',
@@ -31,7 +32,7 @@ const run = (review: Run['review'], waitingForYou: boolean) =>
     station: null,
     review,
     waitingForYou,
-  }) as Run;
+  });
 
 const PENDING = { state: 'pending', conversationId: 'task_1:3' } as const;
 

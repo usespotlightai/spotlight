@@ -64,17 +64,23 @@ const looping = (
   };
   const report = vi.fn();
   const error = vi.fn();
-  const logger = { error, warn: vi.fn() } as unknown as LoggerPort;
+  const logger: LoggerPort = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    error,
+    warn: vi.fn(),
+  };
   const telemetry = telemetryInMemory();
 
   const loop = new JobLoop<Item, string>(
     {
       name: 'Judging runs',
       batchSize: 1,
-      due: async () => (stored.state === 'pending' ? stored : null),
-      find: async () => stored,
-      save: async (item) => {
+      due: () => Promise.resolve(stored.state === 'pending' ? stored : null),
+      find: () => Promise.resolve(stored),
+      save: (item) => {
         stored = item;
+        return Promise.resolve();
       },
       keyOf: () => 'item',
       ids: () => ({ workspaceId: 'workspace-1', runId: 'run-1' }),
@@ -83,7 +89,7 @@ const looping = (
       stale: () => false,
     },
     { inTransaction: <T>(work: () => Promise<T>) => work() },
-    { now: () => new Date(0), sleep: async () => undefined },
+    { now: () => new Date(0), sleep: () => Promise.resolve() },
     logger,
     { report },
     telemetry,
@@ -103,9 +109,9 @@ const looping = (
 
 describe('JobLoop', () => {
   it('schedules a retry on what a failed attempt saved, not on the job it started from', async () => {
-    const loop = looping(new Item(0, 'pending', false), async (item, save) => {
+    const loop = looping(new Item(0, 'pending', false), (item, save) => {
       save(item.spending(5));
-      throw new Error('The code host did not answer.');
+      return Promise.reject(new Error('The code host did not answer.'));
     });
 
     await loop.processOnce();
@@ -114,8 +120,8 @@ describe('JobLoop', () => {
   });
 
   it('processes each job in a span with the ids of the job', async () => {
-    const loop = looping(new Item(0, 'pending', false), async (item) =>
-      item.scheduleRetry(),
+    const loop = looping(new Item(0, 'pending', false), (item) =>
+      Promise.resolve(item.scheduleRetry()),
     );
 
     await loop.processOnce();
@@ -129,9 +135,8 @@ describe('JobLoop', () => {
   });
 
   it('reports a job it dead-letters because it kept being interrupted, with its ids', async () => {
-    const loop = looping(
-      new Item(MAX_TRIES, 'pending', false),
-      async (item) => item,
+    const loop = looping(new Item(MAX_TRIES, 'pending', false), (item) =>
+      Promise.resolve(item),
     );
 
     await loop.processOnce();
@@ -150,12 +155,12 @@ describe('JobLoop', () => {
   });
 
   it('counts each outcome by source, without ids', async () => {
-    const processed = looping(new Item(0, 'pending', false), async (item) =>
-      item.scheduleRetry(),
+    const processed = looping(new Item(0, 'pending', false), (item) =>
+      Promise.resolve(item.scheduleRetry()),
     );
-    const failing = looping(new Item(0, 'pending', true), async () => {
-      throw new Error('the model did not answer');
-    });
+    const failing = looping(new Item(0, 'pending', true), () =>
+      Promise.reject(new Error('the model did not answer')),
+    );
 
     await processed.processOnce();
     await failing.processOnce();
@@ -182,9 +187,9 @@ describe('JobLoop', () => {
 
   it('keeps a failure that it retries only in the logs', async () => {
     const failure = new Error('the model did not answer');
-    const loop = looping(new Item(0, 'pending', false), async () => {
-      throw failure;
-    });
+    const loop = looping(new Item(0, 'pending', false), () =>
+      Promise.reject(failure),
+    );
 
     await loop.processOnce();
 
@@ -195,9 +200,9 @@ describe('JobLoop', () => {
 
   it('reports the failure that dead-letters the job', async () => {
     const failure = new Error('the model did not answer');
-    const loop = looping(new Item(0, 'pending', true), async () => {
-      throw failure;
-    });
+    const loop = looping(new Item(0, 'pending', true), () =>
+      Promise.reject(failure),
+    );
 
     await loop.processOnce();
 
@@ -209,8 +214,8 @@ describe('JobLoop', () => {
   });
 
   describe('while the job waits', () => {
-    const waiting = async (item: Item): Promise<Item> =>
-      item.waitJob(new Date(0));
+    const waiting = (item: Item): Promise<Item> =>
+      Promise.resolve(item.waitJob(new Date(0)));
 
     it('saves the job its process put back to wait, without counting the attempt or an error', async () => {
       const loop = looping(new Item(1, 'pending', false), waiting);

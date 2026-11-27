@@ -66,9 +66,10 @@ export class ChannelChats {
     happened: Reached,
     attachments: readonly Attachment[],
   ): Promise<ChannelAnswer | null> {
-    const speaker = happened.chat.email
-      ? await this.members.byEmail(workspaceId, happened.chat.email)
-      : null;
+    const speaker =
+      happened.chat.email !== null && happened.chat.email !== ''
+        ? await this.members.byEmail(workspaceId, happened.chat.email)
+        : null;
     const said = happened.anchor?.body.trim() ?? '';
     const chat = await this.chats.findByCorrelation(
       workspaceId,

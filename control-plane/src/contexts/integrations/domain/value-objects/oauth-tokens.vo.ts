@@ -26,12 +26,16 @@ export class OAuthTokens implements Secret {
     scopes?: readonly string[];
     linkedAccount?: string | null;
   }): OAuthTokens {
+    const linkedAccount = input.linkedAccount?.trim();
+
     return new OAuthTokens(
       AccessToken.of(input.accessToken),
       RefreshToken.maybe(input.refreshToken),
       input.expiresAt ?? null,
       (input.scopes ?? []).map(OAuthScope.of),
-      input.linkedAccount?.trim() || null,
+      linkedAccount === undefined || linkedAccount === ''
+        ? null
+        : linkedAccount,
     );
   }
 

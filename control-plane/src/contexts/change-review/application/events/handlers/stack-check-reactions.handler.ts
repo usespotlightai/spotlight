@@ -36,7 +36,7 @@ export class StackCheckReactions {
     const stack = await this.stacks.find(stackId);
     const check = await this.checks.find(StackCheckId.first(stackId));
 
-    if (stack && check?.redrafting) {
+    if (stack && check?.redrafting === true) {
       await this.checks.save(
         check.redrafted(stack.entries(), this.clock.now()),
       );
@@ -46,7 +46,7 @@ export class StackCheckReactions {
   async onRedraftingEnded(stackId: ChangeStackId): Promise<void> {
     const check = await this.checks.find(StackCheckId.first(stackId));
 
-    if (check?.redrafting) {
+    if (check?.redrafting === true) {
       await this.checks.save(check.retainCheckedLayers(this.clock.now()));
     }
   }

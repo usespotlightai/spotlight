@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
@@ -29,7 +31,7 @@ export function ConfigMarkers({
   days,
   names,
   inset,
-}: ConfigMarkersProps) {
+}: ConfigMarkersProps): ReactElement {
   const panel = useBeforeAfterPanel();
 
   return (

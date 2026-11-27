@@ -46,7 +46,7 @@ const actorColumns = (actor: Actor | null) => {
 };
 
 const changedBy = (row: Row): ChangedBy => {
-  if (row.actor === 'token' && row.tokenId && row.userId) {
+  if (row.actor === 'token' && row.tokenId !== null && row.tokenId !== '' && row.userId !== null && row.userId !== '') {
     return {
       kind: 'token',
       tokenId: row.tokenId,
@@ -55,7 +55,7 @@ const changedBy = (row: Row): ChangedBy => {
     };
   }
 
-  if (row.actor === 'person' && row.userId) {
+  if (row.actor === 'person' && row.userId !== null && row.userId !== '') {
     return { kind: 'person', userId: row.userId };
   }
 

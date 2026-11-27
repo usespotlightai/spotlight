@@ -20,6 +20,7 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -152,16 +153,16 @@ describe('a skill, created through the resource API (e2e)', () => {
     });
 
     expect(rejected.status).toBe(422);
-    expect((rejected.body as { errors: unknown[] }).errors).toEqual([
+    expect(bodyOf<{ errors: unknown[] }>(rejected).errors).toEqual([
       expect.objectContaining({ path: 'files["../escape.sh"]' }),
     ]);
   });
 
   it('will not be deleted while a station enables it', async () => {
-    const skill = (await create(GRAFANA)).body as {
+    const skill = bodyOf<{
       id: string;
       version: number;
-    };
+    }>(await create(GRAFANA));
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const lineId = randomUUID();
     const stationId = randomUUID();

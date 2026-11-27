@@ -30,7 +30,7 @@ export class SearchInterval {
       );
     }
 
-    const [, amount, unit] = written as unknown as [string, string, string];
+    const [, amount, unit] = written;
     const milliseconds = Number(amount) * UNITS[unit];
 
     if (milliseconds < SHORTEST || milliseconds > LONGEST) {

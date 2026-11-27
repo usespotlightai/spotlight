@@ -1,5 +1,6 @@
 import { InvalidCatalogEntryError } from '@catalog/domain/exceptions/invalid-catalog-entry.error';
 import { CatalogVersion } from '@catalog/domain/value-objects/catalog-version.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 const OPERATORS = ['=', '!=', '>', '>=', '<', '<=', '~>'] as const;
 
@@ -26,13 +27,16 @@ const clauseOf = (raw: string): Clause => {
     );
   }
 
-  const [, operator, major, minor, patch] = found;
+  const written = itemAt(found, 1) ?? '=';
+  const major = itemAt(found, 2);
+  const minor = itemAt(found, 3);
+  const patch = itemAt(found, 4);
   const segments = [major, minor, patch].filter(
     (each) => each !== undefined,
   ).length;
 
   return {
-    operator: (operator ?? '=') as Operator,
+    operator: OPERATORS.find((each) => each === written) ?? '=',
     version: CatalogVersion.at(
       Number(major),
       Number(minor ?? 0),

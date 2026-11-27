@@ -17,6 +17,7 @@ import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo'
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -49,25 +50,25 @@ const pool = aPullPool({ maxRuns: 4, tokenVersion: 2 });
 const egress = anEgress();
 
 const configuration = new RunnerConfiguration(
-  {
-    inWorkspace: async () => [trust],
-    find: async () => trust,
-  } as unknown as RunnerTrustRepository,
-  {
-    ofWorkspace: async () => declared,
-    find: async () => declared,
-  } as unknown as WorkspaceRunnersRepository,
-  { slugOf: async () => 'acme' } as unknown as WorkspaceReaderPort,
-  {
-    inWorkspace: async () => [pool, aPlatformPool()],
-    ownedIn: async () => [pool],
-    find: async () => aPlatformPool(),
-    findOwned: async () => pool,
-  } as unknown as RunnerPoolRepository,
-  {
-    inWorkspace: async () => [egress],
-    find: async () => egress,
-  } as unknown as EgressRepository,
+  partial<RunnerTrustRepository>({
+    inWorkspace: () => Promise.resolve([trust]),
+    find: () => Promise.resolve(trust),
+  }),
+  partial<WorkspaceRunnersRepository>({
+    ofWorkspace: () => Promise.resolve(declared),
+    find: () => Promise.resolve(declared),
+  }),
+  partial<WorkspaceReaderPort>({ slugOf: () => Promise.resolve('acme') }),
+  partial<RunnerPoolRepository>({
+    inWorkspace: () => Promise.resolve([pool, aPlatformPool()]),
+    ownedIn: () => Promise.resolve([pool]),
+    find: () => Promise.resolve(aPlatformPool()),
+    findOwned: () => Promise.resolve(pool),
+  }),
+  partial<EgressRepository>({
+    inWorkspace: () => Promise.resolve([egress]),
+    find: () => Promise.resolve(egress),
+  }),
 );
 
 describe('RunnerConfiguration', () => {

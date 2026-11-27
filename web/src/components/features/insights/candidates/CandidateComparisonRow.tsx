@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
 import { GainTrack } from '@/components/features/insights/candidates/GainTrack';
 import { ReplayStateIcon } from '@/components/features/insights/candidates/ReplayStateIcon';
@@ -40,7 +42,7 @@ type CandidateComparisonRowProps = {
 export function CandidateComparisonRow({
   candidate,
   heldOut,
-}: CandidateComparisonRowProps) {
+}: CandidateComparisonRowProps): ReactElement {
   const { shown } = candidate;
   const changes = configChangesOf(candidate.changes);
   const entries = configPlan(changes);
@@ -65,7 +67,7 @@ export function CandidateComparisonRow({
               <ExpandToggle expansion={expansion}>
                 {candidate.name}
               </ExpandToggle>
-              {candidate.onFrontier && <BestValueMark />}
+              {candidate.onFrontier === true && <BestValueMark />}
               {candidate.replayState &&
                 candidate.replayState !== 'finished' && (
                   <ReplayStateIcon state={candidate.replayState} />
@@ -97,7 +99,7 @@ export function CandidateComparisonRow({
             <GainTrack gain={candidate.gainOverLive} />
           </div>
           <NestedCell heading="Cost per run" strong>
-            {costNote ? (
+            {costNote !== null && costNote !== '' ? (
               <Tooltip>
                 <TooltipTrigger
                   // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the trigger renders this button around its children
@@ -123,7 +125,7 @@ export function CandidateComparisonRow({
           )}
           <NestedCell heading="Runs">{formatCount(shown.runs)}</NestedCell>
 
-          {link ? (
+          {link !== null && link !== '' ? (
             <ExternalPillLink
               href={link}
               className="-my-0.5 justify-self-start whitespace-nowrap @4xl:justify-self-end @lg:group-data-compact/nested:justify-self-end"

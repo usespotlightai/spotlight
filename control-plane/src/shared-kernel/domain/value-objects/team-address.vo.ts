@@ -11,7 +11,7 @@ const invalid = (): never => {
 };
 
 export class TeamAddress {
-  private readonly kind = 'team-address';
+  private readonly kind: string = 'team-address';
 
   private constructor(
     readonly teamKey: string,

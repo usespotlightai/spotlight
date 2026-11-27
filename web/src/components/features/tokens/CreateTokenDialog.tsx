@@ -1,4 +1,4 @@
-import { type SubmitEvent, useId, useState } from 'react';
+import { type ReactElement, type SubmitEvent, useId, useState } from 'react';
 
 import { TokenAccessField } from '@/components/features/tokens/TokenAccessField';
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
@@ -45,7 +45,7 @@ export function CreateTokenDialog({
   onOpenChange,
   workspaceId,
   onCreated,
-}: CreateTokenDialogProps) {
+}: CreateTokenDialogProps): ReactElement {
   const create = useCreateWorkspaceToken(workspaceId);
   const nameId = useId();
   const descriptionId = useId();
@@ -82,7 +82,7 @@ export function CreateTokenDialog({
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
 
-    if (!named || !workspaceId || busy) {
+    if (!named || workspaceId === undefined || workspaceId === '' || busy) {
       return;
     }
 

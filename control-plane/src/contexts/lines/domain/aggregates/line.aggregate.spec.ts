@@ -94,7 +94,7 @@ const COMMENTED = Happening.of('github.pull_request.commented');
 const sends = (to: string, from?: string) =>
   Reaction.of({
     happening: COMMENTED,
-    from: from ? StationId.of(from) : null,
+    from: from !== undefined && from !== '' ? StationId.of(from) : null,
     to: StationId.of(to),
   });
 
@@ -110,8 +110,15 @@ const created = () => {
   });
 };
 
-const kindOf = (line: Line, kind: 'backlog' | 'completed') =>
-  line.stations.find((each) => each.kind === kind) as Station;
+const kindOf = (line: Line, kind: 'backlog' | 'completed'): Station => {
+  const found = line.stations.find((each) => each.kind === kind);
+
+  if (found === undefined) {
+    throw new Error(`expected a ${kind} station`);
+  }
+
+  return found;
+};
 
 const NO_TASKS = TaskCounts.NONE;
 const countsOf = (entries: readonly [string, number][]): TaskCounts =>
@@ -561,10 +568,7 @@ describe('Line, what it records of its changes', () => {
         .filter((each) => each instanceof LineUpdated);
 
       expect(
-        lineUpdated?.stations.map((each) => [
-          each.id.value,
-          each.claimsChanged,
-        ]),
+        lineUpdated.stations.map((each) => [each.id.value, each.claimsChanged]),
       ).toEqual([
         ['backlog_1', false],
         ['station_1', false],
@@ -593,7 +597,7 @@ describe('Line, what it records of its changes', () => {
         .pullEvents()
         .filter((each) => each instanceof LineUpdated);
 
-      expect(lineUpdated?.stationIds.map((each) => each.value).sort()).toEqual([
+      expect(lineUpdated.stationIds.map((each) => each.value).sort()).toEqual([
         'backlog_1',
         'completed_1',
         'station_1',
@@ -707,11 +711,11 @@ describe('Line, what it records of its changes', () => {
       const [, working] = line.stations;
 
       expect(() =>
-        line.delete(countsOf([[working?.id.value ?? '', 2]]), changeActorIn()),
+        line.delete(countsOf([[working.id.value, 2]]), changeActorIn()),
       ).toThrow(LineInUseError);
       expect(() =>
-        line.delete(countsOf([[working?.id.value ?? '', 2]]), changeActorIn()),
-      ).toThrow(`${working?.name.value} (2)`);
+        line.delete(countsOf([[working.id.value, 2]]), changeActorIn()),
+      ).toThrow(`${working.name.value} (2)`);
     });
   });
 });

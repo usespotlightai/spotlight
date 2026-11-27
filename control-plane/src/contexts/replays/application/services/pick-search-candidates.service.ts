@@ -46,7 +46,7 @@ export class PickSearchCandidates {
 
     const seen = await this.searches.find(event.searchId);
 
-    if (!seen?.awaitsPick) {
+    if (seen?.awaitsPick !== true) {
       return;
     }
 
@@ -60,7 +60,7 @@ export class PickSearchCandidates {
     await this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(event.searchId);
 
-      if (!search?.awaitsPick) {
+      if (search?.awaitsPick !== true) {
         return;
       }
 
@@ -96,7 +96,7 @@ export class PickSearchCandidates {
 
     return {
       rejected: proposed
-        .filter((each) => schedule?.hasRejected(each.fingerprint))
+        .filter((each) => schedule?.hasRejected(each.fingerprint) === true)
         .map((each) => each.id),
       pullRequestOpen,
       stationGone,

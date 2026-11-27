@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
 import { processedEvent } from '@work/infrastructure/persistence/drizzle/schemas/processed-event.schema';
@@ -14,15 +15,17 @@ export class DrizzleProcessedEvents implements ProcessedEventsPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async wasProcessed(workspaceId: WorkspaceId, key: string): Promise<boolean> {
-    const [found] = await this.context.db
-      .select({ key: processedEvent.key })
-      .from(processedEvent)
-      .where(
-        and(
-          eq(processedEvent.workspaceId, workspaceId.value),
-          eq(processedEvent.key, hashed(key)),
+    const found = firstOf(
+      await this.context.db
+        .select({ key: processedEvent.key })
+        .from(processedEvent)
+        .where(
+          and(
+            eq(processedEvent.workspaceId, workspaceId.value),
+            eq(processedEvent.key, hashed(key)),
+          ),
         ),
-      );
+    );
 
     return found !== undefined;
   }

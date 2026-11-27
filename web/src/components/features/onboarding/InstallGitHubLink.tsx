@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useLocation } from 'react-router';
 
 import { buttonVariants } from '@/components/ui/button-variants';
@@ -15,11 +16,15 @@ export function InstallGitHubLink({
   slug,
   teamId,
   className,
-}: InstallGitHubLinkProps) {
+}: InstallGitHubLinkProps): ReactElement | null {
   const here = useLocation();
   const { data: github } = useGitHub(slug);
 
-  if (!github?.installUrl) {
+  if (
+    github?.installUrl === null ||
+    github?.installUrl === undefined ||
+    github.installUrl === ''
+  ) {
     return null;
   }
 

@@ -58,7 +58,7 @@ export class ListIntegrationConnectionsHandler implements QueryHandlerPort<
             linkedAccount,
             connectedAt,
             tools: (tools?.all ?? [])
-              .filter((tool) => tools?.takesPersonRuleFor(tool))
+              .filter((tool) => tools?.takesPersonRuleFor(tool) === true)
               .map((tool) => ({
                 tool: tool.value,
                 rule: (rules.get(tool.value) ?? PersonToolRule.allowed()).name,

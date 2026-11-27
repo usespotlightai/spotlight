@@ -1,5 +1,11 @@
 import { Binoculars } from 'lucide-react';
-import { type ReactNode, useDeferredValue, useRef, useState } from 'react';
+import {
+  type ReactElement,
+  type ReactNode,
+  useDeferredValue,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate } from 'react-router';
 
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
@@ -35,7 +41,7 @@ type TraceListProps = {
 
 function NarrowFilters({ children }: { children?: ReactNode }) {
   return (
-    children && (
+    Boolean(children) && (
       <div className="px-3 pt-2 pb-1 @2xl/pane:hidden">{children}</div>
     )
   );
@@ -48,7 +54,7 @@ export function TraceList({
   filter,
   filters,
   onEveryTrace,
-}: TraceListProps) {
+}: TraceListProps): ReactElement {
   const traces = useInsightsTraces(teamId, range, filter);
   const navigate = useNavigate();
   const trail = useForwardTrail();

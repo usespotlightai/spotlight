@@ -19,7 +19,13 @@ export const scopedTo = (...hosts: string[]): ScopedTo => ({
 
 export const unscoped: ScopedTo = scopedTo();
 
-export const scopeRecorder = () => {
+interface ScopeRecorder {
+  readonly scope: WorkspaceOutboundScopePort;
+  readonly current: () => string | null;
+  readonly entered: () => readonly string[];
+}
+
+export const scopeRecorder = (): ScopeRecorder => {
   let current: string | null = null;
   const entered: string[] = [];
   const run = async <T>(

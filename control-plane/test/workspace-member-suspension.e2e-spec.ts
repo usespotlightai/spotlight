@@ -7,10 +7,12 @@ import {
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
@@ -45,15 +47,17 @@ describe('suspending and leaving a workspace (e2e)', () => {
   const workspace = `/api/workspaces/${workspaceId}`;
   const suspension = (id: string) => `${workspace}/members/${id}/suspension`;
   const rosterOf = async (viewer: string): Promise<Member[]> =>
-    (await as(viewer).get(`${workspace}/members`).expect(200)).body as Member[];
+    bodyOf<Member[]>(await as(viewer).get(`${workspace}/members`).expect(200));
   const memberNamed = async (viewer: string, id: string) =>
     (await rosterOf(viewer)).find((each) => each.id === id);
 
   beforeAll(async () => {
     app = await openApp((module) =>
       module.overrideProvider(MEMBER_MAIL).useValue({
-        send: async (mail: MemberMailToSend) => {
+        send: (mail: MemberMailToSend) => {
           sent.push(mail);
+
+          return Promise.resolve();
         },
       }),
     );
@@ -135,7 +139,7 @@ describe('suspending and leaving a workspace (e2e)', () => {
   });
 
   it('emails the suspended person, and clears them as the default assignee of a line', async () => {
-    await eventually(async () => sent.length > 0);
+    await eventually(() => Promise.resolve(sent.length > 0));
 
     expect(sent[0]).toMatchObject({
       kind: 'suspended',
@@ -144,10 +148,12 @@ describe('suspending and leaving a workspace (e2e)', () => {
       by: 'Ada',
     });
     await eventually(async () => {
-      const [line] = await db
-        .select({ assignee: schema.line.defaultAssignee })
-        .from(schema.line)
-        .where(eq(schema.line.id, lineId));
+      const line = firstOf(
+        await db
+          .select({ assignee: schema.line.defaultAssignee })
+          .from(schema.line)
+          .where(eq(schema.line.id, lineId)),
+      );
 
       return line?.assignee === null;
     });
@@ -178,8 +184,8 @@ describe('suspending and leaving a workspace (e2e)', () => {
       suspendedAt: null,
       teams: [{ id: workspaceId }],
     });
-    await eventually(async () =>
-      sent.some((each) => each.kind === 'unsuspended'),
+    await eventually(() =>
+      Promise.resolve(sent.some((each) => each.kind === 'unsuspended')),
     );
   });
 
@@ -190,7 +196,9 @@ describe('suspending and leaving a workspace (e2e)', () => {
     expect(await memberNamed(seat.owner, seat.member)).toMatchObject({
       suspendedAt: expect.any(String) as unknown,
     });
-    await eventually(async () => sent.some((each) => each.kind === 'left'));
+    await eventually(() =>
+      Promise.resolve(sent.some((each) => each.kind === 'left')),
+    );
 
     await as(seat.owner).delete(suspension(seat.member)).expect(204);
     await as(seat.member).get(workspace).expect(200);

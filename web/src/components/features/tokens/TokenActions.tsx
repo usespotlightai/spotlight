@@ -1,4 +1,5 @@
 import { MoreHorizontal, Trash2 } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import {
   DropdownMenu,
@@ -12,7 +13,10 @@ type TokenActionsProps = {
   onRevoke: () => void;
 };
 
-export function TokenActions({ name, onRevoke }: TokenActionsProps) {
+export function TokenActions({
+  name,
+  onRevoke,
+}: TokenActionsProps): ReactElement {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

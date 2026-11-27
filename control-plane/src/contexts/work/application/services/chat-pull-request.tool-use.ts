@@ -42,7 +42,7 @@ const NEXT =
 const baseOf = (named: string | null | undefined): Branch | null => {
   const trimmed = named?.trim();
 
-  return trimmed ? Branch.of(trimmed) : null;
+  return trimmed !== undefined && trimmed !== '' ? Branch.of(trimmed) : null;
 };
 
 interface Opening {

@@ -39,7 +39,7 @@ export class ReviewWorkAccess implements ReviewWorkAccessPort {
 
     const diff = await this.diffs.find(PushDiffId.of(work.id));
 
-    return diff?.beingDiffedBy(runner, now)
+    return diff?.beingDiffedBy(runner, now) === true
       ? { runId: null, taskId: diff.taskId, repository: diff.repository.value }
       : null;
   }

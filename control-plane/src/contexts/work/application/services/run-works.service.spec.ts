@@ -1,9 +1,11 @@
 import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
+import type { RunPolicyContract } from '@runs/application/contracts/run-order.contract';
 import type {
   LeasedRunFacts,
   RunLeasesPort,
 } from '@runs/application/ports/run-leases.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -19,13 +21,19 @@ import { RunWorks } from '@work/application/services/run-works.service';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import type { ChatMessage } from '@work/domain/entities/chat-message.entity';
+import type { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { trialOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
+import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
+import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { describe, expect, it } from 'vitest';
 
 const RUN = RunId.of('run_1');
@@ -40,12 +48,24 @@ const SCREENSHOT = Attachment.rehydrate({
   size: 10,
 });
 
-const message = (position: number, body: string, files: Attachment[] = []) => ({
-  position: { value: position },
-  body: { value: body },
-  toldOn: () => ({ value: body }),
-  attachments: files,
-});
+const note = (
+  position: number,
+  body: string,
+  files: Attachment[] = [],
+): TaskNote =>
+  partial<TaskNote>({
+    position: NotePosition.of(position),
+    body: TaskNoteBody.of(body),
+    toldOn: () => TaskNoteBody.of(body),
+    attachments: files,
+  });
+
+const chatMessage = (position: number, body: string): ChatMessage =>
+  partial<ChatMessage>({
+    position: MessagePosition.of(position),
+    body: ChatMessageBody.of(body),
+    attachments: [],
+  });
 
 const aTrial = (): Dispatch =>
   Dispatch.trialOrdered({
@@ -88,24 +108,40 @@ const works = (over: {
   chat?: Partial<Chat> | null;
 }) =>
   new RunWorks(
-    {
-      leasedBy: async () =>
-        over.leased === false
-          ? null
-          : ({
-              runId: RUN,
-              workspaceId: WorkspaceId.of('ws_1'),
-              policy: { actsBeyondItself: true },
-            } as unknown as LeasedRunFacts),
-    } as unknown as RunLeasesPort,
-    {} as RunsPort,
-    { find: async () => over.task ?? null } as unknown as TaskRepository,
-    { find: async () => over.chat ?? null } as unknown as ChatRepository,
-    {
-      findByStation: async () => null,
-    } as unknown as LineMapsPort,
+    partial<RunLeasesPort>({
+      leasedBy: () =>
+        Promise.resolve(
+          over.leased === false
+            ? null
+            : partial<LeasedRunFacts>({
+                runId: RUN,
+                workspaceId: WorkspaceId.of('ws_1'),
+                policy: partial<RunPolicyContract>({ actsBeyondItself: true }),
+              }),
+        ),
+    }),
+    partial<RunsPort>({}),
+    partial<TaskRepository>({
+      find: () =>
+        Promise.resolve(
+          over.task === undefined || over.task === null
+            ? null
+            : partial<Task>(over.task),
+        ),
+    }),
+    partial<ChatRepository>({
+      find: () =>
+        Promise.resolve(
+          over.chat === undefined || over.chat === null
+            ? null
+            : partial<Chat>(over.chat),
+        ),
+    }),
+    partial<LineMapsPort>({
+      findByStation: () => Promise.resolve(null),
+    }),
     over.dispatches ?? dispatchesOf(),
-    {} as RepositorySettingsPort,
+    partial<RepositorySettingsPort>({}),
     { now: () => NOW, sleep: async () => {} },
   );
 
@@ -114,8 +150,7 @@ describe('RunWorks, handing a runner the messages sent to its run', () => {
     const pending = await works({
       dispatches: dispatchesOf(aTaskDispatch(RUN, TASK, BUILD)),
       task: {
-        pendingFor: () =>
-          [message(2, 'Use the staging queue.', [SCREENSHOT])] as never,
+        pendingFor: () => [note(2, 'Use the staging queue.', [SCREENSHOT])],
       },
     }).pendingFor('run_1', 'runner_1');
 
@@ -144,7 +179,7 @@ describe('RunWorks, handing a runner the messages sent to its run', () => {
       await works({
         dispatches: dispatchesOf(aChatDispatch(RUN, ChatId.of('chat_1'))),
         chat: {
-          pendingFor: () => [message(1, 'And the retries?')] as never,
+          pendingFor: () => [chatMessage(1, 'And the retries?')],
         },
       }).pendingFor('run_1', 'runner_1'),
     ).toEqual([{ position: 1, body: 'And the retries?', attachments: [] }]);

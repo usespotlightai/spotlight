@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { HookCallbackToken } from '@integrations/domain/aggregates/hook-callback-token.aggregate';
 import { HookCallbackTokenVersionConflictError } from '@integrations/domain/exceptions/hook-callback-token-version-conflict.error';
 import type { HookCallbackTokenRepository } from '@integrations/domain/repositories/hook-callback-token.repository';
@@ -40,11 +41,11 @@ export class DrizzleHookCallbackTokens implements HookCallbackTokenRepository {
   }
 
   async withToken(hash: TokenHash): Promise<HookCallbackToken | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(hookCallback)
       .where(eq(hookCallback.tokenHash, hash.value))
-      .limit(1);
+      .limit(1));
 
     return found ? toToken(found) : null;
   }

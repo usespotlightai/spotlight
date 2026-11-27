@@ -11,6 +11,7 @@ import { Decision } from '@change-review/domain/entities/decision.entity';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -62,38 +63,42 @@ const applying = (
   let stored: DecisionSet | null =
     over.stored === undefined ? decided() : over.stored;
 
-  const work = {
-    taskWithPullRequest: async (): Promise<ReviewedTask | null> =>
-      over.task === null
-        ? null
-        : {
-            id: TASK,
-            workspaceId: WORKSPACE,
-            teamId: null,
-            pullRequests: [MERGED.pullRequest],
-            openPullRequests: [MERGED.pullRequest],
-            reviewedPullRequest: null,
-            reviewing: false,
-            currentRunId: null,
-            ...over.task,
-          },
-  } as unknown as WorkPort;
+  const work = partial<WorkPort>({
+    taskWithPullRequest: (): Promise<ReviewedTask | null> =>
+      Promise.resolve(
+        over.task === null
+          ? null
+          : {
+              id: TASK,
+              workspaceId: WORKSPACE,
+              teamId: null,
+              pullRequests: [MERGED.pullRequest],
+              openPullRequests: [MERGED.pullRequest],
+              reviewedPullRequest: null,
+              reviewing: false,
+              currentRunId: null,
+              ...over.task,
+            },
+      ),
+  });
 
-  const sets = {
-    forTask: async () => stored,
-    save: async (set: DecisionSet) => {
+  const sets = partial<DecisionSetRepository>({
+    forTask: () => Promise.resolve(stored),
+    save: (set: DecisionSet) => {
       stored = set;
+      return Promise.resolve();
     },
-    remove: async () => {
+    remove: () => {
       stored = null;
+      return Promise.resolve();
     },
-  } as unknown as DecisionSetRepository;
+  });
 
   const service = new ApplyPullRequestClose(
     work,
     sets,
     { inTransaction: <T>(work: () => Promise<T>) => work() },
-    { now: () => NOW, sleep: async () => undefined },
+    { now: () => NOW, sleep: () => Promise.resolve() },
   );
 
   return { service, stored: () => stored };

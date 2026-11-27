@@ -5,7 +5,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class LineKey {
-  private readonly kind = 'line-key';
+  private readonly kind: string = 'line-key';
 
   private constructor(readonly value: string) {}
 

@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 const task = (id: string) => ({ id: TaskId.of(id) });
 
 const run = (taskId: string | null, atStation = true) => ({
-  taskId: taskId ? TaskId.of(taskId) : null,
+  taskId: taskId !== null && taskId !== '' ? TaskId.of(taskId) : null,
   stationId: atStation ? StationId.of('station_1') : null,
 });
 

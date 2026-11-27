@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { TaskPullRequestCard } from '@/components/features/board/task/TaskPullRequestCard';
 import { TaskPullRequestStateIcon } from '@/components/features/board/task/TaskPullRequestStateIcon';
 import {
@@ -16,7 +18,7 @@ export function TaskPullRequestPill({
   pullRequest,
 }: {
   pullRequest: TaskPullRequest;
-}) {
+}): ReactElement {
   const { repository, number } = pullRequestOf(pullRequest.url);
   const { state } = pullRequest;
   const named = pullRequestStateName(state);
@@ -30,7 +32,7 @@ export function TaskPullRequestPill({
         rel="noreferrer"
         data-slot="pull-request-pill"
         data-state={state ?? undefined}
-        aria-label={`Pull request ${number} in ${repository}${named ? `, ${named.toLowerCase()}` : ''}`}
+        aria-label={`Pull request ${number} in ${repository}${named !== null && named !== '' ? `, ${named.toLowerCase()}` : ''}`}
         className={pillClass(
           'outline',
           'max-w-64 gap-1.5 px-2.5 font-normal text-sm',

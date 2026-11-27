@@ -1,4 +1,7 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -120,18 +123,21 @@ const acceptedWith = (
 const event = acceptedWith([]);
 
 const creating = (line: LineMap | null) => {
-  const save = vi.fn(async (_saved: Chat) => undefined);
-  const create = vi.fn(async ({ task }: { task: Task }) => task);
-  const copy = vi.fn(async () => undefined);
+  const save = vi.fn((_saved: Chat) => Promise.resolve(undefined));
+  const create = vi.fn(({ task }: { task: Task }) => Promise.resolve(task));
+  const copy = vi.fn(() => Promise.resolve(undefined));
   const handler = new CreateTaskFromProposal(
-    { find: vi.fn(async () => accepted()), save } as unknown as ChatRepository,
-    { find: vi.fn(async () => line) } as unknown as LineMapsPort,
-    { placementsAt: vi.fn(async () => []) },
-    { create } as unknown as CreateTask,
-    new AttachmentCopies({ copy } as unknown as AttachmentStorePort),
+    partial<ChatRepository>({
+      find: vi.fn(() => Promise.resolve(accepted())),
+      save,
+    }),
+    partial<LineMapsPort>({ find: vi.fn(() => Promise.resolve(line)) }),
+    { placementsAt: vi.fn(() => Promise.resolve([])) },
+    partial<CreateTask>({ create }),
+    new AttachmentCopies(partial<AttachmentStorePort>({ copy })),
     { generate: () => 'task_9' },
-    { now: () => NOW } as ClockPort,
-    { defaultBranchNameOf: async () => 'main' },
+    partial<ClockPort>({ now: () => NOW }),
+    { defaultBranchNameOf: () => Promise.resolve('main') },
   );
 
   return { handler, save, create, copy };
@@ -143,7 +149,7 @@ describe('CreateTaskFromProposal', () => {
 
     await handler.onProposalAccepted(event);
 
-    const task = create.mock.calls[0]?.[0].task;
+    const task = firstOf(create.mock.calls)?.[0].task;
     expect(task?.stationId.value).toBe('station_1');
     expect(task?.title.value).toBe('Back off exponentially');
     expect(task?.createdBy?.equals(LEON)).toBe(true);
@@ -151,7 +157,7 @@ describe('CreateTaskFromProposal', () => {
     const [opened] = task?.pullEvents() ?? [];
     expect(opened).toBeInstanceOf(TaskOpened);
     expect(
-      (opened as TaskOpened).proposedIn?.equals(
+      instanceOf(TaskOpened, opened).proposedIn?.equals(
         ProposalOrigin.of({ chatId: ChatId.of('chat_1'), position: SECOND }),
       ),
     ).toBe(true);
@@ -180,7 +186,7 @@ describe('CreateTaskFromProposal', () => {
 
     await handler.onProposalAccepted(acceptedWith([MOCKUP]));
 
-    const [given] = create.mock.calls[0]?.[0].task.attachments ?? [];
+    const given = firstOf(create.mock.calls[0]?.[0].task.attachments ?? []);
     expect(given?.id.value).toBe('chat_1-1-task-0');
     expect(given?.name).toBe('mockup.png');
     expect(copy).toHaveBeenCalledWith(WorkspaceId.of('ws_1'), MOCKUP, given);

@@ -1,8 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { usePagedList } from '@/hooks/api/usePagedList';
-import { listTeamRuns, readTeamRun } from '@/lib/api';
+import { type PagedList, usePagedList } from '@/hooks/api/usePagedList';
+import { listTeamRuns, readTeamRun, type TeamRunResponseDto } from '@/lib/api';
 import { liveStaleTime, useLivePoll } from '@/lib/live';
+import { required } from '@/lib/required';
 
 export const teamRunKeys = {
   all: ['runs'] as const,
@@ -13,7 +14,9 @@ export const teamRunKeys = {
 
 const POLL_MS = 10_000;
 
-export function useTeamRuns(teamId: string | undefined) {
+export function useTeamRuns(
+  teamId: string | undefined,
+): PagedList<TeamRunResponseDto> {
   const livePollMs = useLivePoll(POLL_MS);
 
   return usePagedList({
@@ -24,7 +27,7 @@ export function useTeamRuns(teamId: string | undefined) {
     keyOf: (run) => run.id,
     fetchPage: async (before?: string) => {
       const { data } = await listTeamRuns({
-        path: { teamId: teamId as string },
+        path: { teamId: required(teamId) },
         query: { before },
         throwOnError: true,
       });
@@ -36,17 +39,17 @@ export function useTeamRuns(teamId: string | undefined) {
 export function useTeamRun(
   teamId: string | undefined,
   runId: string | undefined,
-) {
+): UseQueryResult<TeamRunResponseDto> {
   const livePollMs = useLivePoll(POLL_MS);
 
   return useQuery({
     queryKey: teamRunKeys.one(teamId, runId),
-    enabled: Boolean(teamId && runId),
+    enabled: Boolean(teamId) && Boolean(runId),
     refetchInterval: livePollMs,
     staleTime: liveStaleTime,
     queryFn: async () => {
       const { data } = await readTeamRun({
-        path: { teamId: teamId as string, runId: runId as string },
+        path: { teamId: required(teamId), runId: required(runId) },
         throwOnError: true,
       });
       return data;

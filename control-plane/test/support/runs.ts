@@ -6,6 +6,7 @@ import type { StationConfigParts } from '@work/domain/value-objects/station-conf
 import type { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
 
 type DispatchRow = typeof dispatch.$inferInsert;
+type RunRow = typeof run.$inferInsert;
 
 interface Configured {
   readonly workspaceId?: string;
@@ -58,7 +59,7 @@ export const aDispatch = (
   return {
     id: input.runId,
     ...configured({ ...input, ...ending }),
-    ...(input.chatId
+    ...(input.chatId !== undefined && input.chatId !== ''
       ? { kind: 'chat' as const, chatId: input.chatId }
       : {
           kind: 'task' as const,
@@ -98,7 +99,7 @@ export const aTrial = (
 export const aTurn = (
   turn: 'pending' | 'kept' = 'kept',
   suspendedAt: Date = new Date(),
-) => ({
+): Required<Pick<RunRow, 'turn' | 'suspendedAt' | 'turnReport'>> => ({
   turn,
   suspendedAt,
   turnReport: {
@@ -113,8 +114,6 @@ export const aTurn = (
     reportedBy: 'runner_1',
   },
 });
-
-type RunRow = typeof run.$inferInsert;
 
 export const outcomeOf = (
   state: RunState,
@@ -211,9 +210,9 @@ export const requestedBySpec = (
   teamId: null,
   ...ACTS,
   exclusive: false,
-  workingCopyKey: key ? `workspace/${key}` : null,
-  workingCopyRejoinable: key ? false : null,
-  workingCopyRestores: key ? 'when-continuing' : null,
+  workingCopyKey: key !== null && key !== '' ? `workspace/${key}` : null,
+  workingCopyRejoinable: key !== null && key !== '' ? false : null,
+  workingCopyRestores: key !== null && key !== '' ? 'when-continuing' : null,
 });
 
 export const requestedByReplay = (

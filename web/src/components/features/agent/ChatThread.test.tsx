@@ -4,8 +4,10 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ChatThread } from '@/components/features/agent/ChatThread';
+import type { ChatMessageResponseDto } from '@/lib/api';
 import type { Chat } from '@/lib/chat';
 import type { JournalledRun, RunJournal } from '@/lib/inbox';
+import { partial } from '@/test/partial';
 
 vi.mock('@/hooks/useJournalSight', () => ({
   useJournalSight: () => () => undefined,
@@ -16,7 +18,7 @@ vi.mock('@/hooks/api/useHold', () => ({
 }));
 
 const chat = (over: Partial<Chat> = {}) =>
-  ({
+  partial<Chat>({
     id: 'chat_1',
     title: 'Plan the retries',
     harness: 'claude-code',
@@ -29,7 +31,7 @@ const chat = (over: Partial<Chat> = {}) =>
     runId: 'run_2',
     targetStation: null,
     messages: [
-      {
+      partial<ChatMessageResponseDto>({
         position: 0,
         kind: 'message',
         body: 'Help me plan the retries.',
@@ -40,10 +42,10 @@ const chat = (over: Partial<Chat> = {}) =>
         attachments: [],
         traces: [],
         proposal: null,
-      },
+      }),
     ],
     ...over,
-  }) as unknown as Chat;
+  });
 
 const run = (over: Partial<JournalledRun>): JournalledRun => ({
   runId: 'run_1',
@@ -54,7 +56,7 @@ const run = (over: Partial<JournalledRun>): JournalledRun => ({
 });
 
 const journalOf = (runId: string, count: number) =>
-  ({
+  partial<RunJournal>({
     runId,
     attempt: 1,
     steps: Array.from({ length: count }, (_, at) => ({
@@ -70,7 +72,7 @@ const journalOf = (runId: string, count: number) =>
       output: null,
       change: null,
     })),
-  }) as unknown as RunJournal;
+  });
 
 const thread = (
   journals: RunJournal[],
@@ -91,10 +93,10 @@ const thread = (
   </QueryClientProvider>
 );
 
-const openedPullRequest = (state: 'held' | 'line') => ({
+const openedPullRequest = (state: 'held' | 'line'): Partial<Chat> => ({
   messages: [
     ...chat().messages,
-    {
+    partial<ChatMessageResponseDto>({
       position: 1,
       kind: 'message',
       body: 'Show video icons',
@@ -115,7 +117,7 @@ const openedPullRequest = (state: 'held' | 'line') => ({
         stationPosition: 3,
         stationCount: 5,
       },
-    },
+    }),
   ],
 });
 
@@ -160,9 +162,7 @@ describe('ChatThread', () => {
   });
 
   it('docks a pull request on hold for the chat above the text bar', () => {
-    render(
-      thread([], [], openedPullRequest('held') as unknown as Partial<Chat>),
-    );
+    render(thread([], [], openedPullRequest('held')));
     const tray = screen.getByRole('region', { name: 'Show video icons' });
 
     expect(
@@ -174,9 +174,7 @@ describe('ChatThread', () => {
   });
 
   it('keeps a pull request handed to the line in the thread', () => {
-    render(
-      thread([], [], openedPullRequest('line') as unknown as Partial<Chat>),
-    );
+    render(thread([], [], openedPullRequest('line')));
 
     expect(screen.getByText('Handed to the line')).toBeInTheDocument();
     expect(

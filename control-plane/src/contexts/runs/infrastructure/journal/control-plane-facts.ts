@@ -31,17 +31,18 @@ export const encodedFacts = (entry: ControlPlaneEntry): string => {
 
 type Stored = Readonly<Record<string, unknown>>;
 
+const isStored = (value: unknown): value is Stored =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
 const storedOf = (data: string | null): Stored | null => {
-  if (!data) {
+  if (data === null || data === '') {
     return null;
   }
 
   try {
     const value: unknown = JSON.parse(decoded(data));
 
-    return value !== null && typeof value === 'object' && !Array.isArray(value)
-      ? (value as Stored)
-      : null;
+    return isStored(value) ? value : null;
   } catch (error) {
     if (error instanceof SyntaxError) {
       return null;

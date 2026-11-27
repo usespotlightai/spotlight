@@ -18,7 +18,7 @@ export function routeOfRequest(
       const path = (req as Routed).route?.path;
       const route = typeof path === 'string' ? path : undefined;
 
-      if (route) {
+      if (route !== undefined && route !== '') {
         metadata.route = route;
       }
 

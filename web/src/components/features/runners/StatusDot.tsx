@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { cn } from '@/lib/utils';
 
@@ -15,14 +17,18 @@ type StatusDotProps = {
   children: string;
 };
 
-export function StatusDot({ tone, tip, children }: StatusDotProps) {
+export function StatusDot({
+  tone,
+  tip,
+  children,
+}: StatusDotProps): ReactElement {
   return (
     <span className="flex min-w-0 shrink-0 items-center gap-1.5 font-medium text-muted-foreground text-xs">
       <span
         aria-hidden
         className={cn('size-1.5 shrink-0 rounded-full', DOTS[tone])}
       />
-      {tip ? (
+      {tip !== null && tip !== undefined && tip !== '' ? (
         <WithTooltip tooltip={tip} named={children}>
           <span className="truncate">{children}</span>
         </WithTooltip>

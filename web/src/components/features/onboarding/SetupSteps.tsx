@@ -1,5 +1,5 @@
 import { Check, ChevronDown } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactElement, type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { ConfigFolderForm } from '@/components/features/onboarding/ConfigFolderForm';
@@ -91,7 +91,7 @@ function Step({ step, action, disabled }: StepProps) {
           heading
         )}
 
-        {action && (
+        {Boolean(action) && (
           <div
             className={cn(
               'grid w-full transition-all duration-200 ease-out',
@@ -120,17 +120,26 @@ function Step({ step, action, disabled }: StepProps) {
   );
 }
 
-export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
+export function SetupSteps({
+  teamId,
+  body,
+  about,
+  resolved,
+}: SetupStepsProps): ReactElement {
   const { slug } = useParams();
   const query = useOnboarding(teamId);
   const onboarding = query.data;
   const github = useGitHub(slug);
 
-  if (slug && (loading(query) || loading(github))) {
+  if (
+    slug !== undefined &&
+    slug !== '' &&
+    (loading(query) || loading(github))
+  ) {
     return <SetupStepsSkeleton about={about} />;
   }
 
-  if (slug && failed(query)) {
+  if (slug !== undefined && slug !== '' && failed(query)) {
     return (
       <div className="flex flex-col gap-6">
         {about && (
@@ -147,7 +156,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
     );
   }
 
-  if (!onboarding || !slug) {
+  if (!onboarding || slug === undefined || slug === '') {
     return (
       <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-6">
         {body}
@@ -158,7 +167,11 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const configuring = (): ReactNode => {
     const chat = onboarding.setupChat;
 
-    if (chat?.pullRequest) {
+    if (
+      chat?.pullRequest !== null &&
+      chat?.pullRequest !== undefined &&
+      chat.pullRequest !== ''
+    ) {
       return (
         <a
           href={chat.pullRequest}
@@ -171,7 +184,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       );
     }
 
-    if (chat?.id) {
+    if (chat?.id !== null && chat?.id !== undefined && chat.id !== '') {
       return (
         <Link to={chatPath(slug, teamId, chat.id)} className={setupLinkClass}>
           Open setup chat

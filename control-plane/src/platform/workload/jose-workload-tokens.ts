@@ -1,3 +1,4 @@
+import { fieldOf } from '@platform/json/field-of';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type {
   ExpectedWorkload,
@@ -106,23 +107,21 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
       throw new Error(`${issuer} returned ${response.status} for discovery`);
     }
 
-    const document = (await response.json()) as {
-      issuer?: unknown;
-      jwks_uri?: unknown;
-    };
+    const document: unknown = await response.json();
+    const jwksUri = fieldOf(document, 'jwks_uri');
 
-    if (document.issuer !== issuer || typeof document.jwks_uri !== 'string') {
+    if (fieldOf(document, 'issuer') !== issuer || typeof jwksUri !== 'string') {
       throw new Error(`${issuer} does not describe itself as that issuer`);
     }
 
-    const keys = createRemoteJWKSet(new URL(document.jwks_uri), {
+    const keys = createRemoteJWKSet(new URL(jwksUri), {
       timeoutDuration: TIMEOUT_MS,
       [customFetch]: this.fetch,
     });
 
     this.#discovered.set(issuer, {
       keys,
-      urls: [discovery, document.jwks_uri],
+      urls: [discovery, jwksUri],
       until: Date.now() + KEYS_CACHE_MS,
     });
 

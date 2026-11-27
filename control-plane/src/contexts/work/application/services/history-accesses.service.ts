@@ -30,7 +30,11 @@ export class HistoryAccesses {
     );
     const team =
       leased?.team ??
-      (leased?.requester.team ? TeamId.of(leased.requester.team) : null);
+      (leased?.requester.team !== undefined &&
+      leased.requester.team !== null &&
+      leased.requester.team !== ''
+        ? TeamId.of(leased.requester.team)
+        : null);
 
     if (!leased || !team) {
       return null;

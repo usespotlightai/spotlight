@@ -4,7 +4,7 @@ import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo
 const SPOTLIGHT = 'spotlight';
 
 export class PrincipalRef {
-  private readonly kind = 'principal-ref';
+  private readonly kind: string = 'principal-ref';
 
   private constructor(readonly value: string) {}
 

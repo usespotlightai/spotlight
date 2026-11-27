@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { MeterBar } from '@/components/features/stations/judge/MeterBar';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import {
@@ -19,7 +21,7 @@ export function KappaBar({
   reading,
   failing,
   minAgreement,
-}: KappaBarProps) {
+}: KappaBarProps): ReactElement {
   return (
     <WithTooltip
       tooltip={{

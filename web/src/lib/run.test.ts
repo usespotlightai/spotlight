@@ -14,6 +14,7 @@ import {
   waitReason,
   waitsOnPerson,
 } from '@/lib/run';
+import { partial } from '@/test/partial';
 
 const NOW = new Date(2026, 7, 30, 12, 0, 0);
 
@@ -102,7 +103,7 @@ describe('byAge', () => {
 });
 
 describe('underway', () => {
-  const run = (progress: Run['progress']) => ({ progress }) as Run;
+  const run = (progress: Run['progress']) => partial<Run>({ progress });
 
   it('is under way while the server reports progress', () => {
     expect(underway(run('queued'))).toBe(true);
@@ -117,7 +118,7 @@ describe('underway', () => {
 
 describe('stoppable', () => {
   const run = (progress: Run['progress'], stoppableByYou = true) =>
-    ({ progress, stoppableByYou }) as Run;
+    partial<Run>({ progress, stoppableByYou });
 
   it('is true while the run is in progress and the server lets you stop it', () => {
     expect(stoppable(run('in-progress'))).toBe(true);
@@ -136,7 +137,7 @@ describe('stoppable', () => {
 
 describe('waitsOnPerson', () => {
   const run = (state: Run['state'], progress: Run['progress'] = null) =>
-    ({ state, progress }) as Run;
+    partial<Run>({ state, progress });
 
   it('is true while the run is suspended for an answer', () => {
     expect(waitsOnPerson(run('suspended'))).toBe(true);
@@ -161,7 +162,7 @@ describe('runStatus', () => {
     state: Run['state'],
     exitCode: number | null = null,
     waitingForYou = false,
-  ) => ({ state, exitCode, progress: null, waitingForYou }) as Run;
+  ) => partial<Run>({ state, exitCode, progress: null, waitingForYou });
 
   it('says nothing of a claimed run', () => {
     expect(runStatus(run('claimed'))).toBeNull();

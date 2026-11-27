@@ -5,6 +5,7 @@ import type {
   KeyManagement,
 } from '@secrets/infrastructure/kms/key-management';
 import { secretDataKey } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq } from 'drizzle-orm';
 
@@ -26,29 +27,31 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
   async of(workspaceId: WorkspaceId): Promise<Uint8Array> {
     const existing = await this.storedKey(workspaceId);
 
-    if (existing) {
+    if (existing !== null && existing !== '') {
       return this.unwrapped(workspaceId, existing);
     }
 
     const issued = await this.kms.issue(contextFor(workspaceId));
-    const [inserted] = await this.context.db
-      .insert(secretDataKey)
-      .values({
-        workspaceId: workspaceId.value,
-        keyId: this.kms.keyId,
-        wrapped: issued.wrapped,
-      })
-      .onConflictDoNothing({ target: secretDataKey.workspaceId })
-      .returning({ wrapped: secretDataKey.wrapped });
+    const inserted = firstOf(
+      await this.context.db
+        .insert(secretDataKey)
+        .values({
+          workspaceId: workspaceId.value,
+          keyId: this.kms.keyId,
+          wrapped: issued.wrapped,
+        })
+        .onConflictDoNothing({ target: secretDataKey.workspaceId })
+        .returning({ wrapped: secretDataKey.wrapped }),
+    );
 
-    if (inserted) {
+    if (inserted !== undefined) {
       this.#unwrapped.set(issued.wrapped, issued.plain);
       return issued.plain;
     }
 
     const first = await this.storedKey(workspaceId);
 
-    if (!first) {
+    if (first === null || first === '') {
       throw new Error(
         `The data key for workspace ${workspaceId.value} vanished while it was issued`,
       );
@@ -69,11 +72,13 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
   }
 
   private async storedKey(workspaceId: WorkspaceId): Promise<string | null> {
-    const [found] = await this.context.db
-      .select({ wrapped: secretDataKey.wrapped })
-      .from(secretDataKey)
-      .where(eq(secretDataKey.workspaceId, workspaceId.value))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select({ wrapped: secretDataKey.wrapped })
+        .from(secretDataKey)
+        .where(eq(secretDataKey.workspaceId, workspaceId.value))
+        .limit(1),
+    );
 
     return found?.wrapped ?? null;
   }

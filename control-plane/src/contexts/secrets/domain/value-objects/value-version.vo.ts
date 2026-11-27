@@ -1,7 +1,7 @@
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 
 export class ValueVersion {
-  private readonly kind = 'value-version';
+  private readonly kind: string = 'value-version';
 
   private constructor(readonly value: number) {}
 

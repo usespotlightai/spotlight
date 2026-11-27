@@ -9,6 +9,7 @@ import { RunnerVersionConflictError } from '@runners/domain/exceptions/runner-ve
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
@@ -23,10 +24,12 @@ const setUp = (runner: Runner | null) => {
 
   return {
     save,
-    heartbeats: new RunnerHeartbeats({
-      find: vi.fn(async () => runner),
-      save,
-    } as unknown as RunnerRepository),
+    heartbeats: new RunnerHeartbeats(
+      partial<RunnerRepository>({
+        find: vi.fn(() => Promise.resolve(runner)),
+        save,
+      }),
+    ),
   };
 };
 
@@ -81,10 +84,12 @@ describe('RunnerHeartbeats', () => {
       .mockRejectedValueOnce(new RunnerVersionConflictError(ID.value))
       .mockResolvedValueOnce(undefined);
 
-    const heartbeat = await new RunnerHeartbeats({
-      find,
-      save,
-    } as unknown as RunnerRepository).heartbeat(ID, later(1));
+    const heartbeat = await new RunnerHeartbeats(
+      partial<RunnerRepository>({
+        find,
+        save,
+      }),
+    ).heartbeat(ID, later(1));
 
     expect(save.mock.calls[1]?.[0]).toMatchObject({
       lastHeartbeatAt: later(1),

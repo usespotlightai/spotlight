@@ -22,6 +22,7 @@ import type {
   WaitingReviewWork,
 } from '@runs/application/ports/review-work-provisioning.port';
 import type { ReviewWork } from '@runs/application/ports/review-work.port';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
@@ -96,7 +97,7 @@ export class ProvisionReviewWork implements ReviewWorkProvisioningPort {
         ? ordered
         : ordered.filter((each) => precedes(after, placeOf(each)))
     ).slice(0, page.max);
-    const last = taken[taken.length - 1];
+    const last = itemAt(taken, taken.length - 1);
 
     return {
       waiting: taken.map((each): WaitingReviewWork =>

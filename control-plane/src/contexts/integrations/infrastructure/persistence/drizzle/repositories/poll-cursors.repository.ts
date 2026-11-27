@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { PollCursor } from '@integrations/domain/aggregates/poll-cursor.aggregate';
 import { PollCursorVersionConflictError } from '@integrations/domain/exceptions/poll-cursor-version-conflict.error';
 import type { PollCursorRepository } from '@integrations/domain/repositories/poll-cursor.repository';
@@ -13,7 +14,7 @@ export class DrizzlePollCursors implements PollCursorRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async of(teamId: TeamId, integration: IntegrationKey): Promise<PollCursor> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(pollCursor)
       .where(
@@ -22,7 +23,7 @@ export class DrizzlePollCursors implements PollCursorRepository {
           eq(pollCursor.integration, integration.value),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return found
       ? PollCursor.rehydrate({

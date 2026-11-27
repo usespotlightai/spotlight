@@ -9,8 +9,8 @@ export const emailsHandlers = [
     json({ signInEmail: SIGN_IN_EMAIL, additional: emailsWorld().additional }),
   ),
 
-  api.post('/me/emails', async ({ request }) => {
-    const { email } = (await request.json()) as AddMyEmailData['body'];
+  api.post<AddMyEmailData['body']>('/me/emails', async ({ request }) => {
+    const { email } = await request.json();
     const store = emailsWorld();
 
     if (sameAddress(email, SIGN_IN_EMAIL)) {

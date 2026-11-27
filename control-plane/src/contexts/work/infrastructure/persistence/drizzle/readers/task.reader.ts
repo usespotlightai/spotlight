@@ -10,6 +10,7 @@ import {
   RUN_PROGRESS,
   type RunProgressPort,
 } from '@runs/application/ports/run-progress.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -92,7 +93,9 @@ export class DrizzleTaskReader implements TaskReaderPort {
       and(
         eq(workStation.kind, 'completed'),
         eq(task.isSetup, false),
-        listing.lineId ? eq(workStation.lineId, listing.lineId) : undefined,
+        listing.lineId !== null && listing.lineId !== ''
+          ? eq(workStation.lineId, listing.lineId)
+          : undefined,
         before ? after(task.rank, task.id, before) : undefined,
       ),
       page.limit + 1,
@@ -105,10 +108,8 @@ export class DrizzleTaskReader implements TaskReaderPort {
     teamId: TeamId,
     taskId: TaskId,
   ): Promise<TaskSummary | null> {
-    const [found] = await this.summariesIn(
-      teamId,
-      eq(task.id, taskId.value),
-      1,
+    const found = firstOf(
+      await this.summariesIn(teamId, eq(task.id, taskId.value), 1),
     );
 
     return found ?? null;
@@ -171,7 +172,9 @@ export class DrizzleTaskReader implements TaskReaderPort {
           [
             ...rows.flatMap((row) => [row.createdById, row.assigneeId]),
             ...rows.map((row) => row.hold?.heldBy),
-          ].flatMap((id) => (id ? [UserId.of(id)] : [])),
+          ].flatMap((id) =>
+            id !== undefined && id !== null && id !== '' ? [UserId.of(id)] : [],
+          ),
         ),
         progressOfCurrentRuns(
           this.progress,
@@ -199,21 +202,27 @@ export class DrizzleTaskReader implements TaskReaderPort {
         ...rest
       }) => ({
         ...rest,
-        pullRequests: reviewedPullRequest
-          ? [reviewedPullRequest]
-          : (pulled.get(rest.id) ?? []),
+        pullRequests:
+          reviewedPullRequest !== null && reviewedPullRequest !== ''
+            ? [reviewedPullRequest]
+            : (pulled.get(rest.id) ?? []),
         attachments: attachmentsOf(attached, rest.id).own,
         progress: awaited.has(rest.id) ? null : progressOf(currentRunId),
         awaitingReview: awaited.get(rest.id) ?? null,
         finished: finishedAt !== null,
         running: currentRunId !== null,
-        createdBy: createdById ? person(createdById) : null,
-        assignee: assigneeId ? person(assigneeId) : null,
+        createdBy:
+          createdById !== null && createdById !== ''
+            ? person(createdById)
+            : null,
+        assignee:
+          assigneeId !== null && assigneeId !== '' ? person(assigneeId) : null,
         note: notes.get(rest.id) ?? null,
         source: TaskOrigin.decode(openedFrom).integration?.value ?? null,
         hold: holdOf(hold, person),
         runNotStarted:
-          notStartedHarness &&
+          notStartedHarness !== null &&
+          notStartedHarness !== '' &&
           notStartedStationId === rest.stationId &&
           currentRunId === null &&
           finishedAt === null

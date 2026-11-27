@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
 
 const unchangeable = () => {};
@@ -12,7 +14,7 @@ export function FixedRepositories({
   slug,
   repositories,
   because,
-}: FixedRepositoriesProps) {
+}: FixedRepositoriesProps): ReactElement {
   return (
     <RepositoriesSelect
       slug={slug}

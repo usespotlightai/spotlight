@@ -37,25 +37,34 @@ interface PlatformPoolChange {
 }
 
 const changeOf = (raw: unknown): PlatformPoolChange => {
-  const body = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<
-    string,
-    unknown
-  >;
-  const given = FIELDS.filter((field) => body[field] !== undefined);
+  const body: object = typeof raw === 'object' && raw !== null ? raw : {};
+  const change: { -readonly [Field in keyof PlatformPoolChange]: boolean } = {};
 
-  if (
-    given.length === 0 ||
-    given.some((field) => typeof body[field] !== 'boolean')
-  ) {
-    throw new BadRequestException(
-      'Sorry, the body must set at least one of enabled, allowsSecrets and allowsReviewWork to true or false, as in {"enabled": false}.',
-    );
+  for (const field of FIELDS) {
+    const value: unknown = Reflect.get(body, field);
+
+    if (value === undefined) {
+      continue;
+    }
+
+    if (typeof value !== 'boolean') {
+      throw unclearChange();
+    }
+
+    change[field] = value;
   }
 
-  return Object.fromEntries(
-    given.map((field) => [field, body[field]]),
-  ) as PlatformPoolChange;
+  if (Object.keys(change).length === 0) {
+    throw unclearChange();
+  }
+
+  return change;
 };
+
+const unclearChange = (): BadRequestException =>
+  new BadRequestException(
+    'Sorry, the body must set at least one of enabled, allowsSecrets and allowsReviewWork to true or false, as in {"enabled": false}.',
+  );
 
 // The admin token is the authorisation. A change shows as made by Spotlight.
 @AdminController('workspaces')
@@ -87,6 +96,7 @@ export class AdminPlatformPoolController {
   @ApiNotFoundResponse({
     description: 'No such workspace, or no admin token is set',
   })
+  @ApiBody({ type: SetWorkspacePlatformPoolRequestDto })
   async setPlatformPool(
     @Param('workspaceId') workspaceId: string,
     @Body() body: SetWorkspacePlatformPoolRequestDto | undefined,

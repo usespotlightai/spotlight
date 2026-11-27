@@ -7,8 +7,8 @@ type SpreadShownProps = {
   children: ReactNode;
 };
 
-export function SpreadShown({ tail, children }: SpreadShownProps) {
-  return tail ? (
+export function SpreadShown({ tail, children }: SpreadShownProps): ReactNode {
+  return tail !== null && tail !== '' ? (
     <WithTooltip tooltip={tail}>
       <span className="cursor-default">{children}</span>
     </WithTooltip>

@@ -1,6 +1,6 @@
 import { useDroppable } from '@dnd-kit/core';
 import { ChevronDown, Plus } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { DropIndicator } from '@/components/features/board/task/DropIndicator';
@@ -44,7 +44,7 @@ export function StationSection({
   entry = false,
   landing,
   children,
-}: StationSectionProps) {
+}: StationSectionProps): ReactElement {
   const { setNodeRef } = useDroppable({ id, data: { kind: 'station' } });
 
   return (
@@ -59,7 +59,7 @@ export function StationSection({
         }}
         className="sticky top-0 z-20 mx-1.5 relative flex h-9 shrink-0 select-none items-center gap-2 rounded-md bg-accent px-3"
       >
-        {landing && <DropIndicator edge="bottom" />}
+        {landing === true && <DropIndicator edge="bottom" />}
 
         <button
           type="button"
@@ -77,7 +77,7 @@ export function StationSection({
         <StationIcon share={share} color={color} className="-mr-1.5" />
 
         <h2 className="flex min-w-0 font-medium text-foreground text-sm">
-          {to ? (
+          {to !== undefined && to !== '' ? (
             <TrailLink
               to={to}
               draggable={false}

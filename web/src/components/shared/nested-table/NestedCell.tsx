@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -14,7 +14,7 @@ export function NestedCell({
   strong = false,
   numeric = true,
   children,
-}: NestedCellProps) {
+}: NestedCellProps): ReactElement {
   return (
     <span
       className={cn(

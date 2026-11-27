@@ -1,8 +1,10 @@
+import type { ReactElement } from 'react';
+
 import { InboxHeaderSkeleton } from '@/components/features/inbox/InboxHeaderSkeleton';
 import { PillSkeleton } from '@/components/shared/skeleton/PillSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
-export function NoticeSkeleton() {
+export function NoticeSkeleton(): ReactElement {
   return (
     <div
       role="status"

@@ -7,10 +7,7 @@ import { toast } from '@/lib/toast';
 
 const STORAGE = 'spotlight.chat-drafts.acme';
 
-const stored = () =>
-  JSON.parse(localStorage.getItem(STORAGE) ?? '{}') as {
-    new: Record<string, unknown>;
-  };
+const stored = (): unknown => JSON.parse(localStorage.getItem(STORAGE) ?? '{}');
 
 const attachment = (uploadedAt = Date.now()) => ({
   key: 'k1',
@@ -47,7 +44,7 @@ describe('useChatDraft', () => {
 
     flushed();
 
-    expect(stored().new.text).toBe('Plan it');
+    expect(stored()).toMatchObject({ new: { text: 'Plan it' } });
   });
 
   it('restores the draft for the next mount', () => {
@@ -80,7 +77,7 @@ describe('useChatDraft', () => {
       window.dispatchEvent(new Event('pagehide'));
     });
 
-    expect(stored().new.text).toBe('Plan it');
+    expect(stored()).toMatchObject({ new: { text: 'Plan it' } });
   });
 
   it('keeps a draft per key and per workspace', () => {
@@ -115,10 +112,8 @@ describe('useChatDraft', () => {
     );
     act(() => result.current.discard());
 
-    expect(stored().new).toMatchObject({
-      text: '',
-      attachments: [],
-      effort: 'high',
+    expect(stored()).toMatchObject({
+      new: { text: '', attachments: [], effort: 'high' },
     });
   });
 

@@ -6,13 +6,16 @@ export type ConfigFingerprint = string & {
   readonly brand: 'config-fingerprint';
 };
 
+const isConfigFingerprint = (raw: string): raw is ConfigFingerprint =>
+  SHA_256.test(raw);
+
 export const ConfigFingerprint = {
   of(raw: string): ConfigFingerprint {
-    if (!SHA_256.test(raw)) {
+    if (!isConfigFingerprint(raw)) {
       throw new InvalidFingerprintError('station config fingerprint');
     }
 
-    return raw as ConfigFingerprint;
+    return raw;
   },
 
   optional(raw: string | null): ConfigFingerprint | null {
@@ -20,8 +23,6 @@ export const ConfigFingerprint = {
   },
 
   readable(raw: string | null): ConfigFingerprint | null {
-    return raw !== null && SHA_256.test(raw)
-      ? (raw as ConfigFingerprint)
-      : null;
+    return raw !== null && isConfigFingerprint(raw) ? raw : null;
   },
 };

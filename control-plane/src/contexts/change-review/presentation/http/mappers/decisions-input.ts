@@ -21,10 +21,14 @@ const problemAt = (
 ): ConfigurationProblem =>
   ConfigurationProblem.of({ path: '', at: FieldPath.of(segments), reason });
 
+const isFields = (value: unknown): value is Fields =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
 const fieldsOf = (value: unknown): Fields | null =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Fields)
-    : null;
+  isFields(value) ? value : null;
+
+const isTexts = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((each) => typeof each === 'string');
 
 const textAt = (
   fields: Fields,
@@ -50,14 +54,14 @@ const textsAt = (
 ): string[] => {
   const value = fields[field] ?? [];
 
-  if (!Array.isArray(value) || value.some((each) => typeof each !== 'string')) {
+  if (!isTexts(value)) {
     problems.push(
       problemAt(['decisions', at, field], 'must be a list of strings'),
     );
     return [];
   }
 
-  return value as string[];
+  return value;
 };
 
 const decisionAt = (

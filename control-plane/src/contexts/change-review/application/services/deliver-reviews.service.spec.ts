@@ -19,6 +19,8 @@ import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewDeliveryId } from '@change-review/domain/value-objects/review-delivery-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -86,25 +88,31 @@ const delivering = (over: {
 
   const deliveries: ReviewDeliveriesPort = {
     enqueue: vi.fn(),
-    leaseDue: async () => {
+    leaseDue: () => {
       const next = pending;
       pending = null;
-      return next;
+      return Promise.resolve(next);
     },
-    sending: async (delivery) => {
+    sending: (delivery) => {
       sendings.push(delivery.id.value);
-      return !over.leaseLost;
+      return Promise.resolve(over.leaseLost !== true);
     },
-    delivered: async (delivery) =>
-      void recorded.push({ how: 'delivered', args: [delivery.id.value] }),
-    retry: async (delivery, retry) =>
-      void recorded.push({
-        how: 'retry',
-        args: [delivery.id.value, retry.at, retry.counted],
-      }),
-    failed: async (delivery) =>
-      void recorded.push({ how: 'failed', args: [delivery.id.value] }),
-    dropTask: async () => undefined,
+    delivered: (delivery) =>
+      Promise.resolve(
+        void recorded.push({ how: 'delivered', args: [delivery.id.value] }),
+      ),
+    retry: (delivery, retry) =>
+      Promise.resolve(
+        void recorded.push({
+          how: 'retry',
+          args: [delivery.id.value, retry.at, retry.counted],
+        }),
+      ),
+    failed: (delivery) =>
+      Promise.resolve(
+        void recorded.push({ how: 'failed', args: [delivery.id.value] }),
+      ),
+    dropTask: () => Promise.resolve(),
   };
 
   const pullRequest = over.pullRequest === undefined ? PULL : over.pullRequest;
@@ -122,15 +130,17 @@ const delivering = (over: {
   const conflicts = new Set<string>();
 
   const github: ReviewPostingPort = {
-    submit: vi.fn<ReviewPostingPort['submit']>(async (input) => ({
-      githubId: 900,
-      verdict: input.verdict,
-      comments: input.comments.map((_, index) => ({
-        id: 100 + index,
-        url: `https://github.com/c/${100 + index}`,
-      })),
-    })),
-    reply: vi.fn<ReviewPostingPort['reply']>(async (input) => {
+    submit: vi.fn<ReviewPostingPort['submit']>((input) =>
+      Promise.resolve({
+        githubId: 900,
+        verdict: input.verdict,
+        comments: input.comments.map((_, index) => ({
+          id: 100 + index,
+          url: `https://github.com/c/${100 + index}`,
+        })),
+      }),
+    ),
+    reply: vi.fn<ReviewPostingPort['reply']>((input) => {
       const { editedWhilePosting } = over;
 
       if (editedWhilePosting) {
@@ -141,12 +151,14 @@ const delivering = (over: {
           }
         }
       }
-      return { id: 555, url: 'https://github.com/c/555' };
+      return Promise.resolve({ id: 555, url: 'https://github.com/c/555' });
     }),
-    commentOnFile: vi.fn(async () => ({
-      id: 777,
-      url: 'https://github.com/c/777',
-    })),
+    commentOnFile: vi.fn(() =>
+      Promise.resolve({
+        id: 777,
+        url: 'https://github.com/c/777',
+      }),
+    ),
     edit: vi.fn(async () => {}),
     remove: vi.fn(async () => {}),
     ...over.github,
@@ -155,38 +167,44 @@ const delivering = (over: {
   const reports = { report: vi.fn() };
   const service = new DeliverReviews(
     deliveries,
-    {
-      find: async (id) => reviews.get(id.value) ?? null,
-      save: async (review) => {
-        if (over.reviewSaveFails && review.state === 'posted') {
-          throw new Error('The database could not be reached.');
+    partial<ReviewRepository>({
+      find: (id) => Promise.resolve(reviews.get(id.value) ?? null),
+      save: (review) => {
+        if (over.reviewSaveFails === true && review.state === 'posted') {
+          return Promise.reject(
+            new Error('The database could not be reached.'),
+          );
         }
         reviews.set(review.id.value, review);
+        return Promise.resolve();
       },
-    } as ReviewRepository,
-    {
-      find: async (id) => comments.get(id.value) ?? null,
-      save: async (comment) => {
+    }),
+    partial<ReviewCommentRepository>({
+      find: (id) => Promise.resolve(comments.get(id.value) ?? null),
+      save: (comment) => {
         if (conflicts.delete(comment.id.value)) {
-          throw new ReviewCommentVersionConflictError(comment.id.value);
+          return Promise.reject(
+            new ReviewCommentVersionConflictError(comment.id.value),
+          );
         }
         comments.set(comment.id.value, comment);
+        return Promise.resolve();
       },
-    } as ReviewCommentRepository,
+    }),
     {
-      run: async () => null,
-      teamOfRun: async () => null,
-      repositoriesOfRun: async () => [],
-      task: async () => task,
-      taskWithPullRequest: async () => null,
+      run: () => Promise.resolve(null),
+      teamOfRun: () => Promise.resolve(null),
+      repositoriesOfRun: () => Promise.resolve([]),
+      task: () => Promise.resolve(task),
+      taskWithPullRequest: () => Promise.resolve(null),
     },
     {
-      isConnected: async () => true,
+      isConnected: () => Promise.resolve(true),
     },
     {
-      find: async () => ({ name: 'Ada', image: null }),
-      viewerOf: async () => null,
-      actsOnTeam: async () => false,
+      find: () => Promise.resolve({ name: 'Ada', image: null }),
+      viewerOf: () => Promise.resolve(null),
+      actsOnTeam: () => Promise.resolve(false),
     },
     github,
     { now: () => NOW, sleep: async () => {} },
@@ -360,9 +378,11 @@ describe('DeliverReviews', () => {
   it('retries later where GitHub answers with an error, then gives up', async () => {
     const { review, comments } = submitted();
     const failing = {
-      submit: vi.fn(async () => {
-        throw new ReviewPostingFailedError(
-          DeliveryFailure.of('github-unreachable'),
+      submit: vi.fn(() => {
+        return Promise.reject(
+          new ReviewPostingFailedError(
+            DeliveryFailure.of('github-unreachable'),
+          ),
         );
       }),
     };
@@ -416,8 +436,10 @@ describe('DeliverReviews', () => {
       reviews: [review],
       comments,
       github: {
-        submit: vi.fn(async () => {
-          throw new Error('Cannot read properties of undefined');
+        submit: vi.fn(() => {
+          return Promise.reject(
+            new Error('Cannot read properties of undefined'),
+          );
         }),
       },
     });
@@ -490,10 +512,12 @@ describe('DeliverReviews', () => {
       reviews: [review],
       comments,
       github: {
-        submit: vi.fn(async () => {
-          throw new ReviewPostingFailedError(
-            DeliveryFailure.of('github-unreachable'),
-            { outcomeUnknown: true },
+        submit: vi.fn(() => {
+          return Promise.reject(
+            new ReviewPostingFailedError(
+              DeliveryFailure.of('github-unreachable'),
+              { outcomeUnknown: true },
+            ),
           );
         }),
       },
@@ -745,9 +769,12 @@ describe('DeliverReviews', () => {
       { how: 'delivered', args: ['delivery_1'] },
     ]);
 
+    if (stored === undefined) {
+      throw new Error('expected comment_2 to be stored');
+    }
     const again = delivering({
       delivery: { kind: 'reply', subjectId: 'comment_2', attempts: 1 },
-      comments: [parent, stored as ReviewComment],
+      comments: [parent, stored],
     });
     await again.service.deliverDue();
 
@@ -756,7 +783,10 @@ describe('DeliverReviews', () => {
 
   it('posts a comment as it was submitted, and leaves out one deleted before it was sent', async () => {
     const { review, comments } = submitted();
-    const [first, second] = comments as [ReviewComment, ReviewComment];
+    const [first, second] = optionalItems(comments);
+    if (first === undefined || second === undefined) {
+      throw new Error('expected two submitted comments');
+    }
     const delivered = delivering({
       delivery: { kind: 'review', subjectId: 'review_1', attempts: 0 },
       reviews: [review],
@@ -842,11 +872,12 @@ describe('DeliverReviews', () => {
       delivery: { kind: 'edit', subjectId: 'comment_1', attempts: 0 },
       comments: [posted],
       github: {
-        edit: vi.fn(async () => {
+        edit: vi.fn(() => {
           delivered?.comments.set(
             'comment_1',
             posted.edited('Second', ADA, NOW),
           );
+          return Promise.resolve();
         }),
       },
     });
@@ -871,9 +902,11 @@ describe('DeliverReviews', () => {
       },
       comments: [pending],
       github: {
-        edit: vi.fn(async () => {
-          throw new ReviewPostingFailedError(
-            DeliveryFailure.of('github-rejected', 'Validation Failed'),
+        edit: vi.fn(() => {
+          return Promise.reject(
+            new ReviewPostingFailedError(
+              DeliveryFailure.of('github-rejected', 'Validation Failed'),
+            ),
           );
         }),
       },

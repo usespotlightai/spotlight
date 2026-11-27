@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ViewPills } from '@/components/shared/ViewPills';
 import type { ChangeStack } from '@/lib/change-stack';
 import { repositoryOf } from '@/lib/stack-repository';
@@ -14,7 +16,7 @@ export function StackRepositoryPills({
   stack,
   onChange,
   className,
-}: StackRepositoryPillsProps) {
+}: StackRepositoryPillsProps): ReactElement | null {
   if (stacks.length <= 1) {
     return null;
   }

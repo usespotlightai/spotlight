@@ -1,6 +1,8 @@
 import { type RefObject, useLayoutEffect, useState } from 'react';
 
-export function useOffsetHeight(element: RefObject<HTMLElement | null>) {
+export function useOffsetHeight(
+  element: RefObject<HTMLElement | null>,
+): number | null {
   const [height, setHeight] = useState<number | null>(null);
 
   useLayoutEffect(() => {

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { readEditorConnection } from '@/lib/api';
 import type { SandboxTarget } from '@/lib/editor';
@@ -14,12 +14,14 @@ export function useEditorConnection(
   target: SandboxTarget,
   slug: string,
   since: number | null,
-) {
+): UseQueryResult<boolean> {
   return useQuery({
     queryKey: editorConnectionKeys.since(target, slug, since),
     enabled: since !== null,
     refetchInterval: (query) =>
-      query.state.data || query.state.status === 'error' ? false : POLL_MS,
+      query.state.data === true || query.state.status === 'error'
+        ? false
+        : POLL_MS,
     refetchIntervalInBackground: true,
     retry: false,
     gcTime: 0,

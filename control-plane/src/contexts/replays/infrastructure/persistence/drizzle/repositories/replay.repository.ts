@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -126,7 +127,7 @@ const measuresOf = (row: EntryRow): EntryMeasures | null => {
     steps: row.steps,
     changedLines: row.changedLines,
     cost:
-      row.costAmount !== null && row.costCurrency
+      row.costAmount !== null && row.costCurrency !== null && row.costCurrency !== ''
         ? Money.of(row.costAmount, row.costCurrency)
         : null,
     tokens: {
@@ -158,7 +159,7 @@ const judgingOf = (stored: StoredEntryJudging | null): EntryJudging | null => {
     return EntryJudging.judged(JudgeVerdict.of(stored.verdict));
   }
 
-  return stored.unjudged
+  return stored.unjudged !== null && stored.unjudged !== ''
     ? EntryJudging.failed(unjudgedOf(stored.unjudged))
     : EntryJudging.requested();
 };
@@ -222,10 +223,10 @@ const toEntry = (row: EntryRow): ReplayEntry =>
     original: RunId.of(row.originalRunId),
     taskId: TaskId.of(row.taskId),
     repeat: row.repeat,
-    run: row.runId ? RunId.of(row.runId) : null,
+    run: row.runId !== null && row.runId !== '' ? RunId.of(row.runId) : null,
     slot: row.slot,
     queued: row.queued,
-    fingerprint: row.fingerprint
+    fingerprint: row.fingerprint !== null && row.fingerprint !== ''
       ? StationFingerprint.of(row.fingerprint)
       : null,
     queueAttempts: row.queueAttempts,
@@ -276,13 +277,13 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
       : null,
     repeats: row.repeats,
     calibration: row.calibration,
-    referenceReplayId: row.referenceReplayId
+    referenceReplayId: row.referenceReplayId !== null && row.referenceReplayId !== ''
       ? ReplayId.of(row.referenceReplayId)
       : null,
-    pairwiseReferenceId: row.pairwiseReferenceId
+    pairwiseReferenceId: row.pairwiseReferenceId !== null && row.pairwiseReferenceId !== ''
       ? ReplayId.of(row.pairwiseReferenceId)
       : null,
-    searchId: row.searchId ? SearchId.of(row.searchId) : null,
+    searchId: row.searchId !== null && row.searchId !== '' ? SearchId.of(row.searchId) : null,
     state: row.state,
     entries: entries
       .filter((each) => each.replayId === row.id)
@@ -353,7 +354,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
   ) {}
 
   async find(id: ReplayId): Promise<Replay | null> {
-    const [found] = await this.withEntries(eq(replay.id, id.value));
+    const found = firstOf(await this.withEntries(eq(replay.id, id.value)));
 
     return found ?? null;
   }
@@ -369,14 +370,14 @@ export class DrizzleReplayRepository implements ReplayRepository {
   }
 
   async ranAs(run: RunId): Promise<Replay | null> {
-    const [found] = await this.withEntries(
+    const found = firstOf(await this.withEntries(
       exists(
         this.context.db
           .select({ one: replayEntry.position })
           .from(replayEntry)
           .where(and(ofThisReplay, eq(replayEntry.runId, run.value))),
       ),
-    );
+    ));
 
     return found ?? null;
   }
@@ -444,7 +445,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
               .where(occupying),
           ),
         ),
-      ) as SQL,
+      ),
     );
   }
 
@@ -559,7 +560,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       });
   }
 
-  private async withEntries(where: SQL): Promise<readonly Replay[]> {
+  private async withEntries(where: SQL | undefined): Promise<readonly Replay[]> {
     return this.hydrated(
       await this.context.db
         .select()

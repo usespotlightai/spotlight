@@ -199,7 +199,7 @@ describe('workspaceTerraform', () => {
   it('writes each resource in the file of its concern', () => {
     const headersIn = (path: string): string[] =>
       [...fileOf(CONFIGURATION, path).matchAll(/^resource (".+") {$/gm)].map(
-        ([, header]) => header ?? '',
+        ([, header]) => header,
       );
 
     expect(headersIn('workspace.tf')).toEqual([

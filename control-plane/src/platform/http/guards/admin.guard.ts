@@ -27,9 +27,11 @@ export class AdminGuard implements CanActivate {
     @Inject(ENV) env: Env,
     @Inject(TOKEN_ISSUER) private readonly tokens: TokenIssuer,
   ) {
-    this.#tokenHash = env.SPOTLIGHT_ADMIN_TOKEN
-      ? TokenHash.of(tokens.hash(env.SPOTLIGHT_ADMIN_TOKEN))
-      : null;
+    this.#tokenHash =
+      env.SPOTLIGHT_ADMIN_TOKEN !== undefined &&
+      env.SPOTLIGHT_ADMIN_TOKEN !== ''
+        ? TokenHash.of(tokens.hash(env.SPOTLIGHT_ADMIN_TOKEN))
+        : null;
   }
 
   canActivate(context: ExecutionContext): boolean {
@@ -38,7 +40,7 @@ export class AdminGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
-    if (!adminOnly) {
+    if (adminOnly !== true) {
       return true;
     }
 
@@ -54,7 +56,8 @@ export class AdminGuard implements CanActivate {
     );
 
     if (
-      !presented ||
+      presented === undefined ||
+      presented === '' ||
       !TokenHash.of(this.tokens.hash(presented)).equals(this.#tokenHash)
     ) {
       throw new UnauthorizedException('The admin token is missing or wrong.');

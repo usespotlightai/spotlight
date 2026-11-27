@@ -1,5 +1,5 @@
-import type { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
-import type { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
+import { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
+import { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import {
   FAILED_REDIRECT,
   OAuth2ConnectionController,
@@ -12,7 +12,8 @@ import {
 import type { CommandBus } from '@nestjs/cqrs';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import { describe, expect, it, vi } from 'vitest';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { describe, expect, it, type Mock, vi } from 'vitest';
 
 const ADMIN: AuthenticatedUser = {
   id: 'user_1',
@@ -28,21 +29,37 @@ const answering = () => {
   const clearCookie = vi.fn();
 
   return {
-    response: { redirect, cookie, clearCookie } as Redirectable,
+    response: { redirect, cookie, clearCookie } satisfies Redirectable,
     redirect,
     cookie,
     clearCookie,
   };
 };
 
+const sent = <C>(
+  execute: Mock<(command: object) => Promise<unknown>>,
+  type: new (...args: never[]) => C,
+): C => {
+  const command = execute.mock.calls[0]?.[0];
+
+  if (!(command instanceof type)) {
+    throw new Error(`expected a ${type.name}`);
+  }
+
+  return command;
+};
+
 const controlling = (viewer: AuthenticatedUser | null = ADMIN) => {
-  const execute = vi.fn(
-    async (
-      command: BeginOAuth2ConnectionCommand | FinishOAuth2ConnectionCommand,
-    ) =>
+  const execute = vi.fn((command: object) =>
+    Promise.resolve(
       'state' in command
         ? 'https://app.example/landing'
-        : { url: 'https://slack.com/oauth', nonce: 'n-1', expiresAt: EXPIRES },
+        : {
+            url: 'https://slack.com/oauth',
+            nonce: 'n-1',
+            expiresAt: EXPIRES,
+          },
+    ),
   );
 
   const logger = {
@@ -54,7 +71,7 @@ const controlling = (viewer: AuthenticatedUser | null = ADMIN) => {
 
   return {
     controller: new OAuth2ConnectionController(
-      { execute } as unknown as CommandBus,
+      partial<CommandBus>({ execute }),
       new OAuth2NonceCookie(),
       logger,
     ),
@@ -103,7 +120,7 @@ describe('OAuth2ConnectionController', () => {
       viewer,
     );
 
-    const finish = execute.mock.calls[0]?.[0] as FinishOAuth2ConnectionCommand;
+    const finish = sent(execute, FinishOAuth2ConnectionCommand);
     expect(finish.nonce).toBe('n-1');
     expect(finish.viewerId).toBe('user_1');
     expect(clearCookie).toHaveBeenCalledWith(
@@ -241,7 +258,7 @@ describe('OAuth2ConnectionController', () => {
 
     await controller.connect('team_1', 'slack', ADMIN, answering().response);
 
-    const begin = execute.mock.calls[0]?.[0] as BeginOAuth2ConnectionCommand;
+    const begin = sent(execute, BeginOAuth2ConnectionCommand);
     expect(begin.actsAs).toBeNull();
     expect(begin.returnTo).toBeNull();
   });
@@ -254,7 +271,7 @@ describe('OAuth2ConnectionController', () => {
       returnTo: '/w/acme/inbox/task_1',
     });
 
-    const begin = execute.mock.calls[0]?.[0] as BeginOAuth2ConnectionCommand;
+    const begin = sent(execute, BeginOAuth2ConnectionCommand);
     expect(begin.actsAs).toBe('requester');
     expect(begin.returnTo).toBe('/w/acme/inbox/task_1');
   });
@@ -264,7 +281,7 @@ describe('OAuth2ConnectionController', () => {
 
     await expect(
       controller.connect('team_1', 'linear', ADMIN, answering().response, {
-        actsAs: 'someone-else' as 'requester',
+        actsAs: 'someone-else',
       }),
     ).rejects.toThrow(
       /A connection must act as team or requester\. Received: someone-else/,

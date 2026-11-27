@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback, type ReactElement } from 'react';
 
 import { useScrollParent } from '@/hooks/useScrollParent';
 
@@ -15,7 +15,7 @@ export function VirtualRows({
   estimate,
   overscan = 2,
   children,
-}: VirtualRowsProps) {
+}: VirtualRowsProps): ReactElement {
   'use no memo';
 
   const { attach, scroller, margin } = useScrollParent();
@@ -31,7 +31,7 @@ export function VirtualRows({
   });
 
   const items = virtualizer.getVirtualItems();
-  const first = items[0];
+  const first = items.at(0);
   const last = items.at(-1);
   const before = first ? first.start - margin : 0;
   const after = last ? virtualizer.getTotalSize() - last.end : 0;

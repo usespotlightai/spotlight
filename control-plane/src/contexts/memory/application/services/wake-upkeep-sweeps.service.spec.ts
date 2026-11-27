@@ -7,6 +7,7 @@ import {
 import { MemoryUpkeepScheduleVersionConflictError } from '@memory/domain/exceptions/memory-upkeep-schedule-version-conflict.error';
 import type { MemoryUpkeepScheduleRepository } from '@memory/domain/repositories/memory-upkeep.repository';
 import type { ConsolidationRound } from '@memory/domain/value-objects/consolidation-round.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -29,16 +30,16 @@ const waking = (
   save: (schedule: MemoryUpkeepSchedule) => Promise<void> = async () => {},
 ) => {
   const saved: MemoryUpkeepSchedule[] = [];
-  const consolidator = {
+  const consolidator = partial<MemoryConsolidatorPort>({
     roundOf: () => round,
-  } as unknown as MemoryConsolidatorPort;
-  const schedules = {
-    ofTeam: async () => waiting,
+  });
+  const schedules = partial<MemoryUpkeepScheduleRepository>({
+    ofTeam: () => Promise.resolve(waiting),
     save: async (schedule: MemoryUpkeepSchedule) => {
       saved.push(schedule);
       await save(schedule);
     },
-  } as unknown as MemoryUpkeepScheduleRepository;
+  });
 
   return {
     saved,
@@ -46,7 +47,7 @@ const waking = (
       consolidator,
       schedules,
       { inTransaction: <T>(work: () => Promise<T>) => work() },
-      { now: () => SOON, sleep: async () => undefined },
+      { now: () => SOON, sleep: () => Promise.resolve(undefined) },
     ),
   };
 };
@@ -70,8 +71,10 @@ describe('waking a sweep once its consolidation session settles', () => {
   });
 
   it('wakes nothing when someone saved the schedule meanwhile', async () => {
-    const { wake } = waking(ROUND, async () => {
-      throw new MemoryUpkeepScheduleVersionConflictError('team_1');
+    const { wake } = waking(ROUND, () => {
+      return Promise.reject(
+        new MemoryUpkeepScheduleVersionConflictError('team_1'),
+      );
     });
 
     await expect(wake.settled(SESSION)).resolves.toBeUndefined();

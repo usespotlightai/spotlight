@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef } from 'react';
+import { type ReactElement, useId, useMemo, useRef } from 'react';
 
 import { PipelineStageLabel } from '@/components/features/insights/shipping/PipelineStageLabel';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -34,14 +34,14 @@ export function PipelineFlowChart({
   focus,
   playing,
   label,
-}: PipelineFlowChartProps) {
+}: PipelineFlowChartProps): ReactElement {
   const gradientId = useId();
   const frame = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const width = useElementWidth(frame);
   const geometry = useMemo(() => geometryOf(stages, width), [stages, width]);
   const worstAt = stages.findIndex((stage) => stage.worst);
-  const worst = stages[worstAt];
+  const worst = stages.find((stage) => stage.worst);
   const stations = stages.filter((stage) => stage.station);
 
   usePipelineParticles({
@@ -118,10 +118,10 @@ export function PipelineFlowChart({
               />
             ))}
 
-            {[1, -1].map((side) => (
+            {([1, -1] as const).map((side) => (
               <path
                 key={side}
-                d={bandEdge(geometry, MIDDLE, side as 1 | -1)}
+                d={bandEdge(geometry, MIDDLE, side)}
                 fill="none"
                 stroke={`url(#${CSS.escape(gradientId)})`}
                 strokeWidth={1.25}
@@ -156,7 +156,7 @@ export function PipelineFlowChart({
           />
         ))}
 
-        {worst && worst.ms !== null && (
+        {worst !== undefined && worst.ms !== null && (
           <span
             className="-translate-x-1/2 absolute flex items-center gap-1.5 whitespace-nowrap rounded-full border border-destructive/50 bg-card px-2 py-0.5 text-xs text-destructive"
             style={{ left: geometry.centers[worstAt], top: MARKS_END - 2 }}

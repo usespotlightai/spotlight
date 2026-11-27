@@ -35,7 +35,7 @@ const integrationsCalledBy = (
       const integration =
         'call' in step ? Tool.of(step.call).integration : null;
 
-      return integration ? [integration] : [];
+      return integration !== null && integration !== '' ? [integration] : [];
     }),
   ),
 ];

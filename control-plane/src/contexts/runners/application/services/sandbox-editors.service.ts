@@ -75,6 +75,8 @@ export class SandboxEditors implements EditorSessionsPort {
   async stream(connection: EditorConnectionDto): Promise<Duplex | null> {
     const hostId = await this.sandboxes.readyOn(connection.sandboxId);
 
-    return hostId ? this.tunnels.open(hostId, connection.sandboxId) : null;
+    return hostId !== null && hostId !== ''
+      ? this.tunnels.open(hostId, connection.sandboxId)
+      : null;
   }
 }

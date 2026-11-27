@@ -1,4 +1,5 @@
 import { CornerDownRight } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import {
   HOST_COLUMNS,
@@ -30,7 +31,12 @@ type RunnerRowProps = {
   harnesses: readonly NamedHarness[] | undefined;
 };
 
-export function RunnerRow({ slug, runner, slots, harnesses }: RunnerRowProps) {
+export function RunnerRow({
+  slug,
+  runner,
+  slots,
+  harnesses,
+}: RunnerRowProps): ReactElement {
   const label = formatRun(runner.currentRun);
   const path = leasedRunPath(slug, runner.currentRun);
 
@@ -41,7 +47,7 @@ export function RunnerRow({ slug, runner, slots, harnesses }: RunnerRowProps) {
     >
       <span className="col-span-2 flex min-w-0 items-center gap-1.5 pl-1">
         <CornerDownRight aria-hidden className="size-3.5 shrink-0 text-faint" />
-        {path ? (
+        {path !== null && path !== '' ? (
           <TrailLink
             to={path}
             title={label}
@@ -67,7 +73,7 @@ export function RunnerRow({ slug, runner, slots, harnesses }: RunnerRowProps) {
       </span>
 
       <span className="flex min-w-0">
-        {runner.image && (
+        {runner.image !== null && runner.image !== '' && (
           <ImagePill image={runner.image} title={runner.image} />
         )}
       </span>

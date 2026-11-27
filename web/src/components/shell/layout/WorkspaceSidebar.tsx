@@ -1,4 +1,5 @@
 import { Inbox } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { SidebarSearch } from '@/components/shell/layout/SidebarSearch';
@@ -26,7 +27,7 @@ export function WorkspaceSidebar({
   slug,
   workspace,
   onSearch,
-}: WorkspaceSidebarProps) {
+}: WorkspaceSidebarProps): ReactElement {
   const { data: waiting } = useInbox(slug);
   const unseen = waiting?.filter((each) => each.unread) ?? [];
 

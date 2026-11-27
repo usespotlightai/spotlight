@@ -44,7 +44,7 @@ export class SetPersonToolRuleHandler implements CommandHandlerPort<
         .offered(await this.defined.ofTeam(teamId))
         .find((each) => each.integration.key.equals(integration));
 
-      if (!offered?.takesPersonRuleFor(tool)) {
+      if (offered?.takesPersonRuleFor(tool) !== true) {
         return false;
       }
 

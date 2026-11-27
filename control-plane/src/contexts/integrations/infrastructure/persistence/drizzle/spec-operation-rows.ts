@@ -4,7 +4,7 @@ import {
 } from '@integrations/domain/value-objects/spec-operation.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 
-interface OperationRow {
+export interface OperationRow {
   readonly upstream: string;
   readonly description: string;
   readonly inputs: readonly {
@@ -30,10 +30,7 @@ export const rowOf = (operation: SpecOperation): OperationRow => ({
   call: operation.call,
 });
 
-export const operationOf = (name: string, raw: unknown): SpecOperation => {
-  const row = raw as OperationRow;
-
-  return SpecOperation.of({
+export const operationOf = (name: string, row: OperationRow): SpecOperation => SpecOperation.of({
     name,
     upstream: row.upstream,
     description: row.description,
@@ -44,4 +41,3 @@ export const operationOf = (name: string, raw: unknown): SpecOperation => {
     writes: row.writes,
     call: row.call,
   });
-};

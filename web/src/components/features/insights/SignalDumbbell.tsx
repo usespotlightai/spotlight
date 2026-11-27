@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   type SignalReading,
   signalPlace,
@@ -10,7 +12,11 @@ const TRACK = 8;
 const at = (reading: SignalReading, value: number): string =>
   `${(signalPlace(reading, value) * 100).toFixed(2)}%`;
 
-export function SignalDumbbell({ reading }: { reading: SignalReading }) {
+export function SignalDumbbell({
+  reading,
+}: {
+  reading: SignalReading;
+}): ReactElement {
   const now = at(reading, reading.now);
   const before = reading.before === null ? null : at(reading, reading.before);
   const team = reading.team === null ? null : at(reading, reading.team);
@@ -46,7 +52,7 @@ export function SignalDumbbell({ reading }: { reading: SignalReading }) {
           strokeDasharray="2 2"
         />
 
-        {team && (
+        {team !== null && team !== '' && (
           <line
             x1={team}
             x2={team}
@@ -58,7 +64,7 @@ export function SignalDumbbell({ reading }: { reading: SignalReading }) {
           />
         )}
 
-        {before && (
+        {before !== null && before !== '' && (
           <>
             <line
               x1={before}

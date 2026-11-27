@@ -19,12 +19,13 @@ import {
   BY,
   candidateOf,
   concludedAll,
-  NOW,
   JUDGE,
+  NOW,
   runOf,
 } from '@replays/domain/replays.fake-spec';
 import { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -53,7 +54,7 @@ const concludedEvent = (replay: Replay) =>
 const concludedOwn = async () =>
   pairing().concluded(
     concludedEvent(
-      (await memory.replayRepository.find(ReplayId.of('replay_1'))) as Replay,
+      present(await memory.replayRepository.find(ReplayId.of('replay_1'))),
     ),
   );
 
@@ -95,15 +96,15 @@ describe('PairReplayEntries', () => {
       ReplayId.of('baseline_1'),
     );
 
-    await pairing().concluded(concludedEvent(baseline as Replay));
+    await pairing().concluded(concludedEvent(present(baseline)));
 
     expect(new Set(sideBySideOf())).toEqual(new Set(['replay_1']));
   });
 
   it('pairs, from a replay’s own concluded entry, only that replay, and none once it was stopped', async () => {
-    const replay = (await memory.replayRepository.find(
-      ReplayId.of('replay_1'),
-    )) as Replay;
+    const replay = present(
+      await memory.replayRepository.find(ReplayId.of('replay_1')),
+    );
 
     await pairing().concluded(concludedEvent(replay));
     expect(new Set(sideBySideOf())).toEqual(new Set(['replay_1']));
@@ -118,9 +119,9 @@ describe('PairReplayEntries', () => {
         pairwiseReferenceId: 'baseline_1',
       }).stop(NOW, BY, 'search-ended'),
     );
-    const baseline = (await memory.replayRepository.find(
-      ReplayId.of('baseline_1'),
-    )) as Replay;
+    const baseline = present(
+      await memory.replayRepository.find(ReplayId.of('baseline_1')),
+    );
 
     await pairing().concluded(concludedEvent(baseline));
     expect(sideBySideOf()).not.toContain('replay_2');
@@ -153,10 +154,12 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
   const wanted = async () => {
     await concludedOwn();
 
-    return memory.events.find(
-      (each): each is ReplaySideBySideJudgingRequested =>
-        each.kind === 'replay.side-by-side-judging-requested',
-    ) as ReplaySideBySideJudgingRequested;
+    return present(
+      memory.events.find(
+        (each): each is ReplaySideBySideJudgingRequested =>
+          each.kind === 'replay.side-by-side-judging-requested',
+      ),
+    );
   };
 
   const requesting = (judgings = new InMemorySideBySideJudgings()) =>
@@ -174,10 +177,10 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
     await requesting(judgings).requested(event);
 
     const [judging] = [...judgings.stored.values()];
-    expect(judging?.runId).toEqual(RunId.of('replay_1_run_0'));
-    expect(judging?.otherRunId).toEqual(RunId.of('baseline_1_run_0'));
-    expect(judging?.reference).toEqual(RunId.of('original_0'));
-    expect(proposed.judge && judging?.criteria.equals(proposed.judge)).toBe(
+    expect(judging.runId).toEqual(RunId.of('replay_1_run_0'));
+    expect(judging.otherRunId).toEqual(RunId.of('baseline_1_run_0'));
+    expect(judging.reference).toEqual(RunId.of('original_0'));
+    expect(proposed.judge && judging.criteria.equals(proposed.judge)).toBe(
       true,
     );
   });

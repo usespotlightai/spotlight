@@ -12,9 +12,10 @@ const TEAM = TeamId.of('team_1');
 const stored = (files: Readonly<Record<string, string>>) =>
   new TeamSkillReading(
     {
-      of: async () => [
-        { key: DefinedSkillKey.of('grafana'), files: SkillFiles.of(files) },
-      ],
+      of: () =>
+        Promise.resolve([
+          { key: DefinedSkillKey.of('grafana'), files: SkillFiles.of(files) },
+        ]),
     } satisfies TeamSkillFoldersPort,
     new SkillCompiler(),
   );
@@ -27,8 +28,8 @@ describe('TeamSkillReading', () => {
       'queries/p99.promql': 'rate(x[5m])',
     }).of(TEAM);
 
-    expect(folder?.skill.description).toBe('Look up dashboards');
-    expect(folder?.files.map((each) => each.path)).toEqual([
+    expect(folder.skill.description).toBe('Look up dashboards');
+    expect(folder.files.map((each) => each.path)).toEqual([
       'SKILL.md',
       'queries/p99.promql',
     ]);

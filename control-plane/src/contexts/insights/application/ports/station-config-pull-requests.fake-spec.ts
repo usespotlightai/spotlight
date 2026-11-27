@@ -23,7 +23,7 @@ export const stationConfigPullRequestsInMemory =
       opened: (pullRequest) => {
         stored.set(pullRequest.configPullRequestId, pullRequest);
       },
-      newestFor: async (station, fingerprints) => {
+      newestFor: (station, fingerprints) => {
         const newest = new Map<string, OpenedConfigPullRequest>();
 
         for (const each of stored.values()) {
@@ -40,8 +40,10 @@ export const stationConfigPullRequestsInMemory =
           }
         }
 
-        return new Map<string, PullRequestUrl>(
-          [...newest].map(([fingerprint, each]) => [fingerprint, each.url]),
+        return Promise.resolve(
+          new Map<string, PullRequestUrl>(
+            [...newest].map(([fingerprint, each]) => [fingerprint, each.url]),
+          ),
         );
       },
     };

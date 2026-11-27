@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { useParams } from 'react-router';
 
 import {
@@ -29,19 +29,27 @@ export function TeamSectionPage({
   bordered,
   crumbs = [],
   children,
-}: TeamSectionPageProps) {
+}: TeamSectionPageProps): ReactElement {
   const { slug, teamId } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
   const base: BreadcrumbSegment[] = [
-    ...(team && slug && teamId
+    ...(team &&
+    slug !== undefined &&
+    slug !== '' &&
+    teamId !== undefined &&
+    teamId !== ''
       ? [{ label: team.name, avatar: team.name, to: teamPath(slug, teamId) }]
       : []),
     {
       label: TEAM_SECTIONS[section].label,
       to:
-        crumbs.length > 0 && slug && teamId
+        crumbs.length > 0 &&
+        slug !== undefined &&
+        slug !== '' &&
+        teamId !== undefined &&
+        teamId !== ''
           ? teamSectionPath(slug, teamId, section)
           : undefined,
     },

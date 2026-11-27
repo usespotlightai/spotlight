@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { TeamWelcomesPort } from '@work/application/ports/team-welcomes.port';
 import { teamWelcome } from '@work/infrastructure/persistence/drizzle/schemas/team-welcome.schema';
@@ -10,10 +11,12 @@ export class DrizzleTeamWelcomes implements TeamWelcomesPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async welcomed(teamId: TeamId): Promise<boolean> {
-    const [found] = await this.context.db
-      .select({ teamId: teamWelcome.teamId })
-      .from(teamWelcome)
-      .where(eq(teamWelcome.teamId, teamId.value));
+    const found = firstOf(
+      await this.context.db
+        .select({ teamId: teamWelcome.teamId })
+        .from(teamWelcome)
+        .where(eq(teamWelcome.teamId, teamId.value)),
+    );
 
     return found !== undefined;
   }

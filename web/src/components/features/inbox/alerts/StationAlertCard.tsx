@@ -1,4 +1,5 @@
 import { BellRing } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { AlertChart } from '@/components/features/inbox/alerts/AlertChart';
 import { AlertChartEmpty } from '@/components/features/inbox/alerts/AlertChartEmpty';
@@ -34,7 +35,7 @@ export function StationAlertCard({
   slug,
   teamId,
   alertId,
-}: StationAlertCardProps) {
+}: StationAlertCardProps): ReactElement {
   const alert = useStationAlert(teamId, alertId);
   const names = stationNamesOf(useLines(teamId).data);
 
@@ -79,7 +80,7 @@ export function StationAlertCard({
         <p className="break-words text-foreground text-sm">
           {formatFiring(firing)} {formatLimit(firing)}
         </p>
-        {firing.resolvedAt && (
+        {firing.resolvedAt !== null && firing.resolvedAt !== '' && (
           <p className="text-muted-foreground text-sm">
             {formatResolved(firing, formatDay(firing.resolvedAt.slice(0, 10)))}
           </p>

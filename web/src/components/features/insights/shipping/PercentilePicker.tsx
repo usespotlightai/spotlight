@@ -1,4 +1,5 @@
 import { ChevronDown } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import {
   DropdownMenu,
@@ -12,13 +13,17 @@ import {
   type Percentile,
   percentileName,
 } from '@/lib/insights-shipping';
+import { isOneOf } from '@/lib/one-of';
 
 type PercentilePickerProps = {
   value: Percentile;
   onChange: (percentile: Percentile) => void;
 };
 
-export function PercentilePicker({ value, onChange }: PercentilePickerProps) {
+export function PercentilePicker({
+  value,
+  onChange,
+}: PercentilePickerProps): ReactElement {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -31,7 +36,11 @@ export function PercentilePicker({ value, onChange }: PercentilePickerProps) {
       <DropdownMenuContent align="end" sideOffset={4} className="min-w-32">
         <DropdownMenuRadioGroup
           value={value}
-          onValueChange={(next) => onChange(next as Percentile)}
+          onValueChange={(next) => {
+            if (isOneOf(PERCENTILES, next)) {
+              onChange(next);
+            }
+          }}
         >
           {PERCENTILES.map((percentile) => (
             <DropdownMenuRadioItem

@@ -37,6 +37,9 @@ import { WorkspaceSecretResponseDto } from '@secrets/presentation/http/dto/works
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
+const valueIn = (body: SetSecretValueRequestDto | undefined): unknown =>
+  body?.value;
+
 @ApiTags('workspaces')
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: 'No valid session or token' })
@@ -99,7 +102,7 @@ export class WorkspaceSecretController {
     @Body() body: SetSecretValueRequestDto,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    const value: unknown = body?.value;
+    const value = valueIn(body);
 
     if (typeof value !== 'string') {
       throw new UnprocessableEntityException(

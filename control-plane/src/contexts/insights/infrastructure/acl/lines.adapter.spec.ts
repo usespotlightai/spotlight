@@ -6,6 +6,7 @@ import type {
 } from '@lines/application/contracts/line-view.contract';
 import type { LinesPort } from '@lines/application/ports/lines.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -24,14 +25,14 @@ const lineWith = (
   alerts: readonly StationAlertView[],
   repositories: readonly string[] = [],
 ): LineView =>
-  ({
+  partial<LineView>({
     id: 'line_1',
     repositories: repositories.map((repository) => ({
       repository,
       setup: null,
     })),
-    stations: [{ id: 'station_1', alerts } as unknown as StationView],
-  }) as unknown as LineView;
+    stations: [partial<StationView>({ id: 'station_1', alerts })],
+  });
 
 const linesWith = (lines: readonly LineView[]) => {
   const warned: string[] = [];
@@ -43,13 +44,15 @@ const linesWith = (lines: readonly LineView[]) => {
     },
     error: () => undefined,
   };
-  const port = {
-    findByStation: async (stationId: { value: string }) =>
-      lines.find((line) =>
-        line.stations.some((each) => each.id === stationId.value),
-      ) ?? null,
-    ofTeam: async () => lines,
-  } as unknown as LinesPort;
+  const port = partial<LinesPort>({
+    findByStation: (stationId: { value: string }) =>
+      Promise.resolve(
+        lines.find((line) =>
+          line.stations.some((each) => each.id === stationId.value),
+        ) ?? null,
+      ),
+    ofTeam: () => Promise.resolve(lines),
+  });
 
   return { adapter: new Lines(port, logger), warned };
 };

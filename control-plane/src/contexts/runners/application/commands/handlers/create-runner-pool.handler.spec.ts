@@ -11,6 +11,7 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -18,45 +19,50 @@ import { describe, expect, it, vi } from 'vitest';
 const creating = (key: string) => {
   const added: RunnerPool[] = [];
   const handler = new CreateRunnerPoolHandler(
-    {
-      permissionsIn: vi.fn(async () => ({
-        workspaceId: WorkspaceId.of('ws_1'),
-        scopes: new Set(['runners']),
-      })),
-    } as unknown as WorkspaceAccessPort,
-    {
+    partial<WorkspaceAccessPort>({
+      permissionsIn: vi.fn(() =>
+        Promise.resolve({
+          workspaceId: WorkspaceId.of('ws_1'),
+          slug: 'acme',
+          plans: false,
+          configures: false,
+          scopes: new Set(['runners'] as const),
+          isAdmin: false,
+        }),
+      ),
+    }),
+    partial<RunnerDefinitionsPort>({
       pool: () => ({
         ok: true,
         key: PoolKey.of(key),
         labels: RunnerLabels.none(),
         maxRuns: null,
         access: { mode: 'pull', token: null, tokenVersion: null },
+        workingCopies: null,
       }),
-    } as unknown as RunnerDefinitionsPort,
-    {
-      add: vi.fn(async (pool: RunnerPool) => {
+    }),
+    partial<RunnerPoolRepository>({
+      add: vi.fn((pool: RunnerPool) => {
         added.push(pool);
+        return Promise.resolve();
       }),
-    } as unknown as RunnerPoolRepository,
-    {
-      take: vi.fn(async () => undefined),
-      holderOf: vi.fn(async () => null),
-    } as unknown as UsedTokensPort,
-    {} as ProvisionSecretsPort,
-    {} as EgressRepository,
+    }),
+    partial<UsedTokensPort>({}),
+    partial<ProvisionSecretsPort>({}),
+    partial<EgressRepository>({}),
     null,
     {
-      reserve: vi.fn(async () => ({ kind: 'new' as const })),
-      recordCreated: vi.fn(async () => undefined),
+      reserve: vi.fn(() => Promise.resolve({ kind: 'new' as const })),
+      recordCreated: vi.fn(() => Promise.resolve(undefined)),
     } satisfies IdempotentCreatesPort,
     { generate: () => 'pool_1' },
     {
       issue: () => ({ token: 'pool-token', hash: 'a'.repeat(64) }),
       hash: () => 'a'.repeat(64),
     },
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
   );
 
   return {

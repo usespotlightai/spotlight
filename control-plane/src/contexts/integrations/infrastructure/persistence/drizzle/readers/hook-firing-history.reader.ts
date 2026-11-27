@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
 import type { HookFiringRepeats } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
@@ -14,7 +15,8 @@ export class DrizzleHookFiringHistory implements HookFiringHistoryPort {
 
   async recentRepeats(repeats: HookFiringRepeats): Promise<number> {
     const { before } = repeats;
-    const [row] = await this.context.db
+    const row = firstOf(
+      await this.context.db
       .select({ repeats: count() })
       .from(hookFiring)
       .where(
@@ -31,7 +33,8 @@ export class DrizzleHookFiringHistory implements HookFiringHistoryPort {
           ),
           sql`${hookFiring.link}->>'key' = ${repeats.link.key}`,
         ),
-      );
+      ),
+    );
 
     return row?.repeats ?? 0;
   }
@@ -40,7 +43,7 @@ export class DrizzleHookFiringHistory implements HookFiringHistoryPort {
     workspaceId: WorkspaceId,
     firingId: HookFiringId,
   ): Promise<CausalChain | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select({ cause: hookFiring.cause, link: hookFiring.link })
       .from(hookFiring)
       .where(
@@ -48,7 +51,7 @@ export class DrizzleHookFiringHistory implements HookFiringHistoryPort {
           eq(hookFiring.id, firingId.value),
           eq(hookFiring.workspaceId, workspaceId.value),
         ),
-      );
+      ));
 
     return row ? CausalChain.read(row.cause).append(row.link) : null;
   }

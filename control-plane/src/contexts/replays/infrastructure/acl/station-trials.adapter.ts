@@ -26,8 +26,8 @@ export class StationTrials implements StationTrialsPort {
     const followUps = await this.trials.followUpsOf(original.value);
 
     return [
-      ...(followUps?.accepted ? (['accepted'] as const) : []),
-      ...(followUps?.sentBack ? (['sent-back'] as const) : []),
+      ...(followUps?.accepted === true ? (['accepted'] as const) : []),
+      ...(followUps?.sentBack === true ? (['sent-back'] as const) : []),
     ];
   }
 
@@ -55,7 +55,7 @@ export class StationTrials implements StationTrialsPort {
       trial: new WorkTrialRun(
         ordering.order,
         ordering.checkouts,
-        ordering.fingerprint
+        ordering.fingerprint !== null && ordering.fingerprint !== ''
           ? StationFingerprint.of(ordering.fingerprint)
           : null,
         MovesOnWords.of(ordering.movesOnAfter),

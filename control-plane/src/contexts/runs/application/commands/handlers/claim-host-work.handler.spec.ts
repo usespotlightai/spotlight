@@ -23,13 +23,18 @@ import { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import { LongPoll } from '@runs/application/services/long-poll';
 import type { RunClaims } from '@runs/application/services/run-claims.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import {
+  claimer,
+  orderedFor,
+  workingCopyKeyOf,
+} from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { RunnerSource } from '@runs/domain/value-objects/runner-source.vo';
 import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
@@ -103,8 +108,9 @@ const pulling = (
   let now = NOW;
   const clock = {
     now: () => now,
-    sleep: async (ms: number) => {
+    sleep: (ms: number) => {
       now = new Date(now.getTime() + ms);
+      return Promise.resolve();
     },
   };
   const answers: StartedRunner[] = [
@@ -116,114 +122,134 @@ const pulling = (
     },
   ].flat();
   const runners = {
-    start: vi.fn(
-      async (): Promise<StartedRunner> =>
-        (answers.length > 1 ? answers.shift() : answers[0]) as StartedRunner,
-    ),
-    claim: vi.fn(async () => {
-      if (over.tookFails) {
-        throw new Error('pooled_1 is spent');
+    start: vi.fn((): Promise<StartedRunner> => {
+      const answer = answers.length > 1 ? answers.shift() : answers[0];
+
+      return answer === undefined
+        ? Promise.reject(new Error('no runner left to start'))
+        : Promise.resolve(answer);
+    }),
+    claim: vi.fn(() => {
+      if (over.tookFails === true) {
+        return Promise.reject(new Error('pooled_1 is spent'));
       }
+      return Promise.resolve();
     }),
     release: vi.fn(async () => {}),
   };
-  const claimNext = vi.fn(async () =>
-    over.run === undefined ? null : over.run,
+  const claimNext = vi.fn(() =>
+    Promise.resolve(over.run === undefined ? null : over.run),
   );
-  const claimCheck = vi.fn(async () => over.check ?? null);
-  const mayStart = vi.fn(
-    async (): Promise<RunStart> => over.starts ?? 'starts',
+  const claimCheck = vi.fn(() => Promise.resolve(over.check ?? null));
+  const mayStart = vi.fn((): Promise<RunStart> =>
+    Promise.resolve(over.starts ?? 'starts'),
   );
   const authenticator = {
-    authenticate: vi.fn(async (credential: HostCredentials) =>
-      credential.bearer !== 'pool-token'
-        ? null
-        : {
-            source: { kind: 'pool' as const, id: 'pool_1' },
-            workspaceId: WorkspaceId.of('ws_1'),
-            workingCopies: null,
-          },
+    authenticate: vi.fn((credential: HostCredentials) =>
+      Promise.resolve(
+        credential.bearer !== 'pool-token'
+          ? null
+          : {
+              source: { kind: 'pool' as const, id: 'pool_1' },
+              workspaceId: WorkspaceId.of('ws_1'),
+              workingCopies: null,
+            },
+      ),
     ),
   };
   const heartbeats = {
-    claimantOf: async () => null,
-    registeredClaimantOf: vi.fn(async () => ({
-      workspaceId: WorkspaceId.of('ws_1'),
-      harnesses: [HarnessId.of('claude-code')],
-      offer: RunnerOffer.of(['linux']),
-      claims: 'reserved' as const,
-      source: { kind: 'trust' as const, key: 'ci', platform: false },
-    })),
-  };
-  const saved: Run[] = [];
-  const runs = {
-    newestWithKey: vi.fn(async () => over.newest ?? null),
-    queuedWithKey: vi.fn(async () => over.queuedForKey ?? []),
-    queuedFirstRuns: vi.fn(
-      async (
-        _in: WorkspaceId,
-        page: { readonly avoiding: readonly WorkingCopyKey[] },
-      ) => ({
-        waiting: (over.firstRuns ?? [])
-          .filter(
-            (each) =>
-              !page.avoiding.some(
-                (key) => each.workingCopyKey?.equals(key) ?? false,
-              ),
-          )
-          .slice(0, over.firstRunsPerPage),
-        leasedRequesters: [],
+    claimantOf: () => Promise.resolve(null),
+    registeredClaimantOf: vi.fn(() =>
+      Promise.resolve({
+        workspaceId: WorkspaceId.of('ws_1'),
+        harnesses: [HarnessId.of('claude-code')],
+        offer: RunnerOffer.of(['linux']),
+        claims: 'reserved' as const,
+        source: { kind: 'trust' as const, key: 'ci', platform: false },
       }),
     ),
-    findById: vi.fn(async () => over.run ?? null),
-    save: vi.fn(async (run: Run) => {
+  };
+  const saved: Run[] = [];
+  const runs = partial<RunRepository>({
+    newestWithKey: vi.fn(() => Promise.resolve(over.newest ?? null)),
+    queuedWithKey: vi.fn(() => Promise.resolve(over.queuedForKey ?? [])),
+    queuedFirstRuns: vi.fn(
+      (
+        _in: WorkspaceId,
+        page: { readonly avoiding: readonly WorkingCopyKey[] },
+      ) =>
+        Promise.resolve({
+          waiting: (over.firstRuns ?? [])
+            .filter(
+              (each) =>
+                !page.avoiding.some(
+                  (key) => each.workingCopyKey?.equals(key) ?? false,
+                ),
+            )
+            .slice(0, over.firstRunsPerPage),
+          leasedRequesters: [],
+        }),
+    ),
+    findById: vi.fn(() => Promise.resolve(over.run ?? null)),
+    save: vi.fn((run: Run) => {
       saved.push(run);
+      return Promise.resolve();
     }),
-  } as unknown as RunRepository;
+  });
   const unclaim = vi.fn(async () => {});
   const checks = {
     claimNext: claimCheck,
-    claimReserved: vi.fn(async () => null),
+    claimReserved: vi.fn(() => Promise.resolve(null)),
     unclaim,
-    renewLease: vi.fn(async () => 'renewed' as const),
-    isLeasedBy: vi.fn(async () => false),
-    waitingPlacements: vi.fn(async () => []),
+    renewLease: vi.fn(() => Promise.resolve('renewed' as const)),
+    isLeasedBy: vi.fn(() => Promise.resolve(false)),
+    waitingPlacements: vi.fn(() => Promise.resolve([])),
   };
   const sandboxes = {
-    holdForRun: vi.fn(async () => ({
-      id: 'sandbox_1',
-      token: 'sandbox-token',
-    })),
-    takingRuns: vi.fn(async () => over.taking ?? null),
-    holdInSandbox: vi.fn(async () => over.holds ?? true),
-    liveKeysIn: vi.fn(async () => over.liveKeys ?? []),
+    holdForRun: vi.fn(() =>
+      Promise.resolve({
+        id: 'sandbox_1',
+        token: 'sandbox-token',
+      }),
+    ),
+    takingRuns: vi.fn(() => Promise.resolve(over.taking ?? null)),
+    holdInSandbox: vi.fn(() => Promise.resolve(over.holds ?? true)),
+    liveKeysIn: vi.fn(() => Promise.resolve(over.liveKeys ?? [])),
     releaseRun: vi.fn(async () => {}),
     retireRun: vi.fn(async () => {}),
-    open: vi.fn(async () => ({ id: 'sandbox_1', state: 'starting' as const })),
-    requestedIn: vi.fn(async () => over.requested ?? []),
-    startRequested: vi.fn(async (id: string) =>
-      over.startsRequested === undefined
-        ? { id, token: 'requested-token' }
-        : over.startsRequested,
+    open: vi.fn(() =>
+      Promise.resolve({ id: 'sandbox_1', state: 'starting' as const }),
+    ),
+    requestedIn: vi.fn(() => Promise.resolve(over.requested ?? [])),
+    startRequested: vi.fn((id: string) =>
+      Promise.resolve(
+        over.startsRequested === undefined
+          ? { id, token: 'requested-token' }
+          : over.startsRequested,
+      ),
     ),
     drain: vi.fn(async () => {}),
-    requestedWarmIn: vi.fn(async () => over.requestedWarm ?? []),
-    startWarm: vi.fn(async () => over.startsWarm ?? null),
-    readyWarmIn: vi.fn(async () => over.readyWarm ?? []),
-    adoptForRun: vi.fn(async () => over.adopts ?? true),
-    authenticate: vi.fn(async () => null),
-    holdArchive: vi.fn(async () => true),
+    requestedWarmIn: vi.fn(() => Promise.resolve(over.requestedWarm ?? [])),
+    startWarm: vi.fn(() => Promise.resolve(over.startsWarm ?? null)),
+    readyWarmIn: vi.fn(() => Promise.resolve(over.readyWarm ?? [])),
+    adoptForRun: vi.fn(() => Promise.resolve(over.adopts ?? true)),
+    authenticate: vi.fn(() => Promise.resolve(null)),
+    holdArchive: vi.fn(() => Promise.resolve(true)),
     releaseArchive: vi.fn(async () => {}),
-    renewArchive: vi.fn(async () => true),
-    archivedAttemptOf: vi.fn(async () => null),
+    renewArchive: vi.fn(() => Promise.resolve(true)),
+    archivedAttemptOf: vi.fn(() => Promise.resolve(null)),
   } satisfies SandboxesPort;
-  const archives = {
+  const archives = partial<WorkingCopyArchiveRepository>({
     completedKeysAmong: vi.fn(
-      async (_: WorkspaceId, keys: readonly WorkingCopyKey[]) =>
-        keys.filter((key) => over.archived?.some((each) => each.equals(key))),
+      (_: WorkspaceId, keys: readonly WorkingCopyKey[]) =>
+        Promise.resolve(
+          keys.filter(
+            (key) => over.archived?.some((each) => each.equals(key)) === true,
+          ),
+        ),
     ),
-  } as unknown as WorkingCopyArchiveRepository;
-  const waitsFor = vi.fn(async () => over.waits ?? false);
+  });
+  const waitsFor = vi.fn(() => Promise.resolve(over.waits ?? false));
   const drained: boolean[] = [];
   const roomForWarmOn = vi.fn(
     (_: string, __: Date) => over.roomForWarm ?? true,
@@ -242,14 +268,14 @@ const pulling = (
   } satisfies WarmSlotsPort;
   const handler = new ClaimHostWorkHandler(
     authenticator,
-    runners as unknown as RunnersPort,
+    partial<RunnersPort>(runners),
     heartbeats,
     runs,
-    { next: claimNext, waitsFor } as unknown as RunClaims,
+    partial<RunClaims>({ next: claimNext, waitsFor }),
     checks,
     clock,
-    { mayStart: mayStart } as unknown as ClaimGate,
-    new ClaimsTaken(runs, checks, runners as unknown as RunnersPort, clock, {
+    partial<ClaimGate>({ mayStart: mayStart }),
+    new ClaimsTaken(runs, checks, partial<RunnersPort>(runners), clock, {
       debug: () => {},
       info: () => {},
       warn: () => {},
@@ -887,7 +913,7 @@ describe('ClaimHostWorkHandler', () => {
           { id: 'sandbox_w', line: 'line_1', fingerprint: SETUP_OF_LINE_1 },
         ],
         firstRuns: [firstRun()],
-        archived: [firstRun().workingCopyKey as WorkingCopyKey],
+        archived: [workingCopyKeyOf(firstRun())],
       });
 
       await handler.execute(pull());
@@ -907,7 +933,7 @@ describe('ClaimHostWorkHandler', () => {
         ],
         firstRuns: [archivedRun, firstRun()],
         firstRunsPerPage: 1,
-        archived: [archivedRun.workingCopyKey as WorkingCopyKey],
+        archived: [workingCopyKeyOf(archivedRun)],
       });
 
       await handler.execute(pull());
@@ -931,9 +957,7 @@ describe('ClaimHostWorkHandler', () => {
         ],
         firstRuns: [...archivedRuns, firstRun()],
         firstRunsPerPage: 1,
-        archived: archivedRuns.map(
-          (each) => each.workingCopyKey as WorkingCopyKey,
-        ),
+        archived: archivedRuns.map((each) => workingCopyKeyOf(each)),
       });
 
       await handler.execute(pull());

@@ -10,12 +10,18 @@ import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { z } from 'zod';
 
 const API = 'https://api.github.com';
 
 const RENEW_BEFORE_MS = 60_000;
 
 type Minted = { token: string; expiresAt: number };
+
+const MINTED_TOKEN = z.object({
+  token: z.string().optional(),
+  expires_at: z.string().optional(),
+});
 
 @Injectable()
 export class GitHubAppAccess implements RepositoryAccessPort {
@@ -66,12 +72,16 @@ export class GitHubAppAccess implements RepositoryAccessPort {
       );
     }
 
-    const minted = (await response.json()) as {
-      token?: string;
-      expires_at?: string;
-    };
+    const answer = MINTED_TOKEN.safeParse(await response.json());
+    const token = answer.data?.token;
+    const expiresAt = answer.data?.expires_at;
 
-    if (!minted.token || !minted.expires_at) {
+    if (
+      token === undefined ||
+      token === '' ||
+      expiresAt === undefined ||
+      expiresAt === ''
+    ) {
       throw new UpstreamError(
         'GitHub would not mint an installation token',
         'The answer had no token',
@@ -79,8 +89,8 @@ export class GitHubAppAccess implements RepositoryAccessPort {
     }
 
     return {
-      token: minted.token,
-      expiresAt: new Date(minted.expires_at).getTime(),
+      token,
+      expiresAt: new Date(expiresAt).getTime(),
     };
   }
 }

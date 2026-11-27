@@ -4,7 +4,10 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 export const CatalogProblems = {
-  invalid(kind: CatalogKind, error: InvalidCatalogEntryError) {
+  invalid(
+    kind: CatalogKind,
+    error: InvalidCatalogEntryError,
+  ): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: `catalog/${kind}s`,
       at: FieldPath.of([error.field]),

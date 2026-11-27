@@ -65,15 +65,17 @@ beforeAll(async () => {
   journal = new DrizzleRunJournal(new DrizzleContext(db), new SystemClock());
   events = new DrizzleRunJournalEntryReader(db);
   runUsages = new DrizzleRunUsages(new DrizzleContext(db), {
-    dispatch: async (events) => {
+    dispatch: (events) => {
       usageRecorded.push(...events);
+
+      return Promise.resolve();
     },
   });
   usageFacts = new DrizzleRunUsagesReader(new DrizzleContext(db));
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const hooks = (...messages: string[]) =>
@@ -172,8 +174,8 @@ describe('journalling a run that was tried again', () => {
     const [read, ...more] = await new DrizzleRunJournals(db).ofRuns([runId]);
 
     expect(more).toEqual([]);
-    expect(read?.attempt).toBe(2);
-    expect(read?.steps.map((step) => step.text)).toEqual(['two-a']);
+    expect(read.attempt).toBe(2);
+    expect(read.steps.map((step) => step.text)).toEqual(['two-a']);
   });
 
   it('records the usage of the attempt that finished, and again when a later one does', async () => {
@@ -453,14 +455,19 @@ describe('telling when the agent last wrote', () => {
     session?: string,
   ) => ({
     type: 'message' as const,
-    data: { id, role, text, ...(session ? { session } : {}) },
+    data: {
+      id,
+      role,
+      text,
+      ...(session !== undefined && session !== '' ? { session } : {}),
+    },
   });
 
   const received = () => {
     let now = minute(0);
     const clock = {
       now: () => now,
-      sleep: async () => undefined,
+      sleep: () => Promise.resolve(undefined),
     } satisfies ClockPort;
     const receiving = new DrizzleRunJournal(new DrizzleContext(db), clock);
 

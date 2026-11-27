@@ -17,10 +17,10 @@ const DEVICE_CODE_PATH = '/device/code';
 
 const fieldOf = (body: unknown, field: string): unknown =>
   typeof body === 'object' && body !== null
-    ? (body as Record<string, unknown>)[field]
+    ? Reflect.get(body, field)
     : undefined;
 
-const refusesClientChosenFields = createAuthMiddleware(async (ctx) => {
+const refusesClientChosenFields = createAuthMiddleware((ctx) => {
   const body: unknown = ctx.body;
 
   if (
@@ -28,18 +28,17 @@ const refusesClientChosenFields = createAuthMiddleware(async (ctx) => {
     (fieldOf(body, 'user_id') !== undefined ||
       fieldOf(body, 'scope') !== undefined)
   ) {
-    throw new APIError('BAD_REQUEST', {
-      error: 'invalid_request',
-      error_description: 'A device code takes only client_id.',
-    });
+    return Promise.reject(
+      new APIError('BAD_REQUEST', {
+        error: 'invalid_request',
+        error_description: 'A device code takes only client_id.',
+      }),
+    );
   }
+  return Promise.resolve();
 });
 
-export const createAuth = (
-  env: Env,
-  pool: Pool,
-  rateLimit: RateLimitStorage | null,
-) =>
+const authFor = (env: Env, pool: Pool, rateLimit: RateLimitStorage | null) =>
   betterAuth({
     database: drizzleAdapter(createRelationalDatabase(pool, schema), {
       provider: 'pg',
@@ -69,4 +68,6 @@ export const createAuth = (
     ],
   });
 
-export type AppAuth = ReturnType<typeof createAuth>;
+export type AppAuth = ReturnType<typeof authFor>;
+
+export const createAuth: typeof authFor = authFor;

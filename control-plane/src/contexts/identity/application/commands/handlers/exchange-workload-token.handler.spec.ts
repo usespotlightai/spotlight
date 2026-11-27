@@ -13,6 +13,7 @@ import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
@@ -57,31 +58,34 @@ const exchanging = (
     adding?: Error;
   } = {},
 ) => {
-  const add = vi.fn(async () => {
+  const add = vi.fn(() => {
     if (over.adding) {
-      throw over.adding;
+      return Promise.reject(over.adding);
     }
+    return Promise.resolve();
   });
   const recorder = scopeRecorder();
   const verifiedIn: (string | null)[] = [];
-  const verify = vi.fn(async () => {
+  const verify = vi.fn(() => {
     verifiedIn.push(recorder.current());
-    return over.claims === undefined ? CLAIMS : over.claims;
+    return Promise.resolve(over.claims === undefined ? CLAIMS : over.claims);
   });
   const handler = new ExchangeWorkloadTokenHandler(
-    {
-      find: vi.fn(async () => (over.trust === undefined ? TRUST : over.trust)),
-      findLocked: vi.fn(async () =>
-        over.locked === undefined ? TRUST : over.locked,
+    partial<OidcTrustRepository>({
+      find: vi.fn(() =>
+        Promise.resolve(over.trust === undefined ? TRUST : over.trust),
       ),
-    } as unknown as OidcTrustRepository,
-    { add } as unknown as WorkspaceTokenRepository,
+      findLocked: vi.fn(() =>
+        Promise.resolve(over.locked === undefined ? TRUST : over.locked),
+      ),
+    }),
+    partial<WorkspaceTokenRepository>({ add }),
     { verify } satisfies WorkloadTokensPort,
     recorder.scope,
     { generate: () => 'token_1' },
-    {
+    partial<TokenIssuer>({
       issue: () => ({ token: 'issued-token', hash: 'c'.repeat(64) }),
-    } as unknown as TokenIssuer,
+    }),
     { now: () => NOW, sleep: async () => {} },
     { inTransaction: (work) => work() },
   );

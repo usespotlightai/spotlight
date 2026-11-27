@@ -3,7 +3,7 @@ import {
   SortableContext,
 } from '@dnd-kit/sortable';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 
 import { AppTabItem } from '@/components/shell/tabs/AppTabItem';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,10 @@ import { desktopApp, framesWindow } from '@/lib/desktop';
 import { SPRING } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
-const STRIP_SPACING = {
+const STRIP_SPACING: CSSProperties & Record<`--${string}`, string> = {
   '--tab-gap': 'calc(var(--spacing) * 1.5)',
   '--history-button': 'calc(var(--spacing) * 7)',
-} as CSSProperties;
+};
 
 type AppTabStripProps = {
   tabs: readonly AppTab[];
@@ -42,7 +42,7 @@ export function AppTabStrip({
   onOpen,
   onBack,
   onForward,
-}: AppTabStripProps) {
+}: AppTabStripProps): ReactElement {
   const collapsed = useSidebarCollapsedSetting();
   const hangs = framesWindow() && !collapsed;
 

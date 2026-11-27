@@ -23,11 +23,24 @@ export function useStationTrail({
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
   return [
-    ...(team && slug ? [teamCrumb(slug, team)] : []),
-    ...(line && slug && teamId
+    ...(team && slug !== undefined && slug !== ''
+      ? [teamCrumb(slug, team)]
+      : []),
+    ...(line &&
+    slug !== undefined &&
+    slug !== '' &&
+    teamId !== undefined &&
+    teamId !== ''
       ? [{ label: line.name, to: linePath(slug, teamId, line.id) }]
       : []),
-    ...(slug && teamId && lineId && stationId
+    ...(slug !== undefined &&
+    slug !== '' &&
+    teamId !== undefined &&
+    teamId !== '' &&
+    lineId !== undefined &&
+    lineId !== '' &&
+    stationId !== undefined &&
+    stationId !== ''
       ? [
           {
             label: station?.name ?? 'Removed station',

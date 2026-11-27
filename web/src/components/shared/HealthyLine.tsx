@@ -1,5 +1,5 @@
 import { CircleCheck } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 export function HealthyLine({
   title = 'All signals are healthy',
@@ -9,7 +9,7 @@ export function HealthyLine({
   title?: string;
   action?: ReactNode;
   children: ReactNode;
-}) {
+}): ReactElement {
   return (
     <div
       data-slot="signals-healthy"

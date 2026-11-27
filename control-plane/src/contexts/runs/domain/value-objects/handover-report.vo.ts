@@ -1,5 +1,6 @@
 import type { Handover } from '@runs/domain/value-objects/handover.vo';
 import type { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 
 export class HandoverReport {
@@ -36,7 +37,7 @@ export class HandoverReport {
       same(this.session, other.session) &&
       this.heads.length === other.heads.length &&
       this.heads.every((head, index) => {
-        const theirs = other.heads[index];
+        const theirs = itemAt(other.heads, index);
 
         return theirs !== undefined && head.equals(theirs);
       })

@@ -21,5 +21,8 @@ export const firingOf = (row: AlertRow): AlertFiring =>
     firedAt: row.firedAt,
     resolvedAt: row.resolvedAt,
     clearRuns: row.clearRuns,
-    lastSeen: row.lastSeenRunId ? RunId.of(row.lastSeenRunId) : null,
+    lastSeen:
+      row.lastSeenRunId !== null && row.lastSeenRunId !== ''
+        ? RunId.of(row.lastSeenRunId)
+        : null,
   });

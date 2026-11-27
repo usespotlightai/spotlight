@@ -1,6 +1,7 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -202,52 +203,56 @@ let saved: Task | undefined;
 const tasks = (found: Task) =>
   ({
     add: vi.fn(),
-    save: vi.fn(async (each: Task) => {
+    save: vi.fn((each: Task) => {
       saved = each;
+
+      return Promise.resolve();
     }),
-    find: vi.fn(async () => found),
+    find: vi.fn(() => Promise.resolve(found)),
     remove: vi.fn(),
-    placementsAt: vi.fn(async () => []),
-    findByCorrelation: vi.fn(async () => (found ? [found] : [])),
-    owningPullRequest: vi.fn(async () => null),
-    reviewingPullRequest: vi.fn(async () => null),
-    holdingMark: vi.fn(async () => []),
-    settingUpFor: vi.fn(async () => null),
-    settingUpIn: vi.fn(async () => []),
-    settingUp: vi.fn(async () => []),
-    withTurnAnsweredBetween: vi.fn(async () => []),
-    awaitingConnection: vi.fn(async () => []),
-    startingFrom: vi.fn(async () => []),
-    onBranch: vi.fn(async () => null),
+    placementsAt: vi.fn(() => Promise.resolve([])),
+    findByCorrelation: vi.fn(() => Promise.resolve([found])),
+    owningPullRequest: vi.fn(() => Promise.resolve(null)),
+    reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
+    holdingMark: vi.fn(() => Promise.resolve([])),
+    settingUpFor: vi.fn(() => Promise.resolve(null)),
+    settingUpIn: vi.fn(() => Promise.resolve([])),
+    settingUp: vi.fn(() => Promise.resolve([])),
+    withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
+    awaitingConnection: vi.fn(() => Promise.resolve([])),
+    startingFrom: vi.fn(() => Promise.resolve([])),
+    onBranch: vi.fn(() => Promise.resolve(null)),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const lines = () =>
   ({
-    find: vi.fn(async () => line()),
-    findByStation: vi.fn(async () => line()),
-    ofWorkspace: vi.fn(async () => []),
-    ofTeam: vi.fn(async () => []),
+    find: vi.fn(() => Promise.resolve(line())),
+    findByStation: vi.fn(() => Promise.resolve(line())),
+    ofWorkspace: vi.fn(() => Promise.resolve([])),
+    ofTeam: vi.fn(() => Promise.resolve([])),
     candidate: vi.fn(),
   }) satisfies LineMapsPort;
 
 const dispatch: TaskDispatching = {
-  runIdFor: async () => RunId.of('run_2'),
+  runIdFor: () => Promise.resolve(RunId.of('run_2')),
 };
 
 const store = {
   grant: vi.fn(),
-  received: vi.fn(async (_at, ids: readonly AttachmentId[]) =>
-    ids.map((id) =>
-      Attachment.of({
-        id: id.value,
-        name: 'queue.png',
-        contentType: 'image/png',
-        size: 4096,
-      }),
+  received: vi.fn((_at, ids: readonly AttachmentId[]) =>
+    Promise.resolve(
+      ids.map((id) =>
+        Attachment.of({
+          id: id.value,
+          name: 'queue.png',
+          contentType: 'image/png',
+          size: 4096,
+        }),
+      ),
     ),
   ),
   save: vi.fn(),
-  stored: vi.fn(async () => true),
+  stored: vi.fn(() => Promise.resolve(true)),
   taken: vi.fn(),
   copy: vi.fn(),
   link: vi.fn(),
@@ -261,10 +266,10 @@ const sending = (access: WorkAccess) =>
   new DraftSending(
     access,
     {
-      writers: async () => [UserId.of('user_2')],
-      sent: async () => undefined,
+      writers: () => Promise.resolve([UserId.of('user_2')]),
+      sent: () => Promise.resolve(undefined),
     },
-    { warn: () => undefined } as unknown as LoggerPort,
+    partial<LoggerPort>({ warn: () => undefined }),
   );
 
 const answer = (

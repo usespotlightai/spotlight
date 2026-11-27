@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { IntegrationAccount } from '@/components/features/integrations/IntegrationAccount';
 import { IntegrationFacts } from '@/components/features/integrations/IntegrationFacts';
 import { IntegrationPeople } from '@/components/features/integrations/IntegrationPeople';
@@ -33,7 +35,7 @@ export function IntegrationDetails({
   admin,
   mine,
   joined,
-}: IntegrationDetailsProps) {
+}: IntegrationDetailsProps): ReactElement {
   const { spec } = integration;
   const problem = spec ? formatReadProblem(spec) : null;
 
@@ -118,7 +120,12 @@ export function IntegrationDetails({
       {spec && (
         <FactRow>
           <dt className={FACT_LABEL}>Tools</dt>
-          <dd className={cn(FACT_VALUE, problem && 'text-destructive')}>
+          <dd
+            className={cn(
+              FACT_VALUE,
+              problem !== null && problem !== '' && 'text-destructive',
+            )}
+          >
             {problem ?? formatToolsRead(spec)}
           </dd>
         </FactRow>

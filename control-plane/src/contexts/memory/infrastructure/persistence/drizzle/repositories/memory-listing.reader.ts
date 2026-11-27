@@ -36,7 +36,7 @@ export class DrizzleMemoryListing implements MemoryListingPort {
           criteria.repository
             ? eq(memory.repository, criteria.repository.value)
             : undefined,
-          criteria.path
+          criteria.path !== null && criteria.path !== ''
             ? sql`exists (select 1 from jsonb_array_elements_text(${memory.paths}) as entry(path) where starts_with(entry.path, ${criteria.path}))`
             : undefined,
         ),

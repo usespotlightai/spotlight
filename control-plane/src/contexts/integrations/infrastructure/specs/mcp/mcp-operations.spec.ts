@@ -1,5 +1,6 @@
 import { mcpOperations } from '@integrations/infrastructure/specs/mcp/mcp-operations';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { describe, expect, it } from 'vitest';
 
 const tool = (over: Partial<Tool> = {}): Tool => ({
@@ -30,7 +31,7 @@ describe('mcpOperations', () => {
   });
 
   it('takes each property of the input schema as an input, required as the server says', () => {
-    const [read] = mcpOperations([tool()]).operations;
+    const read = firstOf(mcpOperations([tool()]).operations);
 
     expect(read?.inputs).toEqual([
       {
@@ -58,9 +59,10 @@ describe('mcpOperations', () => {
   });
 
   it('describes a tool by its title when it says nothing else', () => {
-    const [read] = mcpOperations([
-      tool({ description: undefined, title: 'Search issues' }),
-    ]).operations;
+    const read = firstOf(
+      mcpOperations([tool({ description: undefined, title: 'Search issues' })])
+        .operations,
+    );
 
     expect(read?.description).toBe('Search issues');
   });

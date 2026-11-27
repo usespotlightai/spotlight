@@ -1,7 +1,11 @@
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
-import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import type {
+  HarnessCatalogueEntry,
+  HarnessLaunchPort,
+} from '@runs/application/ports/harness-launch.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { StartChatCommand } from '@work/application/commands/chat.commands';
@@ -11,7 +15,10 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { CiSetups } from '@work/application/services/ci-setups.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
-import type { WorkAccess } from '@work/application/services/work-access.service';
+import type {
+  SeenTeam,
+  WorkAccess,
+} from '@work/application/services/work-access.service';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
@@ -29,56 +36,65 @@ const starting = ({
   admin?: boolean;
 } = {}) => {
   const added: Chat[] = [];
-  const setUp = vi.fn(async () =>
-    CiSetup.of({
-      defaultBranch: 'main',
-      defaultBranchProtected: true,
-      pullRequestsTrustId: 'trust_plan',
-      defaultBranchTrustId: 'trust_apply',
-      variables: 'written',
-    }),
+  const setUp = vi.fn(() =>
+    Promise.resolve(
+      CiSetup.of({
+        defaultBranch: 'main',
+        defaultBranchProtected: true,
+        pullRequestsTrustId: 'trust_plan',
+        defaultBranchTrustId: 'trust_apply',
+        variables: 'written',
+      }),
+    ),
   );
   const handler = new StartChatHandler(
-    {
-      seenTeam: vi.fn(async () => ({
-        teamId: TeamId.of('team_1'),
-        workspaceId: WorkspaceId.of('ws_1'),
-        slug: 'acme',
-        teamKey: 'core',
-      })),
-      isAdminOf: vi.fn(async () => admin),
-    } as unknown as WorkAccess,
-    {
-      add: vi.fn(async (chat: Chat) => {
+    partial<WorkAccess>({
+      seenTeam: vi.fn(() =>
+        Promise.resolve(
+          partial<SeenTeam>({
+            teamId: TeamId.of('team_1'),
+            workspaceId: WorkspaceId.of('ws_1'),
+            slug: 'acme',
+            teamKey: 'core',
+          }),
+        ),
+      ),
+      isAdminOf: vi.fn(() => Promise.resolve(admin)),
+    }),
+    partial<ChatRepository>({
+      add: vi.fn((chat: Chat) => {
         added.push(chat);
+
+        return Promise.resolve();
       }),
-    } as unknown as ChatRepository,
+    }),
+    partial<FilesLoader>({
+      handedOver: vi.fn(() => Promise.resolve([])),
+      takenIn: vi.fn(() => Promise.resolve(undefined)),
+    }),
+    partial<TracesLoader>({ shared: vi.fn(() => Promise.resolve([])) }),
+    partial<LineMapsPort>({ ofTeam: () => Promise.resolve([]) }),
     {
-      handedOver: vi.fn(async () => []),
-      takenIn: vi.fn(async () => undefined),
-    } as unknown as FilesLoader,
-    { shared: vi.fn(async () => []) } as unknown as TracesLoader,
-    { ofTeam: async () => [] } as unknown as LineMapsPort,
-    {
-      takenUp: vi.fn(async (chat: Chat) => chat),
+      takenUp: vi.fn((chat: Chat) => Promise.resolve(chat)),
     },
-    {
-      catalogue: () => [{ id: 'claude-code' }],
-    } as unknown as HarnessLaunchPort,
+    partial<HarnessLaunchPort>({
+      catalogue: () => [partial<HarnessCatalogueEntry>({ id: 'claude-code' })],
+    }),
     {
       isAccessible: vi.fn<AccessibleRepositoriesPort['isAccessible']>(
-        async (_, repository) => accessible.includes(repository.value),
+        (_, repository) =>
+          Promise.resolve(accessible.includes(repository.value)),
       ),
     } satisfies AccessibleRepositoriesPort,
-    {
-      hasEgressCapableRunner: vi.fn(async () => hosted),
-    } as unknown as RunnerReaderPort,
-    { setUp } as unknown as CiSetups,
+    partial<RunnerReaderPort>({
+      hasEgressCapableRunner: vi.fn(() => Promise.resolve(hosted)),
+    }),
+    partial<CiSetups>({ setUp }),
     { generate: () => 'chat_1' },
-    { now: () => NOW } as ClockPort,
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
+    partial<ClockPort>({ now: () => NOW }),
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
   );
 
   return { handler, added, setUp };

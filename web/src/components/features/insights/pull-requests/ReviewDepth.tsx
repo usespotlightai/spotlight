@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
@@ -17,7 +19,10 @@ type ReviewDepthProps = {
   repositories: readonly string[];
 };
 
-export function ReviewDepth({ depth, repositories }: ReviewDepthProps) {
+export function ReviewDepth({
+  depth,
+  repositories,
+}: ReviewDepthProps): ReactElement {
   const counted = (share: RoundsShare, author: 'spotlight' | 'people') =>
     share[author] > 0 ? (
       <InsightsLink

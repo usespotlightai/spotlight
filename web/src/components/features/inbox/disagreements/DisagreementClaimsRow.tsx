@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { NumberedClaim } from '@/components/features/runs/judge/NumberedClaim';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import { CLAIMS_LABEL, type DisagreementClaim } from '@/lib/judge-disagreement';
@@ -7,7 +9,7 @@ export function DisagreementClaimsRow({
   claims,
 }: {
   claims: readonly DisagreementClaim[];
-}) {
+}): ReactElement {
   return (
     <dl>
       <FactRow wide>

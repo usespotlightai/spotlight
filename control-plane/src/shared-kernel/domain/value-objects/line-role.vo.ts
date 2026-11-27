@@ -5,7 +5,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class LineRole {
-  private readonly kind = 'line-role';
+  private readonly kind: string = 'line-role';
 
   private constructor(readonly value: string) {}
 

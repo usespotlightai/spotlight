@@ -1,6 +1,9 @@
 import { createHash } from 'node:crypto';
 
-import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type {
+  TeamDirectoryPort,
+  TeamProfile,
+} from '@identity/application/ports/team-directory.port';
 import {
   scopedTo,
   unscoped,
@@ -27,6 +30,8 @@ import { discoveringNothing } from '@integrations/integrations.mcp.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -93,55 +98,64 @@ const linking = (
       OutboundScope.allows('elsewhere.example'),
     );
 
-    if (over.blocked) {
+    if (over.blocked === true) {
       throw new EgressBlockedError('slack.com', 'Host is not allowed.');
     }
 
     return discovering(oauth2);
   };
-  const exchanged = 'exchanged' in over ? over.exchanged : TOKENS;
+  const exchanged = over.exchanged === undefined ? TOKENS : over.exchanged;
   const allowedWhileExchanging: boolean[] = [];
-  const exchange = vi.fn(async (): Promise<OAuthTokens | null | undefined> => {
-    allowedWhileExchanging.push(
-      OutboundScope.allows('slack.com'),
-      OutboundScope.allows('elsewhere.example'),
-    );
-    return exchanged;
-  });
+  const exchange = vi.fn<OAuth2Exchange['exchange']>(
+    (): Promise<OAuthTokens | null> => {
+      allowedWhileExchanging.push(
+        OutboundScope.allows('slack.com'),
+        OutboundScope.allows('elsewhere.example'),
+      );
+      return Promise.resolve(exchanged);
+    },
+  );
   const spent = new Set<string>();
   const nonces: OAuth2NoncesPort = {
-    spend: async (nonce) => {
+    spend: (nonce) => {
       if (spent.has(nonce)) {
-        return false;
+        return Promise.resolve(false);
       }
       spent.add(nonce);
-      return true;
+      return Promise.resolve(true);
     },
   };
 
   const linked = new OAuth2Linking(
-    {
-      ofTeam: async () => (over.file ? [defined(over.file)] : config()),
-    } as unknown as DefinedIntegrationsPort,
+    partial<DefinedIntegrationsPort>({
+      ofTeam: () =>
+        Promise.resolve(
+          over.file !== undefined && over.file !== ''
+            ? [defined(over.file)]
+            : config(),
+        ),
+    }),
     new IntegrationReader(expressions, operationsContaining()),
     discovery,
     configured,
-    { exchange } as unknown as OAuth2Exchange,
-    {
-      find: async () =>
-        over.team === false
-          ? null
-          : {
-              id: TEAM,
-              workspaceId: WorkspaceId.of('ws_1'),
-              name: 'Platform',
-              members: [],
-            },
-    } as unknown as TeamDirectoryPort,
-    { slugOf: async () => 'acme' } as unknown as WorkspaceReaderPort,
+    partial<OAuth2Exchange>({ exchange }),
+    partial<TeamDirectoryPort>({
+      find: () =>
+        Promise.resolve(
+          over.team === false
+            ? null
+            : partial<TeamProfile>({
+                id: TEAM,
+                workspaceId: WorkspaceId.of('ws_1'),
+                name: 'Platform',
+                members: [],
+              }),
+        ),
+    }),
+    partial<WorkspaceReaderPort>({ slugOf: () => Promise.resolve('acme') }),
     new OAuth2State('a-secret'),
     nonces,
-    { now: () => new Date() } as ClockPort,
+    partial<ClockPort>({ now: () => new Date() }),
     BASE,
     `${BASE}/api/integrations/oauth/callback`,
     over.hosts ?? unscoped,
@@ -461,7 +475,7 @@ describe('OAuth2Linking', () => {
 
     await it.authorized(returned({ state, nonce: started?.nonce ?? '' }));
 
-    const verifier = (exchange.mock.calls[0] as unknown as unknown[])[4];
+    const verifier = firstOf(exchange.mock.calls)?.[4];
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
     expect(url.searchParams.get('code_challenge')).toBe(
       createHash('sha256').update(String(verifier)).digest('base64url'),
@@ -488,33 +502,40 @@ describe('OAuth2Linking', () => {
     expect(url.searchParams.get('scope')).toBe('chat:write,channels:read');
     expect(url.searchParams.has('code_challenge')).toBe(false);
     expect(url.searchParams.has('code_challenge_method')).toBe(false);
-    expect((exchange.mock.calls[0] as unknown as unknown[])[4]).toBeNull();
+    expect(firstOf(exchange.mock.calls)?.[4]).toBeNull();
   });
 
   it('names the resource it wants a token for, where the file names one', async () => {
     const { it } = linking();
     const withResource = new OAuth2Linking(
-      {
-        ofTeam: async () => [
-          defined(
-            SLACK.replace(
-              '    scopes:\n',
-              '    resource: https://mcp.slack.com/\n    scopes:\n',
+      partial<DefinedIntegrationsPort>({
+        ofTeam: () =>
+          Promise.resolve([
+            defined(
+              SLACK.replace(
+                '    scopes:\n',
+                '    resource: https://mcp.slack.com/\n    scopes:\n',
+              ),
             ),
-          ),
-        ],
-      } as unknown as DefinedIntegrationsPort,
+          ]),
+      }),
       new IntegrationReader(expressions, operationsContaining()),
       discoveringNothing(),
       clientsFrom('{"slack":{"id":"c-1","secret":"s-1"}}'),
-      {} as OAuth2Exchange,
-      {
-        find: async () => ({ id: TEAM, workspaceId: WorkspaceId.of('ws_1') }),
-      } as unknown as TeamDirectoryPort,
-      {} as WorkspaceReaderPort,
+      partial<OAuth2Exchange>({}),
+      partial<TeamDirectoryPort>({
+        find: () =>
+          Promise.resolve(
+            partial<TeamProfile>({
+              id: TEAM,
+              workspaceId: WorkspaceId.of('ws_1'),
+            }),
+          ),
+      }),
+      partial<WorkspaceReaderPort>({}),
       new OAuth2State('a-secret'),
-      { spend: async () => true },
-      { now: () => new Date() } as ClockPort,
+      { spend: () => Promise.resolve(true) },
+      partial<ClockPort>({ now: () => new Date() }),
       BASE,
       `${BASE}/api/integrations/oauth/callback`,
       unscoped,

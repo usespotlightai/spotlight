@@ -1,8 +1,12 @@
 import { InvalidTerraformStateError } from '@configuration/domain/exceptions/invalid-terraform-state.error';
+import {
+  isJsonObject,
+  type JsonObject,
+} from '@configuration/domain/value-objects/json-object';
 
 const MD5_HEX = /^[0-9a-f]{32}$/;
 
-const documentOf = (text: string): Readonly<Record<string, unknown>> => {
+const documentOf = (text: string): JsonObject => {
   let parsed: unknown;
 
   try {
@@ -11,11 +15,11 @@ const documentOf = (text: string): Readonly<Record<string, unknown>> => {
     throw new InvalidTerraformStateError('is not JSON');
   }
 
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+  if (!isJsonObject(parsed)) {
     throw new InvalidTerraformStateError('must be a JSON object');
   }
 
-  return parsed as Readonly<Record<string, unknown>>;
+  return parsed;
 };
 
 export class StateSnapshot {

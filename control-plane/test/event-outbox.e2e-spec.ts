@@ -37,6 +37,8 @@ import { subscribing } from '@shared-kernel/application/ports/domain-event-subsc
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import {
   actorFor,
   changeActorIn,
@@ -87,9 +89,8 @@ const received: string[] = [];
 let failing = 0;
 const causation = new CauseCarrier();
 const causes: unknown[] = [];
-let callOut: (
-  event: Called,
-) => Promise<readonly DomainEvent[]> = async () => [];
+let callOut: (event: Called) => Promise<readonly DomainEvent[]> = () =>
+  Promise.resolve([]);
 
 const logger = {
   debug: () => undefined,
@@ -106,23 +107,23 @@ const outboxWith = (
   types.register('shared-kernel', SHARED_KERNEL_PAYLOAD_TYPES);
   const subscribers = new EventSubscribers();
   subscribers.register([
-    subscribing<Rang>('test.answer', ['bell.rang'], async (event) => {
+    subscribing<Rang>('test.answer', ['bell.rang'], (event) => {
       received.push(`rang ${event.marker.value}`);
-      return [new Answered(event.marker)];
+      return Promise.resolve([new Answered(event.marker)]);
     }),
-    subscribing<Answered>(
-      'test.receive-answer',
-      ['bell.answered'],
-      async (event) => {
-        received.push(`answered ${event.marker.value}`);
-        causes.push(causation.current());
-      },
-    ),
+    subscribing<Answered>('test.receive-answer', ['bell.answered'], (event) => {
+      received.push(`answered ${event.marker.value}`);
+      causes.push(causation.current());
+
+      return Promise.resolve();
+    }),
     subscribing<{ kind: string; marker: string }>(
       'test.receive-published',
       ['bell.published-rang.v1'],
-      async (event) => {
+      (event) => {
         received.push(`published ${typeof event.marker} ${event.marker}`);
+
+        return Promise.resolve();
       },
     ),
     subscribing<Called>(
@@ -131,12 +132,14 @@ const outboxWith = (
       (event) => callOut(event),
       { callsOut: true },
     ),
-    subscribing<Rang>('test.flaky', ['bell.rang'], async (event) => {
+    subscribing<Rang>('test.flaky', ['bell.rang'], (event) => {
       if (failing > 0) {
         failing -= 1;
-        throw new Error('not yet');
+        return Promise.reject(new Error('not yet'));
       }
       received.push(`flaky ${event.marker.value}`);
+
+      return Promise.resolve();
     }),
   ]);
   more(subscribers);
@@ -155,7 +158,7 @@ const outboxWith = (
       new DrizzleSignupSurveys(context),
     ),
   );
-  const clock = { now: () => now } as ClockPort;
+  const clock = partial<ClockPort>({ now: () => now });
   const outbox = new EventOutbox(
     context,
     subscribers,
@@ -166,10 +169,12 @@ const outboxWith = (
     new LiveNotices(
       new InMemoryLiveFeed(),
       {
-        append: async (notices) =>
-          notices.map((notice) => ({ ...notice, sequence: null })),
-        logs: async () => new Map(),
-        prune: async () => 0,
+        append: (notices) =>
+          Promise.resolve(
+            notices.map((notice) => ({ ...notice, sequence: null })),
+          ),
+        logs: () => Promise.resolve(new Map()),
+        prune: () => Promise.resolve(0),
       },
       logger,
     ),
@@ -200,7 +205,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 describe('the event outbox', () => {
@@ -349,10 +354,12 @@ describe('the event outbox', () => {
 
   describe('a subscriber that calls out', () => {
     const deliveryOf = async (eventId: string) => {
-      const [row] = await database.db
-        .select()
-        .from(eventDelivery)
-        .where(eq(eventDelivery.eventId, eventId));
+      const row = firstOf(
+        await database.db
+          .select()
+          .from(eventDelivery)
+          .where(eq(eventDelivery.eventId, eventId)),
+      );
 
       return row;
     };
@@ -447,13 +454,13 @@ describe('the event outbox', () => {
     it('retries a failed call after its backoff, and only then delivers it', async () => {
       let failures = 1;
       const { delivery, eventId } = await calledIn('seven');
-      callOut = async () => {
+      callOut = () => {
         if (failures > 0) {
           failures -= 1;
-          throw new Error('the service did not answer');
+          return Promise.reject(new Error('the service did not answer'));
         }
 
-        return [];
+        return Promise.resolve([]);
       };
 
       await delivery.processDue('contexts');
@@ -533,7 +540,7 @@ describe('the rows the event outbox keeps', () => {
       await database.db.insert(eventOutbox).values({
         id,
         kind,
-        payload: {},
+        payload: { kind },
         recordedAt,
       });
       for (const [index, each] of deliveries.entries()) {
@@ -572,13 +579,17 @@ describe('the rows the event outbox keeps', () => {
     const recentDelivered = await event(recent, [delivered]);
     const registered = new EventSubscribers();
     registered.register([
-      subscribing('test.retained-0', ['bell.retained'], async () => []),
-      subscribing('test.retained-1', ['bell.retained'], async () => []),
+      subscribing('test.retained-0', ['bell.retained'], () =>
+        Promise.resolve([]),
+      ),
+      subscribing('test.retained-1', ['bell.retained'], () =>
+        Promise.resolve([]),
+      ),
     ]);
 
     const deleted = await new OutboxRetention(
       context,
-      { now: () => at } as ClockPort,
+      partial<ClockPort>({ now: () => at }),
       registered,
     ).sweep();
 
@@ -627,7 +638,7 @@ describe('the rows the event outbox keeps', () => {
       const id = randomUUID();
       await database.db
         .insert(eventOutbox)
-        .values({ id, kind, payload: {}, recordedAt });
+        .values({ id, kind, payload: { kind }, recordedAt });
       await database.db.insert(eventDelivery).values({
         eventId: id,
         subscriber,
@@ -660,15 +671,15 @@ describe('the rows the event outbox keeps', () => {
     ];
     const registered = new EventSubscribers();
     registered.register([
-      subscribing('test.redeliver', ['bell.kept'], async () => []),
-      subscribing('test.other', ['bell.kept'], async () => []),
+      subscribing('test.redeliver', ['bell.kept'], () => Promise.resolve([])),
+      subscribing('test.other', ['bell.kept'], () => Promise.resolve([])),
     ]);
     const { outbox } = outboxWith();
     const redelivery = new EventDelivery(
       context,
       outbox,
       registered,
-      { now: () => queuedAt } as ClockPort,
+      partial<ClockPort>({ now: () => queuedAt }),
       logger,
       causation,
       { report: vi.fn() },
@@ -709,7 +720,7 @@ describe('the rows the event outbox keeps', () => {
   ) => {
     await database.db
       .insert(eventOutbox)
-      .values({ id, kind, payload: {}, recordedAt });
+      .values({ id, kind, payload: { kind }, recordedAt });
     await database.db.insert(eventDelivery).values({
       eventId: id,
       subscriber,
@@ -737,14 +748,14 @@ describe('the rows the event outbox keeps', () => {
     await deliveryRow(id, 'bell.raced', old, 'test.raced');
     const elsewhere = new EventSubscribers();
     elsewhere.register([
-      subscribing('test.raced', ['bell.raced'], async () => []),
+      subscribing('test.raced', ['bell.raced'], () => Promise.resolve([])),
     ]);
     const { outbox } = outboxWith();
     const redelivery = new EventDelivery(
       context,
       outbox,
       elsewhere,
-      { now: () => new Date() } as ClockPort,
+      partial<ClockPort>({ now: () => new Date() }),
       logger,
       causation,
       { report: vi.fn() },
@@ -770,7 +781,7 @@ describe('the rows the event outbox keeps', () => {
     let swept = false;
     const sweeping = new OutboxRetention(
       context,
-      { now: () => at } as ClockPort,
+      partial<ClockPort>({ now: () => at }),
       new EventSubscribers(),
     )
       .sweep()
@@ -809,9 +820,12 @@ describe('the rows the event outbox keeps', () => {
       [abandoned, 'test.removed'],
       [heard, 'test.here'],
     ] as const) {
-      await database.db
-        .insert(eventOutbox)
-        .values({ id, kind: 'bell.abandoned', payload: {}, recordedAt: old });
+      await database.db.insert(eventOutbox).values({
+        id,
+        kind: 'bell.abandoned',
+        payload: { kind: 'bell.abandoned' },
+        recordedAt: old,
+      });
       await database.db.insert(eventDelivery).values({
         eventId: id,
         subscriber,
@@ -820,13 +834,13 @@ describe('the rows the event outbox keeps', () => {
     }
     const here = new EventSubscribers();
     here.register([
-      subscribing('test.here', ['bell.abandoned'], async () => []),
+      subscribing('test.here', ['bell.abandoned'], () => Promise.resolve([])),
     ]);
 
     expect(
       await new OutboxRetention(
         context,
-        { now: () => at } as ClockPort,
+        partial<ClockPort>({ now: () => at }),
         here,
       ).sweep(),
     ).toBe(1);
@@ -847,11 +861,11 @@ describe('the rows the event outbox keeps', () => {
     await deliveryRow(u2, 'bell.cursor', old, 'test.cursor-gone');
     const registered = new EventSubscribers();
     registered.register([
-      subscribing('test.cursor', ['bell.cursor'], async () => []),
+      subscribing('test.cursor', ['bell.cursor'], () => Promise.resolve([])),
     ]);
     const retention = new OutboxRetention(
       context,
-      { now: () => at } as ClockPort,
+      partial<ClockPort>({ now: () => at }),
       registered,
       { batch: 2, batches: 1 },
     );
@@ -913,9 +927,12 @@ describe('the lanes of event delivery', () => {
   it('leaves a delivery that only a newer instance can handle to that instance', async () => {
     const id = randomUUID();
     const recordedAt = new Date(now.getTime() - 60_000);
-    await database.db
-      .insert(eventOutbox)
-      .values({ id, kind: 'bell.newer', payload: {}, recordedAt });
+    await database.db.insert(eventOutbox).values({
+      id,
+      kind: 'bell.newer',
+      payload: { kind: 'bell.newer' },
+      recordedAt,
+    });
     await database.db.insert(eventDelivery).values({
       eventId: id,
       subscriber: 'test.newer',
@@ -928,22 +945,26 @@ describe('the lanes of event delivery', () => {
         context,
         outbox,
         subscribers,
-        { now: () => now } as ClockPort,
+        partial<ClockPort>({ now: () => now }),
         logger,
         causation,
         { report: vi.fn() },
         new OtelTelemetry(),
       );
     const older = new EventSubscribers();
-    older.register([subscribing('test.older', ['bell.newer'], async () => [])]);
+    older.register([
+      subscribing('test.older', ['bell.newer'], () => Promise.resolve([])),
+    ]);
     const newer = new EventSubscribers();
     newer.register([
-      subscribing('test.newer', ['bell.newer'], async () => {
+      subscribing('test.newer', ['bell.newer'], () => {
         heard.push(id);
+
+        return Promise.resolve();
       }),
     ]);
     const rowOf = async () =>
-      (
+      firstOf(
         await database.db
           .select({
             attempts: eventDelivery.attempts,
@@ -951,8 +972,8 @@ describe('the lanes of event delivery', () => {
             deadLetteredAt: eventDelivery.deadLetteredAt,
           })
           .from(eventDelivery)
-          .where(eq(eventDelivery.eventId, id))
-      )[0];
+          .where(eq(eventDelivery.eventId, id)),
+      );
 
     await instance(older).processDue('contexts');
 
@@ -974,7 +995,7 @@ describe('the lanes of event delivery', () => {
     const recordedAt = new Date(now.getTime() - 60_000);
     await database.db
       .insert(eventOutbox)
-      .values({ id, kind, payload: {}, recordedAt });
+      .values({ id, kind, payload: { kind }, recordedAt });
     await database.db.insert(eventDelivery).values({
       eventId: id,
       subscriber,
@@ -984,7 +1005,7 @@ describe('the lanes of event delivery', () => {
   };
 
   const stateOf = async (id: string) =>
-    (
+    firstOf(
       await database.db
         .select({
           attempts: eventDelivery.attempts,
@@ -992,15 +1013,15 @@ describe('the lanes of event delivery', () => {
           deadLettered: sql<boolean>`${eventDelivery.deadLetteredAt} is not null`,
         })
         .from(eventDelivery)
-        .where(eq(eventDelivery.eventId, id))
-    )[0];
+        .where(eq(eventDelivery.eventId, id)),
+    );
 
   const instanceWith = (subscribers: EventSubscribers) =>
     new EventDelivery(
       context,
       outboxWith().outbox,
       subscribers,
-      { now: () => now } as ClockPort,
+      partial<ClockPort>({ now: () => now }),
       logger,
       causation,
       { report: vi.fn() },
@@ -1012,12 +1033,14 @@ describe('the lanes of event delivery', () => {
     const heard: string[] = [];
     const older = new EventSubscribers();
     older.register([
-      subscribing('test.widened', ['bell.kept'], async () => []),
+      subscribing('test.widened', ['bell.kept'], () => Promise.resolve([])),
     ]);
     const newer = new EventSubscribers();
     newer.register([
-      subscribing('test.widened', ['bell.kept', 'bell.added'], async () => {
+      subscribing('test.widened', ['bell.kept', 'bell.added'], () => {
         heard.push(id);
+
+        return Promise.resolve();
       }),
     ]);
 
@@ -1045,8 +1068,10 @@ describe('the lanes of event delivery', () => {
     const sinkWith = (prefixes: readonly string[]) => {
       const subscribers = new EventSubscribers();
       subscribers.registerSink({
-        subscriber: subscribing('test.widened-sink', [], async () => {
+        subscriber: subscribing('test.widened-sink', [], () => {
           sunk.push(id);
+
+          return Promise.resolve();
         }),
         prefixes,
         retry: null,
@@ -1076,11 +1101,13 @@ describe('the lanes of event delivery', () => {
       'platform.send-event-webhook',
     );
     const here = new EventSubscribers();
-    here.register([subscribing('test.gauge', ['bell.gauge'], async () => [])]);
+    here.register([
+      subscribing('test.gauge', ['bell.gauge'], () => Promise.resolve([])),
+    ]);
     const gauges = new OutboxGauges(
       database.db,
-      { now: () => now } as ClockPort,
-      { held: () => true } as unknown as Leadership,
+      partial<ClockPort>({ now: () => now }),
+      partial<Leadership>({ held: () => true }),
       here,
     );
     const due = async () =>

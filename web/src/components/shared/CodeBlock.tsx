@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useHighlightedShell } from '@/hooks/useHighlightedShell';
@@ -17,7 +17,7 @@ export function CodeBlock({
   output?: string;
   className?: string;
   trailing?: ReactNode;
-}) {
+}): ReactElement {
   const commandHtml = useHighlightedShell(command);
 
   return (
@@ -31,8 +31,9 @@ export function CodeBlock({
           className,
         )}
       >
-        {command &&
-          (commandHtml ? (
+        {command !== undefined &&
+          command !== '' &&
+          (commandHtml !== null && commandHtml !== '' ? (
             <div
               className="code-block"
               // oxlint-disable-next-line react/no-danger -- the Shiki markup comes from the trusted command of the step
@@ -44,7 +45,7 @@ export function CodeBlock({
             </pre>
           ))}
 
-        {output && (
+        {output !== undefined && output !== '' && (
           <pre className="whitespace-pre-wrap break-words text-muted-foreground">
             {output}
           </pre>

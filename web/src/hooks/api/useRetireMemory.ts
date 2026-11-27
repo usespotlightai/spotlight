@@ -1,8 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { runMemoryKeys } from '@/hooks/api/useRunMemories';
 import { teamMemoryKeys } from '@/hooks/api/useTeamMemories';
-import { retireMemory } from '@/lib/api';
+import { retireMemory, type TeamMemoryDetailResponseDto } from '@/lib/api';
 
 type RetireMemoryInput = {
   teamId: string;
@@ -10,7 +14,11 @@ type RetireMemoryInput = {
   reason: string;
 };
 
-export function useRetireMemory() {
+export function useRetireMemory(): UseMutationResult<
+  TeamMemoryDetailResponseDto,
+  Error,
+  RetireMemoryInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

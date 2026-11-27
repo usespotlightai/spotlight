@@ -1,5 +1,6 @@
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
@@ -23,24 +24,26 @@ type Options = {
 };
 
 const read = (options: Options = {}) => {
-  const connections = {
+  const connections = partial<WorkspaceConnectionsPort>({
     isConnected: vi.fn().mockResolvedValue(options.connected ?? false),
-  } as unknown as WorkspaceConnectionsPort;
+  });
 
-  const runners = {
+  const runners = partial<RunnerReaderPort>({
     readyToRun: vi.fn().mockResolvedValue(options.harness ?? false),
     hasEgressCapableRunner: vi.fn().mockResolvedValue(options.hosted ?? false),
     hasPlatformRunners: vi.fn().mockResolvedValue(options.platform ?? false),
-  } as unknown as RunnerReaderPort;
+  });
 
-  const chats = {
+  const chats = partial<ChatReaderPort>({
     setupChatsOf: vi.fn().mockResolvedValue(options.chats ?? []),
-  } as unknown as ChatReaderPort;
+  });
 
-  return new SetupStatus(connections, runners, chats, {} as ChatRepository).of(
-    WORKSPACE,
-    TEAM,
-  );
+  return new SetupStatus(
+    connections,
+    runners,
+    chats,
+    partial<ChatRepository>({}),
+  ).of(WORKSPACE, TEAM);
 };
 
 describe('SetupStatus', () => {

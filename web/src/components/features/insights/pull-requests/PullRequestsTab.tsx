@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { PAIR_GRID } from '@/components/features/insights/overview-layout';
 import { NoPullRequests } from '@/components/features/insights/pull-requests/NoPullRequests';
@@ -25,7 +27,7 @@ export function PullRequestsTab({
   teamId,
   view,
   onView,
-}: PullRequestsTabProps) {
+}: PullRequestsTabProps): ReactElement {
   const insights = useInsightsPullRequests(teamId, view.period);
 
   if (loading(insights)) {

@@ -21,6 +21,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { SystemClock } from '@platform/time/system-clock';
+import type { SetHealthDto } from '@replays/application/dto/replays.dto';
 import { healthView } from '@replays/application/queries/views/replay-views';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
@@ -40,6 +41,8 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -57,6 +60,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { autoSearched, openApp, served, TEST_USER_HEADER } from './support/app';
 import { searchRunsSettled, searchStarted } from './support/auto-searches';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { changing } from './support/harness-events';
 import { keptSet } from './support/kept-sets';
@@ -80,55 +84,62 @@ const CLAIMS = [
   'It tests the order.',
 ];
 
-const attachmentStore = {
-  received: async () => [],
-  stored: async () => true,
-  taken: async () => undefined,
-  open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
-} as unknown as AttachmentStorePort;
+const attachmentStore = partial<AttachmentStorePort>({
+  received: () => Promise.resolve([]),
+  stored: () => Promise.resolve(true),
+  taken: () => Promise.resolve(undefined),
+  open: () =>
+    Promise.resolve({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
+});
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: async (archive) => ({
-    url: `https://archives.test/${archive.id.value}`,
-    headers: {},
-  }),
-  stored: async (archive) =>
-    archive.location.kind === 'spotlight' ? archive.location : null,
-  grantDownload: async (archive) =>
-    `https://archives.test/${archive.id.value}?download`,
+  grantUpload: (archive) =>
+    Promise.resolve({
+      url: `https://archives.test/${archive.id.value}`,
+      headers: {},
+    }),
+  stored: (archive) =>
+    Promise.resolve(
+      archive.location.kind === 'spotlight' ? archive.location : null,
+    ),
+  grantDownload: (archive) =>
+    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
   remove: async () => {},
 };
 
 const generator: ChangeStackGeneratorPort = {
-  generate: async ({ diff }) => ({
-    status: 'drafted' as const,
-    usage: {
-      inputTokens: 1_000,
-      outputTokens: 100,
-      cost: { amount: 0.02, currency: 'USD' },
-    },
-    cohorts: [
-      {
-        kind: 'change',
-        title: 'Drain the queue',
-        intent: 'Drain it in order',
-        layers: [
-          {
-            title: 'Drain in order',
-            summary: 'Drains the queue oldest first',
-            dependsOn: [],
-            hunks: diff.hunks.map((each) => ({ hunk: each.id })),
-            notes: [
-              ...new Set(
-                diff.hunks.flatMap((each) => diff.fileOf(each.id)?.path ?? []),
-              ),
-            ].map((path) => ({ path, note: 'Drains the queue' })),
-            questions: [],
-          },
-        ],
+  generate: ({ diff }) =>
+    Promise.resolve({
+      status: 'drafted' as const,
+      usage: {
+        inputTokens: 1_000,
+        outputTokens: 100,
+        cost: { amount: 0.02, currency: 'USD' },
       },
-    ],
-  }),
+      cohorts: [
+        {
+          kind: 'change',
+          title: 'Drain the queue',
+          intent: 'Drain it in order',
+          layers: [
+            {
+              title: 'Drain in order',
+              summary: 'Drains the queue oldest first',
+              dependsOn: [],
+              hunks: diff.hunks.map((each) => ({ hunk: each.id })),
+              notes: [
+                ...new Set(
+                  diff.hunks.flatMap(
+                    (each) => diff.fileOf(each.id)?.path ?? [],
+                  ),
+                ),
+              ].map((path) => ({ path, note: 'Drains the queue' })),
+              questions: [],
+            },
+          ],
+        },
+      ],
+    }),
 };
 
 const SCORED = /score\((\d)\)/;
@@ -141,7 +152,7 @@ let judgeFlipsLeft = 4;
 
 const judge: JudgePort = {
   roundOf: () => null,
-  judge: async (request: JudgeRequest) => {
+  judge: (request: JudgeRequest) => {
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const run = MARKED.exec(scoredStep?.text ?? '')?.[1] ?? '';
     const times = (judgedRuns.get(run) ?? 0) + 1;
@@ -153,7 +164,7 @@ const judge: JudgePort = {
 
     judgedRuns.set(run, times);
 
-    return {
+    return Promise.resolve({
       status: 'judged' as const,
       model: 'stub/judge',
       guidance: null,
@@ -170,7 +181,7 @@ const judge: JudgePort = {
           ],
         })),
       },
-    };
+    });
   },
 };
 
@@ -338,10 +349,12 @@ interface Claimed {
 }
 
 const runOfStack = async (stackId: string): Promise<string> => {
-  const [stack] = await db
-    .select({ runId: schema.changeStack.runId })
-    .from(schema.changeStack)
-    .where(eq(schema.changeStack.id, stackId));
+  const stack = firstOf(
+    await db
+      .select({ runId: schema.changeStack.runId })
+      .from(schema.changeStack)
+      .where(eq(schema.changeStack.id, stackId)),
+  );
 
   return stack?.runId ?? '';
 };
@@ -356,14 +369,14 @@ const claimed = async (): Promise<Claimed | null> => {
     return null;
   }
 
-  const assignment = answer.body as {
+  const assignment = bodyOf<{
     token: string;
     work: {
       kind: 'run' | 'check';
       run: { id: string } | null;
       check: { stackId: string; recheck: boolean } | null;
     };
-  };
+  }>(answer);
 
   return {
     token: assignment.token,
@@ -379,10 +392,12 @@ const claimed = async (): Promise<Claimed | null> => {
 };
 
 const entryOf = async (runId: string) => {
-  const [entry] = await db
-    .select()
-    .from(schema.replayEntry)
-    .where(eq(schema.replayEntry.runId, runId));
+  const entry = firstOf(
+    await db
+      .select()
+      .from(schema.replayEntry)
+      .where(eq(schema.replayEntry.runId, runId)),
+  );
 
   return entry;
 };
@@ -477,7 +492,7 @@ const entriesOf = (replayIds: readonly string[]) =>
 
 const workWaiting = async (replayIds: readonly string[]) => {
   const runs = (await entriesOf(replayIds)).flatMap((each) =>
-    each.runId ? [each.runId] : [],
+    each.runId !== null && each.runId !== '' ? [each.runId] : [],
   );
 
   if (runs.length === 0) {
@@ -533,8 +548,11 @@ const recalibrated = (entries: Awaited<ReturnType<typeof entriesOf>>) =>
   entries.length > 0 &&
   entries.every(
     (each) =>
-      (each.secondJudging?.verdict || each.secondJudging?.unjudged) &&
-      each.recheck &&
+      each.secondJudging !== null &&
+      (each.secondJudging.verdict !== null ||
+        (each.secondJudging.unjudged !== null &&
+          each.secondJudging.unjudged !== '')) &&
+      each.recheck !== null &&
       each.recheck.state !== 'checking',
   );
 
@@ -544,39 +562,7 @@ const scoredAll = (entries: Awaited<ReturnType<typeof entriesOf>>) =>
 interface SetRead {
   id: string;
   searchSchedule: { lastSkip: { reason: string } | null } | null;
-  health: {
-    noise: { repeats: number; spread: number } | null;
-    saturation: { rate: number; saturated: boolean } | null;
-    judge: {
-      compared: number;
-      agreed: number;
-      pending: number;
-      agreement: number | null;
-      unstable: boolean;
-    } | null;
-    checks: {
-      rechecked: number;
-      pending: number;
-      flaky: {
-        taskId: string;
-        originalRunId: string;
-        runId: string;
-        first: string;
-        recheck: string;
-      }[];
-    } | null;
-    oracle: {
-      replayId: string;
-      state: string;
-      referenceReplayId: string | null;
-      referenceState: string | null;
-      answered: number;
-      live: number | null;
-      withAnswer: number | null;
-      roomToImprove: boolean | null;
-      gain: { significance: string } | null;
-    } | null;
-  };
+  health: SetHealthDto;
 }
 
 const setOf = async (setId: string): Promise<SetRead> => {
@@ -589,12 +575,14 @@ const setOf = async (setId: string): Promise<SetRead> => {
   }
 
   const healths = app.get(SetHealths);
-  const [schedule] = await db
-    .select()
-    .from(schema.stationSearchSchedule)
-    .where(
-      eq(schema.stationSearchSchedule.stationId, set.station.stationId.value),
-    );
+  const schedule = firstOf(
+    await db
+      .select()
+      .from(schema.stationSearchSchedule)
+      .where(
+        eq(schema.stationSearchSchedule.stationId, set.station.stationId.value),
+      ),
+  );
 
   return {
     id: setId,
@@ -608,7 +596,7 @@ const setOf = async (setId: string): Promise<SetRead> => {
             : null,
         }
       : null,
-  } as SetRead;
+  };
 };
 
 let originals: Original[];
@@ -735,7 +723,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 const turnedOff = async (id: string): Promise<void> => {
@@ -760,10 +748,12 @@ const searchSkipped = async (): Promise<string | null> => {
     .where(eq(schema.stationSearchSchedule.stationId, BUILD));
   await autoSearched(app);
 
-  const [schedule] = await db
-    .select()
-    .from(schema.stationSearchSchedule)
-    .where(eq(schema.stationSearchSchedule.stationId, BUILD));
+  const schedule = firstOf(
+    await db
+      .select()
+      .from(schema.stationSearchSchedule)
+      .where(eq(schema.stationSearchSchedule.stationId, BUILD)),
+  );
 
   expect(await db.select().from(schema.replaySearch)).toEqual(searches);
   expect(
@@ -780,10 +770,12 @@ describe('checking a replay set’s health', () => {
       iterations: 1,
       ceiling: 300,
     });
-    const [row] = await db
-      .select()
-      .from(schema.replaySearch)
-      .where(eq(schema.replaySearch.id, search.id));
+    const row = firstOf(
+      await db
+        .select()
+        .from(schema.replaySearch)
+        .where(eq(schema.replaySearch.id, search.id)),
+    );
 
     calibrationId = search.seedReplayId;
     expect(row?.calibrates).toBe(true);
@@ -800,7 +792,7 @@ describe('checking a replay set’s health', () => {
     await workUntil([calibrationId], recalibrated, () => 5);
 
     const runs = (await entriesOf([calibrationId])).flatMap((each) =>
-      each.runId ? [each.runId] : [],
+      each.runId !== null && each.runId !== '' ? [each.runId] : [],
     );
 
     const calibration = await replayOf(app, calibrationId);
@@ -895,14 +887,18 @@ describe('checking a replay set’s health', () => {
       roomToImprove: false,
     });
 
-    const [replay] = await db
-      .select()
-      .from(schema.replay)
-      .where(eq(schema.replay.id, started.replayId));
-    const [candidate] = await db
-      .select()
-      .from(schema.replayCandidate)
-      .where(eq(schema.replayCandidate.id, replay?.candidateId ?? ''));
+    const replay = firstOf(
+      await db
+        .select()
+        .from(schema.replay)
+        .where(eq(schema.replay.id, started.replayId)),
+    );
+    const candidate = firstOf(
+      await db
+        .select()
+        .from(schema.replayCandidate)
+        .where(eq(schema.replayCandidate.id, replay?.candidateId ?? '')),
+    );
 
     expect(candidate?.kind).toBe('oracle');
     expect(candidate?.station.model).toBe('sonnet');

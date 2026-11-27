@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
 import { ProgressState } from '@/components/shared/ProgressState';
 import { WaitingForYouPill } from '@/components/shared/WaitingForYouPill';
@@ -13,7 +15,7 @@ type ChatRowProps = {
   onIntent?: () => void;
 };
 
-export function ChatRow({ chat, to, onIntent }: ChatRowProps) {
+export function ChatRow({ chat, to, onIntent }: ChatRowProps): ReactElement {
   const intent = useOpenIntent(onIntent);
   const status = chat.waitingForYou ? (
     <WaitingForYouPill />

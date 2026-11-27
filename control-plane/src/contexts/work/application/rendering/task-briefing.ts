@@ -99,7 +99,7 @@ const listing = (
   skills: readonly SkillBrief[],
   listedIn: string | null,
 ): string | null =>
-  listedIn && skills.length > 0
+  listedIn !== null && listedIn !== '' && skills.length > 0
     ? [
         '## Skills',
         'These are in the workspace. Read one when you need what it is about:',
@@ -266,10 +266,10 @@ export const TaskBriefing = {
         folder: input.memoryFolder,
         briefed: input.memories.length > 0,
       }),
-      station?.memories
+      station?.memories === true
         ? Learned.rememberingBeforeHandover()
         : Learned.remembering(),
-      station?.decisions ? RECORDING_DECISIONS : null,
+      station?.decisions === true ? RECORDING_DECISIONS : null,
       workingCopyOf(input.task, input.line),
       SpotlightCli.section,
       ConfiguringSpotlight.section,

@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Scatter, ScatterChart, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { ReplayedLegend } from '@/components/features/insights/candidates/ReplayedLegend';
@@ -36,13 +37,13 @@ const TipContent = ({
 }) => {
   const point = payload?.[0]?.payload;
 
-  return active && point ? (
+  return active === true && point ? (
     <ReplayedPointTip point={point} currency={currency} placement={placement} />
   ) : null;
 };
 
-const mark = (props: unknown) => (
-  <ReplayedPointMark {...(props as ReplayedPointMarkProps)} />
+const mark = (props: ReplayedPointMarkProps) => (
+  <ReplayedPointMark {...props} />
 );
 
 const labelOf = (point: ReplayedPoint) => ({
@@ -57,7 +58,10 @@ type ReplayedScatterProps = {
   currency: string;
 };
 
-export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
+export function ReplayedScatter({
+  points,
+  currency,
+}: ReplayedScatterProps): ReactElement {
   const cursor = useCursorTooltip();
   const hover = useDotHover();
   const frontiers = replayedFrontiersOf(points);

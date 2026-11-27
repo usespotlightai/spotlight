@@ -87,6 +87,7 @@ import type {
 } from '@platform/expressions/expression-engine.port';
 import { ExpressionError } from '@platform/expressions/expression.errors';
 import type { NamedType, SchemaFields } from '@platform/expressions/scope';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -359,8 +360,19 @@ const BINDABLE: BindableEvents = {
   notice: BINDABLE_NOTICE_EVENTS,
 };
 
+const uncompiled = (source: string, place: Place): Expression => ({
+  source,
+  location: place.field.rendered,
+  evaluate: () => {
+    throw new InconsistentStateError(
+      'expression',
+      `${place.field.rendered} did not compile`,
+    );
+  },
+});
+
 const doubted = (error: ExpressionErrorDto): string =>
-  error.suggestion
+  error.suggestion !== null && error.suggestion !== ''
     ? `does not check: ${error.message}. Did you mean ${error.suggestion}?`
     : `does not check: ${error.message}`;
 
@@ -395,9 +407,12 @@ class Compiler {
   }
 
   sendsTokenTo(url: string | null | undefined): void {
-    const host = url ? writtenHostOf(url) : null;
+    const host =
+      url !== undefined && url !== null && url !== ''
+        ? writtenHostOf(url)
+        : null;
 
-    if (host && !this.tokenHosts.includes(host)) {
+    if (host !== null && host !== '' && !this.tokenHosts.includes(host)) {
       this.tokenHosts.push(host);
     }
   }
@@ -457,6 +472,10 @@ class Compiler {
         opens: opening,
       }),
     );
+  }
+
+  required(raw: string, place: Place): Expression {
+    return this.expression(raw, place) ?? uncompiled(raw, place);
   }
 
   expression(raw: string, place: Place): Expression | null {
@@ -533,7 +552,7 @@ class Compiler {
     let from = 0;
 
     for (const found of raw.matchAll(PIECE)) {
-      const start = found.index ?? 0;
+      const start = found.index;
 
       if (start > from) {
         parts.push(raw.slice(from, start));
@@ -593,7 +612,7 @@ class Compiler {
     }
 
     return {
-      at: this.expression(freshness.at, place.to('at')) as Expression,
+      at: this.required(freshness.at, place.to('at')),
       within: Number.parseInt(freshness.within, 10),
     };
   }
@@ -609,9 +628,10 @@ class Compiler {
         kind: 'hmac',
         algorithm: auth.hmac.algorithm,
         secret,
-        signed: auth.hmac.signed
-          ? this.expression(auth.hmac.signed, place.to('hmac.signed'))
-          : null,
+        signed:
+          auth.hmac.signed !== undefined && auth.hmac.signed !== ''
+            ? this.expression(auth.hmac.signed, place.to('hmac.signed'))
+            : null,
         encoding: auth.hmac.encoding,
         prefix: auth.hmac.prefix,
         header: auth.hmac.header ?? null,
@@ -652,12 +672,13 @@ class Compiler {
         kind: 'asymmetric',
         algorithm: auth.asymmetric.algorithm,
         key: this.templated(auth.asymmetric.key, place.to('asymmetric.key')),
-        signed: auth.asymmetric.signed
-          ? this.expression(
-              auth.asymmetric.signed,
-              place.to('asymmetric.signed'),
-            )
-          : null,
+        signed:
+          auth.asymmetric.signed !== undefined && auth.asymmetric.signed !== ''
+            ? this.expression(
+                auth.asymmetric.signed,
+                place.to('asymmetric.signed'),
+              )
+            : null,
         encoding: auth.asymmetric.encoding,
         header: auth.asymmetric.header ?? null,
         freshness: this.freshness(
@@ -707,21 +728,20 @@ class Compiler {
       auth: request.auth ? this.auth(request.auth, place.to('auth')) : null,
       expect: request.expect
         ? {
-            success: request.expect.success
-              ? this.expression(
-                  request.expect.success,
-                  place.to('expect.success'),
-                )
-              : null,
+            success:
+              request.expect.success !== undefined &&
+              request.expect.success !== ''
+                ? this.expression(
+                    request.expect.success,
+                    place.to('expect.success'),
+                  )
+                : null,
             status: request.expect.status ?? null,
           }
         : null,
       capture: Object.entries(request.capture ?? {}).map(([name, value]) => ({
         name,
-        value: this.expression(
-          value,
-          place.to('capture').each(name),
-        ) as Expression,
+        value: this.required(value, place.to('capture').each(name)),
       })),
       fromNetwork: null,
     };
@@ -757,7 +777,7 @@ class Compiler {
 
   uploads(uploads: UploadsFile, at: Place): UploadsIR {
     return {
-      each: this.expression(uploads.each, at.to('each')) as Expression,
+      each: this.required(uploads.each, at.to('each')),
       prepare: this.request(uploads.prepare, at.to('prepare')),
       send: this.request(uploads.send, at.to('send')),
       complete: uploads.complete
@@ -779,17 +799,22 @@ class Compiler {
   }
 
   event(event: EventFile, place: Place): EventIR {
-    const each = place.adding(event.forEach ? { iterates: true } : {});
+    const each = place.adding(
+      event.forEach !== undefined && event.forEach !== ''
+        ? { iterates: true }
+        : {},
+    );
     const captured = Object.keys(event.lookup?.capture ?? {}).map((name) => ({
       name,
       field: place.field.to('lookup', 'capture', name),
     }));
 
     return {
-      forEach: event.forEach
-        ? this.expression(event.forEach, place.to('forEach'))
-        : null,
-      when: this.expression(event.when, each.to('when')) as Expression,
+      forEach:
+        event.forEach !== undefined && event.forEach !== ''
+          ? this.expression(event.forEach, place.to('forEach'))
+          : null,
+      when: this.required(event.when, each.to('when')),
       lookup: event.lookup
         ? {
             request: this.request(
@@ -799,10 +824,10 @@ class Compiler {
             capture: Object.entries(event.lookup.capture).map(
               ([name, value]) => ({
                 name,
-                value: this.expression(
+                value: this.required(
                   value,
                   each.to('lookup.capture').each(name),
-                ) as Expression,
+                ),
               }),
             ),
           }
@@ -818,37 +843,33 @@ class Compiler {
     return {
       happening: raise.happening,
       answers: raise.answers,
-      message: raise.message
-        ? this.expression(raise.message, place.to('message'))
-        : null,
+      message:
+        raise.message !== undefined && raise.message !== ''
+          ? this.expression(raise.message, place.to('message'))
+          : null,
       author: raise.author
         ? {
-            email: this.expression(
-              raise.author.email,
-              place.to('author.email'),
-            ) as Expression,
+            email: this.required(raise.author.email, place.to('author.email')),
           }
         : null,
       opens: opens
         ? {
             lineRole: opens.lineRole,
             station: opens.station ?? null,
-            title: this.expression(
-              opens.title,
-              place.to('opens.title'),
-            ) as Expression,
-            description: opens.description
-              ? this.expression(
-                  opens.description,
-                  place.to('opens.description'),
-                )
-              : null,
+            title: this.required(opens.title, place.to('opens.title')),
+            description:
+              opens.description !== undefined && opens.description !== ''
+                ? this.expression(
+                    opens.description,
+                    place.to('opens.description'),
+                  )
+                : null,
             assignBy: opens.assignBy
               ? {
-                  email: this.expression(
+                  email: this.required(
                     opens.assignBy.email,
                     place.to('opens.assignBy.email'),
-                  ) as Expression,
+                  ),
                 }
               : null,
           }
@@ -856,47 +877,52 @@ class Compiler {
       chat: chat
         ? {
             by: {
-              email: this.expression(
+              email: this.required(
                 chat.by.email,
                 place.to('opens.chat.by.email'),
-              ) as Expression,
+              ),
             },
             harness: chat.harness ?? null,
           }
         : null,
-      branch: raise.branch
-        ? this.expression(raise.branch, place.to('branch'))
-        : null,
+      branch:
+        raise.branch !== undefined && raise.branch !== ''
+          ? this.expression(raise.branch, place.to('branch'))
+          : null,
       marks: raise.marks.map((mark, index) => ({
         kind: MarkKind.of(mark.kind),
-        value: this.expression(
+        value: this.required(
           mark.value,
           place.to('marks').each(index).to('value'),
-        ) as Expression,
+        ),
         finds: mark.find,
       })),
       attachments: raise.attachments
         ? {
-            each: this.expression(
+            each: this.required(
               raise.attachments.each,
               place.to('attachments.each'),
-            ) as Expression,
-            name: this.expression(
+            ),
+            name: this.required(
               raise.attachments.name,
               place.to('attachments.name'),
-            ) as Expression,
-            type: raise.attachments.type
-              ? this.expression(
-                  raise.attachments.type,
-                  place.to('attachments.type'),
-                )
-              : null,
-            size: raise.attachments.size
-              ? this.expression(
-                  raise.attachments.size,
-                  place.to('attachments.size'),
-                )
-              : null,
+            ),
+            type:
+              raise.attachments.type !== undefined &&
+              raise.attachments.type !== ''
+                ? this.expression(
+                    raise.attachments.type,
+                    place.to('attachments.type'),
+                  )
+                : null,
+            size:
+              raise.attachments.size !== undefined &&
+              raise.attachments.size !== ''
+                ? this.expression(
+                    raise.attachments.size,
+                    place.to('attachments.size'),
+                  )
+                : null,
             fetch: this.request(
               raise.attachments.fetch,
               place.to('attachments.fetch'),
@@ -1002,7 +1028,9 @@ const oauth2Of = (
 const inputSchemaOf = (input: ToolInputFile): InputSchema =>
   input.schema
     ? InputSchema.of(
-        input.description && !('description' in input.schema)
+        input.description !== undefined &&
+          input.description !== '' &&
+          !('description' in input.schema)
           ? { ...input.schema, description: input.description }
           : input.schema,
       )
@@ -1029,7 +1057,7 @@ export const writtenHostOf = (url: string): string | null => {
   const cut = url.indexOf('${{');
   const found = WRITTEN_HOST.exec(cut === -1 ? url : url.slice(0, cut));
 
-  if (!found?.[2] || (cut !== -1 && found[0].endsWith(found[2]))) {
+  if (found === null || (cut !== -1 && found[0].endsWith(found[2]))) {
     return null;
   }
 
@@ -1094,29 +1122,32 @@ export const compileIntegration = (
         verify: compiler.auth(file.webhook.verify, hooked.to('verify')),
         respond: file.webhook.respond
           ? {
-              when: compiler.expression(
+              when: compiler.required(
                 file.webhook.respond.when,
                 hooked.to('respond.when'),
-              ) as Expression,
-              body: compiler.expression(
+              ),
+              body: compiler.required(
                 file.webhook.respond.body,
                 hooked.to('respond.body'),
-              ) as Expression,
+              ),
             }
           : null,
-        ignoreWhen: file.webhook.ignoreWhen
-          ? compiler.expression(
-              file.webhook.ignoreWhen,
-              hooked.to('ignoreWhen'),
-            )
-          : null,
+        ignoreWhen:
+          file.webhook.ignoreWhen !== undefined &&
+          file.webhook.ignoreWhen !== ''
+            ? compiler.expression(
+                file.webhook.ignoreWhen,
+                hooked.to('ignoreWhen'),
+              )
+            : null,
         route: file.webhook.route
           ? compiler.expression(file.webhook.route.by, hooked.to('route.by'))
           : null,
         parse: file.webhook.parse,
-        delivery: file.webhook.delivery
-          ? compiler.expression(file.webhook.delivery, hooked.to('delivery'))
-          : null,
+        delivery:
+          file.webhook.delivery !== undefined && file.webhook.delivery !== ''
+            ? compiler.expression(file.webhook.delivery, hooked.to('delivery'))
+            : null,
         events: file.webhook.events.map((event, at) =>
           compiler.event(event, hooked.to('events').each(at)),
         ),
@@ -1126,9 +1157,10 @@ export const compileIntegration = (
   const poll: PollIR | null = file.poll
     ? {
         request: compiler.request(file.poll.request, polled.to('request')),
-        cursor: file.poll.cursor
-          ? compiler.expression(file.poll.cursor, polled.to('cursor'))
-          : null,
+        cursor:
+          file.poll.cursor !== undefined && file.poll.cursor !== ''
+            ? compiler.expression(file.poll.cursor, polled.to('cursor'))
+            : null,
         events: file.poll.events.map((event, at) =>
           compiler.event(event, polled.to('events').each(at)),
         ),
@@ -1140,8 +1172,7 @@ export const compileIntegration = (
     const typed = inputsOf.get(tool.action) ?? {};
     for (const [name, input] of Object.entries(tool.inputs)) {
       const type = seenAs(inputSchemaOf(input));
-      typed[name] =
-        typed[name] === undefined || typed[name] === type ? type : 'dyn';
+      typed[name] = !(name in typed) || typed[name] === type ? type : 'dyn';
     }
     inputsOf.set(tool.action, typed);
   }
@@ -1232,14 +1263,15 @@ export const compileIntegration = (
               )
             : null,
       })),
-      output: tool.output
-        ? compiler.expression(
-            tool.output,
-            placed
-              .to('output')
-              .adding({ inputs: inputsOf.get(tool.action) ?? {} }),
-          )
-        : null,
+      output:
+        tool.output !== undefined && tool.output !== ''
+          ? compiler.expression(
+              tool.output,
+              placed
+                .to('output')
+                .adding({ inputs: inputsOf.get(tool.action) ?? {} }),
+            )
+          : null,
     });
   }
 
@@ -1255,7 +1287,7 @@ export const compileIntegration = (
               oauth2Of(
                 oauth2File,
                 file.mcp?.url ?? null,
-                oauth2File.identity
+                oauth2File.identity !== undefined && oauth2File.identity !== ''
                   ? compiler.expression(
                       oauth2File.identity,
                       root.to('connection.oauth2.identity'),
@@ -1265,17 +1297,19 @@ export const compileIntegration = (
                   ? null
                   : {
                       id: oauth2File.client.id,
-                      secret: oauth2File.client.secret
-                        ? compiler.referenced(
-                            oauth2File.client.secret,
-                            FieldPath.of([
-                              'connection',
-                              'oauth2',
-                              'client',
-                              'secret',
-                            ]),
-                          )
-                        : null,
+                      secret:
+                        oauth2File.client.secret !== undefined &&
+                        oauth2File.client.secret !== ''
+                          ? compiler.referenced(
+                              oauth2File.client.secret,
+                              FieldPath.of([
+                                'connection',
+                                'oauth2',
+                                'client',
+                                'secret',
+                              ]),
+                            )
+                          : null,
                     },
               ),
             )
@@ -1386,18 +1420,15 @@ export const compileIntegration = (
         action: binding.action,
         to: Object.entries(binding.to).map(([name, value]) => ({
           name,
-          value: compiler.expression(
-            value,
-            place.to('to').each(name),
-          ) as Expression,
+          value: compiler.required(value, place.to('to').each(name)),
         })),
         routes: new Map(Object.entries(binding.routes)),
         mark: binding.mark.map((mark, index) => ({
           kind: MarkKind.of(mark.kind),
-          value: compiler.expression(
+          value: compiler.required(
             mark.value,
             place.to('mark').each(index).to('value'),
-          ) as Expression,
+          ),
         })),
       };
     }),
@@ -1425,7 +1456,11 @@ export const compileIntegration = (
   ]);
 
   for (const [name, tool] of Object.entries(file.tools)) {
-    if (tool.enabledOnMark && !raisedMarks.has(tool.enabledOnMark)) {
+    if (
+      tool.enabledOnMark !== undefined &&
+      tool.enabledOnMark !== '' &&
+      !raisedMarks.has(tool.enabledOnMark)
+    ) {
       compiler.warn(
         FieldPath.of(['tools', name, 'enabledOnMark']),
         `names ${tool.enabledOnMark}, but no event or binding of the integration marks a task with it`,
@@ -1438,8 +1473,8 @@ export const compileIntegration = (
       ProvidedTool.of({
         integration: key,
         name: tool.name,
-        description: file.tools[tool.name]?.description ?? '',
-        backing: ToolBacking.action(file.tools[tool.name]?.action ?? ''),
+        description: file.tools[tool.name]?.description,
+        backing: ToolBacking.action(file.tools[tool.name]?.action),
         approval: approvalOf(file.tools[tool.name]?.approval, tool.name),
         readOnly: file.tools[tool.name]?.readOnly ?? false,
         enabledOnMark: enabledOnMarkOf(file.tools[tool.name]?.enabledOnMark),
@@ -1455,12 +1490,14 @@ export const compileIntegration = (
     ),
   );
 
+  const named = file.name?.trim();
   const generation =
     specOperations && apiSpecIR && written
       ? compiler.part(FieldPath.of([written.kind, 'tools']), () =>
           generatedTools({
             integration: key,
-            integrationName: file.name?.trim() || key.value,
+            integrationName:
+              named === undefined || named === '' ? key.value : named,
             spec: apiSpecIR.spec,
             hash: specOperations.hash,
             operations: specOperations.operations,
@@ -1496,7 +1533,10 @@ export const compileIntegration = (
     const integration = Integration.of({
       key,
       name: file.name,
-      logo: file.logo ? IntegrationLogo.of(file.logo) : null,
+      logo:
+        file.logo !== undefined && file.logo !== ''
+          ? IntegrationLogo.of(file.logo)
+          : null,
       webhook: file.webhook
         ? Webhook.of({ declares: webhookDeclares.filter(isPresent) })
         : null,
@@ -1566,7 +1606,12 @@ export const compileIntegration = (
 const isPresent = <T>(each: T | null): each is T => each !== null;
 
 const enabledOnMarkOf = (written: string | undefined): MarkKind | null =>
-  written ? MarkKind.of(written) : null;
+  written !== undefined && written !== '' ? MarkKind.of(written) : null;
+
+const shapeAt = (shape: Shape, at: FieldPath): [Shape, FieldPath] => [
+  shape,
+  at,
+];
 
 const hintProblemsOf = (
   path: string,
@@ -1579,30 +1624,30 @@ const hintProblemsOf = (
       FieldPath.of(['types', name]),
     ]),
     ...(file.webhook?.shape
-      ? [[file.webhook.shape as Shape, FieldPath.of(['webhook', 'shape'])]]
+      ? [shapeAt(file.webhook.shape, FieldPath.of(['webhook', 'shape']))]
       : []),
     ...(file.poll?.shape
-      ? [[file.poll.shape as Shape, FieldPath.of(['poll', 'shape'])]]
+      ? [shapeAt(file.poll.shape, FieldPath.of(['poll', 'shape']))]
       : []),
     ...(file.poll?.request.response
       ? [
-          [
-            file.poll.request.response as Shape,
+          shapeAt(
+            file.poll.request.response,
             FieldPath.of(['poll', 'request', 'response']),
-          ],
+          ),
         ]
       : []),
     ...Object.entries(file.actions).flatMap(([name, action]) =>
       action.request.response
         ? [
-            [
-              action.request.response as Shape,
+            shapeAt(
+              action.request.response,
               FieldPath.of(['actions', name, 'request', 'response']),
-            ],
+            ),
           ]
         : [],
     ),
-  ] as [Shape, FieldPath][];
+  ];
 
   const problems = shapes.flatMap(([shape, at]) =>
     hintProblems(shape, at, known),
@@ -1611,7 +1656,7 @@ const hintProblemsOf = (
 
   return [
     ...problems,
-    ...(cycle
+    ...(cycle !== null && cycle !== ''
       ? [
           {
             at: FieldPath.of(['types', cycle]),

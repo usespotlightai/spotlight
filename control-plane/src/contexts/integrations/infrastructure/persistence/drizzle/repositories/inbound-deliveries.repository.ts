@@ -1,5 +1,5 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import {
-  type DeliveryHeaders,
   InboundDelivery,
   type InboundDeliveryProgress,
 } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
@@ -56,7 +56,7 @@ const toDelivery = (row: Row): InboundDelivery =>
           }
         : null,
     id: InboundDeliveryId.rehydrate(row.id),
-    headers: row.headers as DeliveryHeaders,
+    headers: row.headers,
     body: row.body,
     causeFiringId:
       row.causeFiringId === null ? null : HookFiringId.of(row.causeFiringId),
@@ -149,11 +149,11 @@ export class DrizzleInboundDeliveries implements InboundDeliveryRepository {
   }
 
   async current(delivery: InboundDelivery): Promise<InboundDelivery | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(inboundDelivery)
       .where(this.keyOf(delivery))
-      .limit(1);
+      .limit(1));
 
     return row ? toDelivery(row) : null;
   }

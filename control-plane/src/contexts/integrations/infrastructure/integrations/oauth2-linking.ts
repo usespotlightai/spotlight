@@ -151,7 +151,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       authorize.searchParams.set('code_challenge_method', 'S256');
     }
 
-    if (oauth2.resource) {
+    if (oauth2.resource !== null && oauth2.resource !== '') {
       authorize.searchParams.set('resource', oauth2.resource);
     }
 
@@ -167,7 +167,11 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       return refused('state-not-accepted');
     }
 
-    if (!returned.nonce || !sameNonce(returned.nonce, intent.nonce)) {
+    if (
+      returned.nonce === null ||
+      returned.nonce === '' ||
+      !sameNonce(returned.nonce, intent.nonce)
+    ) {
       return refused('nonce-mismatch', intent);
     }
 
@@ -280,16 +284,17 @@ export class OAuth2Linking implements OAuth2LinkingPort {
   ): Promise<string> {
     const landing = returnPathOf(returnTo);
 
-    if (landing) {
+    if (landing !== null && landing !== '') {
       return `${this.base}${landing}?connected=${encodeURIComponent(integration.value)}`;
     }
 
     const team = await this.teams.find(teamId);
     const slug = team ? await this.workspaces.slugOf(team.workspaceId) : null;
 
-    const where = slug
-      ? `${this.base}/w/${slug}/settings/team/${teamId.value}/integrations`
-      : this.base;
+    const where =
+      slug !== null && slug !== ''
+        ? `${this.base}/w/${slug}/settings/team/${teamId.value}/integrations`
+        : this.base;
 
     return `${where}?connected=${encodeURIComponent(integration.value)}`;
   }

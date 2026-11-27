@@ -62,15 +62,17 @@ export class InMemoryIntegrationConnections implements IntegrationConnectionRepo
     }
   }
 
-  async of(
+  of(
     teamId: TeamId,
     integration: IntegrationKey,
     owner: ConnectionOwner,
   ): Promise<IntegrationConnection | null> {
-    return this.#stored.get(keyOf(teamId, integration, owner)) ?? null;
+    return Promise.resolve(
+      this.#stored.get(keyOf(teamId, integration, owner)) ?? null,
+    );
   }
 
-  async save(connection: IntegrationConnection): Promise<void> {
+  save(connection: IntegrationConnection): Promise<void> {
     const key = keyOf(
       connection.teamId,
       connection.integration,
@@ -83,8 +85,10 @@ export class InMemoryIntegrationConnections implements IntegrationConnectionRepo
       if (stored) {
         this.#stored.set(key, storedAs(stored, stored.version + 1));
       }
-      throw new IntegrationConnectionVersionConflictError(
-        connection.integration.value,
+      return Promise.reject(
+        new IntegrationConnectionVersionConflictError(
+          connection.integration.value,
+        ),
       );
     }
 
@@ -93,17 +97,21 @@ export class InMemoryIntegrationConnections implements IntegrationConnectionRepo
         ? stored !== undefined
         : stored?.version !== connection.version
     ) {
-      throw new IntegrationConnectionVersionConflictError(
-        connection.integration.value,
+      return Promise.reject(
+        new IntegrationConnectionVersionConflictError(
+          connection.integration.value,
+        ),
       );
     }
 
     this.#stored.set(key, storedAs(connection, (stored?.version ?? 0) + 1));
     this.saved.push(connection);
     this.events.push(...connection.pullEvents());
+
+    return Promise.resolve();
   }
 
-  async remove(connection: IntegrationConnection): Promise<void> {
+  remove(connection: IntegrationConnection): Promise<void> {
     const key = keyOf(
       connection.teamId,
       connection.integration,
@@ -111,41 +119,47 @@ export class InMemoryIntegrationConnections implements IntegrationConnectionRepo
     );
 
     if (this.#stored.get(key)?.version !== connection.version) {
-      throw new IntegrationConnectionVersionConflictError(
-        connection.integration.value,
+      return Promise.reject(
+        new IntegrationConnectionVersionConflictError(
+          connection.integration.value,
+        ),
       );
     }
 
     this.#stored.delete(key);
     this.events.push(...connection.pullEvents());
+
+    return Promise.resolve();
   }
 
-  async expiringBefore(
-    horizon: Date,
-  ): Promise<readonly IntegrationConnection[]> {
-    return [...this.#stored.values()].filter(
-      (each) =>
-        each.refreshToken !== null &&
-        each.refreshFailedAt === null &&
-        each.expiresAt !== null &&
-        each.expiresAt.getTime() < horizon.getTime(),
+  expiringBefore(horizon: Date): Promise<readonly IntegrationConnection[]> {
+    return Promise.resolve(
+      [...this.#stored.values()].filter(
+        (each) =>
+          each.refreshToken !== null &&
+          each.refreshFailedAt === null &&
+          each.expiresAt !== null &&
+          each.expiresAt.getTime() < horizon.getTime(),
+      ),
     );
   }
 
-  async ofTeam(teamId: TeamId): Promise<readonly IntegrationConnection[]> {
-    return [...this.#stored.values()].filter((each) =>
-      each.teamId.equals(teamId),
+  ofTeam(teamId: TeamId): Promise<readonly IntegrationConnection[]> {
+    return Promise.resolve(
+      [...this.#stored.values()].filter((each) => each.teamId.equals(teamId)),
     );
   }
 
-  async ofPerson(
+  ofPerson(
     workspaceId: WorkspaceId,
     person: UserId,
   ): Promise<readonly IntegrationConnection[]> {
-    return [...this.#stored.values()].filter(
-      (each) =>
-        each.workspaceId.equals(workspaceId) &&
-        each.owner.personId?.equals(person),
+    return Promise.resolve(
+      [...this.#stored.values()].filter(
+        (each) =>
+          each.workspaceId.equals(workspaceId) &&
+          each.owner.personId?.equals(person) === true,
+      ),
     );
   }
 }

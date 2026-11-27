@@ -33,12 +33,12 @@ export class DraftReviewCommentHandler implements CommandHandlerPort<
       const id = ReviewCommentId.of(this.ids.generate());
       const now = this.clock.now();
 
-      if (command.on.replyTo) {
+      if (command.on.replyTo !== null && command.on.replyTo !== '') {
         const parent = await this.comments.find(
           ReviewCommentId.of(command.on.replyTo),
         );
 
-        if (!parent?.taskId.equals(task.id)) {
+        if (parent?.taskId.equals(task.id) !== true) {
           throw new UnknownReviewCommentError();
         }
 

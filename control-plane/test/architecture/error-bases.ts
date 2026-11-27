@@ -73,6 +73,14 @@ const baseOf = (
   return extended.getText();
 };
 
+const isErrorKind = (initializer: ts.Expression): boolean => {
+  const literal = ts.isAsExpression(initializer)
+    ? initializer.expression
+    : initializer;
+
+  return ts.isStringLiteral(literal) && ERROR_KINDS.has(literal.text);
+};
+
 const declaresErrorKind = (node: ts.ClassDeclaration): boolean =>
   node.members.some(
     (member) =>
@@ -80,18 +88,7 @@ const declaresErrorKind = (node: ts.ClassDeclaration): boolean =>
       ts.isIdentifier(member.name) &&
       member.name.text === 'kind' &&
       member.initializer !== undefined &&
-      ts.isStringLiteral(
-        ts.isAsExpression(member.initializer)
-          ? member.initializer.expression
-          : member.initializer,
-      ) &&
-      ERROR_KINDS.has(
-        (
-          (ts.isAsExpression(member.initializer)
-            ? member.initializer.expression
-            : member.initializer) as ts.StringLiteral
-        ).text,
-      ),
+      isErrorKind(member.initializer),
   );
 
 const classesIn = (file: SourceFile): DeclaredClass[] => {

@@ -10,7 +10,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useState, type ReactElement } from 'react';
 
 import { TAB_SLIDE } from '@/components/shell/tabs/app-tab-look';
 import { AppTabGhost } from '@/components/shell/tabs/AppTabGhost';
@@ -56,7 +56,7 @@ export function TabDrag({
   onMove,
   onPlace,
   children,
-}: TabDragProps) {
+}: TabDragProps): ReactElement {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: DRAG_AFTER_PX },

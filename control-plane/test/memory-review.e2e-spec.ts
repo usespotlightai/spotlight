@@ -11,6 +11,7 @@ import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposa
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -20,6 +21,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
@@ -119,12 +121,10 @@ const inboxIn = async (
   as: string,
   state: 'open' | 'resolved',
 ): Promise<readonly InboxBody[]> =>
-  (
-    (
-      await served(app)
-        .get(`/api/workspaces/${team.slug}/inbox?state=${state}`)
-        .set(TEST_USER_HEADER, as)
-    ).body as { readonly items?: readonly InboxBody[] }
+  bodyOf<{ readonly items?: readonly InboxBody[] }>(
+    await served(app)
+      .get(`/api/workspaces/${team.slug}/inbox?state=${state}`)
+      .set(TEST_USER_HEADER, as),
   ).items ?? [];
 
 const inbox = async (as: string): Promise<readonly InboxBody[]> => [
@@ -150,7 +150,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('reviewing the memories a run proposed', () => {
@@ -167,7 +167,7 @@ describe('reviewing the memories a run proposed', () => {
     expect(item.resolved).toBe(false);
     expect(item.unread).toBe(true);
     expect(
-      (review.body as ReviewBody).memories.map((each) => each.body),
+      bodyOf<ReviewBody>(review).memories.map((each) => each.body),
     ).toEqual(['One.', 'Two.', 'Three.']);
   });
 
@@ -176,28 +176,26 @@ describe('reviewing the memories a run proposed', () => {
     await eventually(async () =>
       inboxRequestFor(await inbox(team.owner.value), runId),
     );
-    const [approve, edit, drop] = (
-      (
-        await served(app)
-          .get(reviewPath(runId))
-          .set(TEST_USER_HEADER, team.owner.value)
-      ).body as ReviewBody
+    const [approve, edit, drop] = bodyOf<ReviewBody>(
+      await served(app)
+        .get(reviewPath(runId))
+        .set(TEST_USER_HEADER, team.owner.value),
     ).memories;
 
     const approved = await served(app)
       .post(`${reviewPath(runId)}/approve`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({
-        memories: [{ id: approve?.id }, { id: edit?.id, body: 'Edited.' }],
+        memories: [{ id: approve.id }, { id: edit.id, body: 'Edited.' }],
       });
     const rejected = await served(app)
-      .post(`${reviewPath(runId)}/${drop?.id}/reject`)
+      .post(`${reviewPath(runId)}/${drop.id}/reject`)
       .set(TEST_USER_HEADER, team.owner.value);
 
     expect(approved.status).toBe(200);
     expect(rejected.status).toBe(200);
     expect(
-      (rejected.body as ReviewBody).memories.map((each) => [
+      bodyOf<ReviewBody>(rejected).memories.map((each) => [
         each.state,
         each.body,
         each.decision?.name,
@@ -226,20 +224,20 @@ describe('reviewing the memories a run proposed', () => {
 
     const resolvedItem = await eventually(async () => {
       const item = inboxRequestFor(await inbox(team.owner.value), runId);
-      return item?.resolved && item;
+      return item?.resolved === true ? item : item?.resolved;
     });
     expect(resolvedItem.resolved).toBe(true);
   });
 
   it('never stores a rejected memory', async () => {
     const runId = await proposing(['Never approve me.']);
-    const [only] = (
-      (
+    const only = firstOf(
+      bodyOf<ReviewBody>(
         await served(app)
           .get(reviewPath(runId))
-          .set(TEST_USER_HEADER, team.owner.value)
-      ).body as ReviewBody
-    ).memories;
+          .set(TEST_USER_HEADER, team.owner.value),
+      ).memories,
+    );
 
     await served(app)
       .post(`${reviewPath(runId)}/${only?.id}/reject`)
@@ -258,13 +256,13 @@ describe('reviewing the memories a run proposed', () => {
 
   it('restores a rejected memory, opening its inbox item again', async () => {
     const runId = await proposing(['Bring me back.']);
-    const [only] = (
-      (
+    const only = firstOf(
+      bodyOf<ReviewBody>(
         await served(app)
           .get(reviewPath(runId))
-          .set(TEST_USER_HEADER, team.owner.value)
-      ).body as ReviewBody
-    ).memories;
+          .set(TEST_USER_HEADER, team.owner.value),
+      ).memories,
+    );
     await served(app)
       .post(`${reviewPath(runId)}/${only?.id}/reject`)
       .set(TEST_USER_HEADER, team.owner.value);
@@ -279,7 +277,7 @@ describe('reviewing the memories a run proposed', () => {
 
     expect(restored.status).toBe(200);
     expect(
-      (restored.body as ReviewBody).memories.map((each) => [
+      bodyOf<ReviewBody>(restored).memories.map((each) => [
         each.state,
         each.decision,
       ]),
@@ -293,13 +291,13 @@ describe('reviewing the memories a run proposed', () => {
 
   it('opens the item of a run again when it proposes more after everything it proposed was decided', async () => {
     const runId = await proposing(['Decide me first.']);
-    const [only] = (
-      (
+    const only = firstOf(
+      bodyOf<ReviewBody>(
         await served(app)
           .get(reviewPath(runId))
-          .set(TEST_USER_HEADER, team.owner.value)
-      ).body as ReviewBody
-    ).memories;
+          .set(TEST_USER_HEADER, team.owner.value),
+      ).memories,
+    );
     await served(app)
       .post(`${reviewPath(runId)}/${only?.id}/reject`)
       .set(TEST_USER_HEADER, team.owner.value);
@@ -319,13 +317,13 @@ describe('reviewing the memories a run proposed', () => {
 
   it('restores only a rejected memory', async () => {
     const runId = await proposing(['Keep me.']);
-    const [only] = (
-      (
+    const only = firstOf(
+      bodyOf<ReviewBody>(
         await served(app)
           .get(reviewPath(runId))
-          .set(TEST_USER_HEADER, team.owner.value)
-      ).body as ReviewBody
-    ).memories;
+          .set(TEST_USER_HEADER, team.owner.value),
+      ).memories,
+    );
 
     const restored = await served(app)
       .delete(`${reviewPath(runId)}/${only?.id}/reject`)
@@ -336,37 +334,35 @@ describe('reviewing the memories a run proposed', () => {
 
   it('approves a memory from outside the team only on its own', async () => {
     const runId = await proposing(['Outside one.', 'Outside two.'], true);
-    const [first, second] = (
-      (
-        await served(app)
-          .get(reviewPath(runId))
-          .set(TEST_USER_HEADER, team.owner.value)
-      ).body as ReviewBody
+    const [first, second] = bodyOf<ReviewBody>(
+      await served(app)
+        .get(reviewPath(runId))
+        .set(TEST_USER_HEADER, team.owner.value),
     ).memories;
 
     const together = await served(app)
       .post(`${reviewPath(runId)}/approve`)
       .set(TEST_USER_HEADER, team.owner.value)
-      .send({ memories: [{ id: first?.id }, { id: second?.id }] });
+      .send({ memories: [{ id: first.id }, { id: second.id }] });
     const alone = await served(app)
       .post(`${reviewPath(runId)}/approve`)
       .set(TEST_USER_HEADER, team.owner.value)
-      .send({ memories: [{ id: first?.id }] });
+      .send({ memories: [{ id: first.id }] });
 
-    expect(first?.source).toBe('outside');
+    expect(first.source).toBe('outside');
     expect(together.status).toBe(422);
     expect(alone.status).toBe(200);
   });
 
   it('answers a second decision on the same memory with a conflict', async () => {
     const runId = await proposing(['Decide me once.']);
-    const [only] = (
-      (
+    const only = firstOf(
+      bodyOf<ReviewBody>(
         await served(app)
           .get(reviewPath(runId))
-          .set(TEST_USER_HEADER, team.owner.value)
-      ).body as ReviewBody
-    ).memories;
+          .set(TEST_USER_HEADER, team.owner.value),
+      ).memories,
+    );
 
     await served(app)
       .post(`${reviewPath(runId)}/${only?.id}/reject`)
@@ -381,13 +377,13 @@ describe('reviewing the memories a run proposed', () => {
 
   it('decides a memory only under the run that proposed it', async () => {
     const first = await proposing(['From the first run.']);
-    const [earlier] = (
-      (
+    const earlier = firstOf(
+      bodyOf<ReviewBody>(
         await served(app)
           .get(reviewPath(first))
-          .set(TEST_USER_HEADER, team.owner.value)
-      ).body as ReviewBody
-    ).memories;
+          .set(TEST_USER_HEADER, team.owner.value),
+      ).memories,
+    );
     await served(app)
       .post(`${reviewPath(first)}/approve`)
       .set(TEST_USER_HEADER, team.owner.value)

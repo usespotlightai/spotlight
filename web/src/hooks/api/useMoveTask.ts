@@ -1,7 +1,11 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { taskKeys } from '@/hooks/api/useTasks';
-import { moveTask } from '@/lib/api';
+import { moveTask, type TaskResponseDto } from '@/lib/api';
 import { placed, type Task } from '@/lib/task';
 
 type MoveTaskInput = {
@@ -13,7 +17,12 @@ type MoveTaskInput = {
   afterTaskId: string | null;
 };
 
-export function useMoveTask() {
+export function useMoveTask(): UseMutationResult<
+  TaskResponseDto,
+  Error,
+  MoveTaskInput,
+  { previous: TaskResponseDto[] | undefined }
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

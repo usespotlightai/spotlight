@@ -53,8 +53,19 @@ const joined = (parts: readonly Uint8Array[]): Uint8Array => {
 };
 
 const once = (bytes: Uint8Array): AsyncIterable<Uint8Array> => ({
-  async *[Symbol.asyncIterator]() {
-    yield bytes;
+  [Symbol.asyncIterator]: () => {
+    let sent = false;
+
+    return {
+      next: (): Promise<IteratorResult<Uint8Array>> => {
+        const result: IteratorResult<Uint8Array> = sent
+          ? { done: true, value: undefined }
+          : { done: false, value: bytes };
+        sent = true;
+
+        return Promise.resolve(result);
+      },
+    };
   },
 });
 
@@ -141,7 +152,7 @@ const commandsIn = async (
 
     const next = await rest.next();
 
-    if (next.done) {
+    if (next.done === true) {
       return null;
     }
 
@@ -169,7 +180,7 @@ const drained = async (rest: AsyncIterator<Uint8Array>): Promise<void> => {
     for (;;) {
       const next = await Promise.race([rest.next(), late]);
 
-      if (next === 'late' || next.done) {
+      if (next === 'late' || next.done === true) {
         return;
       }
     }
@@ -209,7 +220,9 @@ const packetsIn = (bytes: Uint8Array): readonly Uint8Array[] | null => {
 
 const acceptedRefsIn = (report: Uint8Array): ReadonlySet<string> => {
   const outer = packetsIn(report) ?? [];
-  const banded = outer.length > 0 && outer.every((each) => (each[0] ?? 0) <= 3);
+  const banded =
+    outer.length > 0 &&
+    outer.every((each) => (each.length > 0 ? each[0] : 0) <= 3);
   const status = banded
     ? (packetsIn(
         joined(
@@ -248,7 +261,7 @@ const reportOf = (
     capabilities.includes(each),
   );
 
-  if (!band) {
+  if (band === undefined || band === '') {
     return status;
   }
 
@@ -268,7 +281,10 @@ export class GitReceivePack implements ReceivePackPort {
   async read(call: GitCallDto): Promise<PushRead> {
     const encoding = headerOf(call.headers, 'content-encoding');
 
-    if (!call.body || (encoding && encoding !== 'identity')) {
+    if (
+      !call.body ||
+      (encoding !== undefined && encoding !== '' && encoding !== 'identity')
+    ) {
       return {
         kind: 'unreadable',
         answer: textAnswer(400, 'Spotlight reads only uncompressed pushes.'),
@@ -311,7 +327,7 @@ export class GitReceivePack implements ReceivePackPort {
               yield read;
               for (
                 let next = await rest.next();
-                !next.done;
+                next.done !== true;
                 next = await rest.next()
               ) {
                 yield next.value;

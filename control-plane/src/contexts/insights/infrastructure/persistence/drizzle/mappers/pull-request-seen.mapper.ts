@@ -28,7 +28,7 @@ export const seenOfRow = (row: PullRequestRow): SeenPullRequest | null =>
         readyForReviewAt: row.readyForReviewAt,
         draftPeriods: row.draftPeriods.map((each) => ({
           from: new Date(each.from),
-          to: each.to ? new Date(each.to) : null,
+          to: each.to !== null && each.to !== '' ? new Date(each.to) : null,
         })),
         firstReviewAt: row.firstReviewAt,
         firstUnblockingReviewAt: row.firstUnblockingReviewAt,

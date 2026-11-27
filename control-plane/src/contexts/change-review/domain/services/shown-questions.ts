@@ -6,6 +6,7 @@ import {
   type ProposedLayer,
   type ProposedQuestion,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 export const shownHunks = (
   layers: readonly ProposedLayer[],
@@ -21,7 +22,7 @@ export const keptQuestions = (
   cohort: ProposedCohort,
   l: number,
 ): ProposedLayer['questions'] => {
-  const layer = cohort.layers[l];
+  const layer = itemAt(cohort.layers, l);
 
   if (!layer || !asksQuestions(cohort.kind)) {
     return [];
@@ -32,9 +33,9 @@ export const keptQuestions = (
   return layer.questions
     .filter(
       (each) =>
-        each.question.trim() &&
+        each.question.trim() !== '' &&
         each.question.length <= MAX_PROSE &&
-        each.answer.trim() &&
+        each.answer.trim() !== '' &&
         each.answer.length <= MAX_PROSE &&
         each.hunks.length > 0 &&
         each.hunks.every((hunk) => shown.has(hunk)),

@@ -29,6 +29,7 @@ import {
   storedAs,
 } from '@runs/domain/aggregates/working-copy-archive.fake-spec';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -41,10 +42,12 @@ const setUp = (
     key: 'requester/subject-task_1',
   },
 ) => {
-  const sandboxes = new SandboxArchives({
-    authenticate: async (token: string | undefined) =>
-      token === TOKEN ? sandbox : null,
-  } as unknown as SandboxesPort);
+  const sandboxes = new SandboxArchives(
+    partial<SandboxesPort>({
+      authenticate: (token: string | undefined) =>
+        Promise.resolve(token === TOKEN ? sandbox : null),
+    }),
+  );
   const archives = new InMemoryArchives();
   const store = new InMemoryArchiveStore();
   let issued = 0;
@@ -59,8 +62,8 @@ const setUp = (
   );
   const restored = new RestoredArchives(archives, store);
   const stores: WorkingCopyStoresPort = {
-    ofRunner: async () => null,
-    ofSandbox: async () => null,
+    ofRunner: () => Promise.resolve(null),
+    ofSandbox: () => Promise.resolve(null),
   };
 
   return {

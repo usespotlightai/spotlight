@@ -10,6 +10,7 @@ import type {
   OutcomeVerdict,
   ReplayOutcome,
 } from '@replays/domain/value-objects/replay-outcome.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface ReplayTotals {
@@ -138,7 +139,7 @@ export const repeatsByOriginal = (
 const successOf = (repeats: readonly EntryOutcome[]): number | null => {
   const judged = judgedIn(repeats);
 
-  return mean(judged.map((each) => (each.succeeded ? 1 : 0)));
+  return mean(judged.map((each) => (each.succeeded === true ? 1 : 0)));
 };
 
 interface Tally {
@@ -150,7 +151,7 @@ const tallyOf = (repeats: readonly EntryOutcome[]): Tally => {
   const judged = judgedIn(repeats);
 
   return {
-    successes: judged.filter((each) => each.succeeded).length,
+    successes: judged.filter((each) => each.succeeded === true).length,
     trials: judged.length,
   };
 };
@@ -236,7 +237,7 @@ export const totalsOf = (
 
   const concluded = ended.filter((each) => each.concluded);
   const judged = judgedIn(entries);
-  const succeeded = judged.filter((each) => each.succeeded).length;
+  const succeeded = judged.filter((each) => each.succeeded === true).length;
   const perTask = [...taskSuccessesOf(replay, runSubset).values()];
   const interval = rateIntervalOf(perTask, replay.id.value);
   const times = measured.flatMap((each) => (each.ms === null ? [] : [each.ms]));
@@ -299,7 +300,7 @@ const scoresOf = (
   const ours = verdictsOf(candidate.repeats);
   const theirs = verdictsOf(baseline.repeats);
   const every = [...ours, ...theirs];
-  const [first] = every;
+  const first = firstOf(every);
 
   if (ours.length === 0 || theirs.length === 0 || !first) {
     return { delta: null, uncompared: 'unjudged', worse: false };
@@ -392,7 +393,11 @@ export const taskComparisons = (
         theirs.every((each) => each.concluded);
       const candidateSuccess = successOf(repeats);
       const baselineSuccess = baseline ? successOf(theirs) : null;
-      const [first] = repeats as [EntryOutcome];
+      const first = firstOf(repeats);
+
+      if (first === undefined) {
+        throw new Error('a task compares at least one repeat');
+      }
 
       return {
         original,

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ApprovalDecision } from '@/components/features/inbox/conversation/approval/ApprovalDecision';
 import { ApprovalDismissal } from '@/components/features/inbox/conversation/approval/ApprovalDismissal';
 import { ApprovalEditControls } from '@/components/features/inbox/conversation/approval/ApprovalEditControls';
@@ -31,7 +33,7 @@ export function ApprovalControls({
   onApproveEdited,
   outdated = false,
   onDecide,
-}: ApprovalControlsProps) {
+}: ApprovalControlsProps): ReactElement | null {
   if (!onDecide) {
     return outdated ? (
       <p className="text-muted-foreground text-xs">
@@ -73,7 +75,9 @@ export function ApprovalControls({
       onlyFor={onlyFor}
       keyed={keyed}
       onApprove={
-        onlyFor ? undefined : () => onDecide({ approve: true, body: '' })
+        onlyFor !== null && onlyFor !== ''
+          ? undefined
+          : () => onDecide({ approve: true, body: '' })
       }
       onDismiss={() => onMode('dismissing')}
     />

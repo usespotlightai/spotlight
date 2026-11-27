@@ -42,7 +42,11 @@ export const followed = async (
     });
     const location = reply.headers.get('location');
 
-    if (!REDIRECTS.includes(reply.status) || !location) {
+    if (
+      !REDIRECTS.includes(reply.status) ||
+      location === null ||
+      location === ''
+    ) {
       return { reply, url: hop.url };
     }
 

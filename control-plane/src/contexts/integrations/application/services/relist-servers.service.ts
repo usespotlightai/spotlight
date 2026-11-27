@@ -57,7 +57,7 @@ export class RelistServers {
       server.integration,
     );
 
-    if (!definition?.relistDue(due)) {
+    if (definition?.relistDue(due) !== true) {
       return false;
     }
 

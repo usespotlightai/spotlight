@@ -13,7 +13,7 @@ import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { GradingRound } from '@change-review/domain/value-objects/grading-round.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
@@ -27,6 +27,7 @@ import {
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -111,10 +112,7 @@ const RUN_STACK = stackOf('stack-1', StackOrigin.run(RunId.of('run-1')));
 
 const PUSHED_STACK = stackOf(
   'stack-2',
-  StackOrigin.push(
-    CommitSha.parsed('b'.repeat(40)) as CommitSha,
-    Pusher.of('octocat'),
-  ),
+  StackOrigin.push(commitSha('b'), Pusher.of('octocat')),
 );
 
 const answered = (stack: ChangeStack, reply: string | null = 'The bot.') =>
@@ -135,19 +133,22 @@ const grading = (
   let stored = initial;
   const grade = vi.fn(answer);
 
-  const answers = {
-    find: async () => stored,
-    save: async (saved: QuestionAnswer) => {
+  const answers = partial<QuestionAnswerRepository>({
+    find: () => Promise.resolve(stored),
+    save: (saved: QuestionAnswer) => {
       stored = saved;
+      return Promise.resolve();
     },
-    nextDueGrading: async (at: Date) =>
-      stored.hasPendingJob && stored.job.isDue(at) ? stored : null,
-  } as unknown as QuestionAnswerRepository;
-  const stackRepository = {
-    find: async (id: ChangeStackId) =>
-      stacks.find((each) => each.id.equals(id)) ?? null,
-    ofTask: async () => stacks,
-  } as unknown as ChangeStackRepository;
+    nextDueGrading: (at: Date) =>
+      Promise.resolve(
+        stored.hasPendingJob && stored.job.isDue(at) ? stored : null,
+      ),
+  });
+  const stackRepository = partial<ChangeStackRepository>({
+    find: (id: ChangeStackId) =>
+      Promise.resolve(stacks.find((each) => each.id.equals(id)) ?? null),
+    ofTask: () => Promise.resolve(stacks),
+  });
   const grader: AnswerGraderPort = { grade };
   let now = NOW;
 
@@ -156,7 +157,7 @@ const grading = (
     stackRepository,
     grader,
     { inTransaction: <T>(work: () => Promise<T>) => work() },
-    { now: () => now, sleep: async () => undefined },
+    { now: () => now, sleep: () => Promise.resolve() },
     QUIET,
     { report: () => undefined },
     telemetryInMemory(),
@@ -171,11 +172,12 @@ const grading = (
   return { tick, grade, stored: () => stored };
 };
 
-const GRADED = async (): Promise<GradedAnswer> => ({
-  status: 'graded',
-  grade: { verdict: 'partly-right', feedback: 'Not the bot.' },
-  usage: { inputTokens: 300, outputTokens: 40, cost: null },
-});
+const GRADED = (): Promise<GradedAnswer> =>
+  Promise.resolve({
+    status: 'graded',
+    grade: { verdict: 'partly-right', feedback: 'Not the bot.' },
+    usage: { inputTokens: 300, outputTokens: 40, cost: null },
+  });
 
 describe('WorkAnswerGrades', () => {
   it('grades a pending answer in a session based on the stack’s run, against the hunks that show the answer', async () => {
@@ -250,10 +252,12 @@ describe('WorkAnswerGrades', () => {
   });
 
   it('grades again in a new round after a session gave no grade, then gives up', async () => {
-    const worked = grading(answered(RUN_STACK), async () => ({
-      status: 'failed',
-      failure: SessionFailure.of('no-result'),
-    }));
+    const worked = grading(answered(RUN_STACK), () =>
+      Promise.resolve({
+        status: 'failed',
+        failure: SessionFailure.of('no-result'),
+      }),
+    );
 
     for (let day = 0; day < MAX_JOB_ATTEMPTS; day += 1) {
       await worked.tick(new Date(NOW.getTime() + day * DAY));
@@ -268,10 +272,12 @@ describe('WorkAnswerGrades', () => {
 
   it('gives up at once where no harness can run the session, or its run is in another workspace', async () => {
     for (const reason of ['no-harness', 'base-run-elsewhere'] as const) {
-      const worked = grading(answered(RUN_STACK), async () => ({
-        status: 'failed',
-        failure: SessionFailure.of(reason),
-      }));
+      const worked = grading(answered(RUN_STACK), () =>
+        Promise.resolve({
+          status: 'failed',
+          failure: SessionFailure.of(reason),
+        }),
+      );
 
       await worked.tick(NOW);
 

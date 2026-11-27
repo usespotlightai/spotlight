@@ -38,7 +38,7 @@ export class StopSupersededChecks {
     return this.transaction.inTransaction(async () => {
       const replay = await this.replays.find(replayId);
 
-      if (replay?.isStoppable) {
+      if (replay?.isStoppable === true) {
         await this.replays.save(
           replay.stop(
             this.clock.now(),

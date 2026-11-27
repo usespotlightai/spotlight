@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
@@ -14,7 +16,9 @@ type SpotlightShareProps = {
   spotlightShare: InsightsPullRequests['spotlightShare'];
 };
 
-export function SpotlightShare({ spotlightShare }: SpotlightShareProps) {
+export function SpotlightShare({
+  spotlightShare,
+}: SpotlightShareProps): ReactElement {
   const drill = (filter: Parameters<typeof mergedPullRequestsFilter>[0]) => ({
     tab: 'productivity' as const,
     filter: mergedPullRequestsFilter(filter),

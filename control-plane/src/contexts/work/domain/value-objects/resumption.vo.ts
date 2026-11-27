@@ -14,7 +14,7 @@ export class Resumption {
     into: Station | null;
     summary: string | null;
   }): Resumption {
-    const summary = input.summary?.trim() || null;
+    const summary = (input.summary?.trim() ?? '') || null;
 
     if (!input.into) {
       return new Resumption('continue', input.here.name, summary);
@@ -35,7 +35,7 @@ export class Resumption {
     return new Resumption(
       input.next,
       input.station,
-      input.summary?.trim() || null,
+      (input.summary?.trim() ?? '') || null,
     );
   }
 

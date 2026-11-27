@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { NotFound } from '@/components/features/board/NotFound';
@@ -12,7 +13,7 @@ import { failed, loading } from '@/lib/query';
 import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
 
-export function Task() {
+export function Task(): ReactElement {
   const { slug, teamId, taskId } = useParams();
   const lines = useLines(teamId);
   const found = useTask(teamId, taskId);

@@ -17,7 +17,7 @@ export const mergeOf = (
     return { outcome: 'unmerged' };
   }
 
-  return commit && COMMIT.test(commit)
+  return commit !== null && commit !== '' && COMMIT.test(commit)
     ? { outcome: 'merged', merge: { commit } }
     : { outcome: 'unproven' };
 };

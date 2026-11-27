@@ -81,7 +81,12 @@ export const DECLARED_EVENTS: readonly DeclaredEvent[] =
 
 export const DOMAIN_EVENT_OWNERS: ReadonlyMap<string, readonly string[]> =
   DECLARED_EVENTS.reduce((owners, event) => {
-    if (event.kind && event.context) {
+    if (
+      event.kind !== null &&
+      event.kind !== '' &&
+      event.context !== null &&
+      event.context !== ''
+    ) {
       owners.set(event.kind, [
         ...new Set([...(owners.get(event.kind) ?? []), event.context]),
       ]);

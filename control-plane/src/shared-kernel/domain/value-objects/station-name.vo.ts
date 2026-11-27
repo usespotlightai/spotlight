@@ -3,7 +3,7 @@ import { InvalidStationNameError } from '@shared-kernel/domain/exceptions/invali
 const MAX_LENGTH = 100;
 
 export class StationName {
-  private readonly kind = 'station-name' as const;
+  private readonly kind: string = 'station-name';
 
   private constructor(readonly value: string) {}
 
@@ -23,7 +23,9 @@ export class StationName {
   }
 
   static maybe(raw: string | null | undefined): StationName | null {
-    return raw ? StationName.of(raw) : null;
+    return raw !== null && raw !== undefined && raw !== ''
+      ? StationName.of(raw)
+      : null;
   }
 
   equals(other: StationName): boolean {

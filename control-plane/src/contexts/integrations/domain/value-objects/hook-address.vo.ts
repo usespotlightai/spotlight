@@ -12,7 +12,7 @@ const invalid = (): never => {
 };
 
 export class HookAddress {
-  private readonly kind = 'hook-address';
+  private readonly kind: string = 'hook-address';
 
   private constructor(
     readonly teamKey: string,

@@ -254,7 +254,7 @@ describe('JudgeAgreement', () => {
     );
 
     expect(tiles()).toEqual([
-      `Runs with both verdicts${EARLIER?.agreement.pairs} of 10Kappa and same verdict show at 10 runs.`,
+      `Runs with both verdicts${EARLIER.agreement.pairs} of 10Kappa and same verdict show at 10 runs.`,
     ]);
     expect(
       document.querySelector('[data-slot="score-visibility"]'),

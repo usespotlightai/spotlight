@@ -42,7 +42,7 @@ export class StartOracleReplay {
     const baseline = await this.replays.find(event.replayId);
     const live = baseline && (await this.candidates.find(baseline.candidateId));
 
-    if (!baseline || !live?.isLive || !baseline.isOracleReference) {
+    if (!baseline || live?.isLive !== true || !baseline.isOracleReference) {
       return;
     }
 
@@ -53,7 +53,12 @@ export class StartOracleReplay {
     const set = await this.sets.find(baseline.setId);
     const answered = set && (await this.answeredIn(set, baseline.originals));
 
-    if (!set || set.isAtGoneStation || !answered?.length) {
+    if (
+      !set ||
+      set.isAtGoneStation ||
+      answered?.length === undefined ||
+      answered.length === 0
+    ) {
       return;
     }
 

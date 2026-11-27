@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, type ReactElement, type ReactNode } from 'react';
 
 import { FoldedVisitNotes } from '@/components/features/inbox/conversation/FoldedVisitNotes';
 import { FoldedVisits } from '@/components/features/inbox/conversation/FoldedVisits';
@@ -143,9 +143,10 @@ export function Conversation({
   suggestion,
   docked = [],
   pills,
-}: ConversationProps) {
+}: ConversationProps): ReactElement {
   const marked = marksIn(item);
   const turns = turnsOf(item);
+  const liveShown = Boolean(live);
   const shownNotes = item.notes.filter(showsInThread);
   const placed = placeVisits(item.folded, shownNotes);
   const { data: session } = useSession();
@@ -201,9 +202,10 @@ export function Conversation({
             turn.prompt?.position === openAt ||
             turn.notes.some((note) => note.position === openAt),
         );
-  const runClosing = afterRun?.content
-    ? closingPlaceOf(turns, item.notes, afterRun.runId)
-    : null;
+  const runClosing =
+    afterRun !== undefined && Boolean(afterRun.content)
+      ? closingPlaceOf(turns, item.notes, afterRun.runId)
+      : null;
 
   return (
     <DecisionTrayContext value={tray}>
@@ -250,7 +252,7 @@ export function Conversation({
                   }
                   head={
                     <>
-                      {head &&
+                      {Boolean(head) &&
                         turn.prompt &&
                         marked.has(turn.prompt.position) && (
                           <div className={cn('mb-3', !afterAnother && 'mt-6')}>
@@ -258,7 +260,7 @@ export function Conversation({
                           </div>
                         )}
 
-                      {head && (
+                      {Boolean(head) && (
                         <div
                           data-head
                           data-note={turn.prompt?.position}
@@ -281,7 +283,8 @@ export function Conversation({
                     )}
 
                     {turn.notes.map((note, place) => {
-                      const before = turn.notes[place - 1];
+                      const before =
+                        place > 0 ? turn.notes.at(place - 1) : undefined;
                       const closesRun =
                         runClosing?.turn === at &&
                         runClosing.after === note.position
@@ -294,7 +297,8 @@ export function Conversation({
                         <Fragment key={`${item.id}-${note.position}`}>
                           {earlierHere && <li>{earlierHere}</li>}
 
-                          {(!before || before.station !== note.station) &&
+                          {(before === undefined ||
+                            before.station !== note.station) &&
                             marked.has(note.position) && (
                               <li>
                                 <TimeMarker at={note.at} />
@@ -328,13 +332,13 @@ export function Conversation({
                             }
                           />
 
-                          {closesRun && <li>{closesRun}</li>}
+                          {Boolean(closesRun) && <li>{closesRun}</li>}
                         </Fragment>
                       );
                     })}
 
                     {at === all.length - 1 &&
-                      (live ? (
+                      (liveShown ? (
                         <li className="empty:hidden">{live}</li>
                       ) : (
                         item.progress && (
@@ -365,7 +369,7 @@ export function Conversation({
             />
           ))}
 
-          {closing && <div className="mt-3">{closing}</div>}
+          {Boolean(closing) && <div className="mt-3">{closing}</div>}
 
           <DecisionTraySpace />
         </div>

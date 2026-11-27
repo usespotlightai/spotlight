@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Pie, PieChart } from 'recharts';
 
 import { sliceFill } from '@/components/features/insights/chart-series';
@@ -16,7 +17,7 @@ type SliceDonutProps = {
   slot: string;
 };
 
-export function SliceDonut({ slices, slot }: SliceDonutProps) {
+export function SliceDonut({ slices, slot }: SliceDonutProps): ReactElement {
   return (
     <div aria-hidden data-slot={slot} className="shrink-0">
       <PieChart width={DONUT_SIZE} height={DONUT_SIZE}>

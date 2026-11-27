@@ -203,7 +203,7 @@ export class Approval {
 
     if (!('call' in edited)) {
       throw new InvalidApprovalAnswerError(
-        edited.problem
+        edited.problem !== null && edited.problem !== ''
           ? `The edited request cannot run. Problem: ${edited.problem}`
           : `Edits must fill every input of the call with a value of its kind. Inputs of the call: ${asked.writtenInputs.map((each) => each.name).join(', ') || 'none'}`,
       );

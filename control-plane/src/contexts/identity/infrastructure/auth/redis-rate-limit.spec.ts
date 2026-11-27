@@ -1,20 +1,21 @@
 import { redisRateLimit } from '@identity/infrastructure/auth/redis-rate-limit';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import RedisMock from 'ioredis-mock';
 import { describe, expect, it, vi } from 'vitest';
 
-const logger = {
+const logger = partial<LoggerPort>({
   info: vi.fn(),
   error: vi.fn(),
   warn: vi.fn(),
   debug: vi.fn(),
-} as unknown as LoggerPort;
+});
 
 const rule = { window: 10, max: 3 };
 
 describe('redisRateLimit', () => {
   it('allows a request the store counted within the limit', async () => {
-    const eval_ = vi.fn(async () => -1);
+    const eval_ = vi.fn(() => Promise.resolve(-1));
 
     await expect(
       redisRateLimit({ eval: eval_ }, logger).consume('ip|/sign-in', rule),
@@ -30,7 +31,10 @@ describe('redisRateLimit', () => {
 
   it('refuses a request over the limit until the window frees up', async () => {
     await expect(
-      redisRateLimit({ eval: async () => 1_500 }, logger).consume('key', rule),
+      redisRateLimit({ eval: () => Promise.resolve(1_500) }, logger).consume(
+        'key',
+        rule,
+      ),
     ).resolves.toEqual({ allowed: false, retryAfter: 2 });
   });
 
@@ -38,8 +42,8 @@ describe('redisRateLimit', () => {
     await expect(
       redisRateLimit(
         {
-          eval: async () => {
-            throw new Error('Command timed out');
+          eval: () => {
+            return Promise.reject(new Error('Command timed out'));
           },
         },
         logger,

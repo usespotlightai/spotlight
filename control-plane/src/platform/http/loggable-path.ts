@@ -9,7 +9,7 @@ export function loggablePath(request: Loggable): string | undefined {
   const path = request.url?.split(/[?#]/, 1)[0];
   const route = request.route?.path;
 
-  if (!path || typeof route !== 'string') {
+  if (path === undefined || path === '' || typeof route !== 'string') {
     return path;
   }
 

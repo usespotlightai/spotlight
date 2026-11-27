@@ -1,6 +1,7 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import { PLAIN_STATION_COLOR } from '@lines/application/contracts/line-view.contract';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -143,9 +144,12 @@ const approvalOf = (
     status: parts.status,
     edited: toEditedCall(parts)?.writtenInputs ?? null,
     intent: parts.intent ?? null,
-    askedOf: parts.askedOf
-      ? { id: parts.askedOf, name: named.get(parts.askedOf)?.name ?? '' }
-      : null,
+    askedOf:
+      parts.askedOf !== undefined &&
+      parts.askedOf !== null &&
+      parts.askedOf !== ''
+        ? { id: parts.askedOf, name: named.get(parts.askedOf)?.name ?? '' }
+        : null,
   };
 };
 
@@ -281,17 +285,26 @@ const inboxNotesOf = async (
     ),
     people.findMany(
       rows.flatMap((row) => [
-        ...(row.authorId ? [UserId.of(row.authorId)] : []),
+        ...(row.authorId !== null && row.authorId !== ''
+          ? [UserId.of(row.authorId)]
+          : []),
         ...row.coAuthorIds.map(UserId.of),
         ...(row.connectionAsk ? [UserId.of(row.connectionAsk.personId)] : []),
-        ...(row.approval?.askedOf ? [UserId.of(row.approval.askedOf)] : []),
+        ...(row.approval?.askedOf !== undefined &&
+        row.approval.askedOf !== null &&
+        row.approval.askedOf !== ''
+          ? [UserId.of(row.approval.askedOf)]
+          : []),
       ]),
     ),
     waitingDeferralsFor(db, taskIds),
   ]);
 
   return rows.map((row) => {
-    const author = row.authorId ? authors.get(row.authorId) : undefined;
+    const author =
+      row.authorId !== null && row.authorId !== ''
+        ? authors.get(row.authorId)
+        : undefined;
 
     return {
       taskId: row.taskId,
@@ -309,13 +322,14 @@ const inboxNotesOf = async (
         attachmentsOf(attached, row.taskId).byNote.get(row.position) ?? [],
       at: row.at,
       readAt: row.readAt,
-      author: row.authorId
-        ? {
-            id: row.authorId,
-            name: author?.name ?? '',
-            image: author?.image ?? null,
-          }
-        : null,
+      author:
+        row.authorId !== null && row.authorId !== ''
+          ? {
+              id: row.authorId,
+              name: author?.name ?? '',
+              image: author?.image ?? null,
+            }
+          : null,
       coAuthors: row.coAuthorIds.map((id) => ({
         id,
         name: authors.get(id)?.name ?? '',
@@ -562,10 +576,10 @@ export const foldedAround = (
 ): InboxFoldedVisit[] =>
   foldedVisits(trail, new Set(shown.map((note) => note.position))).flatMap(
     ({ notes, closing, answers, passedBack }) => {
-      const [first] = notes;
-      const last = notes[notes.length - 1];
+      const first = firstOf(notes);
+      const last = itemAt(notes, notes.length - 1);
 
-      return first && last
+      return first !== undefined && last !== undefined
         ? [
             {
               first,
@@ -611,9 +625,12 @@ export const openAskOf = (note: {
   approval: note.approval
     ? {
         open: Approval.isPending(note.approval.status),
-        askedOf: note.approval.askedOf
-          ? UserId.of(note.approval.askedOf)
-          : null,
+        askedOf:
+          note.approval.askedOf !== undefined &&
+          note.approval.askedOf !== null &&
+          note.approval.askedOf !== ''
+            ? UserId.of(note.approval.askedOf)
+            : null,
       }
     : null,
   connectionAsk: note.connectionAsk
@@ -701,7 +718,12 @@ export const openHoldsFor = async (
   return new Map(
     rows.map((row) => [
       row.taskId,
-      { chat: row.chatId ? ChatId.of(row.chatId) : null },
+      {
+        chat:
+          row.chatId !== null && row.chatId !== ''
+            ? ChatId.of(row.chatId)
+            : null,
+      },
     ]),
   );
 };
@@ -823,7 +845,11 @@ export const latestRunsAtCurrentStation = async (
   ).flat();
 
   return new Map(
-    rows.flatMap((row) => (row.taskId ? [[row.taskId, row.id] as const] : [])),
+    rows.flatMap((row) =>
+      row.taskId !== null && row.taskId !== ''
+        ? [[row.taskId, row.id] as const]
+        : [],
+    ),
   );
 };
 

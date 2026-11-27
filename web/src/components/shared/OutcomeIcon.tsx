@@ -5,6 +5,7 @@ import {
   CircleSlash,
   CircleX,
 } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { TONE_INK } from '@/components/shared/outcome-tones';
 import type { OutcomeTone } from '@/lib/station-insights';
@@ -18,7 +19,7 @@ const ICONS = {
   quiet: CircleSlash,
 } as const;
 
-export function OutcomeIcon({ tone }: { tone: OutcomeTone }) {
+export function OutcomeIcon({ tone }: { tone: OutcomeTone }): ReactElement {
   const Icon = ICONS[tone];
 
   return (

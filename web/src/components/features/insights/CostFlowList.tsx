@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { spentIn } from '@/lib/inbox';
@@ -36,7 +36,10 @@ const stagesOf = (rows: readonly FlowLinkRow[]) => {
   });
 };
 
-export function CostFlowList({ rows, currency }: CostFlowListProps) {
+export function CostFlowList({
+  rows,
+  currency,
+}: CostFlowListProps): ReactElement {
   return (
     <div className="flex flex-col gap-4">
       {stagesOf(rows).map((stage) => (

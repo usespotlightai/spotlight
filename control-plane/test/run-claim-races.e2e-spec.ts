@@ -53,7 +53,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 interface Queue {
@@ -158,7 +158,9 @@ const stored = async (id: string): Promise<Run> => {
 
 const taskRunsOf = (setUp: Queued): readonly string[] => [
   ...setUp.taskRuns,
-  ...(setUp.leasedTaskRun ? [setUp.leasedTaskRun] : []),
+  ...(setUp.leasedTaskRun !== null && setUp.leasedTaskRun !== ''
+    ? [setUp.leasedTaskRun]
+    : []),
 ];
 
 const raced = async (input: Queue): Promise<Raced> => {
@@ -235,7 +237,10 @@ describe('runners claiming from one queue at the same moment', () => {
       race(({ input, queued: setUp, handed }) => {
         const claimable =
           setUp.specRuns.length +
-          (setUp.taskRuns.length > 0 && !setUp.leasedTaskRun ? 1 : 0);
+          (setUp.taskRuns.length > 0 &&
+          (setUp.leasedTaskRun === null || setUp.leasedTaskRun === '')
+            ? 1
+            : 0);
 
         return handed.length === Math.min(claimable, input.runners);
       }),

@@ -1,5 +1,5 @@
 import { ErrorBoundary } from '@sentry/react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useState, type ReactElement } from 'react';
 import { useLocation } from 'react-router';
 
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -15,7 +15,7 @@ export function PageErrorBoundary({
   what = 'This page',
   centered = false,
   children,
-}: PageErrorBoundaryProps) {
+}: PageErrorBoundaryProps): ReactElement {
   const { pathname } = useLocation();
   const [failedAt, setFailedAt] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);

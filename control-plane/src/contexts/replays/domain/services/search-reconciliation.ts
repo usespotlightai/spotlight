@@ -8,7 +8,10 @@ import { improvedOnBestBefore } from '@replays/domain/services/search-improvemen
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import type { RunResult } from '@replays/domain/value-objects/replay-ending';
-import type { ReplayEndState } from '@replays/domain/value-objects/replay-state';
+import {
+  isReplayEndState,
+  type ReplayEndState,
+} from '@replays/domain/value-objects/replay-state';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const SUCCEEDED: Readonly<Record<RunResult, boolean>> = {
@@ -34,7 +37,7 @@ export interface SeenRun {
 const UNPRICED_RUN = ModelSpent.of([], 1);
 
 const endOf = (replay: Replay): ReplayEndState | null =>
-  replay.isDispatching ? null : (replay.current as ReplayEndState);
+  isReplayEndState(replay.current) ? replay.current : null;
 
 const withReplays = (
   search: Search,

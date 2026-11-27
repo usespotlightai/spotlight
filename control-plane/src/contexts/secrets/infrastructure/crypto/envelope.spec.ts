@@ -45,8 +45,8 @@ describe('the encrypted envelope', () => {
 
   it('does not decrypt after a change to it', () => {
     const [version, iv, tag, body] = encrypt(KEY, PLAIN, AAD).split('.');
-    const flipped = Buffer.from(body ?? '', 'base64');
-    flipped[0] = (flipped[0] ?? 0) ^ 0xff;
+    const flipped = Buffer.from(body, 'base64');
+    flipped[0] = flipped[0] ^ 0xff;
 
     expect(() =>
       decrypt(

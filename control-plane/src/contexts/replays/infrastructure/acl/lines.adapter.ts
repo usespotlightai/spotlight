@@ -84,7 +84,7 @@ const searchOf = (station: PublishedStationView): SearchPolicy | null =>
   });
 
 const agentOf = (station: PublishedStationView): SearchAgent | null =>
-  station.harness
+  station.harness !== null && station.harness !== ''
     ? SearchAgent.of({
         harness: station.harness,
         model: station.model,
@@ -164,9 +164,10 @@ export class Lines implements LinesPort {
           ...(line ? { repositories: line.repositories } : {}),
         })
       : null;
-    const written = preview?.ok
-      ? preview.definition.stations.find((each) => each.key === key?.value)
-      : undefined;
+    const written =
+      preview?.ok === true
+        ? preview.definition.stations.find((each) => each.key === key?.value)
+        : undefined;
 
     return written ? StationBlock.of(written) : null;
   }
@@ -206,7 +207,9 @@ export class Lines implements LinesPort {
       placement: RunnerPlacement.forStation(
         RunnerPlacement.of(station.runners),
         RunnerPlacement.of(line.runners),
-        line.image ? RunnerImage.of(line.image) : null,
+        line.image !== null && line.image !== ''
+          ? RunnerImage.of(line.image)
+          : null,
       ),
     };
   }

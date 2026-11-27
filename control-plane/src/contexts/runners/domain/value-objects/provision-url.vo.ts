@@ -3,7 +3,7 @@ import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runne
 const MAX_LENGTH = 2048;
 
 export class ProvisionUrl {
-  private readonly kind = 'provision-url';
+  private readonly kind: string = 'provision-url';
 
   private constructor(readonly value: string) {}
 

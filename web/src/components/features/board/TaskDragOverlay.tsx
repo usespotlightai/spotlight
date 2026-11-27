@@ -1,5 +1,6 @@
 import { DragOverlay, defaultDropAnimationSideEffects } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import type { ReactElement } from 'react';
 
 import { TaskPreview } from '@/components/features/board/task/TaskPreview';
 import type { StationResponseDto } from '@/lib/api';
@@ -13,7 +14,10 @@ type TaskDragOverlayProps = {
   task: Task | null;
 };
 
-export function TaskDragOverlay({ stations, task }: TaskDragOverlayProps) {
+export function TaskDragOverlay({
+  stations,
+  task,
+}: TaskDragOverlayProps): ReactElement {
   const place = task
     ? stations.findIndex((each) => each.id === task.stationId)
     : -1;

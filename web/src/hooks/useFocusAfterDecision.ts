@@ -5,7 +5,9 @@ const NEXT = '[data-focus-next]:not(:disabled)';
 const lostFocus = (card: HTMLElement): boolean =>
   !card.contains(document.activeElement) ||
   document.activeElement === card ||
-  (document.activeElement as HTMLButtonElement | null)?.disabled === true;
+  (document.activeElement !== null &&
+    'disabled' in document.activeElement &&
+    document.activeElement.disabled === true);
 
 export function useFocusAfterDecision<T extends HTMLElement>(
   card: RefObject<T | null>,

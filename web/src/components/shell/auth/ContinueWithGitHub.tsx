@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { GithubLogo } from '@/components/shared/icons';
 
 type ContinueWithGitHubProps = {
@@ -8,7 +10,7 @@ type ContinueWithGitHubProps = {
 export function ContinueWithGitHub({
   onClick,
   disabled,
-}: ContinueWithGitHubProps) {
+}: ContinueWithGitHubProps): ReactElement {
   return (
     <button
       type="button"

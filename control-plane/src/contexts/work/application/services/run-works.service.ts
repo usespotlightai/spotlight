@@ -218,7 +218,7 @@ export class RunWorks {
       case 'task': {
         const task = await this.tasks.find(subject.taskId);
 
-        return task?.hasCurrentRun(run.runId)
+        return task?.hasCurrentRun(run.runId) === true
           ? new TaskRunWork(
               run,
               task,

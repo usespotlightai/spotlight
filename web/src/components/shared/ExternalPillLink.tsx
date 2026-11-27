@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { type PillSize, type PillVariant, pillClass } from '@/lib/pill';
 
@@ -16,7 +16,7 @@ export function ExternalPillLink({
   size = 'small',
   className,
   children,
-}: ExternalPillLinkProps) {
+}: ExternalPillLinkProps): ReactElement {
   return (
     <a
       href={href}

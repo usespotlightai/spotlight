@@ -86,8 +86,11 @@ const chatOf = (context: ChatToolExtensionContext): ImprovingChat => ({
 const textOf = (value: JsonValue | undefined): string | null =>
   typeof value === 'string' ? value : null;
 
-const namedOf = (value: JsonValue | undefined): string | null =>
-  textOf(value)?.trim() || null;
+const namedOf = (value: JsonValue | undefined): string | null => {
+  const named = textOf(value)?.trim();
+
+  return named === undefined || named === '' ? null : named;
+};
 
 export class TestStationChangeExtension implements ChatToolExtension {
   readonly declaration = DECLARATION;

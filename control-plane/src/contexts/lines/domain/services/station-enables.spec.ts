@@ -147,7 +147,10 @@ describe('what a station enables', () => {
       const error = errorFor(input);
 
       expect(error).toBeInstanceOf(InvalidLinePlanError);
-      expect((error as InvalidLinePlanError).flaw).toEqual({
+      if (!(error instanceof InvalidLinePlanError)) {
+        throw new Error('expected InvalidLinePlanError');
+      }
+      expect(error.flaw).toEqual({
         in: 'station',
         station: StationKey.of('implementation'),
         rule: field,

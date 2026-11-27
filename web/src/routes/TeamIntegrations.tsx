@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { GitHubRow } from '@/components/features/integrations/GitHubRow';
@@ -16,7 +17,7 @@ import { actsAsEachPerson, joinedOf } from '@/lib/integration';
 import { failed, loading } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
 
-export function TeamIntegrations() {
+export function TeamIntegrations(): ReactElement | null {
   const { slug, teamId } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const github = useGitHub(slug);
@@ -27,7 +28,12 @@ export function TeamIntegrations() {
 
   useClearedParam('connected');
 
-  if (!slug || !teamId) {
+  if (
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === ''
+  ) {
     return null;
   }
 

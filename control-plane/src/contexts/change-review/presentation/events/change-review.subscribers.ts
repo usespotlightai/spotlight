@@ -196,7 +196,7 @@ export const changeReviewSubscribers = (
     'change-review.signal-reviewed',
     [DISPATCH_ENDED],
     (event) =>
-      event.taskId
+      event.taskId !== null && event.taskId !== ''
         ? signalling.signal(TaskId.of(event.taskId))
         : Promise.resolve(),
     { callsOut: true },
@@ -216,7 +216,10 @@ export const changeReviewSubscribers = (
         pullRequest: PullRequestUrl.of(event.pullRequest),
         repository: Repository.of(event.repository),
         merge: event.merged ? { commit: event.mergeCommit } : null,
-        closedAt: event.closedAt ? new Date(event.closedAt) : null,
+        closedAt:
+          event.closedAt !== null && event.closedAt !== ''
+            ? new Date(event.closedAt)
+            : null,
       }),
   ),
   subscribing<ChangeStackCompleted>(
@@ -377,7 +380,10 @@ export const changeReviewSubscribers = (
           body: event.body,
           inReplyToId: event.inReplyToId,
           login: event.login,
-          writtenAt: event.writtenAt ? new Date(event.writtenAt) : null,
+          writtenAt:
+            event.writtenAt !== null && event.writtenAt !== ''
+              ? new Date(event.writtenAt)
+              : null,
         },
       }),
   ),

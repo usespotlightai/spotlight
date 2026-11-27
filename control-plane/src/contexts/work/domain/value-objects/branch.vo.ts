@@ -45,7 +45,10 @@ const SHORT_ID_LENGTH = 8;
 
 const typeOf = (title: string): BranchType => {
   const conventional = CONVENTIONAL.exec(title)?.[1]?.toLowerCase();
-  const typed = conventional ? CONVENTIONAL_TYPES.get(conventional) : undefined;
+  const typed =
+    conventional !== undefined && conventional !== ''
+      ? CONVENTIONAL_TYPES.get(conventional)
+      : undefined;
 
   return (
     typed ??

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { Link, useMatch, useParams } from 'react-router';
 
 import { SettingUpWorkspace } from '@/components/features/onboarding/SettingUpWorkspace';
@@ -35,7 +35,7 @@ type WorkspaceProps = {
   pages: ReactNode;
 };
 
-export function Workspace({ pages }: WorkspaceProps) {
+export function Workspace({ pages }: WorkspaceProps): ReactElement | null {
   const { slug } = useParams();
   const workspace = useWorkspace(slug);
   const inSettings = Boolean(useMatch('/w/:slug/settings/*'));
@@ -80,9 +80,10 @@ export function Workspace({ pages }: WorkspaceProps) {
       )
     );
   };
-  const paneIds = tabs.panes.right
-    ? [tabs.panes.left, tabs.panes.right]
-    : [tabs.panes.left];
+  const paneIds =
+    tabs.panes.right !== undefined && tabs.panes.right !== ''
+      ? [tabs.panes.left, tabs.panes.right]
+      : [tabs.panes.left];
   const dropSides = (index: number): SplitSide[] => {
     if (paneIds.length === 1 || narrow) {
       return paneIds[index] === tabs.activeId ? ['left', 'right'] : [];
@@ -98,7 +99,7 @@ export function Workspace({ pages }: WorkspaceProps) {
     onPlace: tabs.place,
   };
 
-  if (!slug) {
+  if (slug === undefined || slug === '') {
     return null;
   }
 
@@ -167,7 +168,7 @@ export function Workspace({ pages }: WorkspaceProps) {
             tabs.hidePane(section === 'main' ? 'left' : 'right')
           }
           panes={paneIds.map((id, index) => ({
-            key: id ?? 'main',
+            key: id,
             content: (
               <>
                 {paneOf(id)}

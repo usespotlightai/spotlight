@@ -1,4 +1,5 @@
 import { Mail } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { EmailActions } from '@/components/features/emails/EmailActions';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
@@ -9,7 +10,7 @@ type EmailRowProps = {
   email: UserEmail;
 };
 
-export function EmailRow({ email }: EmailRowProps) {
+export function EmailRow({ email }: EmailRowProps): ReactElement {
   return (
     <li data-slot="email-row">
       <SettingsRow label={email.email} leading={<RowIcon icon={Mail} />}>

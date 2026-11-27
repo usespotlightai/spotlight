@@ -1,12 +1,16 @@
 const BELONGING: readonly string[] = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 
 export class AuthorAssociation {
-  private readonly kind = 'author-association';
+  private readonly kind: string = 'author-association';
 
   private constructor(readonly value: string | null) {}
 
   static of(raw: string | null): AuthorAssociation {
-    return new AuthorAssociation(raw?.trim().toUpperCase() || null);
+    const named = raw?.trim().toUpperCase();
+
+    return new AuthorAssociation(
+      named === undefined || named === '' ? null : named,
+    );
   }
 
   get isOutside(): boolean {

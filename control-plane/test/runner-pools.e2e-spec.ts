@@ -1,6 +1,5 @@
 import { createHash, createHmac, randomInt, randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import {
   CHANGE_STACK_READER,
@@ -16,6 +15,7 @@ import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
 import { DrizzleUsedTokens } from '@runners/infrastructure/persistence/drizzle/ledgers/used-tokens.ledger';
 import { POOL_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-pool-resource.controller';
 import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -33,8 +33,10 @@ import {
 } from 'vitest';
 
 import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf, parsedAs } from './support/body';
 import { awaitingCheck } from './support/change-stacks';
 import { eventually } from './support/eventually';
+import { addressOf } from './support/http-server';
 import { definitionOf } from './support/line-definition';
 import { E2E_LONG_POLL_MS } from './support/long-poll';
 import { deleteRunnersOf } from './support/runners';
@@ -116,7 +118,7 @@ const listening = async (
 
   return {
     server,
-    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/runs`,
+    url: `http://127.0.0.1:${addressOf(server).port}/runs`,
     calls,
   };
 };
@@ -170,13 +172,15 @@ describe('runner pools (e2e)', () => {
   };
 
   const checkReadFor = async (runId: string | null) => {
-    if (!runId) {
+    if (runId === null || runId === '') {
       throw new Error('the check belongs to no run');
     }
 
-    const [stack] = await app
-      .get<ChangeStackReaderPort>(CHANGE_STACK_READER)
-      .ofRun(RunId.of(runId), UserId.of('nobody'), new Date());
+    const stack = firstOf(
+      await app
+        .get<ChangeStackReaderPort>(CHANGE_STACK_READER)
+        .ofRun(RunId.of(runId), UserId.of('nobody'), new Date()),
+    );
 
     return stack?.check
       ? { ...stack.check, reason: checkReasonText(stack.check) }
@@ -213,10 +217,12 @@ describe('runner pools (e2e)', () => {
       });
 
   const hostRow = async (host = HOST) => {
-    const [row] = await db
-      .select()
-      .from(schema.runnerHost)
-      .where(eq(schema.runnerHost.id, host));
+    const row = firstOf(
+      await db
+        .select()
+        .from(schema.runnerHost)
+        .where(eq(schema.runnerHost.id, host)),
+    );
 
     return row ?? null;
   };
@@ -283,14 +289,16 @@ describe('runner pools (e2e)', () => {
       await runnerCall(claimed.body.token).renew(runId).expect(201);
       await runnerCall(token).renew(runId).expect(401);
 
-      const [started] = await db
-        .select({
-          poolId: schema.runner.poolId,
-          trustId: schema.runner.trustId,
-          hostId: schema.runner.hostId,
-        })
-        .from(schema.runner)
-        .where(eq(schema.runner.id, claimed.body.runnerId));
+      const started = firstOf(
+        await db
+          .select({
+            poolId: schema.runner.poolId,
+            trustId: schema.runner.trustId,
+            hostId: schema.runner.hostId,
+          })
+          .from(schema.runner)
+          .where(eq(schema.runner.id, claimed.body.runnerId)),
+      );
 
       expect(started).toMatchObject({ trustId: null, hostId: HOST });
       expect(started?.poolId).toEqual(expect.any(String));
@@ -730,11 +738,13 @@ describe('runner pools (e2e)', () => {
       expect(rejected.status).toBe(409);
       expect(JSON.stringify(rejected.body)).toContain('runner pool ephemeral');
 
-      const changes = (
+      const changes = bodyOf<
+        { resource: string; action: string; details: object }[]
+      >(
         await http()
           .get(`/api/workspaces/${workspaceId}/configuration-changes`)
-          .set(TEST_USER_HEADER, owner)
-      ).body as { resource: string; action: string; details: object }[];
+          .set(TEST_USER_HEADER, owner),
+      );
 
       expect(
         changes
@@ -1039,12 +1049,14 @@ describe('runner pools (e2e)', () => {
         }).expect(201);
         const runId = await queue([['sandbox']]);
 
-        const [call] = await eventually(async () =>
-          endpoint.calls.length > 0 ? endpoint.calls : null,
+        const call = firstOf(
+          await eventually(() =>
+            Promise.resolve(endpoint.calls.length > 0 ? endpoint.calls : null),
+          ),
         );
         const signed = `${String(call?.headers['webhook-id'])}.${String(call?.headers['webhook-timestamp'])}.${call?.body}`;
         const key = Buffer.from(SECRET.slice('whsec_'.length), 'base64');
-        const sent = JSON.parse(call?.body ?? '{}') as ProvisionCall;
+        const sent = parsedAs<ProvisionCall>(call?.body ?? '{}');
 
         expect(call?.headers['webhook-signature']).toBe(
           `v1,${createHmac('sha256', key).update(signed).digest('base64')}`,
@@ -1100,16 +1112,17 @@ describe('runner pools (e2e)', () => {
         });
         const plain = await queue([['sandbox']]);
 
-        await eventually(async () =>
-          endpoint.calls.some(
-            (call) =>
-              (JSON.parse(call.body) as ProvisionCall).data.runId === plain,
+        await eventually(() =>
+          Promise.resolve(
+            endpoint.calls.some(
+              (call) => parsedAs<ProvisionCall>(call.body).data.runId === plain,
+            ),
           ),
         );
 
         expect(
           endpoint.calls.map(
-            (call) => (JSON.parse(call.body) as ProvisionCall).data.runId,
+            (call) => parsedAs<ProvisionCall>(call.body).data.runId,
           ),
         ).not.toContain(withSecrets);
         const [waiting] = await db
@@ -1141,10 +1154,9 @@ describe('runner pools (e2e)', () => {
           .set({ nextProvisionAttemptAt: null })
           .where(and(eq(schema.run.id, runId), eq(schema.run.state, 'queued')));
 
-        const [row] = await db
-          .select()
-          .from(schema.run)
-          .where(eq(schema.run.id, runId));
+        const row = firstOf(
+          await db.select().from(schema.run).where(eq(schema.run.id, runId)),
+        );
 
         return row?.state === 'failed' ? row : null;
       }, 25_000);
@@ -1164,10 +1176,8 @@ describe('runner pools (e2e)', () => {
         steps
           .map((each) => [
             each.type,
-            (
-              JSON.parse(
-                Buffer.from(each.data ?? '', 'base64').toString('utf8'),
-              ) as { readonly failure: string }
+            parsedAs<{ readonly failure: string }>(
+              Buffer.from(each.data ?? '', 'base64').toString('utf8'),
             ).failure,
             each.seq,
           ])
@@ -1192,10 +1202,12 @@ describe('runner pools (e2e)', () => {
         }).expect(201);
         const stackId = await awaitingCheck(db, workspaceId, [['sandbox']]);
 
-        const [call] = await eventually(async () =>
-          endpoint.calls.length > 0 ? endpoint.calls : null,
+        const call = firstOf(
+          await eventually(() =>
+            Promise.resolve(endpoint.calls.length > 0 ? endpoint.calls : null),
+          ),
         );
-        const sent = JSON.parse(call?.body ?? '{}') as ProvisionCall;
+        const sent = parsedAs<ProvisionCall>(call?.body ?? '{}');
 
         expect(sent.data).toMatchObject({
           kind: 'check',
@@ -1261,10 +1273,12 @@ describe('runner pools (e2e)', () => {
             ),
           );
 
-        const [row] = await db
-          .select()
-          .from(schema.stackCheck)
-          .where(eq(schema.stackCheck.stackId, stackId));
+        const row = firstOf(
+          await db
+            .select()
+            .from(schema.stackCheck)
+            .where(eq(schema.stackCheck.stackId, stackId)),
+        );
 
         return row?.status === 'skipped' ? row : null;
       }, 25_000);
@@ -1302,10 +1316,12 @@ describe('runner pools (e2e)', () => {
         .where(eq(schema.stackCheck.stackId, stackId));
 
       const expired = await eventually(async () => {
-        const [row] = await db
-          .select()
-          .from(schema.stackCheck)
-          .where(eq(schema.stackCheck.stackId, stackId));
+        const row = firstOf(
+          await db
+            .select()
+            .from(schema.stackCheck)
+            .where(eq(schema.stackCheck.stackId, stackId)),
+        );
 
         return row?.status === 'skipped' ? row : null;
       });

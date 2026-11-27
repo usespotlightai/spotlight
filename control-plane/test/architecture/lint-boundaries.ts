@@ -23,7 +23,7 @@ export const lintBoundaryProblems = (): string[] =>
   IMPORT_OVERRIDES.flatMap((override) => {
     const context = contextOfOverride(override);
 
-    if (!context) {
+    if (context === null || context === '') {
       return [];
     }
 

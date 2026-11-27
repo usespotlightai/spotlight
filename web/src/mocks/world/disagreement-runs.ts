@@ -157,7 +157,8 @@ const labelGoneOf = (run: HistoryRun): Withdrawal | null => {
   const later = laterCompletedVisitOf(run);
 
   return opening &&
-    later?.endedAt &&
+    later !== null &&
+    later.endedAt !== '' &&
     actionLabelOf(run) === null &&
     run.ending === 'completed' &&
     later.endedAt > opening.openedAt
@@ -177,7 +178,9 @@ const verdictsAgreeOf = (run: HistoryRun): Withdrawal | null => {
     actionLabelOf(run) === 'sent-back' &&
     run.ending === 'completed' &&
     run.humanAction.at > opening.openedAt &&
-    (!later?.endedAt || later.endedAt > run.humanAction.at)
+    (later === null ||
+      later.endedAt === '' ||
+      later.endedAt > run.humanAction.at)
     ? { ...opening, withdrawnAt: run.humanAction.at }
     : null;
 };

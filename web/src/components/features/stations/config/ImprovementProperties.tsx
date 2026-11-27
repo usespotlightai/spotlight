@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   Property,
   PropertyList,
@@ -10,7 +12,11 @@ import {
   searchPolicyNote,
 } from '@/lib/search-policy';
 
-export function ImprovementProperties({ policy }: { policy: SearchPolicy }) {
+export function ImprovementProperties({
+  policy,
+}: {
+  policy: SearchPolicy;
+}): ReactElement {
   return (
     <TabSection
       level={3}

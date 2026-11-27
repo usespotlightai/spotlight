@@ -82,6 +82,25 @@ export const queriesTouchedBy = (change: LiveChange): QueryKey[] => {
 
 const keyOf = (key: QueryKey): string => JSON.stringify(key);
 
+const filled = (value: unknown): value is string =>
+  typeof value === 'string' && value !== '';
+
+const isNotification = (value: unknown): value is InboxNotification =>
+  typeof value === 'object' &&
+  value !== null &&
+  'id' in value &&
+  filled(value.id) &&
+  'path' in value &&
+  filled(value.path) &&
+  'kind' in value &&
+  (value.kind === 'task' || value.kind === 'notice') &&
+  'title' in value &&
+  typeof value.title === 'string' &&
+  'body' in value &&
+  (value.body === null || typeof value.body === 'string') &&
+  'at' in value &&
+  typeof value.at === 'string';
+
 type Listeners = Readonly<
   Record<string, (event: MessageEvent<string>) => void>
 >;
@@ -116,7 +135,7 @@ const connected = (since: Sequences, listeners: Listeners): LiveConnection => {
 
 export function useLiveStream(
   onNotification: (notification: InboxNotification) => void,
-) {
+): void {
   const queryClient = useQueryClient();
   const restoring = useIsRestoring();
   const notified = useEffectEvent(onNotification);
@@ -275,9 +294,9 @@ export function useLiveStream(
     };
 
     const notification = (event: MessageEvent<string>) => {
-      const arrived = parsed(event.data) as InboxNotification | null;
+      const arrived = parsed(event.data);
 
-      if (arrived?.id && arrived.path) {
+      if (isNotification(arrived)) {
         notified(arrived);
       }
     };

@@ -1,8 +1,10 @@
 import type {
   ConfigMarkerResponseDto,
   MeasureVerdictResponseDto,
+  MoneyResponseDto,
   PersonNameResponseDto,
   RunTallyResponseDto,
+  TaskResponseDto,
 } from '@/lib/api';
 import { world } from '@/mocks/world';
 import {
@@ -62,7 +64,7 @@ export const spendOf = (runs: readonly HistoryRun[]): number | null => {
     : cents(sumOf(priced.map((run) => run.cost?.amount ?? 0)));
 };
 
-export const moneyOf = (amount: number | null) =>
+export const moneyOf = (amount: number | null): MoneyResponseDto | null =>
   amount === null ? null : { amount: cents(amount), currency: CURRENCY };
 
 const mergedTasksOf = (runs: readonly HistoryRun[]): number =>
@@ -183,7 +185,11 @@ export const versionChangesOf = (teamId: string): VersionChange[] => {
             oldest === null || run.at < oldest.at ? run : oldest,
           null,
         );
-      if (!first?.startedAt) {
+      if (
+        first === null ||
+        first.startedAt === null ||
+        first.startedAt === ''
+      ) {
         return [];
       }
 
@@ -217,5 +223,5 @@ export const peopleNamed = (
       name: PEOPLE.find((person) => person.id === id)?.name ?? null,
     }));
 
-export const unansweredAsks = (teamId: string) =>
+export const unansweredAsks = (teamId: string): TaskResponseDto[] =>
   (world().tasks[teamId] ?? []).filter((task) => task.awaitingReview !== null);

@@ -75,7 +75,8 @@ const plan = (over: Partial<Parameters<typeof LinePlan.of>[0]> = {}) =>
 
 const repositoryConfig = (name: string, setup?: string) =>
   LineRepositoryConfig.of(Repository.of(name), {
-    setup: setup ? RepositorySetup.of(setup) : null,
+    setup:
+      setup !== undefined && setup !== '' ? RepositorySetup.of(setup) : null,
   });
 
 const checking = (over: Partial<StationPlan> = {}) =>

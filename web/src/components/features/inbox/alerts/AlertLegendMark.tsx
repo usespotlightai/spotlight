@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 type AlertLegendMarkProps = {
   label: string;
   stroke: string;
@@ -10,7 +11,7 @@ export function AlertLegendMark({
   stroke,
   dash,
   opacity,
-}: AlertLegendMarkProps) {
+}: AlertLegendMarkProps): ReactElement {
   return (
     <li className="flex items-center gap-1.5">
       <svg aria-hidden width="16" height="2" className="shrink-0">

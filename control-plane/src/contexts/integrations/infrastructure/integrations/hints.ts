@@ -75,7 +75,9 @@ export const hintProblems = (
     }
 
     const reason = typeProblem(hint, known);
-    return reason ? [{ at: at.to(field), reason }] : [];
+    return reason !== null && reason !== ''
+      ? [{ at: at.to(field), reason }]
+      : [];
   });
 
 export const orderedTypes = (
@@ -87,7 +89,7 @@ export const orderedTypes = (
   let cycle: string | null = null;
 
   const visit = (name: string): void => {
-    if (done.has(name) || cycle) {
+    if (done.has(name) || (cycle !== null && cycle !== '')) {
       return;
     }
     if (doing.has(name)) {

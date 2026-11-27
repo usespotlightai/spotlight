@@ -5,17 +5,17 @@ import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.er
 import {
   aReplay,
   BY,
-  CONCLUDING_CHECKS,
-  CONCLUDING_VERDICT,
   candidateOf,
   concludedAll,
+  CONCLUDING_CHECKS,
+  CONCLUDING_VERDICT,
   endOf,
   FINGERPRINT,
+  JUDGE,
   later,
   measuresOf,
   NOW,
   pairVerdictOf,
-  JUDGE,
   runOf,
   slots,
 } from '@replays/domain/replays.fake-spec';
@@ -25,6 +25,7 @@ import {
   taskComparisons,
 } from '@replays/domain/services/replay-results';
 import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -101,7 +102,9 @@ describe('Replay, set side by side with its baseline', () => {
           ),
       ),
     );
-    expect(paired.entries.every((each) => each.pairing?.pending)).toBe(true);
+    expect(paired.entries.every((each) => each.pairing?.pending === true)).toBe(
+      true,
+    );
     expect(paired.pairAgainst(against.asPairingReference, everyOriginal)).toBe(
       paired,
     );
@@ -320,8 +323,8 @@ const pairedAs = (
   return requested.entries.reduce(
     (built, entry, at) =>
       built.pair(
-        entry.run as RunId,
-        entry.pairing?.otherRunId as RunId,
+        present(entry.run),
+        present(entry.pairing?.otherRunId),
         pairVerdictOf(outcomes[at] ?? 'tie'),
       ),
     requested,
@@ -404,8 +407,8 @@ describe('pairOutcomeOf and pairTallyOf', () => {
         ),
     );
 
-    expect(pairOutcomeOf(first ?? [])).toBe('win');
-    expect(pairOutcomeOf(second ?? [])).toBe('tie');
+    expect(pairOutcomeOf(first)).toBe('win');
+    expect(pairOutcomeOf(second)).toBe('tie');
     expect(
       pairOutcomeOf(concludedAll(judging('replay_2')).outcome().entries),
     ).toBeNull();

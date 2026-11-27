@@ -67,6 +67,7 @@ import {
   decoded,
   type Journalled,
 } from '@runs/infrastructure/journal/journalled';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 const countOf = (value: unknown): number | null =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
@@ -76,7 +77,7 @@ const countOf = (value: unknown): number | null =>
 const DETAIL_LIMIT = 4_000;
 
 const priced = (cost: ContextChanged['cost']): Money | null =>
-  cost?.currency && Money.isCurrency(cost.currency)
+  cost !== undefined && cost.currency !== '' && Money.isCurrency(cost.currency)
     ? Money.maybe(cost.amount, cost.currency)
     : null;
 
@@ -135,14 +136,12 @@ const written = (raw: unknown): string | null => {
 };
 
 interface HookCalled {
-  readonly hook?: string;
-  readonly step?: string;
-  readonly target?: string;
+  readonly target?: unknown;
   readonly request?: unknown;
   readonly response?: unknown;
-  readonly failed?: boolean;
-  readonly startedAt?: string;
-  readonly ms?: number;
+  readonly failed?: unknown;
+  readonly startedAt?: unknown;
+  readonly ms?: unknown;
 }
 
 interface RunnerStep {
@@ -151,17 +150,22 @@ interface RunnerStep {
   readonly output?: unknown;
 }
 
-const runnerStepOf = (event: Journalled): RunnerStep => {
+const objectIn = (event: Journalled): object | null => {
   try {
     const read: unknown = JSON.parse(decoded(event.data ?? ''));
-    return read && typeof read === 'object' ? read : {};
+    return typeof read === 'object' ? read : null;
   } catch {
-    return {};
+    return null;
   }
 };
 
+const runnerStepOf = (event: Journalled): RunnerStep => objectIn(event) ?? {};
+
 const startedAt = (called: HookCalled, fallback: Date): Date => {
-  const at = called.startedAt ? new Date(called.startedAt) : fallback;
+  const at =
+    typeof called.startedAt === 'string' && called.startedAt !== ''
+      ? new Date(called.startedAt)
+      : fallback;
 
   return Number.isNaN(at.getTime()) ? fallback : at;
 };
@@ -177,10 +181,27 @@ const inPlace = (
     : [...steps.slice(0, at), step, ...steps.slice(at)];
 };
 
+const trimmedName = (call: ToolChanged): string | undefined => {
+  const trimmed = call.name?.trim();
+  return trimmed === '' ? undefined : trimmed;
+};
+
+const subagentTitleOf = (changed: ChildChanged): string | undefined => {
+  if (changed.title !== undefined && changed.title !== '') {
+    return changed.title;
+  }
+  return changed.description !== undefined && changed.description !== ''
+    ? changed.description
+    : undefined;
+};
+
 const planned = (entries: readonly PlanEntry[]): string =>
   entries
     .map((each) => {
-      const status = each.status ? `[${each.status}] ` : '';
+      const status =
+        each.status !== undefined && each.status !== ''
+          ? `[${each.status}] `
+          : '';
       return `${status}${each.content}`.trim();
     })
     .filter(Boolean)
@@ -285,28 +306,31 @@ const transcriptOf = (steps: readonly JournalStep[]): string | null =>
 
 export class JournalBuilder {
   #steps: Building[] = [];
-  #hooks: JournalStep[] = [];
-  #running = new Map<string, Building>();
-  #tools = new Map<string, number>();
-  #printed = new Map<string, string>();
-  #refused = new Set<string>();
+  readonly #hooks: JournalStep[] = [];
+  readonly #running = new Map<string, Building>();
+  readonly #tools = new Map<string, number>();
+  readonly #printed = new Map<string, string>();
+  readonly #refused = new Set<string>();
   #textStep: Building | null = null;
   #textId: string | null = null;
   #spent: SpentReading | null = null;
   #egressEnforcement: EgressEnforcement | null = null;
-  #spentBySession = new Map<string, SpentReading>();
+  readonly #spentBySession = new Map<string, SpentReading>();
   #tokens = Tokens.UNREPORTED;
   #first: Date | null = null;
   #last: Date | null = null;
-  #notifiedAt: Date[] = [];
-  #pausedAt: Date[] = [];
+  readonly #notifiedAt: Date[] = [];
+  readonly #pausedAt: Date[] = [];
   #opened: Date | null = null;
   #ready: Date | null = null;
   #agentStopped: Date | null = null;
   #closed: Date | null = null;
   #reading = false;
   #root = '';
-  #subagents = new Map<string, { at: number; journal: JournalBuilder }>();
+  readonly #subagents = new Map<
+    string,
+    { at: number; journal: JournalBuilder }
+  >();
   #waiting: Building | null = null;
   #status: SessionStateName | null = null;
   #background: readonly BackgroundItem[] = [];
@@ -407,10 +431,13 @@ export class JournalBuilder {
     }
 
     const session = event.data.session;
-    const subagent = session ? this.subagentOwning(session) : undefined;
+    const subagent =
+      session !== undefined && session !== ''
+        ? this.subagentOwning(session)
+        : undefined;
     if (subagent) {
       subagent.journal.happened(event, at);
-      const step = this.#steps[subagent.at];
+      const step = itemAt(this.#steps, subagent.at);
       if (step) {
         step.endedAt = at;
       }
@@ -434,7 +461,10 @@ export class JournalBuilder {
         this.means(event.data.entries, at);
         break;
       case 'context.changed':
-        this.cost(event.data, session || this.#root);
+        this.cost(
+          event.data,
+          session !== undefined && session !== '' ? session : this.#root,
+        );
         break;
       case 'turn.ended':
         this.used(event.data.usage);
@@ -478,14 +508,13 @@ export class JournalBuilder {
   }
 
   private refused(event: Journalled): void {
-    let refused: RefusedCall;
-    try {
-      refused = JSON.parse(decoded(event.data ?? '')) as RefusedCall;
-    } catch {
-      return;
-    }
+    const refused: RefusedCall | null = objectIn(event);
 
-    if (typeof refused?.toolCallId === 'string' && refused.toolCallId) {
+    if (
+      refused !== null &&
+      typeof refused.toolCallId === 'string' &&
+      refused.toolCallId !== ''
+    ) {
       this.#refused.add(refused.toolCallId);
     }
   }
@@ -534,18 +563,16 @@ export class JournalBuilder {
       this.#closed = event.at;
     }
 
-    let called: HookCalled;
-    try {
-      called = JSON.parse(decoded(event.data ?? '')) as HookCalled;
-    } catch {
+    const called: HookCalled | null = objectIn(event);
+    if (called === null) {
       return;
     }
 
     this.#hooks.push({
       kind: 'hook',
       text: journalEntryText(event) ?? '',
-      status: called.failed ? 'failed' : 'ok',
-      tool: called.target ?? null,
+      status: called.failed === true ? 'failed' : 'ok',
+      tool: typeof called.target === 'string' ? called.target : null,
       detail: null,
       ms: typeof called.ms === 'number' ? called.ms : 0,
       startedAt: startedAt(called, event.at),
@@ -727,9 +754,10 @@ export class JournalBuilder {
     const kind = message.role === 'thought' ? 'thought' : 'message';
 
     if (this.#textStep?.kind === kind && this.#textId === message.id) {
-      this.#textStep.text = message.replace
-        ? message.text
-        : this.#textStep.text + message.text;
+      this.#textStep.text =
+        message.replace === true
+          ? message.text
+          : this.#textStep.text + message.text;
       this.#textStep.endedAt = at;
       return;
     }
@@ -741,7 +769,7 @@ export class JournalBuilder {
 
   private tool(call: ToolChanged, at: Date): void {
     const found = this.#tools.get(call.id);
-    const step = found === undefined ? undefined : this.#steps[found];
+    const step = found === undefined ? undefined : itemAt(this.#steps, found);
 
     if (found === undefined || !step) {
       this.flushText();
@@ -750,7 +778,7 @@ export class JournalBuilder {
       started.id = call.id;
       started.status = call.status ?? null;
       started.tool = call.kind ?? null;
-      started.named = call.name?.trim() || null;
+      started.named = trimmedName(call) ?? null;
       started.workingAt = call.status === WORKING ? at : null;
       started.locations = locationsOf(call.locations);
       started.input = written(call.input);
@@ -769,7 +797,7 @@ export class JournalBuilder {
       text: call.title,
       status: call.status ?? step.status,
       tool: call.kind ?? step.tool,
-      named: call.name?.trim() || step.named,
+      named: trimmedName(call) ?? step.named,
       locations: locations.length > 0 ? locations : step.locations,
       input: written(call.input) ?? step.input,
       output: written(call.output) ?? step.output,
@@ -784,14 +812,15 @@ export class JournalBuilder {
 
   private toolOutput(output: ToolOutput): void {
     const found = this.#tools.get(output.id);
-    const step = found === undefined ? undefined : this.#steps[found];
+    const step = found === undefined ? undefined : itemAt(this.#steps, found);
     if (!step || !output.text) {
       return;
     }
 
-    const printed = output.replace
-      ? output.text
-      : `${this.#printed.get(output.id) ?? ''}${output.text}`;
+    const printed =
+      output.replace === true
+        ? output.text
+        : `${this.#printed.get(output.id) ?? ''}${output.text}`;
     this.#printed.set(output.id, printed);
     step.detail = unfenced(printed).slice(0, DETAIL_LIMIT);
   }
@@ -817,9 +846,9 @@ export class JournalBuilder {
     this.flushText();
 
     const known = this.#subagents.get(id);
-    const step = known ? this.#steps[known.at] : undefined;
+    const step = known ? itemAt(this.#steps, known.at) : undefined;
     if (step) {
-      step.text = changed.title || changed.description || step.text;
+      step.text = subagentTitleOf(changed) ?? step.text;
       step.status = subagentStatusOf(changed) ?? step.status;
       step.endedAt = at;
       return;
@@ -827,7 +856,7 @@ export class JournalBuilder {
 
     const started = bare(
       'subagent',
-      changed.title || changed.description || 'a subagent',
+      subagentTitleOf(changed) ?? 'a subagent',
       at,
     );
     started.id = id;
@@ -845,10 +874,16 @@ export class JournalBuilder {
       return;
     }
 
-    const to = message.to ? this.#subagents.get(message.to) : undefined;
-    const from = message.from ? this.#subagents.get(message.from) : undefined;
-    const toStep = to ? this.#steps[to.at] : undefined;
-    const fromStep = from ? this.#steps[from.at] : undefined;
+    const to =
+      message.to !== undefined && message.to !== ''
+        ? this.#subagents.get(message.to)
+        : undefined;
+    const from =
+      message.from !== undefined && message.from !== ''
+        ? this.#subagents.get(message.from)
+        : undefined;
+    const toStep = to ? itemAt(this.#steps, to.at) : undefined;
+    const fromStep = from ? itemAt(this.#steps, from.at) : undefined;
 
     if (toStep && toStep.input === null) {
       toStep.input = text.slice(0, DETAIL_LIMIT);

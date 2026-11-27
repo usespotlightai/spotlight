@@ -18,7 +18,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const WIDGETS = 'ghcr.io/acme/widgets:1';
@@ -88,7 +88,7 @@ describe('placement said in SQL', () => {
       for (const image of IMAGES) {
         const placement = RunnerPlacement.ofLabelGroups(
           labelGroups,
-          image ? RunnerImage.of(image) : null,
+          image !== null && image !== '' ? RunnerImage.of(image) : null,
         );
 
         for (const labels of LABELS) {

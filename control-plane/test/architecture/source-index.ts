@@ -1,14 +1,40 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 
+import { itemAt } from '@shared-kernel/domain/item-at';
 import ts from 'typescript';
 
 export const SOURCE_ROOT = resolve(__dirname, '..', '..', 'src');
 
-const COMPILER_PATHS = (
-  ts.readConfigFile(join(SOURCE_ROOT, '..', 'tsconfig.json'), ts.sys.readFile)
-    .config as { compilerOptions: { paths: Record<string, string[]> } }
-).compilerOptions.paths;
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const pathsIn = (config: unknown): Record<string, string[]> => {
+  const options = isRecord(config) ? config.compilerOptions : undefined;
+  const paths = isRecord(options) ? options.paths : undefined;
+
+  if (!isRecord(paths)) {
+    throw new Error('tsconfig.json declares no compilerOptions.paths');
+  }
+
+  return Object.fromEntries(
+    Object.entries(paths).map(([alias, folders]) => [
+      alias,
+      Array.isArray(folders)
+        ? folders.filter(
+            (folder): folder is string => typeof folder === 'string',
+          )
+        : [],
+    ]),
+  );
+};
+
+const configured: unknown = ts.readConfigFile(
+  join(SOURCE_ROOT, '..', 'tsconfig.json'),
+  ts.sys.readFile,
+).config;
+
+const COMPILER_PATHS = pathsIn(configured);
 
 const ALIASES: readonly (readonly [string, string])[] = Object.entries(
   COMPILER_PATHS,
@@ -126,7 +152,7 @@ export const importsOf = (file: SourceFile): ImportedName[] =>
     const target = moduleTarget(file.path, statement.moduleSpecifier.text);
     const bindings = statement.importClause?.namedBindings;
 
-    if (!target) {
+    if (target === null || target === '') {
       return [];
     }
 
@@ -159,7 +185,7 @@ export const moduleSpecifiersOf = (file: SourceFile): string[] => {
       (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
         (ts.isIdentifier(node.expression) &&
           node.expression.text === 'require')) &&
-      node.arguments[0] &&
+      itemAt(node.arguments, 0) !== undefined &&
       ts.isStringLiteralLike(node.arguments[0])
     ) {
       found.push(node.arguments[0].text);

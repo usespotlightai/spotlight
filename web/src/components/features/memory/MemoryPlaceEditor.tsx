@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import type { MemoryDraft } from '@/hooks/useMemoryDraft';
@@ -17,7 +19,10 @@ type MemoryPlaceEditorProps = {
   lines: readonly LineResponseDto[];
 };
 
-export function MemoryPlaceEditor({ draft, lines }: MemoryPlaceEditorProps) {
+export function MemoryPlaceEditor({
+  draft,
+  lines,
+}: MemoryPlaceEditorProps): ReactElement {
   return (
     <ul aria-label="Where it applies" className="min-w-0">
       <li className="min-w-0">
@@ -63,7 +68,9 @@ export function MemoryPlaceEditor({ draft, lines }: MemoryPlaceEditorProps) {
                   <li className={PATHS_LEAF}>
                     <FieldInput
                       value={draft.paths}
-                      disabled={!draft.repository}
+                      disabled={
+                        draft.repository === null || draft.repository === ''
+                      }
                       onChange={(event) => draft.setPaths(event.target.value)}
                       placeholder="Paths, separated by commas"
                       aria-label="Paths"

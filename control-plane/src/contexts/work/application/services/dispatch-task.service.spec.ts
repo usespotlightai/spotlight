@@ -16,6 +16,8 @@ import {
   OPENING_PULL_REQUESTS,
   USING_TOOLS,
 } from '@shared-kernel/domain/built-in-skills';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
@@ -161,7 +163,8 @@ const launch: HarnessLaunchPort = {
 let teamProfiles: Record<string, HarnessProfileShape> = {};
 
 const profiles = {
-  named: async (_teamId: TeamId, key: string) => teamProfiles[key] ?? null,
+  named: (_teamId: TeamId, key: string) =>
+    Promise.resolve(teamProfiles[key] ?? null),
 };
 
 const at = (
@@ -211,9 +214,9 @@ let queued: RunOrderContract[] = [];
 let ordered: OrderedRun[] = [];
 
 const runs = recordingRuns({
-  enqueue: async (order) => {
+  enqueue: (order) => {
     queued.push(order);
-    return { outcome: 'enqueued' };
+    return Promise.resolve({ outcome: 'enqueued' });
   },
 });
 
@@ -285,25 +288,29 @@ let providedTools: DeclaredTool[] = [];
 let providedRequested: string[] = [];
 let toolsOnMarks: Record<string, string[]> = {};
 
-const integrations = {
-  provided: async (_line: unknown, tools: readonly Tool[]) => {
+const integrations = partial<TeamIntegrations>({
+  provided: (_line: unknown, tools: readonly Tool[]) => {
     providedRequested = tools.map((each) => each.value);
-    return providedTools;
+    return Promise.resolve(providedTools);
   },
-  toolsOnMarks: async (_line: unknown, marks: readonly Mark[]) =>
-    marks.flatMap((each) =>
-      (toolsOnMarks[each.kind] ?? []).map((tool) => Tool.of(tool)),
+  toolsOnMarks: (_line: unknown, marks: readonly Mark[]) =>
+    Promise.resolve(
+      marks.flatMap((each) =>
+        (toolsOnMarks[each.kind] ?? []).map((tool) => Tool.of(tool)),
+      ),
     ),
-} as unknown as TeamIntegrations;
+});
 
 let readySkills: ReadySkillFolder[] = [];
 
-const teamSkills = {
-  readyAt: async (_line: LineMap, station: Station) =>
-    readySkills.filter((each) =>
-      station.skills.some((key) => key.value === each.skill.key),
+const teamSkills = partial<StationSkills>({
+  readyAt: (_line: LineMap, station: Station) =>
+    Promise.resolve(
+      readySkills.filter((each) =>
+        station.skills.some((key) => key.value === each.skill.key),
+      ),
     ),
-} as unknown as StationSkills;
+});
 
 const enabledTools = (order?: RunOrderContract) =>
   (order?.spec.manifest ?? []).map((each) => each.name);
@@ -321,11 +328,11 @@ let resolvedItems: ResolvedItems = { tools: [], skills: [], denied: [] };
 let catalogRequested: CatalogRequest[] = [];
 
 const catalog = new RunCatalog({
-  resolve: async (named) => {
+  resolve: (named) => {
     catalogRequested.push(named);
-    return resolvedItems;
+    return Promise.resolve(resolvedItems);
   },
-  call: async () => ({ kind: 'answered', output: null }),
+  call: () => Promise.resolve({ kind: 'answered', output: null }),
 });
 
 const WEB_SEARCH = {
@@ -363,19 +370,19 @@ const dispatch = async (
     BUILT_IN,
     teamSkills,
     integrations,
-    { ofTask: async () => [] },
+    { ofTask: () => Promise.resolve([]) },
     catalog,
     profiles,
     {
-      forBriefing: async (place: BriefingContext) => {
+      forBriefing: (place: BriefingContext) => {
         briefedAt.push(place);
         if (memoryFails) {
-          throw new Error('memory is down');
+          return Promise.reject(new Error('memory is down'));
         }
-        return remembered;
+        return Promise.resolve(remembered);
       },
     },
-    { onTask: async () => touchedOnTask } as unknown as TouchedFiles,
+    partial<TouchedFiles>({ onTask: () => Promise.resolve(touchedOnTask) }),
     {
       debug: () => undefined,
       info: () => undefined,
@@ -385,13 +392,15 @@ const dispatch = async (
     { inSavepoint: (work) => work() },
     new Sha256ContentHash(),
     {
-      boundIn: async (_workspace, names) =>
-        names.map((name) => ({
-          name,
-          bindings: [],
-          awaitingValue: awaitingValue.includes(name),
-          allowsSandbox: !sandboxNotAllowed.includes(name),
-        })),
+      boundIn: (_workspace, names) =>
+        Promise.resolve(
+          names.map((name) => ({
+            name,
+            bindings: [],
+            awaitingValue: awaitingValue.includes(name),
+            allowsSandbox: !sandboxNotAllowed.includes(name),
+          })),
+        ),
     },
   );
   const working = existing ?? task(station.id.value);
@@ -966,7 +975,7 @@ describe('DispatchTask', () => {
 
     await dispatch(station, dispatched);
 
-    const run = queued[0];
+    const run = firstOf(queued);
 
     expect(
       ordered[0]?.briefedTask?.equals(dispatched.briefedOn(lineWith(station))),
@@ -983,7 +992,7 @@ describe('DispatchTask', () => {
 
   describe('carrying on where the last run stopped', () => {
     const resumeOf = (at: number) => {
-      const run = queued[at];
+      const run = itemAt(queued, at);
       if (!run) {
         throw new Error(`nothing was queued at ${at}`);
       }
@@ -1352,17 +1361,17 @@ describe('DispatchTask, the tools a run is told about', () => {
       ];
 
       await dispatch(station, undefined, [
-        { repository: Repository.of('acme/api') },
-      ] as unknown as readonly RepositoryInput[]);
+        partial<RepositorySpec>({ repository: Repository.of('acme/api') }),
+      ]);
 
-      const place = briefedAt.slice(-1)[0];
+      const place = itemAt(briefedAt, briefedAt.length - 1);
       expect(place?.stationId).toBe(station.id.value);
       expect(place?.lineId).toBeTruthy();
       expect(place?.repositories.map((each) => each.value)).toContain(
         'acme/api',
       );
       expect(await place?.touched()).toEqual(touchedOnTask);
-      const run = queued.slice(-1)[0];
+      const run = itemAt(queued, queued.length - 1);
       expect(ordered.slice(-1)[0]?.briefedMemories.value).toEqual({
         briefed: [{ id: 'memory_1', handle: 'M-12' }],
         omitted: [{ id: 'memory_2', handle: 'M-13' }],
@@ -1380,7 +1389,7 @@ describe('DispatchTask, the tools a run is told about', () => {
       await dispatch(station);
 
       memoryFails = false;
-      const run = queued.slice(-1)[0];
+      const run = itemAt(queued, queued.length - 1);
       expect(ordered.slice(-1)[0]?.briefedMemories.value).toEqual({
         briefed: [],
         omitted: [],

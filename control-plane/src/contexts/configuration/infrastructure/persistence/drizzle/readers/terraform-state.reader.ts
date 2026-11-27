@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   LatestStateVersion,
   TerraformStateReaderPort,
@@ -22,7 +23,7 @@ export class DrizzleTerraformStateReader implements TerraformStateReaderPort {
     workspaceId: WorkspaceId,
     name: StateName,
   ): Promise<LatestStateVersion | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select({
         stateId: terraformState.id,
         versionId: terraformStateVersion.id,
@@ -40,7 +41,7 @@ export class DrizzleTerraformStateReader implements TerraformStateReaderPort {
         ),
       )
       .orderBy(desc(terraformStateVersion.number))
-      .limit(1);
+      .limit(1));
 
     return row
       ? {

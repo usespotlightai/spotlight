@@ -11,7 +11,12 @@ export class CorrelationKeys {
     branch?: string | null;
     marks?: readonly (Mark | null)[];
   }): CorrelationKeys | null {
-    const named = input.branch?.trim() ? Branch.of(input.branch) : null;
+    const named =
+      input.branch !== undefined &&
+      input.branch !== null &&
+      input.branch.trim() !== ''
+        ? Branch.of(input.branch)
+        : null;
     const marked = (input.marks ?? []).filter((each): each is Mark => !!each);
 
     return named || marked.length > 0

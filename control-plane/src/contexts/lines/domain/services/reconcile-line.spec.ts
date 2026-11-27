@@ -150,9 +150,9 @@ describe('reconciling a line with the plan describing it', () => {
       'ada@example.com',
     );
 
-    const dropped = named.ok && reconciling(plan, named.line).result;
+    const dropped = named.ok ? reconciling(plan, named.line).result : null;
 
-    expect(dropped && dropped.ok && dropped.line.defaultAssignee).toBeNull();
+    expect(dropped?.ok === true && dropped.line.defaultAssignee).toBeNull();
   });
 
   it('keeps every station that is still described', () => {
@@ -181,9 +181,7 @@ describe('reconciling a line with the plan describing it', () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(result.ok && result.line.stations[0]?.id.value).toBe(
-      first?.id.value,
-    );
+    expect(result.ok && result.line.stations[0]?.id.value).toBe(first.id.value);
     expect(result.ok && result.line.stations[0]?.name.value).toBe('Renamed');
   });
 

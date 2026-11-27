@@ -262,7 +262,12 @@ const peoplePullRequests = (
 
 const revertsOf = (all: readonly Unnumbered[]): Unnumbered[] =>
   all.flatMap((fact) => {
-    if (!fact.getsReverted || fact.state !== 'merged' || !fact.closedAt) {
+    if (
+      !fact.getsReverted ||
+      fact.state !== 'merged' ||
+      fact.closedAt === null ||
+      fact.closedAt === 0
+    ) {
       return [];
     }
     const openedAt = fact.closedAt + 26 * HOUR_MS;
@@ -328,7 +333,7 @@ const numbered = (
   }
   const revertedBy = new Map(
     all.flatMap((each) =>
-      each.revertOf
+      each.revertOf !== null && each.revertOf !== ''
         ? [[each.revertOf, numbers.get(each.key) ?? 0] as const]
         : [],
     ),
@@ -452,7 +457,10 @@ export const toMergeOf = (fact: PullRequestFact): number | null =>
     : null;
 
 const inReviewOf = (fact: PullRequestFact): number | null =>
-  fact.state === 'merged' && fact.closedAt !== null && fact.firstReviewAt
+  fact.state === 'merged' &&
+  fact.closedAt !== null &&
+  fact.firstReviewAt !== null &&
+  fact.firstReviewAt !== 0
     ? fact.closedAt - fact.firstReviewAt
     : null;
 
@@ -484,7 +492,11 @@ const groupOf = (
 export const roundsOf = (fact: PullRequestFact): '0' | '1' | '2' | '3+' =>
   fact.reviewRounds >= 3
     ? '3+'
-    : (String(fact.reviewRounds) as '0' | '1' | '2');
+    : fact.reviewRounds === 2
+      ? '2'
+      : fact.reviewRounds === 1
+        ? '1'
+        : '0';
 
 const spendOfTask = (taskId: string | null) => {
   const runs = history().runs.filter((run) => run.taskId === taskId);
@@ -595,7 +607,10 @@ const LIST_MATCHERS: {
 };
 
 const shownOf = (fact: PullRequestFact): InsightsPullRequestResponseDto => {
-  const spend = fact.taskId ? spendOfTask(fact.taskId) : null;
+  const spend =
+    fact.taskId !== null && fact.taskId !== ''
+      ? spendOfTask(fact.taskId)
+      : null;
 
   return {
     pullRequest: `https://github.com/${fact.repository}/pull/${fact.number}`,

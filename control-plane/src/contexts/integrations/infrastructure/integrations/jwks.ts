@@ -2,6 +2,7 @@ import { createPublicKey, type KeyObject } from 'node:crypto';
 
 import { cappedText } from '@integrations/infrastructure/outbound/capped-body';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { fieldOf } from '@platform/json/field-of';
 
 export interface JwksResolver {
   keys(url: string): Promise<ReadonlyMap<string, KeyObject>>;
@@ -54,24 +55,23 @@ export class JwksCache implements JwksResolver {
       throw new Error(`${url} answered ${reply.status} for its signing keys`);
     }
 
-    const body = JSON.parse(
+    const body: unknown = JSON.parse(
       await cappedText(
         reply,
         MAX_KEYS_BYTES,
         () => new Error(`${url} answered more than 1 MiB of signing keys`),
       ),
-    ) as { keys?: Jwk[] };
+    );
+    const listed = fieldOf(body, 'keys');
+    const jwks: readonly unknown[] = Array.isArray(listed) ? listed : [];
 
-    for (const jwk of body.keys ?? []) {
-      if (!jwk.kid) {
+    for (const jwk of jwks) {
+      if (!isKeyed(jwk)) {
         continue;
       }
 
       try {
-        keys.set(
-          jwk.kid,
-          createPublicKey({ key: jwk as JsonWebKey, format: 'jwk' }),
-        );
+        keys.set(jwk.kid, createPublicKey({ key: jwk, format: 'jwk' }));
       } catch {}
     }
 
@@ -79,7 +79,9 @@ export class JwksCache implements JwksResolver {
   }
 }
 
-interface Jwk {
-  readonly kid?: string;
-  readonly [key: string]: unknown;
-}
+const isKeyed = (jwk: unknown): jwk is JsonWebKey & { readonly kid: string } =>
+  typeof jwk === 'object' &&
+  jwk !== null &&
+  'kid' in jwk &&
+  typeof jwk.kid === 'string' &&
+  jwk.kid !== '';

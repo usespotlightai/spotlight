@@ -7,7 +7,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
  * again, or a try that failed and is retried, is a new round with a new judging session.
  */
 export class ChangeJudgingRound {
-  private readonly kind = 'change-judging-round';
+  private readonly kind: string = 'change-judging-round';
 
   private constructor(
     readonly runId: RunId,

@@ -7,6 +7,7 @@ import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo'
 import { clockAt } from '@insights/judge-repair-setup.fake-spec';
 import { ClaimsSourcesInMemory } from '@insights/judge-repair.fake-spec';
 import { inTransaction } from '@insights/runs.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -44,7 +45,7 @@ describe('ClaimsSources', () => {
 
     await service.lineChanged(applied());
 
-    const [source] = await sources.ofStation(StationId.of('station_1'));
+    const source = firstOf(await sources.ofStation(StationId.of('station_1')));
     expect(source?.commit.toString()).toBe(`acme/config@${SHA}`);
     expect(source?.rubricVersion).toBe(FIRST);
     expect(source?.recordedAt).toEqual(NOW);

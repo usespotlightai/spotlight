@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import {
   ChangeStackNotice,
@@ -57,7 +57,7 @@ function ChangeStackLayout({
         actions={ready && actions}
       />
 
-      {ready && (
+      {ready !== null && (
         <StackRepositoryPills
           stacks={current}
           stack={ready}
@@ -66,7 +66,7 @@ function ChangeStackLayout({
         />
       )}
 
-      {ready ? (
+      {ready !== null ? (
         <ChangeStackView stack={ready} layerId={layerId} onPick={pick} />
       ) : (
         <ChangeStackNotice stack={stack} back={back} />
@@ -93,7 +93,7 @@ export function ChangeStackPage({
   review,
   trail,
   back,
-}: ChangeStackPageProps) {
+}: ChangeStackPageProps): ReactElement {
   const view = useStackInView(stacks);
 
   return (
@@ -108,7 +108,11 @@ export function ChangeStackPage({
         <ChangeStackLayout
           view={view}
           title={<Breadcrumbs segments={trail} />}
-          actions={taskId ? <SubmitReviewButton /> : undefined}
+          actions={
+            taskId !== null && taskId !== undefined && taskId !== '' ? (
+              <SubmitReviewButton />
+            ) : undefined
+          }
           back={back}
         />
       </DecisionsProvider>
@@ -124,7 +128,7 @@ type PublicChangeStackPageProps = {
 export function PublicChangeStackPage({
   stacks,
   signedIn,
-}: PublicChangeStackPageProps) {
+}: PublicChangeStackPageProps): ReactElement {
   const view = useStackInView(stacks);
 
   return (

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
 import { contentsOf, reported } from '@/lib/detail';
@@ -31,7 +31,7 @@ export function DetailHeader({
 }: {
   node: TraceNode;
   action?: ReactNode;
-}) {
+}): ReactElement {
   const contents = contentsOf(node);
   const model = reported(node, 'gen_ai.request.model', 'llm.model_name');
   const tokens = tokensOf(node);
@@ -58,14 +58,21 @@ export function DetailHeader({
           {formatShortDuration(node.ms)}
         </DetailProperty>
 
-        {node.step?.status && (
-          <DetailProperty name="Status" failed={node.step.status === 'failed'}>
-            {node.step.status}
-          </DetailProperty>
-        )}
-        {node.step?.tool && (
-          <DetailProperty name="Tool">{node.step.tool}</DetailProperty>
-        )}
+        {node.step?.status !== null &&
+          node.step?.status !== undefined &&
+          node.step.status !== '' && (
+            <DetailProperty
+              name="Status"
+              failed={node.step.status === 'failed'}
+            >
+              {node.step.status}
+            </DetailProperty>
+          )}
+        {node.step?.tool !== null &&
+          node.step?.tool !== undefined &&
+          node.step.tool !== '' && (
+            <DetailProperty name="Tool">{node.step.tool}</DetailProperty>
+          )}
         {node.connection?.error && (
           <DetailProperty name="Error" failed>
             {ERROR_LABELS[node.connection.error]}
@@ -84,8 +91,12 @@ export function DetailHeader({
         {node.connection && node.connection.count > 1 && (
           <DetailProperty name="Count">{node.connection.count}</DetailProperty>
         )}
-        {model && <DetailProperty name="Model">{model}</DetailProperty>}
-        {tokens && <DetailProperty name="Tokens">{tokens}</DetailProperty>}
+        {model !== null && model !== '' && (
+          <DetailProperty name="Model">{model}</DetailProperty>
+        )}
+        {tokens !== null && tokens !== '' && (
+          <DetailProperty name="Tokens">{tokens}</DetailProperty>
+        )}
         {node.cost !== null && (
           <DetailProperty name="Cost">{spentOn(node.cost)}</DetailProperty>
         )}

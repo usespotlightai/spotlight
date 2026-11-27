@@ -52,7 +52,7 @@ describe('CachedWorkspaceOutboundHosts', () => {
 
   it('refuses to answer for a workspace it cannot find', async () => {
     const hosts = new CachedWorkspaceOutboundHosts({
-      profileOf: async () => null,
+      profileOf: () => Promise.resolve(null),
     });
 
     await expect(hosts.of(WorkspaceId.of('ws_gone'))).rejects.toThrow(

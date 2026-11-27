@@ -71,7 +71,7 @@ const laidOut = (
   skillHomes: laid.skillHomes,
   attachments: Attached.shapes(laid.attachments),
   diffs: order.diffs,
-  ...(order.check ? { check: order.check } : {}),
+  ...(order.check !== null && order.check !== '' ? { check: order.check } : {}),
   ...(prepared.setup ? { harnessSetup: prepared.setup } : {}),
   settingFiles: laid.settingFiles,
 });

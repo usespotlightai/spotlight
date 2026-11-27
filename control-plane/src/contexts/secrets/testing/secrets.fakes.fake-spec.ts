@@ -1,4 +1,7 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type {
+  WorkspaceAccessPort,
+  WorkspacePermissions,
+} from '@identity/application/ports/workspace-access.port';
 import { UnreadableSecretError } from '@secrets/application/errors/unreadable-secret.error';
 import type {
   SecretReference,
@@ -33,6 +36,7 @@ import type {
 } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -50,20 +54,21 @@ export const SLUG = 'acme';
 export const accessFor = (
   managesSecrets: () => boolean,
 ): WorkspaceAccessPort => {
-  const permissions = () => ({
+  const permissions = (): WorkspacePermissions => ({
     workspaceId: WORKSPACE,
     slug: SLUG,
+    plans: false,
     configures: true,
     scopes: new Set(managesSecrets() ? (['secrets'] as const) : []),
     isAdmin: false,
   });
 
-  return {
-    permissionsIn: async (workspaceId: WorkspaceId) =>
-      workspaceId.equals(WORKSPACE) ? permissions() : null,
-    permissionsInSlug: async (slug: string) =>
-      slug === SLUG ? permissions() : null,
-  } as unknown as WorkspaceAccessPort;
+  return partial<WorkspaceAccessPort>({
+    permissionsIn: (workspaceId: WorkspaceId) =>
+      Promise.resolve(workspaceId.equals(WORKSPACE) ? permissions() : null),
+    permissionsInSlug: (slug: string) =>
+      Promise.resolve(slug === SLUG ? permissions() : null),
+  });
 };
 
 export const transaction: TransactionPort = { inTransaction: (work) => work() };
@@ -71,28 +76,32 @@ export const transaction: TransactionPort = { inTransaction: (work) => work() };
 export class InMemoryCreates implements IdempotentCreatesPort {
   readonly #made = new Map<string, { request: string; id: string | null }>();
 
-  async reserve(create: IdempotentCreate): Promise<IdempotentReservation> {
+  reserve(create: IdempotentCreate): Promise<IdempotentReservation> {
     const key = `${create.by}:${create.key.value}`;
     const request = JSON.stringify(create.request);
     const stored = this.#made.get(key);
 
     if (!stored) {
       this.#made.set(key, { request, id: null });
-      return { kind: 'new' };
+      return Promise.resolve({ kind: 'new' });
     }
 
-    return stored.request === request && stored.id
-      ? { kind: 'already-created', createdId: stored.id }
-      : { kind: 'key-reused' };
+    return Promise.resolve(
+      stored.request === request && stored.id !== null && stored.id !== ''
+        ? { kind: 'already-created', createdId: stored.id }
+        : { kind: 'key-reused' },
+    );
   }
 
-  async recordCreated(create: IdempotentCreate, id: string): Promise<void> {
+  recordCreated(create: IdempotentCreate, id: string): Promise<void> {
     const key = `${create.by}:${create.key.value}`;
     const stored = this.#made.get(key);
 
     if (stored) {
       this.#made.set(key, { ...stored, id });
     }
+
+    return Promise.resolve();
   }
 
   get requests(): readonly string[] {
@@ -162,29 +171,28 @@ export class InMemorySecrets implements SecretRepository {
 
   constructor(private readonly values = new InMemoryStore()) {}
 
-  async withId(id: SecretId): Promise<Secret | null> {
+  withId(id: SecretId): Promise<Secret | null> {
     const record = this.#records.get(id.value);
 
-    return record ? this.rehydrated(record) : null;
+    return Promise.resolve(record ? this.rehydrated(record) : null);
   }
 
-  async named(
-    workspaceId: WorkspaceId,
-    name: SecretName,
-  ): Promise<Secret | null> {
+  named(workspaceId: WorkspaceId, name: SecretName): Promise<Secret | null> {
     const record = [...this.#records.values()].find(
       (each) =>
         each.secret.workspaceId.equals(workspaceId) &&
         each.secret.name.equals(name),
     );
 
-    return record ? this.rehydrated(record) : null;
+    return Promise.resolve(record ? this.rehydrated(record) : null);
   }
 
-  async inWorkspace(workspaceId: WorkspaceId): Promise<readonly Secret[]> {
-    return [...this.#records.values()]
-      .filter((each) => each.secret.workspaceId.equals(workspaceId))
-      .map((each) => this.rehydrated(each));
+  inWorkspace(workspaceId: WorkspaceId): Promise<readonly Secret[]> {
+    return Promise.resolve(
+      [...this.#records.values()]
+        .filter((each) => each.secret.workspaceId.equals(workspaceId))
+        .map((each) => this.rehydrated(each)),
+    );
   }
 
   async save(secret: Secret): Promise<void> {
@@ -277,51 +285,61 @@ export const bindStored = async (
 export class InMemoryGrants implements RunGrantsRepository {
   readonly #records = new Map<string, RunGrants>();
 
-  async find(runId: RunId): Promise<RunGrants | null> {
+  find(runId: RunId): Promise<RunGrants | null> {
     const record = this.#records.get(runId.value);
 
-    return record ? copyOf(record, record.version) : null;
+    return Promise.resolve(record ? copyOf(record, record.version) : null);
   }
 
-  async runsIn(workspaceId: WorkspaceId): Promise<readonly RunId[]> {
-    return [...this.#records.values()]
-      .filter((each) => each.workspaceId.equals(workspaceId))
-      .map((each) => each.runId);
+  runsIn(workspaceId: WorkspaceId): Promise<readonly RunId[]> {
+    return Promise.resolve(
+      [...this.#records.values()]
+        .filter((each) => each.workspaceId.equals(workspaceId))
+        .map((each) => each.runId),
+    );
   }
 
-  async endedBy(
+  endedBy(
     at: Date,
     after: RunId | null,
     max: number,
   ): Promise<readonly RunId[]> {
-    return [...this.#records.values()]
-      .filter(
-        (each) =>
-          each.endedAt !== null &&
-          each.endedAt.getTime() <= at.getTime() &&
-          (after === null || each.runId.value > after.value),
-      )
-      .map((each) => each.runId)
-      .sort((one, other) => (one.value < other.value ? -1 : 1))
-      .slice(0, max);
+    return Promise.resolve(
+      [...this.#records.values()]
+        .filter(
+          (each) =>
+            each.endedAt !== null &&
+            each.endedAt.getTime() <= at.getTime() &&
+            (after === null || each.runId.value > after.value),
+        )
+        .map((each) => each.runId)
+        .sort((one, other) => (one.value < other.value ? -1 : 1))
+        .slice(0, max),
+    );
   }
 
-  async save(grants: RunGrants): Promise<void> {
+  save(grants: RunGrants): Promise<void> {
     const record = this.#records.get(grants.runId.value);
 
-    if (grants.isNew ? record : record?.version !== grants.version) {
-      throw new RunGrantsVersionConflictError(grants.runId.value);
+    if (
+      grants.isNew ? record !== undefined : record?.version !== grants.version
+    ) {
+      return Promise.reject(
+        new RunGrantsVersionConflictError(grants.runId.value),
+      );
     }
 
     if (grants.isDiscarded) {
       this.#records.delete(grants.runId.value);
-      return;
+      return Promise.resolve();
     }
 
     this.#records.set(
       grants.runId.value,
       copyOf(grants, grants.isNew ? grants.version : grants.version + 1),
     );
+
+    return Promise.resolve();
   }
 
   of(runId: string): RunGrants | null {
@@ -336,22 +354,28 @@ export class InMemoryGrants implements RunGrantsRepository {
 export class InMemoryStore implements SecretStorePort {
   readonly #values = new Map<string, string>();
 
-  async store(secret: SecretReference, value: SecretValue): Promise<void> {
+  store(secret: SecretReference, value: SecretValue): Promise<void> {
     this.#values.set(secret.id.value, value.revealed());
+
+    return Promise.resolve();
   }
 
-  async read(secret: SecretReference): Promise<SecretValue> {
+  read(secret: SecretReference): Promise<SecretValue> {
     const stored = this.#values.get(secret.id.value);
 
     if (stored === undefined) {
-      throw new UnreadableSecretError(secret.name.value, 'no value is stored');
+      return Promise.reject(
+        new UnreadableSecretError(secret.name.value, 'no value is stored'),
+      );
     }
 
-    return SecretValue.of(stored);
+    return Promise.resolve(SecretValue.of(stored));
   }
 
-  async delete(secret: SecretReference): Promise<void> {
+  delete(secret: SecretReference): Promise<void> {
     this.#values.delete(secret.id.value);
+
+    return Promise.resolve();
   }
 
   has(secretId: SecretId): boolean {

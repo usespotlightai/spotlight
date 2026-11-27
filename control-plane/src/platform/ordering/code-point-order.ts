@@ -6,7 +6,7 @@ export const inCodePointOrder = (one: string, other: string): number => {
     const mine = ones.next();
     const theirs = others.next();
 
-    if (mine.done || theirs.done) {
+    if (mine.done === true || theirs.done === true) {
       return Number(theirs.done) - Number(mine.done);
     }
 

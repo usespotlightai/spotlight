@@ -3,7 +3,12 @@ import type {
   JournalStep,
   RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
-import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
+import type {
+  RunFacts,
+  RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -12,6 +17,7 @@ import type { RunJournalReaderPort } from '@work/application/ports/run-journal-r
 import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { RunEvidences } from '@work/application/services/run-evidences.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
+import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
@@ -85,9 +91,15 @@ const journal: RunJournal = {
   background: [],
 };
 
-const TASK_RUN = { runId: RunId.of('run_1'), checkouts: ['api'] };
+const TASK_RUN = partial<RunFacts>({
+  runId: RunId.of('run_1'),
+  checkouts: ['api'],
+});
 
-const REPLAY = { runId: RunId.of('replay_1'), checkouts: ['api'] };
+const REPLAY = partial<RunFacts>({
+  runId: RunId.of('replay_1'),
+  checkouts: ['api'],
+});
 
 const BRIEFED = BriefedTask.of({
   stationId: StationId.of('station_1'),
@@ -174,31 +186,42 @@ const hunksIn = vi.fn(() => [HUNK]);
 
 const evidences = () =>
   new RunEvidences(
-    {
-      of: async ([id]: readonly RunId[]) =>
-        [TASK_RUN, REPLAY].filter((each) => id && each.runId.equals(id)),
-    } as unknown as RunFactsPort,
-    {
-      find: async () => ({
-        id: TaskId.of('task_1'),
-        title: TaskTitle.of('Retry uploads'),
-        description: TaskDescription.of('They fail on a flaky network.'),
-      }),
-    } as unknown as TaskRepository,
-    {
-      attemptsOfRun: async () => [
-        { ...journal, steps: journal.steps.slice(0, 2) },
-        {
-          ...journal,
-          attempt: 2,
-          firstStep: 1_000_000,
-          steps: journal.steps.slice(2),
-        },
-      ],
-    } as unknown as RunJournalReaderPort,
-    {
-      find: async (id: RunId) => DISPATCHES.get(id.value) ?? null,
-    } as unknown as DispatchRepository,
+    partial<RunFactsPort>({
+      of: (ids: readonly RunId[]) => {
+        const id = firstOf(ids);
+
+        return Promise.resolve(
+          [TASK_RUN, REPLAY].filter(
+            (each) => id !== undefined && each.runId.equals(id),
+          ),
+        );
+      },
+    }),
+    partial<TaskRepository>({
+      find: () =>
+        Promise.resolve(
+          partial<Task>({
+            id: TaskId.of('task_1'),
+            title: TaskTitle.of('Retry uploads'),
+            description: TaskDescription.of('They fail on a flaky network.'),
+          }),
+        ),
+    }),
+    partial<RunJournalReaderPort>({
+      attemptsOfRun: () =>
+        Promise.resolve([
+          { ...journal, steps: journal.steps.slice(0, 2) },
+          {
+            ...journal,
+            attempt: 2,
+            firstStep: 1_000_000,
+            steps: journal.steps.slice(2),
+          },
+        ]),
+    }),
+    partial<DispatchRepository>({
+      find: (id: RunId) => Promise.resolve(DISPATCHES.get(id.value) ?? null),
+    }),
     runJournalReadings({ hunksIn }),
   );
 

@@ -8,6 +8,7 @@ import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -43,27 +44,29 @@ const taking = (
   const saved: Run[] = [];
   let clashes = over.clashes ?? 0;
   const warn = vi.fn();
-  const runs = {
-    findById: vi.fn(async () =>
-      over.stored === undefined ? claimed() : over.stored,
+  const runs = partial<RunRepository>({
+    findById: vi.fn(() =>
+      Promise.resolve(over.stored === undefined ? claimed() : over.stored),
     ),
-    save: vi.fn(async (run: Run) => {
-      if (over.saveFails) {
-        throw new Error('the database is down');
+    save: vi.fn((run: Run) => {
+      if (over.saveFails === true) {
+        return Promise.reject(new Error('the database is down'));
       }
       if (clashes > 0) {
         clashes -= 1;
-        throw new RunVersionConflictError(run.id.value);
+        return Promise.reject(new RunVersionConflictError(run.id.value));
       }
       saved.push(run);
+      return Promise.resolve();
     }),
-  } as unknown as RunRepository;
+  });
   const checks = { unclaim: vi.fn(async () => {}) };
   const runners = {
-    claim: vi.fn(async () => {
-      if (over.tookFails) {
-        throw new Error('pooled_1 is spent');
+    claim: vi.fn(() => {
+      if (over.tookFails === true) {
+        return Promise.reject(new Error('pooled_1 is spent'));
       }
+      return Promise.resolve();
     }),
   };
 
@@ -76,10 +79,10 @@ const taking = (
     runners,
     taken: new ClaimsTaken(
       runs,
-      checks as unknown as ReviewWorkPort,
-      runners as unknown as RunnersPort,
-      { now: () => NOW } as ClockPort,
-      { warn, info } as unknown as LoggerPort,
+      partial<ReviewWorkPort>(checks),
+      partial<RunnersPort>(runners),
+      partial<ClockPort>({ now: () => NOW }),
+      partial<LoggerPort>({ warn, info }),
     ),
     info,
   };

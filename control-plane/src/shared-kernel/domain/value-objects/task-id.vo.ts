@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class TaskId {
-  private readonly kind = 'task';
+  private readonly kind: string = 'task';
 
   private constructor(readonly value: string) {}
 

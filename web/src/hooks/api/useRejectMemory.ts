@@ -1,8 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { memoryReviewKeys } from '@/hooks/api/useMemoryReview';
-import { rejectMemory } from '@/lib/api';
+import { rejectMemory, type MemoryReviewResponseDto } from '@/lib/api';
 import { decidedMemories, type ProposedMemory } from '@/lib/memory';
 
 type RejectMemoryInput = {
@@ -13,7 +17,12 @@ type RejectMemoryInput = {
   memoryId: string;
 };
 
-export function useRejectMemory() {
+export function useRejectMemory(): UseMutationResult<
+  MemoryReviewResponseDto,
+  Error,
+  RejectMemoryInput,
+  void
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

@@ -75,8 +75,12 @@ const waiting = (
       ],
     }),
     placement: RunnerPlacement.of(over.placement ?? []),
-    line: over.line ? LineId.of(over.line) : null,
-    restore: over.restore ? WorkingCopyArchiveId.of(over.restore) : null,
+    line:
+      over.line !== undefined && over.line !== '' ? LineId.of(over.line) : null,
+    restore:
+      over.restore !== undefined && over.restore !== ''
+        ? WorkingCopyArchiveId.of(over.restore)
+        : null,
     now: new Date(
       over.queuedAt ?? over.createdAt ?? '2026-09-17T09:00:00.000Z',
     ),

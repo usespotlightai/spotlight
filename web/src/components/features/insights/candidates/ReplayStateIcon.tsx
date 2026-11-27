@@ -5,6 +5,7 @@ import {
   LoaderCircle,
   type LucideIcon,
 } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatState, type ReplayState, stateNote } from '@/lib/replay-words';
@@ -22,13 +23,21 @@ const ICONS: Record<ShownState, { icon: LucideIcon; className: string }> = {
   'ceiling-reached': { icon: CircleAlert, className: 'text-destructive' },
 };
 
-export function ReplayStateIcon({ state }: { state: ShownState }) {
+export function ReplayStateIcon({
+  state,
+}: {
+  state: ShownState;
+}): ReactElement {
   const { icon: Icon, className } = ICONS[state];
   const note = stateNote(state);
 
   return (
     <WithTooltip
-      tooltip={note ? `${formatState(state)}. ${note}` : formatState(state)}
+      tooltip={
+        note !== null && note !== ''
+          ? `${formatState(state)}. ${note}`
+          : formatState(state)
+      }
     >
       <span className="inline-flex shrink-0">
         <Icon

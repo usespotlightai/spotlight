@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 const message = (to: string | null) => ({
   kind: 'message' as const,
   approval: null,
-  deferredMove: to ? { to } : null,
+  deferredMove: to !== null && to !== '' ? { to } : null,
 });
 const passed = { kind: 'passed' as const, approval: null, deferredMove: null };
 const asked = { kind: 'asked' as const, approval: null, deferredMove: null };

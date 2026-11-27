@@ -1,4 +1,4 @@
-import { use } from 'react';
+import { type ReactElement, use } from 'react';
 
 import { MemoryDecision } from '@/components/features/inbox/memories/MemoryDecision';
 import { Dockable } from '@/components/shared/decision-tray/Dockable';
@@ -13,7 +13,10 @@ type MemoryReviewProps = {
   memories: readonly ProposedMemory[];
 };
 
-export function MemoryReview({ memories, ...about }: MemoryReviewProps) {
+export function MemoryReview({
+  memories,
+  ...about
+}: MemoryReviewProps): ReactElement {
   const runs = dockedRuns(
     use(DecisionTrayContext),
     memories.map(memoryDecisionId),

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { ExpandChevron } from '@/components/shared/ExpandChevron';
 import type { Expansion } from '@/hooks/useExpandingRow';
@@ -8,7 +8,10 @@ type ExpandToggleProps = {
   children: ReactNode;
 };
 
-export function ExpandToggle({ expansion, children }: ExpandToggleProps) {
+export function ExpandToggle({
+  expansion,
+  children,
+}: ExpandToggleProps): ReactElement {
   return expansion.expandable ? (
     <button
       type="button"
@@ -38,6 +41,6 @@ export function ExpandToggle({ expansion, children }: ExpandToggleProps) {
   );
 }
 
-export function ChevronSpace() {
+export function ChevronSpace(): ReactElement {
   return <span aria-hidden className="size-4 shrink-0" />;
 }

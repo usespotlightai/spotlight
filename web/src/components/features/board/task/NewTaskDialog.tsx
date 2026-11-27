@@ -1,4 +1,4 @@
-import { type SubmitEvent, useRef, useState } from 'react';
+import { type ReactElement, type SubmitEvent, useRef, useState } from 'react';
 
 import { AttachButton } from '@/components/shared/attachment/AttachButton';
 import { PendingAttachments } from '@/components/shared/attachment/PendingAttachments';
@@ -34,7 +34,7 @@ export function NewTaskDialog({
   lineName,
   stationName,
   onCreate,
-}: NewTaskDialogProps) {
+}: NewTaskDialogProps): ReactElement {
   const [title, setTitle] = useState('');
   const description = useRef('');
   const [more, setMore] = useState(false);

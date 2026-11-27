@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { KIND_OPTIONS, type MemoryKind } from '@/lib/memory';
 
@@ -6,7 +8,10 @@ type MemoryKindSelectProps = {
   onChange: (kind: string | null) => void;
 };
 
-export function MemoryKindSelect({ value, onChange }: MemoryKindSelectProps) {
+export function MemoryKindSelect({
+  value,
+  onChange,
+}: MemoryKindSelectProps): ReactElement {
   return (
     <ChoiceSelect
       compact

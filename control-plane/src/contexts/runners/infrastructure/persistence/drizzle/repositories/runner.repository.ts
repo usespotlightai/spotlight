@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
@@ -207,41 +208,41 @@ export class DrizzleRunnerRepository implements RunnerRepository {
   }
 
   async find(id: RunnerId): Promise<Runner | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(runner)
       .where(eq(runner.id, id.value))
-      .limit(1);
+      .limit(1));
 
     return found ? toRunner(found) : null;
   }
 
   async findByTokenHash(hash: TokenHash): Promise<Runner | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(runner)
       .where(eq(runner.tokenHash, hash.value))
-      .limit(1);
+      .limit(1));
 
     return found ? toRunner(found) : null;
   }
 
   async findByEgressTokenHash(hash: TokenHash): Promise<Runner | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(runner)
       .where(eq(runner.egressTokenHash, hash.value))
-      .limit(1);
+      .limit(1));
 
     return found ? toRunner(found) : null;
   }
 
   async findByProxyCredentialHash(hash: TokenHash): Promise<Runner | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(runner)
       .where(eq(runner.proxyCredentialHash, hash.value))
-      .limit(1);
+      .limit(1));
 
     return found ? toRunner(found) : null;
   }

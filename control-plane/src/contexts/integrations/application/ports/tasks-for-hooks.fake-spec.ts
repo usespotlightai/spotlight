@@ -38,9 +38,12 @@ export const taskViewOf = (fields: TaskViewFields = {}): LinkedTaskView => {
     stationKey: StationKey.of(fields.stationKey ?? 'implementation'),
     marks: fields.marks ?? {},
     repositories: (fields.repositories ?? ['acme/api']).map(Repository.of),
-    pullRequests: fields.pullRequest
-      ? [PullRequestUrl.of(fields.pullRequest)]
-      : [],
+    pullRequests:
+      fields.pullRequest !== undefined &&
+      fields.pullRequest !== null &&
+      fields.pullRequest !== ''
+        ? [PullRequestUrl.of(fields.pullRequest)]
+        : [],
     runId: runId === null ? null : RunId.of(runId),
     waiting: null,
   };

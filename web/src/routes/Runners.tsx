@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { AddHostLink } from '@/components/features/runners/AddHostLink';
@@ -18,7 +19,7 @@ import { TrailContext, useTrail } from '@/lib/trail';
 
 const FILTER_KEY = 'spotlight.runner-filter';
 
-export function Runners() {
+export function Runners(): ReactElement | null {
   const { slug } = useParams();
   const fleet = useRunners(slug);
   const { data: harnesses } = useHarnesses();
@@ -26,7 +27,7 @@ export function Runners() {
   const [stored, store] = useStoredState(FILTER_KEY, FALLBACK_RUNNER_FILTER);
   const { trail, forward } = useTrail([{ label: 'Runners' }]);
 
-  if (!slug) {
+  if (slug === undefined || slug === '') {
     return null;
   }
 

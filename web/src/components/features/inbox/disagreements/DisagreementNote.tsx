@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { type ReactElement, useId } from 'react';
 
 import { FACT_LABEL, FactRow } from '@/components/shared/FactRow';
 import { FieldTextarea } from '@/components/shared/form/FieldTextarea';
@@ -23,7 +23,7 @@ export function DisagreementNote({
   pending,
   value,
   onChange,
-}: DisagreementNoteProps) {
+}: DisagreementNoteProps): ReactElement {
   const id = useId();
 
   return (

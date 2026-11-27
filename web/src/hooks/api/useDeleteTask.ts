@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { taskKeys } from '@/hooks/api/useTasks';
 import { deleteTask } from '@/lib/api';
@@ -9,7 +13,11 @@ type DeleteTaskInput = {
   taskId: string;
 };
 
-export function useDeleteTask() {
+export function useDeleteTask(): UseMutationResult<
+  void,
+  Error,
+  DeleteTaskInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

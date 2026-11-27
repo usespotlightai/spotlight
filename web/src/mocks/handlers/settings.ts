@@ -1,4 +1,4 @@
-import { HttpResponse, type RequestHandler } from 'msw';
+import { HttpResponse, type JsonBodyType, type RequestHandler } from 'msw';
 
 import type {
   ConnectGitHubRequestDto,
@@ -30,8 +30,11 @@ import { teamChats } from '@/mocks/world/team-chats';
 
 const SECRET = 'q3Vd0n8yXbT2c4kPzR7mW1sLhA9eJ5gUfN6oYiC0xEw';
 
-const created = <T>(body: T, header: string) =>
-  HttpResponse.json(body as never, {
+const created = <T extends JsonBodyType>(
+  body: T,
+  header: string,
+): HttpResponse<T> =>
+  HttpResponse.json(body, {
     status: 201,
     headers: { [header]: SECRET },
   });
@@ -70,7 +73,13 @@ const setupChatOf = (teamId: string): OnboardingResponseDto['setupChat'] => {
       : [],
   );
 
-  return chats.find((each) => each.pullRequest) ?? chats[0] ?? null;
+  return (
+    chats.find(
+      (each) => each.pullRequest !== null && each.pullRequest !== '',
+    ) ??
+    chats.at(0) ??
+    null
+  );
 };
 
 const onboarding = (teamId: string): OnboardingResponseDto => ({
@@ -128,27 +137,27 @@ const resourceHandlers = [
     });
   }),
 
-  api.post('/v1/resources/workspaces', async ({ request }) => {
-    const { name, slug } = (await request.json()) as {
-      name: string;
-      slug: string;
-    };
-    if (ofWorkspace(slug)) {
-      return problem(409, `Sorry, the address ${slug} is taken.`);
-    }
+  api.post<{ name: string; slug: string }>(
+    '/v1/resources/workspaces',
+    async ({ request }) => {
+      const { name, slug } = await request.json();
+      if (ofWorkspace(slug)) {
+        return problem(409, `Sorry, the address ${slug} is taken.`);
+      }
 
-    return json(
-      {
-        id: `workspace_${slug}`,
-        version: 1,
-        address: slug,
-        warnings: [],
-        name,
-        slug,
-      },
-      201,
-    );
-  }),
+      return json(
+        {
+          id: `workspace_${slug}`,
+          version: 1,
+          address: slug,
+          warnings: [],
+          name,
+          slug,
+        },
+        201,
+      );
+    },
+  ),
 
   api.get('/v1/resources/workspaces/:workspaceId/runner-pools', ({ params }) =>
     ofWorkspaceId(params.workspaceId)
@@ -156,14 +165,14 @@ const resourceHandlers = [
       : notFound(),
   ),
 
-  api.post(
+  api.post<CreateRunnerPoolData['body']>(
     '/v1/resources/workspaces/:workspaceId/runner-pools',
     async ({ params, request }) => {
       if (!ofWorkspaceId(params.workspaceId)) {
         return notFound();
       }
 
-      const { key } = (await request.json()) as CreateRunnerPoolData['body'];
+      const { key } = await request.json();
       const pools = settingsWorld().pools;
       if (pools.some((each) => each.key === key)) {
         return problem(409, `Sorry, pool ${key} already exists.`);
@@ -215,14 +224,14 @@ const resourceHandlers = [
     return noContent();
   }),
 
-  api.post(
+  api.post<CreateWorkspaceTokenData['body']>(
     '/v1/resources/workspaces/:workspaceId/tokens',
     async ({ params, request }) => {
       if (!ofWorkspaceId(params.workspaceId)) {
         return notFound();
       }
 
-      const spec = (await request.json()) as CreateWorkspaceTokenData['body'];
+      const spec = await request.json();
       const tokens = settingsWorld().tokens;
       if (tokens.some((each) => each.name === spec.name)) {
         return problem(409, `Sorry, token ${spec.name} already exists.`);
@@ -268,7 +277,7 @@ const teamHandlers = [
       : notFound(),
   ),
 
-  api.post(
+  api.post<ConnectIntegrationRequestDto>(
     '/teams/:teamId/integrations/:integration/connect',
     async ({ params, request }) => {
       const teamId = String(params.teamId);
@@ -280,9 +289,9 @@ const teamHandlers = [
         return notFound();
       }
 
-      const body = (await request
+      const body: ConnectIntegrationRequestDto = await request
         .json()
-        .catch(() => ({}))) as ConnectIntegrationRequestDto;
+        .catch(() => ({}));
       const connections = connectionsOf(teamId);
       if (body.actsAs === 'requester') {
         const linkedAccount = linkedAccountOf(integrationKey);
@@ -343,7 +352,7 @@ const teamHandlers = [
     },
   ),
 
-  api.put(
+  api.put<SetToolRuleRequestDto>(
     '/teams/:teamId/integrations/:integration/connections/mine/tools/:tool',
     async ({ params, request }) => {
       const mine = connectionsOf(String(params.teamId)).mine.find(
@@ -353,7 +362,7 @@ const teamHandlers = [
         return notFound();
       }
 
-      const { rule } = (await request.json()) as SetToolRuleRequestDto;
+      const { rule } = await request.json();
       const tool = String(params.tool);
       mine.tools = [
         ...mine.tools.filter((each) => each.tool !== tool),
@@ -374,12 +383,8 @@ const workspaceHandlers = [
   api.get('/custom-settings-pages', () =>
     json({ pages: settingsWorld().customPages }),
   ),
-  api.post('/workspaces', async ({ request }) => {
-    const {
-      name,
-      slug,
-      teamName: firstTeam,
-    } = (await request.json()) as CreateWorkspaceRequestDto;
+  api.post<CreateWorkspaceRequestDto>('/workspaces', async ({ request }) => {
+    const { name, slug, teamName: firstTeam } = await request.json();
     if (ofWorkspace(slug)) {
       return problem(409, `Sorry, the address ${slug} is taken.`);
     }
@@ -404,20 +409,22 @@ const workspaceHandlers = [
       : notFound(),
   ),
 
-  api.post('/workspaces/:slug/github', async ({ params, request }) => {
-    if (!ofWorkspace(params.slug)) {
-      return notFound();
-    }
+  api.post<ConnectGitHubRequestDto>(
+    '/workspaces/:slug/github',
+    async ({ params, request }) => {
+      if (!ofWorkspace(params.slug)) {
+        return notFound();
+      }
 
-    const { installationId } =
-      (await request.json()) as ConnectGitHubRequestDto;
-    if (!installationId) {
-      return problem(400, 'Sorry, that installation is missing its id.');
-    }
+      const { installationId } = await request.json();
+      if (!installationId) {
+        return problem(400, 'Sorry, that installation is missing its id.');
+      }
 
-    settingsWorld().gitHubConnected = true;
-    return noContent();
-  }),
+      settingsWorld().gitHubConnected = true;
+      return noContent();
+    },
+  ),
 
   api.get('/workspaces/:slug/harnesses', ({ params }) =>
     ofWorkspace(params.slug) ? json(HARNESSES) : notFound(),

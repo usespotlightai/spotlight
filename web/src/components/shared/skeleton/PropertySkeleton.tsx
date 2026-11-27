@@ -1,5 +1,5 @@
 import { ChevronsUpDown } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { cn } from '@/lib/utils';
@@ -9,7 +9,10 @@ type PropertySkeletonProps = {
   width: string;
 };
 
-export function PropertySkeleton({ lead, width }: PropertySkeletonProps) {
+export function PropertySkeleton({
+  lead,
+  width,
+}: PropertySkeletonProps): ReactElement {
   return (
     <span className="flex h-7 w-full items-center gap-2 px-2 text-sm">
       {lead}

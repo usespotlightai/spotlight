@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
@@ -11,7 +13,7 @@ export function RowCheckbox({
   label,
   selected,
   onSelectedChange,
-}: RowCheckboxProps) {
+}: RowCheckboxProps): ReactElement {
   return (
     <span className="absolute inset-y-0 left-3 flex w-4 items-center justify-center">
       <Checkbox

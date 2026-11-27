@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
   type InsightsColumn,
@@ -15,7 +17,7 @@ export function PullRequestTypesTable({
   types,
 }: {
   types: readonly TypeShare[];
-}) {
+}): ReactElement {
   const counted = (
     share: TypeShare,
     author: PullRequestAuthor,

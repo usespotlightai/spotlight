@@ -90,12 +90,15 @@ export const withMessagesInFlight = (
     ...conversation,
     progress:
       conversation.progress ??
-      (messages.some((each) => each.startsWork) ? 'queued' : null),
+      (messages.some((each) => each.startsWork === true) ? 'queued' : null),
     notes: [
       ...conversation.notes,
       ...messages.map((message, at) => ({
         position: after + 1 + at,
-        kind: message.answers ? ('answered' as const) : ('message' as const),
+        kind:
+          message.answers === true
+            ? ('answered' as const)
+            : ('message' as const),
         form: 'words' as const,
         voice: 'person' as const,
         station: conversation.station?.name ?? '',
@@ -177,13 +180,14 @@ export const runThreadText = (
 ): string =>
   threadText({
     briefing:
-      conversation?.briefing ||
-      [
-        conversation?.title ?? run.taskTitle,
-        conversation?.description ?? run.taskDescription,
-      ]
-        .filter(Boolean)
-        .join('\n\n'),
+      conversation !== undefined && conversation.briefing !== ''
+        ? conversation.briefing
+        : [
+            conversation?.title ?? run.taskTitle,
+            conversation?.description ?? run.taskDescription,
+          ]
+            .filter(Boolean)
+            .join('\n\n'),
     notes: conversation?.notes ?? [],
     ran,
     agent: run.station?.name ?? 'The agent',

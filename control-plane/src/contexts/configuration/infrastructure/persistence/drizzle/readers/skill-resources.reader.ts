@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   SkillRecord,
   SkillResourcesPort,
@@ -45,11 +46,11 @@ export class DrizzleSkillResources implements SkillResourcesPort {
   }
 
   private async stored(where: SQL | undefined): Promise<SkillRecord | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select(SKILL_COLUMNS)
       .from(skillDefinition)
       .where(where)
-      .limit(1);
+      .limit(1));
 
     return found ? { ...found, teamId: TeamId.of(found.teamId) } : null;
   }

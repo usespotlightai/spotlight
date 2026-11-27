@@ -6,6 +6,7 @@ import {
   ExpressionFailedError,
   firstLine,
 } from '@platform/expressions/expression.errors';
+import { fieldOf } from '@platform/json/field-of';
 
 export const EXPRESSION_FAILED = 'spotlight:expression:failed';
 
@@ -18,7 +19,7 @@ const failed = diagnostics.channel(EXPRESSION_FAILED);
 
 // A message can hold the values the expression read. The code cannot.
 const codeOf = (error: unknown): string => {
-  const code = (error as { code?: unknown } | null)?.code;
+  const code = fieldOf(error, 'code');
 
   if (typeof code === 'string') {
     return code;

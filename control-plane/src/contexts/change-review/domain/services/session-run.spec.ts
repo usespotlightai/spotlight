@@ -1,7 +1,7 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { sessionRunFor } from '@change-review/domain/services/session-run';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { Pusher } from '@change-review/domain/value-objects/pusher.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
@@ -34,10 +34,7 @@ const DIFF = Diff.of([
   },
 ]);
 
-const pushed = StackOrigin.push(
-  CommitSha.parsed('b'.repeat(40)) as CommitSha,
-  Pusher.of('octocat'),
-);
+const pushed = StackOrigin.push(commitSha('b'), Pusher.of('octocat'));
 
 const stack = (
   id: string,

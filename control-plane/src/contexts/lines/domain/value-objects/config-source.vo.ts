@@ -46,7 +46,7 @@ export class ConfigSource {
 
     const problem = pathProblem(input.path);
 
-    if (problem) {
+    if (problem !== null && problem !== '') {
       throw new InvalidConfigSourceError('path', problem);
     }
 

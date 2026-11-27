@@ -82,6 +82,9 @@ export const sizeProblem = (file: { readonly size: number }): string | null =>
 export const carriesFiles = (carried: DataTransfer | null): boolean =>
   Boolean(carried?.types.includes('Files'));
 
+const itemsOf = (carried: DataTransfer): DataTransferItemList | undefined =>
+  carried.items;
+
 export const filesIn = (carried: DataTransfer | null): File[] => {
   if (!carried) {
     return [];
@@ -91,7 +94,7 @@ export const filesIn = (carried: DataTransfer | null): File[] => {
     return Array.from(carried.files);
   }
 
-  return Array.from(carried.items ?? []).flatMap((item) => {
+  return Array.from(itemsOf(carried) ?? []).flatMap((item) => {
     const file = item.kind === 'file' ? item.getAsFile() : null;
     return file ? [file] : [];
   });
@@ -109,13 +112,13 @@ const took = (event: ClipboardEvent | DragEvent, files: File[], take: Take) => {
   take(files);
 };
 
-export const allowFileDrop = (event: DragEvent) => {
+export const allowFileDrop = (event: DragEvent): void => {
   if (carriesFiles(event.dataTransfer)) {
     event.preventDefault();
   }
 };
 
-export const dropFiles = (event: DragEvent, take: Take) => {
+export const dropFiles = (event: DragEvent, take: Take): void => {
   if (carriesFiles(event.dataTransfer)) {
     event.preventDefault();
     event.stopPropagation();
@@ -123,5 +126,5 @@ export const dropFiles = (event: DragEvent, take: Take) => {
   took(event, filesIn(event.dataTransfer), take);
 };
 
-export const pasteFiles = (event: ClipboardEvent, take: Take) =>
+export const pasteFiles = (event: ClipboardEvent, take: Take): void =>
   took(event, filesIn(event.clipboardData), take);

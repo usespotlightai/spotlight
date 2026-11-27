@@ -3,6 +3,8 @@ import type { Team } from '@identity/domain/aggregates/team.aggregate';
 import { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -14,9 +16,11 @@ describe('FirstTeam', () => {
   it('creates the team a new workspace named, owned by who created it, and says so', async () => {
     const add = vi.fn<(team: Team) => Promise<void>>(async () => {});
 
-    await new FirstTeam({
-      add,
-    } as unknown as TeamRepository).createFor(
+    await new FirstTeam(
+      partial<TeamRepository>({
+        add,
+      }),
+    ).createFor(
       new WorkspaceCreated(
         WorkspaceId.of('ws_1'),
         UserId.of('user_1'),
@@ -29,7 +33,7 @@ describe('FirstTeam', () => {
       ),
     );
 
-    const [team] = add.mock.calls[0] ?? [];
+    const team = firstOf(add.mock.calls[0] ?? []);
     expect(team?.id).toEqual(TeamId.of('team_1'));
     expect(team?.name.value).toBe('Payments');
     expect(team?.hasMember(UserId.of('user_1'))).toBe(true);

@@ -55,7 +55,18 @@ const resize = (row: HTMLElement, from: number, to: number): Promise<void> =>
     });
   });
 
-export function useExpandingRow() {
+type ExpandingRowResult = {
+  row: RefObject<HTMLLIElement | null>;
+  expansion: {
+    expanded: boolean;
+    clamped: boolean;
+    expandable: boolean;
+    toggle: () => void;
+    clamp: RefObject<HTMLDivElement | null>;
+  };
+};
+
+export function useExpandingRow(): ExpandingRowResult {
   const [expanded, setExpanded] = useState(false);
   const [clamped, setClamped] = useState(true);
   const row = useRef<HTMLLIElement>(null);

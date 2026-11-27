@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { CodeBlock } from '@/components/shared/CodeBlock';
 import { CopyIcon } from '@/components/shared/CopyIcon';
 import { Button } from '@/components/ui/button';
@@ -14,7 +16,12 @@ type CopyBlockProps = {
   onCopy?: () => void;
 };
 
-export function CopyBlock({ text, label, focused, onCopy }: CopyBlockProps) {
+export function CopyBlock({
+  text,
+  label,
+  focused,
+  onCopy,
+}: CopyBlockProps): ReactElement {
   const { copied, copy } = useCopied();
 
   return (
@@ -23,7 +30,7 @@ export function CopyBlock({ text, label, focused, onCopy }: CopyBlockProps) {
       className="pr-1"
       trailing={
         <Button
-          ref={focused ? focusOnMount : undefined}
+          ref={focused === true ? focusOnMount : undefined}
           variant="ghost"
           size="icon-xs"
           aria-label={copied ? 'Copied' : label}

@@ -4,6 +4,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ArrivalLedger } from '@notifications/domain/aggregates/arrival-ledger.aggregate';
 import { ArrivalLedgerVersionConflictError } from '@notifications/domain/exceptions/arrival-ledger-version-conflict.error';
@@ -57,28 +58,35 @@ export class DrizzleArrivalLedgerRepository implements ArrivalLedgerRepository {
   ) {}
 
   async find(workspaceId: WorkspaceId): Promise<ArrivalLedger | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(arrivalLedger)
-      .where(eq(arrivalLedger.workspaceId, workspaceId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(arrivalLedger)
+        .where(eq(arrivalLedger.workspaceId, workspaceId.value))
+        .limit(1),
+    );
 
     return row ? toLedger(row) : null;
   }
 
   async nextDueJob(now: Date): Promise<ArrivalLedger | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(arrivalLedger)
-      .where(
-        and(
-          isNotNull(arrivalLedger.recountRequestedAt),
-          or(isNull(arrivalLedger.jobDueAt), lte(arrivalLedger.jobDueAt, now)),
-        ),
-      )
-      .orderBy(asc(arrivalLedger.recountRequestedAt))
-      .limit(1)
-      .for('update', { skipLocked: true });
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(arrivalLedger)
+        .where(
+          and(
+            isNotNull(arrivalLedger.recountRequestedAt),
+            or(
+              isNull(arrivalLedger.jobDueAt),
+              lte(arrivalLedger.jobDueAt, now),
+            ),
+          ),
+        )
+        .orderBy(asc(arrivalLedger.recountRequestedAt))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
     return row ? toLedger(row) : null;
   }

@@ -5,7 +5,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class EgressKey {
-  private readonly kind = 'egress-key';
+  private readonly kind: string = 'egress-key';
 
   private constructor(readonly value: string) {}
 

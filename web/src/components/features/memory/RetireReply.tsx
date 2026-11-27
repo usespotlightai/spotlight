@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { RetireInPlace } from '@/components/features/memory/RetireInPlace';
 import { COLLAPSE_MS, Collapsible } from '@/components/shared/Collapsible';
 import { useDelayedValue } from '@/hooks/useDelayedValue';
@@ -14,7 +16,7 @@ export function RetireReply({
   retirable,
   onCancel,
   className,
-}: RetireReplyProps) {
+}: RetireReplyProps): ReactElement | null {
   const shown = useDelayedValue(open ? true : null, COLLAPSE_MS);
 
   if (!shown || !retirable) {

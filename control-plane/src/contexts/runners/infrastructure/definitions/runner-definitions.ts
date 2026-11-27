@@ -115,7 +115,7 @@ const poolSchema = z
       });
     }
 
-    if (pool.provision.egressTraffic && !pool.provision.egress) {
+    if (pool.provision.egressTraffic && (pool.provision.egress ?? '') === '') {
       context.addIssue({
         code: 'custom',
         path: ['provision', 'egressTraffic'],
@@ -188,20 +188,25 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
         ? {
             mode: 'push',
             url: ProvisionUrl.of(provision.url),
-            secret: provision.secret
-              ? SigningSecret.of(provision.secret)
-              : null,
+            secret:
+              typeof provision.secret === 'string' && provision.secret !== ''
+                ? SigningSecret.of(provision.secret)
+                : null,
             secretVersion: provision.secretVersion ?? null,
-            egress: provision.egress
-              ? EgressReference.of(provision.egress)
-              : null,
+            egress:
+              typeof provision.egress === 'string' && provision.egress !== ''
+                ? EgressReference.of(provision.egress)
+                : null,
             egressTraffic: provision.egressTraffic
               ? EgressTraffic.of(provision.egressTraffic)
               : EgressTraffic.all(),
           }
         : {
             mode: 'pull',
-            token: read.data.token ? PoolToken.of(read.data.token) : null,
+            token:
+              typeof read.data.token === 'string' && read.data.token !== ''
+                ? PoolToken.of(read.data.token)
+                : null,
             tokenVersion: read.data.tokenVersion ?? null,
           },
     };
@@ -215,7 +220,10 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
           ok: true,
           key: EgressKey.of(read.data.key),
           url: EgressUrl.of(read.data.url),
-          token: read.data.token ? EgressToken.of(read.data.token) : null,
+          token:
+            typeof read.data.token === 'string' && read.data.token !== ''
+              ? EgressToken.of(read.data.token)
+              : null,
           tokenVersion: read.data.tokenVersion ?? null,
         }
       : { ok: false, problems: problemsIn(EGRESS, read.error) };

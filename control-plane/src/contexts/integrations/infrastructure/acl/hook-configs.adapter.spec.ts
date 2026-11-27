@@ -4,6 +4,7 @@ import { HookConfigs } from '@integrations/infrastructure/acl/hook-configs.adapt
 import { compileHook } from '@integrations/infrastructure/hooks/hook.compile';
 import { writtenHookDocumentOf } from '@integrations/infrastructure/hooks/written-hook-document';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -23,24 +24,27 @@ const storedOf = (written: Record<string, unknown>) => {
 const configsOf = (definition: Readonly<Record<string, unknown>>) =>
   new HookConfigs(
     {
-      withId: async () => ({
-        id: 'hook_1',
-        teamId: TEAM,
-        key: 'dba',
-        version: 1,
-        written: writtenHookDocumentOf('dba', definition),
-      }),
-      at: async () => null,
-      ofTeam: async () => [],
+      withId: () =>
+        Promise.resolve({
+          id: 'hook_1',
+          teamId: TEAM,
+          key: 'dba',
+          version: 1,
+          written: writtenHookDocumentOf('dba', definition),
+        }),
+      at: () => Promise.resolve(null),
+      ofTeam: () => Promise.resolve([]),
     } satisfies HookResourcesPort,
-    {
-      find: async () => ({
-        id: TEAM,
-        key: 'core',
-        name: 'Core',
-        workspaceId: WorkspaceId.of('workspace_1'),
-      }),
-    } as unknown as TeamDirectoryPort,
+    partial<TeamDirectoryPort>({
+      find: () =>
+        Promise.resolve({
+          id: TEAM,
+          key: 'core',
+          name: 'Core',
+          workspaceId: WorkspaceId.of('workspace_1'),
+          members: [],
+        }),
+    }),
   );
 
 const HOOK = {
@@ -145,16 +149,17 @@ describe('HookConfigs.mayFireAt', () => {
   });
   const configs = new HookConfigs(
     {
-      withId: async () => null,
-      at: async () => null,
-      ofTeam: async () => [
-        recordOf('everywhere', {}),
-        recordOf('on-build', { lines: ['delivery'], stations: ['build'] }),
-        recordOf('on-review', { stations: ['code-review'] }),
-        recordOf('other-line', { lines: ['incident'] }),
-      ],
+      withId: () => Promise.resolve(null),
+      at: () => Promise.resolve(null),
+      ofTeam: () =>
+        Promise.resolve([
+          recordOf('everywhere', {}),
+          recordOf('on-build', { lines: ['delivery'], stations: ['build'] }),
+          recordOf('on-review', { stations: ['code-review'] }),
+          recordOf('other-line', { lines: ['incident'] }),
+        ]),
     } satisfies HookResourcesPort,
-    { find: async () => null } as unknown as TeamDirectoryPort,
+    partial<TeamDirectoryPort>({ find: () => Promise.resolve(null) }),
   );
 
   it('names the live and planned hooks that may fire at a station, with the integrations they call', async () => {

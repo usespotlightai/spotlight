@@ -1,4 +1,5 @@
 import { Info } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import {
   Tooltip,
@@ -23,7 +24,7 @@ export function PipelineFlowLegend({
   shares,
   focus,
   onFocus,
-}: PipelineFlowLegendProps) {
+}: PipelineFlowLegendProps): ReactElement {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-border border-t pt-2 text-muted-foreground text-xs">
       <span className="flex items-center gap-1.5">

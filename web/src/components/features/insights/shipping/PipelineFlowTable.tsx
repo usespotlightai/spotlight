@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, type ReactElement } from 'react';
 
 import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import {
@@ -32,7 +32,7 @@ export function PipelineFlowTable({
   stages,
 }: {
   stages: readonly FlowStage[];
-}) {
+}): ReactElement {
   const collapsibles = useCollapsibles();
   const broken = stages.some((stage) => stage.parts);
   const headings = [

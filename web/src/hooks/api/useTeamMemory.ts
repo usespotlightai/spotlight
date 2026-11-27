@@ -1,9 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { teamMemoryKeys } from '@/hooks/api/useTeamMemories';
-import { readTeamMemory } from '@/lib/api';
+import { readTeamMemory, type TeamMemoryDetailResponseDto } from '@/lib/api';
 
-export function useTeamMemory(teamId: string, memoryId: string) {
+export function useTeamMemory(
+  teamId: string,
+  memoryId: string,
+): UseQueryResult<TeamMemoryDetailResponseDto | null> {
   return useQuery({
     queryKey: teamMemoryKeys.one(teamId, memoryId),
     queryFn: async () => {

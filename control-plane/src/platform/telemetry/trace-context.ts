@@ -18,7 +18,7 @@ export function activeTraceparent(): string | null {
 }
 
 export function linksTo(traceparent: string | null): Link[] {
-  if (!traceparent) {
+  if (traceparent === null || traceparent === '') {
     return [];
   }
 

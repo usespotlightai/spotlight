@@ -65,6 +65,7 @@ import type {
 } from '@integrations/infrastructure/integrations/scopes';
 import {
   asJson,
+  plainJson,
   textOf,
 } from '@integrations/infrastructure/integrations/templating';
 import {
@@ -92,9 +93,6 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { TaskMark } from '@work/application/contracts/happenings.contract';
 
 const MAX_OUTPUT_CHARS = 500;
-
-const plainJson = (output: unknown): ToolOutput =>
-  JSON.parse(asJson(output ?? null)) as ToolOutput;
 
 const serviceErrorOf = (result: OutboundResult): ServiceError => ({
   status: result.status,
@@ -144,10 +142,10 @@ const upstreamErrorUsing = (
 
 const fieldOf = (value: unknown, field: string): unknown =>
   typeof value === 'object' && value !== null && field in value
-    ? (value as Record<string, unknown>)[field]
+    ? Reflect.get(value, field)
     : undefined;
 
-const graphqlErrorsOf = (response: unknown): unknown => {
+const graphqlErrorsOf = (response: unknown): readonly unknown[] | null => {
   const errors = fieldOf(response, 'errors');
 
   return Array.isArray(errors) && errors.length > 0 ? errors : null;
@@ -288,7 +286,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const readable = this.find(definitions, integration.key);
     const schedule = readable?.integration.schedule;
     const request = schedule
-      ? readable?.actions.get(schedule.action.name)
+      ? readable.actions.get(schedule.action.name)
       : undefined;
 
     if (!request) {
@@ -348,7 +346,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     if (!target.channel && aboutATask(payload)) {
       const routed = binding.routes.get(payload.task.line.value);
-      if (routed) {
+      if (routed !== undefined && routed !== '') {
         target.channel = routed;
       }
     }
@@ -397,7 +395,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const marks: TaskMark[] = [];
     for (const mark of binding.mark) {
       const read = evaluateText(mark.value, beside);
-      if (read) {
+      if (read !== null && read !== '') {
         marks.push({ kind: mark.kind.value, value: read });
       }
     }
@@ -605,9 +603,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     task: TaskView,
   ): CallableTool | null {
     const compiled = readable.tools.get(provided.name);
-    const action = provided.backing.action
-      ? readable.actions.get(provided.backing.action)
-      : undefined;
+    const action =
+      provided.backing.action !== null && provided.backing.action !== ''
+        ? readable.actions.get(provided.backing.action)
+        : undefined;
 
     if (!compiled || !action) {
       return null;
@@ -702,7 +701,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
           const errors = graphqlErrorsOf(answered.response);
 
-          if (errors) {
+          if (errors !== null) {
             throw upstreamErrorUsing(tool, answered.status, errors);
           }
 
@@ -719,11 +718,18 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const apiSpec = readable.apiSpec;
     const call = operation?.call;
 
-    if (!apiSpec?.spec.url || call?.kind !== 'mcp') {
+    const server = apiSpec?.spec.url;
+
+    if (
+      apiSpec === null ||
+      server === undefined ||
+      server === null ||
+      server === '' ||
+      call?.kind !== 'mcp'
+    ) {
       return null;
     }
 
-    const server = apiSpec.spec.url;
     const auth = apiSpec.auth;
     const secrets = auth?.kind === 'secrets' ? auth.secrets : [];
 

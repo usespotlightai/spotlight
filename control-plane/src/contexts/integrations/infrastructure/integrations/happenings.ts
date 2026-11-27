@@ -17,10 +17,13 @@ import type {
   TaskMark,
 } from '@work/application/contracts/happenings.contract';
 
-const identity = async (
+const identity = (
   _event: EventIR,
   against: CelVariables,
-): Promise<CelVariables> => against;
+): Promise<CelVariables> => Promise.resolve(against);
+
+const textOrNull = (text: string | null): string | null =>
+  text === '' ? null : text;
 
 export type Fetching = (
   request: RequestIR,
@@ -101,7 +104,7 @@ const arriving = (
       ? Number(value(attachments.size, per))
       : Number.NaN;
 
-    return name
+    return name !== null && name !== ''
       ? [
           {
             name,
@@ -161,7 +164,7 @@ const raiseFrom = (
     },
     message: messageText ? { body: messageText } : null,
     authorEmail: raise.author
-      ? evaluateText(raise.author.email, against) || null
+      ? textOrNull(evaluateText(raise.author.email, against))
       : null,
     ourOwn,
     opens: raised.opens
@@ -176,7 +179,7 @@ const raiseFrom = (
       : null,
     chat: raise.chat
       ? {
-          email: evaluateText(raise.chat.by.email, against) || null,
+          email: textOrNull(evaluateText(raise.chat.by.email, against)),
           harness: raise.chat.harness,
           marks: raised.marks.map((each) => ({
             ...markOf(each),

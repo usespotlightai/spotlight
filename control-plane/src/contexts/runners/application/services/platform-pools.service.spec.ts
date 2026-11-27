@@ -16,6 +16,7 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -49,39 +50,52 @@ const platformPools = (
   const saved: RunnerPool[] = [];
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const pools = {
-    withKey: vi.fn(async (key: PoolKey) =>
-      stored.filter((each) => each.key.equals(key)),
+    withKey: vi.fn((key: PoolKey) =>
+      Promise.resolve(stored.filter((each) => each.key.equals(key))),
     ),
-    findByKey: vi.fn(
-      async (workspaceId: WorkspaceId, key: PoolKey) =>
+    findByKey: vi.fn((workspaceId: WorkspaceId, key: PoolKey) =>
+      Promise.resolve(
         stored.find(
           (each) => each.belongsTo(workspaceId) && each.key.equals(key),
         ) ?? null,
+      ),
     ),
     add: vi.fn(async (pool: RunnerPool) => {
       await input.added?.(pool);
       added.push(pool);
     }),
-    save: vi.fn(async (pool: RunnerPool) => {
+    save: vi.fn((pool: RunnerPool) => {
       saved.push(pool);
+      return Promise.resolve();
     }),
   };
   const open = input.workspaces ?? [WS_1];
   const workspaces = {
-    isOpen: vi.fn(async (workspaceId: WorkspaceId) =>
-      open.some((each) => each.equals(workspaceId)),
+    isOpen: vi.fn((workspaceId: WorkspaceId) =>
+      Promise.resolve(open.some((each) => each.equals(workspaceId))),
     ),
   };
   // One workspace a page, so that the reconcile reads every page.
   const directory = {
-    list: vi.fn(async (request: { after: string | null }) => {
+    list: vi.fn((request: { after: string | null }) => {
       const at = request.after === null ? 0 : Number(request.after);
-      const workspace = open[at];
+      const workspace = at < open.length ? open[at] : undefined;
 
-      return {
-        items: workspace ? [{ id: workspace }] : [],
+      return Promise.resolve({
+        items:
+          workspace === undefined
+            ? []
+            : [
+                {
+                  id: workspace,
+                  slug: workspace.value,
+                  name: workspace.value,
+                  createdAt: new Date(0),
+                  memberCount: 1,
+                },
+              ],
         next: at + 1 < open.length ? String(at + 1) : null,
-      };
+      });
     }),
   };
   let generated = 0;
@@ -91,15 +105,15 @@ const platformPools = (
     saved,
     logger,
     platform: new PlatformPools(
-      pools as unknown as RunnerPoolRepository,
-      workspaces as unknown as WorkspaceReaderPort,
-      directory as unknown as WorkspaceDirectoryPort,
+      partial<RunnerPoolRepository>(pools),
+      partial<WorkspaceReaderPort>(workspaces),
+      partial<WorkspaceDirectoryPort>(directory),
       input.settings === undefined ? SETTINGS : input.settings,
       { generate: () => `pool_${++generated}` },
-      {
-        inTransaction: (work: () => Promise<unknown>) => work(),
-      } as TransactionPort,
-      logger as unknown as LoggerPort,
+      partial<TransactionPort>({
+        inTransaction: <T>(work: () => Promise<T>) => work(),
+      }),
+      partial<LoggerPort>(logger),
     ),
   };
 };
@@ -225,10 +239,13 @@ describe('PlatformPools', () => {
     it('accepts that another instance added the pool first, and goes on', async () => {
       const { platform, logger } = platformPools({
         workspaces: [WS_1, WS_2],
-        added: async (pool) => {
+        added: (pool) => {
           if (pool.belongsTo(WS_1)) {
-            throw new RunnerPoolAlreadyExistsError('spotlight');
+            return Promise.reject(
+              new RunnerPoolAlreadyExistsError('spotlight'),
+            );
           }
+          return Promise.resolve();
         },
       });
 
@@ -240,10 +257,11 @@ describe('PlatformPools', () => {
     it('goes on with the other workspaces when one fails, and says so', async () => {
       const { platform, added, logger } = platformPools({
         workspaces: [WS_1, WS_2],
-        added: async (pool) => {
+        added: (pool) => {
           if (pool.belongsTo(WS_1)) {
-            throw new Error('the database went away');
+            return Promise.reject(new Error('the database went away'));
           }
+          return Promise.resolve();
         },
       });
 
@@ -284,8 +302,8 @@ describe('PlatformPools', () => {
 
     it('throws what fails, so that the event is delivered again', async () => {
       const { platform } = platformPools({
-        added: async () => {
-          throw new Error('the database went away');
+        added: () => {
+          return Promise.reject(new Error('the database went away'));
         },
       });
 

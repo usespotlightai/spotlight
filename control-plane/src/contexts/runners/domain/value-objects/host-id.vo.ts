@@ -3,7 +3,7 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 const SHAPE = /^[A-Za-z0-9_-]{16,64}$/;
 
 export class HostId {
-  private readonly kind = 'host';
+  private readonly kind: string = 'host';
 
   private constructor(readonly value: string) {}
 

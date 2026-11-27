@@ -65,7 +65,13 @@ export function useSharedDraft(taskId: string | undefined): SharedDraft | null {
   const image = me?.image ?? null;
 
   useEffect(() => {
-    if (!taskId || !id || name === undefined) {
+    if (
+      taskId === undefined ||
+      taskId === '' ||
+      id === undefined ||
+      id === '' ||
+      name === undefined
+    ) {
       return;
     }
 

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 
 import { canAnimate } from '@/lib/motion';
@@ -162,11 +162,17 @@ const play = (
 const coverOf = (card: HTMLElement | null): number =>
   Math.max(0, -(card?.offsetTop ?? 0));
 
+type TrayMotionResult = {
+  card: RefObject<HTMLElement | null>;
+  pills: RefObject<HTMLDivElement | null>;
+  collapse: () => void;
+};
+
 export function useTrayMotion(
   open: boolean,
   collapse: () => void,
   measure: (cover: number) => void,
-) {
+): TrayMotionResult {
   const card = useRef<HTMLElement>(null);
   const pills = useRef<HTMLDivElement>(null);
   const opened = useRef(open);

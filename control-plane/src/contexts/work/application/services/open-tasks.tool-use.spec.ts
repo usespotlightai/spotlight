@@ -1,3 +1,5 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -22,6 +24,7 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 const CONTEXT: TaskToolContext = {
   kind: 'task',
@@ -92,23 +95,29 @@ const using = (
   line: typeof delivery | null,
   found: readonly OpenTaskReading[],
 ) => {
-  const lines = {
-    findByStation: vi.fn(async () => line),
-  } as unknown as LineMapsPort;
+  const lines = partial<LineMapsPort>({
+    findByStation: vi.fn(() => Promise.resolve(line)),
+  });
   const tasks = {
-    newest: vi.fn<OpenTaskReaderPort['newest']>(async () => found),
+    newest: vi.fn<OpenTaskReaderPort['newest']>(() => Promise.resolve(found)),
   } satisfies OpenTaskReaderPort;
 
   return { tasks, tool: new OpenTasksToolUse(lines, tasks) };
 };
 
-type Answer = {
-  readonly tasks: readonly {
-    readonly description: string | null;
-    readonly lastNote: string | null;
-  }[];
-  readonly more: boolean;
-};
+const answerOf = (answer: unknown) =>
+  z
+    .object({
+      tasks: z.array(
+        z.object({
+          id: z.string(),
+          description: z.string().nullable(),
+          lastNote: z.string().nullable(),
+        }),
+      ),
+      more: z.boolean(),
+    })
+    .parse(answer);
 
 describe('OpenTasksToolUse', () => {
   it('is the open-tasks tool', () => {
@@ -151,7 +160,7 @@ describe('OpenTasksToolUse', () => {
       }),
     ]);
 
-    const [answered] = ((await tool.call(CONTEXT)) as Answer).tasks;
+    const answered = firstOf(answerOf(await tool.call(CONTEXT)).tasks);
 
     expect(answered?.description).toBe(`${'x'.repeat(600)}…`);
     expect(answered?.lastNote).toBe(`${'y'.repeat(600)}…`);
@@ -162,7 +171,7 @@ describe('OpenTasksToolUse', () => {
       reading('task_2', 'station_spec', { description: ' \n ' }),
     ]);
 
-    const [answered] = ((await tool.call(CONTEXT)) as Answer).tasks;
+    const answered = firstOf(answerOf(await tool.call(CONTEXT)).tasks);
 
     expect(answered?.description).toBeNull();
   });
@@ -175,7 +184,7 @@ describe('OpenTasksToolUse', () => {
       ),
     );
 
-    const answer = (await tool.call(CONTEXT)) as Answer;
+    const answer = answerOf(await tool.call(CONTEXT));
 
     expect(answer.tasks).toHaveLength(50);
     expect(answer.more).toBe(true);
@@ -187,10 +196,7 @@ describe('OpenTasksToolUse', () => {
       reading('task_3', 'station_spec'),
     ]);
 
-    const answer = (await tool.call(CONTEXT)) as {
-      tasks: readonly { id: string }[];
-      more: boolean;
-    };
+    const answer = answerOf(await tool.call(CONTEXT));
 
     expect(answer.tasks.map((each) => each.id)).toEqual(['task_3']);
     expect(answer.more).toBe(true);

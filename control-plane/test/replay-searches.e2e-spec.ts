@@ -1,6 +1,5 @@
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
@@ -47,6 +46,8 @@ import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/
 import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleSearchRepository } from '@replays/infrastructure/persistence/drizzle/repositories/search.repository';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -65,8 +66,10 @@ beforeAll(async () => {
   database = await openDatabase('replay_searches');
   const context = new DrizzleContext(database.db);
   const dispatcher = {
-    dispatch: async (events: readonly DomainEvent[]) => {
+    dispatch: (events: readonly DomainEvent[]) => {
       dispatched.push(...events);
+
+      return Promise.resolve();
     },
   };
 
@@ -153,11 +156,11 @@ describe('DrizzleSearchRepository', () => {
     expect(found?.agent).toEqual(started.agent);
     expect(found?.seed.fingerprint.equals(started.seed.fingerprint)).toBe(true);
 
-    const moved = travelled(found as Search);
+    const moved = travelled(present(found));
 
     await searches.save(moved);
 
-    const again = (await searches.find(SEARCH_ID)) as Search;
+    const again = present(await searches.find(SEARCH_ID));
 
     expect(again.version).toBe(1);
     expect(again.current).toBe('searching');
@@ -169,12 +172,12 @@ describe('DrizzleSearchRepository', () => {
     expect(again.iterations[0]?.attempts).toBe(2);
     expect(
       again.iterations[0]?.proposals[0]?.equals(
-        moved.iterations[0]?.proposals[0] as never,
+        present(firstOf(present(firstOf(moved.iterations)).proposals)),
       ),
     ).toBe(true);
     expect(
       again.iterations[0]?.agentSpent?.equals(
-        moved.iterations[0]?.agentSpent as ModelSpent,
+        present(moved.iterations[0]?.agentSpent),
       ),
     ).toBe(true);
     expect(again.spent.amount).toBe(8.25);
@@ -232,7 +235,7 @@ describe('DrizzleSearchRepository', () => {
 
     await searches.add(search);
 
-    const found = (await searches.find(SEARCH_ID)) as Search;
+    const found = present(await searches.find(SEARCH_ID));
 
     expect(found.current).toBe('finished');
     expect(found.stopReason).toBe('iterations-spent');
@@ -274,14 +277,14 @@ describe('DrizzleSearchRepository', () => {
 
     await searches.add(started);
 
-    const found = (await searches.find(SEARCH_ID)) as Search;
+    const found = present(await searches.find(SEARCH_ID));
 
     await searches.save(found.turnOff(NOW));
     await expect(searches.save(found.stationLeft(NOW))).rejects.toThrow(
       SearchVersionConflictError,
     );
 
-    const current = (await searches.locked(SEARCH_ID)) as Search;
+    const current = present(await searches.locked(SEARCH_ID));
 
     await searches.save(current.delete());
 
@@ -330,19 +333,19 @@ describe('replays, candidates and sets a search stores', () => {
       CandidateId.of('candidate_b'),
     ]);
 
-    expect(one?.kind).toBe('searched');
-    expect(one?.search?.searchId).toEqual(SEARCH_ID);
-    expect(one?.search?.iteration).toBe(1);
-    expect(one?.search?.hypothesis.value).toBe('Shorter keeps it on task.');
-    expect(one?.reference).toBeNull();
-    expect(two?.kind).toBe('planned');
-    expect(two?.name.value).toBe('Planned change, PR #7');
+    expect(one.kind).toBe('searched');
+    expect(one.search?.searchId).toEqual(SEARCH_ID);
+    expect(one.search?.iteration).toBe(1);
+    expect(one.search?.hypothesis.value).toBe('Shorter keeps it on task.');
+    expect(one.reference).toBeNull();
+    expect(two.kind).toBe('planned');
+    expect(two.name.value).toBe('Planned change, PR #7');
     expect(
-      two?.reference?.equals(
+      two.reference?.equals(
         PlannedReference.of({ commit: 'abcdef0', pullRequest: 7 }),
       ),
     ).toBe(true);
-    expect(two?.search).toBeNull();
+    expect(two.search).toBeNull();
   });
 
   it('stores which runs a replay replays and the search it belongs to', async () => {
@@ -415,7 +418,7 @@ describe('replays, candidates and sets a search stores', () => {
         SetUsers.none(),
       ),
     );
-    const found = (await sets.ofStation(STATION.stationId)) as ReplaySet;
+    const found = present(await sets.ofStation(STATION.stationId));
 
     expect(found.runs.map((each) => each.value)).toEqual([
       'original_0',
@@ -474,7 +477,7 @@ describe('replays, candidates and sets a search stores', () => {
       'set_d',
     ]);
 
-    const gone = (await sets.find(ReplaySetId.of('set_a'))) as ReplaySet;
+    const gone = present(await sets.find(ReplaySetId.of('set_a')));
     await sets.save(gone.stationLeft(NOW));
 
     expect(await found(NOW)).toEqual(['set_b', 'set_d', 'set_c']);
@@ -487,7 +490,7 @@ describe('replays, candidates and sets a search stores', () => {
     await sets.add(set);
     await checks.add(check);
 
-    const found = (await checks.find(check.id)) as ReplayCheck;
+    const found = present(await checks.find(check.id));
 
     await checks.save(found.recordBaseline());
     await expect(checks.save(found.markBaselineUnavailable())).rejects.toThrow(
@@ -498,7 +501,7 @@ describe('replays, candidates and sets a search stores', () => {
     );
     expect((await checks.find(check.id))?.baseline).toBe('found');
 
-    await checks.save(((await checks.find(check.id)) as ReplayCheck).delete());
+    await checks.save(present(await checks.find(check.id)).delete());
 
     expect(await checks.find(check.id)).toBeNull();
   });

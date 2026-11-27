@@ -12,7 +12,7 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
-const toResponse = async (id: string) => ({ id });
+const toResponse = (id: string) => Promise.resolve({ id });
 
 const problemOf = async (responding: () => unknown) => {
   try {

@@ -7,29 +7,43 @@ import {
 } from '@configuration/application/dto/exportable-configuration.dto';
 import { RESOURCE_EXTENSION } from '@platform/http/resources/resource-headers';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 const NOT_EXPORTED: Readonly<Record<string, string>> = {
   'workspace-token':
     'only a person who administers the workspace may issue, change or revoke a token, and Terraform calls with a token, which never administers',
 };
 
+const OPENAPI_PATHS = z.object({
+  paths: z.record(
+    z.string(),
+    z.record(z.string(), z.record(z.string(), z.unknown())),
+  ),
+});
+
 const kindsInOpenApi = (): readonly string[] => {
-  const document = JSON.parse(
-    readFileSync(
-      resolve(__dirname, '../../../../../openapi.resources.json'),
-      'utf8',
+  const document = OPENAPI_PATHS.parse(
+    JSON.parse(
+      readFileSync(
+        resolve(__dirname, '../../../../../openapi.resources.json'),
+        'utf8',
+      ),
     ),
-  ) as { paths: Record<string, Record<string, Record<string, unknown>>> };
+  );
 
   return [
     ...new Set(
       Object.values(document.paths).flatMap((operations) =>
         Object.values(operations).flatMap((operation) => {
-          const extension = operation[RESOURCE_EXTENSION] as
-            | { kind?: string }
-            | undefined;
+          const extension = operation[RESOURCE_EXTENSION];
+          const kind =
+            typeof extension === 'object' &&
+            extension !== null &&
+            'kind' in extension
+              ? extension.kind
+              : undefined;
 
-          return extension?.kind ? [extension.kind] : [];
+          return typeof kind === 'string' && kind !== '' ? [kind] : [];
         }),
       ),
     ),

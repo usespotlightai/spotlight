@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Bar, BarChart, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { TraceLegend } from '@/components/features/trace/list/TraceLegend';
@@ -69,7 +70,7 @@ const TipContent = ({
 }) => {
   const bucket = payload?.[0]?.payload;
 
-  if (!active || !bucket) {
+  if (active !== true || !bucket) {
     return null;
   }
 
@@ -98,7 +99,7 @@ export function TraceVolume({
   volume: readonly TraceVolumeBucketResponseDto[];
   from: string;
   to: string;
-}) {
+}): ReactElement | null {
   const buckets = [...volume];
   const spanMs = Date.parse(to) - Date.parse(from);
   const cursor = useCursorTooltip();

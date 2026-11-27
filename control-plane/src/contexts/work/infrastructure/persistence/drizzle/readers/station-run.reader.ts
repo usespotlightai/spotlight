@@ -11,6 +11,7 @@ import {
   RUN_JOURNALS,
   type RunJournalsPort,
 } from '@runs/application/ports/run-journals.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
@@ -61,32 +62,34 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
   ) {}
 
   async endedRun(runId: string): Promise<EndedRunRow | null> {
-    const [row] = await this.db
-      .select({
-        runId: dispatch.id,
-        workspaceId: dispatch.workspaceId,
-        teamId: workStation.teamId,
-        lineId: workStation.lineId,
-        stationId: workStation.stationId,
-        taskId: dispatch.taskId,
-        fingerprint: dispatch.stationFingerprint,
-        config: dispatch.stationConfig,
-        briefedTask: dispatch.briefedTask,
-        orderedAt: dispatch.orderedAt,
-      })
-      .from(dispatch)
-      .innerJoin(workStation, eq(workStation.stationId, dispatch.stationId))
-      .where(
-        and(
-          eq(dispatch.id, runId),
-          eq(dispatch.kind, 'task'),
-          byTheLine,
-          ended,
-        ),
-      )
-      .limit(1);
+    const row = firstOf(
+      await this.db
+        .select({
+          runId: dispatch.id,
+          workspaceId: dispatch.workspaceId,
+          teamId: workStation.teamId,
+          lineId: workStation.lineId,
+          stationId: workStation.stationId,
+          taskId: dispatch.taskId,
+          fingerprint: dispatch.stationFingerprint,
+          config: dispatch.stationConfig,
+          briefedTask: dispatch.briefedTask,
+          orderedAt: dispatch.orderedAt,
+        })
+        .from(dispatch)
+        .innerJoin(workStation, eq(workStation.stationId, dispatch.stationId))
+        .where(
+          and(
+            eq(dispatch.id, runId),
+            eq(dispatch.kind, 'task'),
+            byTheLine,
+            ended,
+          ),
+        )
+        .limit(1),
+    );
 
-    if (!row?.taskId) {
+    if (row === undefined || row.taskId === null || row.taskId === '') {
       return null;
     }
 
@@ -109,7 +112,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
     ]);
     const run = facts.get(row.runId);
 
-    if (!run?.ended || !run.endedAt) {
+    if (run?.ended !== true || !run.endedAt) {
       return null;
     }
 
@@ -191,7 +194,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       .where(inArray(dispatch.stationFingerprint, [...fingerprints]));
 
     return rows.flatMap((row) =>
-      row.fingerprint && row.parts
+      row.fingerprint !== null && row.fingerprint !== '' && row.parts
         ? [{ fingerprint: row.fingerprint, parts: row.parts }]
         : [],
     );
@@ -239,7 +242,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
         wanted.excluding.length === 0
           ? undefined
           : notInArray(dispatch.taskId, [...wanted.excluding]),
-      ) as SQL,
+      ),
       wanted.max,
     );
   }
@@ -255,13 +258,13 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
             inArray(dispatch.id, [...runIds]),
             ne(dispatch.kind, 'chat'),
             eq(dispatch.stationId, stationId),
-          ) as SQL,
+          ),
           null,
         );
   }
 
   private async endedWhere(
-    which: SQL,
+    which: SQL | undefined,
     limit: number | null,
   ): Promise<readonly StationRunRow[]> {
     const query = this.db
@@ -283,7 +286,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
     return rows.flatMap(({ superseded, ...row }) => {
       const run = facts.get(row.runId);
 
-      return run?.ended && run.endedAt
+      return run?.ended === true && run.endedAt
         ? [
             {
               ...row,

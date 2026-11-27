@@ -30,6 +30,8 @@ import {
 } from '@runs/domain/value-objects/working-copy-key.vo';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -89,9 +91,17 @@ const receivedBy = async (
   events: readonly DomainEvent[],
 ): Promise<ReplayRunEnded> => {
   const received: ReplayRunEnded[] = [];
-  const subscribers = replaysSubscribers({
-    ending: { ended: async (ended: ReplayRunEnded) => received.push(ended) },
-  } as unknown as ReplaysReactions);
+  const subscribers = replaysSubscribers(
+    partial<ReplaysReactions>({
+      ending: partial<RecordReplayRunEnding>({
+        ended: (ended: ReplayRunEnded) => {
+          received.push(ended);
+
+          return Promise.resolve();
+        },
+      }),
+    }),
+  );
   const published = events.flatMap((event) =>
     RUNS_EVENT_MAPPERS.filter((each) => each.from === event.kind).flatMap(
       (each) => each.map(event, new Date()) ?? [],
@@ -106,7 +116,7 @@ const receivedBy = async (
     }
   }
 
-  const [ended] = received;
+  const ended = firstOf(received);
 
   if (!ended) {
     throw new Error('Replays never received the run end');
@@ -201,7 +211,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
   });
 
   afterAll(async () => {
-    await app?.close();
+    await app.close();
   });
 
   let nextSlot = 0;
@@ -218,9 +228,11 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
     );
 
     const ended = end(replayRun(runId).claim(claimer(RUNNER), NOW));
-    const subscribers = replaysSubscribers({
-      ending: app.get(RecordReplayRunEnding),
-    } as unknown as ReplaysReactions);
+    const subscribers = replaysSubscribers(
+      partial<ReplaysReactions>({
+        ending: app.get(RecordReplayRunEnding),
+      }),
+    );
     const published = ended
       .pullEvents()
       .flatMap((event) =>
@@ -237,7 +249,9 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
       }
     }
 
-    const [entry] = (await replays.find(ReplayId.of(replayId)))?.entries ?? [];
+    const entry = firstOf(
+      (await replays.find(ReplayId.of(replayId)))?.entries ?? [],
+    );
 
     return {
       succeeded: entry?.succeeded,

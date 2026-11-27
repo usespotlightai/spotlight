@@ -4,8 +4,11 @@ export type ReportTitle = (title: string) => () => void;
 
 export const TabTitleContext = createContext<ReportTitle>(() => () => {});
 
-export function useTabTitle(title: string | undefined) {
+export function useTabTitle(title: string | undefined): void {
   const report = useContext(TabTitleContext);
 
-  useEffect(() => (title ? report(title) : undefined), [report, title]);
+  useEffect(
+    () => (title !== undefined && title !== '' ? report(title) : undefined),
+    [report, title],
+  );
 }

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { CandidateStationRows } from '@/components/features/insights/candidates/CandidateStationRows';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { VirtualRows } from '@/components/shared/nested-table/VirtualRows';
@@ -22,7 +24,7 @@ export function CandidatesTable({
   stations,
   names,
   chartStatus,
-}: CandidatesTableProps) {
+}: CandidatesTableProps): ReactElement {
   const collapsibles = useCollapsibles();
   const heldOut = stations.some((station) =>
     station.sets.some((set) =>
@@ -43,10 +45,10 @@ export function CandidatesTable({
       >
         <VirtualRows count={stations.length} estimate={STATION_ESTIMATE}>
           {(index) => {
-            const station = stations[index];
+            const station = stations.at(index);
 
             return (
-              station && (
+              station !== undefined && (
                 <CandidateStationRows
                   station={station}
                   names={names}

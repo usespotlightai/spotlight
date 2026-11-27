@@ -27,6 +27,7 @@ export const noticing = <E extends DomainEvent>(
 ): ChangeNoticeMapper => ({
   name,
   kinds,
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   notices: (event) => [notices(event as E)].flat(),
 });
 

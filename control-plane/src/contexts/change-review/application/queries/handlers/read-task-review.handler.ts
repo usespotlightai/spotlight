@@ -30,8 +30,14 @@ const authorOf = (view: {
   readonly authorName: string | null;
 }): ReviewAuthor =>
   ReviewAuthor.rehydrate({
-    userId: view.authorId ? UserId.of(view.authorId) : null,
-    runId: view.authorRunId ? RunId.of(view.authorRunId) : null,
+    userId:
+      view.authorId !== null && view.authorId !== ''
+        ? UserId.of(view.authorId)
+        : null,
+    runId:
+      view.authorRunId !== null && view.authorRunId !== ''
+        ? RunId.of(view.authorRunId)
+        : null,
     login: view.authorLogin ?? null,
     name: AuthorName.of(view.authorName),
   });
@@ -100,7 +106,7 @@ export class ReadTaskReviewHandler implements QueryHandlerPort<
       const imageOf = (author: ReviewAuthor): string | null =>
         author.userId
           ? (images.get(author.userId.value) ?? null)
-          : author.login
+          : author.login !== null && author.login !== ''
             ? this.avatars.pictureOf(author.login)
             : null;
 

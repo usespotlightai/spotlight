@@ -38,14 +38,17 @@ export default defineConfig(({ command }) => ({
       org: process.env.SENTRY_ORG,
       project: process.env.SENTRY_PROJECT,
       authToken: sentryAuthToken,
-      disable: !sentryAuthToken,
+      disable: sentryAuthToken === undefined || sentryAuthToken === '',
       telemetry: false,
       release: { name: process.env.SENTRY_RELEASE, inject: false },
       sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
     }),
   ],
   build: {
-    sourcemap: sentryAuthToken ? 'hidden' : false,
+    sourcemap:
+      sentryAuthToken !== undefined && sentryAuthToken !== ''
+        ? 'hidden'
+        : false,
   },
   server: {
     allowedHosts: ['.dev.usespotlight.ai'],

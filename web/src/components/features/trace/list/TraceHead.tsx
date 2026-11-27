@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   TRACE_COLUMNS,
   TRACE_HEAD_CELL as CELL,
@@ -5,7 +7,7 @@ import {
 import { TABLE_HEAD } from '@/components/shared/table-rows';
 import { cn } from '@/lib/utils';
 
-export function TraceHead() {
+export function TraceHead(): ReactElement {
   return (
     <div className={cn(TABLE_HEAD, TRACE_COLUMNS, 'h-8 py-0 @2xl/pane:h-8')}>
       <span aria-hidden className={CELL.select} />

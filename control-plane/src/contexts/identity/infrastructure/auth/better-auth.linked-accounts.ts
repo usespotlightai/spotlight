@@ -2,18 +2,34 @@ import type {
   LinkedAccountsPort,
   LinkedProvider,
 } from '@identity/application/ports/linked-accounts.port';
-import type { AppAuth } from '@identity/infrastructure/auth/auth';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { OncePer } from '@shared-kernel/application/services/once-per';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 const FAILED_FOR_MS = 10 * 60_000;
 
+export interface LinkedAccountsAuth {
+  readonly $context: Promise<{
+    readonly internalAdapter: {
+      findAccounts(
+        userId: string,
+      ): Promise<
+        readonly { readonly id: string; readonly providerId: string }[]
+      >;
+    };
+  }>;
+  readonly api: {
+    getAccessToken(request: {
+      body: { accountId: string; userId: string };
+    }): Promise<{ readonly accessToken?: string }>;
+  };
+}
+
 export class BetterAuthLinkedAccounts implements LinkedAccountsPort {
   readonly #failed = new OncePer(FAILED_FOR_MS);
 
   constructor(
-    private readonly auth: AppAuth,
+    private readonly auth: LinkedAccountsAuth,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -35,7 +51,9 @@ export class BetterAuthLinkedAccounts implements LinkedAccountsPort {
         body: { accountId: linked.id, userId: userId.value },
       });
 
-      return accessToken || null;
+      return accessToken !== undefined && accessToken !== ''
+        ? accessToken
+        : null;
     } catch (error) {
       if (this.#failed.due(`${userId.value}\n${provider}`, new Date())) {
         this.logger.warn(

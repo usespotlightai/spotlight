@@ -6,9 +6,10 @@ import type { PushDiffRepository } from '@change-review/domain/repositories/push
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
+import { commitSha as sha } from '@change-review/domain/value-objects/commit-sha.fake-spec';
 import { PushDiffId } from '@change-review/domain/value-objects/push-diff-id.vo';
 import { RepositoryStack } from '@change-review/domain/value-objects/repository-stack.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -23,8 +24,6 @@ const NOW = new Date('2026-11-16T10:00:00.000Z');
 const RUNNER = RunnerId.of('pooled_1');
 const OTHER = RunnerId.of('pooled_2');
 const SHARED = 'work_1';
-
-const sha = (digit: string) => CommitSha.parsed(digit.repeat(40)) as CommitSha;
 
 const checking = () =>
   StackCheck.begin({
@@ -61,19 +60,21 @@ const access = (
   diffs: readonly PushDiff[],
   stackRepository: string | null = null,
 ) => {
-  const ofStack = vi.fn(async () => checks);
-  const find = vi.fn(
-    async (id: PushDiffId) => diffs.find((each) => each.id.equals(id)) ?? null,
+  const ofStack = vi.fn(() => Promise.resolve(checks));
+  const find = vi.fn((id: PushDiffId) =>
+    Promise.resolve(diffs.find((each) => each.id.equals(id)) ?? null),
   );
-  const repositoryOf = vi.fn(async () => ({ repository: stackRepository }));
+  const repositoryOf = vi.fn(() =>
+    Promise.resolve({ repository: stackRepository }),
+  );
 
   return {
     ofStack,
     find,
     service: new ReviewWorkAccess(
-      { ofStack } as unknown as StackCheckRepository,
-      { repositoryOf } as unknown as ChangeStackReaderPort,
-      { find } as unknown as PushDiffRepository,
+      partial<StackCheckRepository>({ ofStack }),
+      partial<ChangeStackReaderPort>({ repositoryOf }),
+      partial<PushDiffRepository>({ find }),
     ),
   };
 };

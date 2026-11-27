@@ -1,6 +1,7 @@
 import { groupedBy } from '@change-review/domain/services/grouped-by';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 export interface Placement {
   readonly hunk: HunkId;
@@ -30,9 +31,9 @@ export const onlyLayersOf = (
   const layers = new Map<string, number>();
 
   for (const [hunk, placements] of placementsOf([cohort])) {
-    const [only, ...again] = placements;
+    const only = firstOf(placements);
 
-    if (!only || again.length > 0) {
+    if (only === undefined || placements.length > 1) {
       return null;
     }
     layers.set(hunk, only.layer);

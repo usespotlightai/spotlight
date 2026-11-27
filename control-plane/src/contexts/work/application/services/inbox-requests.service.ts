@@ -57,7 +57,12 @@ export class InboxRequests implements InboxRequestsPort {
           taskId: task.id,
           form: FORMS[inboxRequest.form],
           about: inboxRequest.about,
-          askedOf: input.askedOf ? UserId.of(input.askedOf) : null,
+          askedOf:
+            input.askedOf !== undefined &&
+            input.askedOf !== null &&
+            input.askedOf !== ''
+              ? UserId.of(input.askedOf)
+              : null,
           now: this.clock.now(),
         }),
       );
@@ -140,7 +145,12 @@ export class InboxRequests implements InboxRequestsPort {
             taskId: task.id,
             form: FORMS[inboxRequest.form],
             about: inboxRequest.about,
-            askedOf: input.askedOf ? UserId.of(input.askedOf) : null,
+            askedOf:
+              input.askedOf !== undefined &&
+              input.askedOf !== null &&
+              input.askedOf !== ''
+                ? UserId.of(input.askedOf)
+                : null,
             now,
           }).resolve(now),
         );

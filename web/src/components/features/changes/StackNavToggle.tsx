@@ -1,4 +1,5 @@
 import { ChevronDown } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import type { StackLayer } from '@/lib/change-stack';
 import { cn } from '@/lib/utils';
@@ -17,7 +18,7 @@ export function StackNavToggle({
   count,
   open,
   onToggle,
-}: StackNavToggleProps) {
+}: StackNavToggleProps): ReactElement {
   return (
     <button
       type="button"

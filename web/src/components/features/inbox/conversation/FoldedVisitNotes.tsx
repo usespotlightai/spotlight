@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InboxNote } from '@/components/features/inbox/conversation/InboxNote';
 import { StationNameSkeleton } from '@/components/features/inbox/conversation/StationNameSkeleton';
 import { StationTag } from '@/components/features/inbox/conversation/StationTag';
@@ -29,7 +31,7 @@ export function FoldedVisitNotes({
   worked,
   className,
   named = false,
-}: FoldedVisitNotesProps) {
+}: FoldedVisitNotesProps): ReactElement {
   const notes = useTaskNotes({
     teamId: item.teamId,
     taskId: item.taskId,

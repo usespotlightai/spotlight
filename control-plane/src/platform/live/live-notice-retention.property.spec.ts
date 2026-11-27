@@ -178,7 +178,7 @@ class ObservedWorker extends LiveNoticeRetentionWorker {
     super(
       stored,
       leader,
-      { now: () => new Date(nowOf()), sleep: async () => undefined },
+      { now: () => new Date(nowOf()), sleep: () => Promise.resolve(undefined) },
       logger,
     );
   }

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { RadioRow } from '@/components/shared/form/RadioRow';
 import {
   GRANTS,
@@ -23,7 +25,7 @@ export function TokenAccessField({
   disabled,
   onLevel,
   onGrant,
-}: TokenAccessFieldProps) {
+}: TokenAccessFieldProps): ReactElement {
   return (
     <fieldset disabled={disabled} className="flex flex-col gap-1.5">
       <legend className="mb-1.5 font-medium text-foreground text-xs">

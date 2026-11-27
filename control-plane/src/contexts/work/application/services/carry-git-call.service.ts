@@ -69,7 +69,9 @@ export class CarryGitCall {
     }
 
     const checked =
-      service === PUSH && call.method === 'POST' && allowed.work?.limitsPushes
+      service === PUSH &&
+      call.method === 'POST' &&
+      allowed.work?.limitsPushes === true
         ? await this.checkedPush(allowed.work, allowed.repository, call)
         : { kind: 'carry' as const, call, push: null };
 
@@ -92,7 +94,7 @@ export class CarryGitCall {
 
     const work = allowed.work;
     const answer =
-      answered && push && work && answered.status === OK
+      push !== null && work !== null && answered.status === OK
         ? push.reported(answered, (updates) =>
             work.pushed(allowed.repository, updates).catch((error: unknown) => {
               this.logger.error(
@@ -107,13 +109,11 @@ export class CarryGitCall {
           )
         : answered;
 
-    return (
-      answer && {
-        status: answer.status,
-        headers: answer.headers,
-        body: answer.body,
-      }
-    );
+    return {
+      status: answer.status,
+      headers: answer.headers,
+      body: answer.body,
+    };
   }
 
   private async checkedPush(
@@ -136,7 +136,7 @@ export class CarryGitCall {
 
     const refusal = await work.pushRefusal(repository, read.push.updates);
 
-    return refusal
+    return refusal !== null && refusal !== ''
       ? { kind: 'answer', answer: await read.push.refused(refusal) }
       : { kind: 'carry', call: read.push.call, push: read.push };
   }

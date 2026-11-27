@@ -18,7 +18,10 @@ export interface ReportedPullRequestState {
 export const pullRequestStateOf = (
   reported: ReportedPullRequestState,
 ): PullRequestState => {
-  if (reported.merged || reported.mergedAt) {
+  if (
+    reported.merged ||
+    (reported.mergedAt !== null && reported.mergedAt !== '')
+  ) {
     return 'merged';
   }
 

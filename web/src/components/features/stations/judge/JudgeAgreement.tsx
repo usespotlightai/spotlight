@@ -1,5 +1,5 @@
 import { GraduationCap } from 'lucide-react';
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { ConfusionMatrix } from '@/components/features/stations/judge/ConfusionMatrix';
 import { JudgeAgreementSkeleton } from '@/components/features/stations/judge/JudgeAgreementSkeleton';
@@ -51,7 +51,7 @@ export function JudgeAgreement({
   teamId,
   lineId,
   stationId,
-}: JudgeAgreementProps) {
+}: JudgeAgreementProps): ReactElement {
   const query = useStationJudge(teamId, lineId, stationId);
   const [picked, setPicked] = useState<string | null>(null);
 
@@ -83,9 +83,9 @@ export function JudgeAgreement({
   const shown =
     versions.find((version) => version.rubricVersion === picked) ??
     versions.find((version) => version.current) ??
-    versions[0];
+    versions.at(0);
 
-  if (!shown) {
+  if (shown === undefined) {
     return (
       <div className={BOX}>
         <EmptyState

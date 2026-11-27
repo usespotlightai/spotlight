@@ -21,7 +21,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const MAX_SEEN_CHARS = 64_000;
 
-interface ScoreFields {
+export interface ScoreFields {
   readonly id: ScoreId;
   readonly runId: RunId;
   readonly workspaceId: WorkspaceId;

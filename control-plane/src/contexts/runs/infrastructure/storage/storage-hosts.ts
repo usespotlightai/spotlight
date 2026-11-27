@@ -4,7 +4,7 @@ import type { SandboxHostsPort } from '@runs/application/ports/sandbox-hosts.por
 const storageHostOf = (env: Env): string => {
   const endpoint = env.S3_RUNNER_ENDPOINT ?? env.S3_ENDPOINT;
 
-  if (endpoint) {
+  if (endpoint !== undefined && endpoint !== '') {
     return new URL(endpoint).hostname;
   }
 

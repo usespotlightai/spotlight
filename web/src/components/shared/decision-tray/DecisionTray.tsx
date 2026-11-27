@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { DecisionPill } from '@/components/shared/decision-tray/DecisionPill';
 import { DecisionTrayCard } from '@/components/shared/decision-tray/DecisionTrayCard';
@@ -16,7 +16,11 @@ type DecisionTrayProps = {
   children?: ReactNode;
 };
 
-export function DecisionTray({ tray, alongside, children }: DecisionTrayProps) {
+export function DecisionTray({
+  tray,
+  alongside,
+  children,
+}: DecisionTrayProps): ReactElement {
   const { shown, open } = tray;
   const covered = Boolean(shown) && open;
   const { card, pills, collapse } = useTrayMotion(
@@ -27,7 +31,7 @@ export function DecisionTray({ tray, alongside, children }: DecisionTrayProps) {
 
   return (
     <div data-decision className="flex flex-col gap-0.5">
-      {(shown || alongside) && (
+      {(Boolean(shown) || Boolean(alongside)) && (
         <div className="relative">
           <div
             ref={pills}

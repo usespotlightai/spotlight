@@ -42,12 +42,12 @@ export class AssignTaskHandler implements CommandHandlerPort<
       const task = await this.tasks.find(TaskId.of(command.taskId));
       const line = task ? await this.lines.findByStation(task.stationId) : null;
 
-      if (!task || !members || !line?.teamId.equals(teamId)) {
+      if (!task || !members || line?.teamId.equals(teamId) !== true) {
         throw new UnknownTaskError(command.taskId);
       }
 
       await this.tasks.save(
-        command.assigneeId
+        command.assigneeId !== null && command.assigneeId !== ''
           ? task.assign(UserId.of(command.assigneeId), members)
           : task.unassign(),
       );

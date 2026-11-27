@@ -12,6 +12,7 @@ import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import { startingPointHoldRun } from '@runs/infrastructure/persistence/drizzle/schemas/starting-point-hold.schema';
 import { workingCopyArchive } from '@runs/infrastructure/persistence/drizzle/schemas/working-copy-archive.schema';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import {
   and,
   asc,
@@ -79,9 +80,11 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
   }
 
   async of(id: WorkingCopyArchiveId): Promise<ArchiveDue | null> {
-    const [row] = await this.selected()
-      .where(eq(workingCopyArchive.id, id.value))
-      .limit(1);
+    const row = firstOf(
+      await this.selected()
+        .where(eq(workingCopyArchive.id, id.value))
+        .limit(1),
+    );
 
     return row ? dueOf(row) : null;
   }
@@ -108,7 +111,7 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
       .limit(limit);
 
     const due = rows.map(dueOf);
-    const last = due[due.length - 1];
+    const last = itemAt(due, due.length - 1);
 
     return {
       due,

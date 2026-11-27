@@ -74,7 +74,9 @@ export class ReviewIntake {
     }
 
     return !(
-      request.author && this.skip.authors.includes(request.author.toLowerCase())
+      request.author !== null &&
+      request.author !== '' &&
+      this.skip.authors.includes(request.author.toLowerCase())
     );
   }
 

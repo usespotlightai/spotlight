@@ -1,4 +1,5 @@
 import { RotateCw, UserPlus } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { SectionButton } from '@/components/shared/SectionButton';
@@ -22,7 +23,11 @@ type AddTeamMemberProps = {
   onInvite: () => void;
 };
 
-export function AddTeamMember({ slug, teamId, onInvite }: AddTeamMemberProps) {
+export function AddTeamMember({
+  slug,
+  teamId,
+  onInvite,
+}: AddTeamMemberProps): ReactElement {
   const members = useWorkspaceMembers(slug);
   const add = useAddTeamMember(slug, teamId);
   const addable = (members.data ?? []).filter(
@@ -32,7 +37,7 @@ export function AddTeamMember({ slug, teamId, onInvite }: AddTeamMemberProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        disabled={!teamId || add.isPending}
+        disabled={teamId === undefined || teamId === '' || add.isPending}
         render={<SectionButton />}
       >
         {add.isPending ? 'Adding…' : 'Add a member'}

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InboxRowSkeleton } from '@/components/features/inbox/InboxRowSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
@@ -44,7 +46,7 @@ export function InboxListSkeleton({
   open,
   running,
   resolved,
-}: InboxListSkeletonProps) {
+}: InboxListSkeletonProps): ReactElement {
   return (
     <div
       role="status"

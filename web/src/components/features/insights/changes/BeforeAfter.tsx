@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { BeforeAfterSkeleton } from '@/components/features/insights/changes/BeforeAfterSkeleton';
 import { ConfigPlan } from '@/components/features/insights/changes/ConfigPlan';
 import { TallyComparison } from '@/components/features/insights/TallyComparison';
@@ -35,7 +37,7 @@ export function BeforeAfter({
   period,
   change,
   names,
-}: BeforeAfterProps) {
+}: BeforeAfterProps): ReactElement {
   const changes = useInsightsChanges(teamId, period);
   const named = names.get(change.stationId);
 

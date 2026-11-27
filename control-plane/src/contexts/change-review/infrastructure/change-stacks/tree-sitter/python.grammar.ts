@@ -44,7 +44,7 @@ export const PYTHON_GRAMMAR: Grammar = {
           name.type === 'aliased_import' ? field(name, 'alias') : null;
         const text = imported?.text.split('.').pop();
 
-        return text
+        return text !== undefined && text !== ''
           ? [{ local: alias?.text ?? text, imported: text, specifier }]
           : [];
       });

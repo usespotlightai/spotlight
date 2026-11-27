@@ -13,6 +13,9 @@ export class DecryptionFailedError extends Error {
   }
 }
 
+const partsOf = (envelope: string): readonly (string | undefined)[] =>
+  envelope.split('.');
+
 const keyOf = (key: Uint8Array): Buffer => {
   if (key.length !== KEY_BYTES) {
     throw new DecryptionFailedError(`the key is not ${KEY_BYTES} bytes`);
@@ -46,12 +49,14 @@ export const decrypt = (
   envelope: string,
   aad: string,
 ): Buffer => {
-  const [version, iv, tag, encrypted, ...rest] = envelope.split('.');
+  const [version, iv, tag, encrypted, ...rest] = partsOf(envelope);
 
   if (
     version !== VERSION ||
-    !iv ||
-    !tag ||
+    iv === undefined ||
+    iv === '' ||
+    tag === undefined ||
+    tag === '' ||
     encrypted === undefined ||
     rest.length > 0
   ) {

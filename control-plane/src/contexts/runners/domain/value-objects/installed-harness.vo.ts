@@ -11,7 +11,7 @@ const nameable = (raw: string): HarnessModel | null => {
 };
 
 export class InstalledHarness {
-  private readonly kind = 'installed-harness' as const;
+  private readonly kind: string = 'installed-harness';
 
   private constructor(
     readonly id: HarnessId,

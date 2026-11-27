@@ -1,5 +1,9 @@
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import {
+  claimer,
+  leaseEndOf,
+  orderedFor,
+} from '@runs/domain/aggregates/run.fake-spec';
 import { RunEnded } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunPaused } from '@runs/domain/events/run-paused.event';
@@ -130,8 +134,10 @@ describe('the turn of a run that holds it', () => {
       const [ended] = events(failed);
 
       expect(failed.state).toBe('failed');
-      expect(ended).toBeInstanceOf(RunEnded);
-      expect((ended as RunEnded).reported).toBe(true);
+      if (!(ended instanceof RunEnded)) {
+        throw new Error('expected the run to have ended');
+      }
+      expect(ended.reported).toBe(true);
       expect(
         claimed().reportTurn(
           RUNNER,
@@ -454,9 +460,7 @@ describe('the turn of a run that holds it', () => {
 
       const lost = run.claim(claimer(RUNNER), NOW);
 
-      expect(lost.expireLease(lost.leaseExpiresAt as Date).state).toBe(
-        'queued',
-      );
+      expect(lost.expireLease(leaseEndOf(lost)).state).toBe('queued');
     });
   });
 
@@ -549,12 +553,15 @@ describe('the turn of a run that holds it', () => {
     for (let lost = 0; lost < 3; lost++) {
       run.pullEvents();
       const reclaimed = run.claim(claimer(RUNNER), NOW);
-      run = reclaimed.expireLease(reclaimed.leaseExpiresAt as Date);
+      run = reclaimed.expireLease(leaseEndOf(reclaimed));
     }
 
     const exhausted = run
       .pullEvents()
-      .find((each) => each instanceof RunExhausted) as RunExhausted;
+      .find((each) => each instanceof RunExhausted);
+    if (exhausted === undefined) {
+      throw new Error('expected the run to be exhausted');
+    }
 
     expect(run.state).toBe('failed');
     expect(exhausted.attempt.number).toBe(4);

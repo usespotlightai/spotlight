@@ -1,6 +1,7 @@
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import type { BoundHost } from '@secrets/domain/value-objects/bound-host.vo';
 import { SecretBinding } from '@secrets/domain/value-objects/secret-binding.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 const MOST = 32;
 
@@ -74,7 +75,7 @@ export class SecretBindings {
     return (
       this.all.length === other.all.length &&
       this.all.every((each, at) => {
-        const theirs = other.all[at];
+        const theirs = itemAt(other.all, at);
         return theirs !== undefined && each.equals(theirs);
       })
     );

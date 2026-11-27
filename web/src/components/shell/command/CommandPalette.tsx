@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router';
 
 import { ShortcutKeys } from '@/components/shared/shortcut/ShortcutKeys';
@@ -47,7 +48,7 @@ export function CommandPalette({
   open,
   pick,
   onOpenChange,
-}: CommandPaletteProps) {
+}: CommandPaletteProps): ReactElement {
   const section = pick?.section;
   const navigate = useNavigate();
   const sections = useCommandSections(slug, workspace, open);
@@ -71,7 +72,7 @@ export function CommandPalette({
       <Command filter={commandMatch}>
         <CommandInput
           placeholder={
-            pick?.creating
+            pick?.creating === true
               ? 'Create a task on a line…'
               : section
                 ? PLACEHOLDERS[section]
@@ -107,19 +108,23 @@ export function CommandPalette({
                       close();
                       void navigate(
                         target.to,
-                        pick?.creating ? { state: creatingState() } : undefined,
+                        pick?.creating === true
+                          ? { state: creatingState() }
+                          : undefined,
                       );
                     }}
                   >
                     <target.icon />
                     <span className="truncate">{target.label}</span>
-                    {(target.context || shortcut) && (
+                    {((target.context !== undefined && target.context !== '') ||
+                      shortcut !== null) && (
                       <span className="ml-auto flex shrink-0 items-center gap-3">
-                        {target.context && (
-                          <span className="text-muted-foreground text-xs">
-                            {target.context}
-                          </span>
-                        )}
+                        {target.context !== undefined &&
+                          target.context !== '' && (
+                            <span className="text-muted-foreground text-xs">
+                              {target.context}
+                            </span>
+                          )}
                         {shortcut && <ShortcutKeys id={shortcut} />}
                       </span>
                     )}

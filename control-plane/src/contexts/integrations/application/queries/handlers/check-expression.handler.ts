@@ -19,17 +19,13 @@ export class CheckExpressionHandler implements QueryHandlerPort<
     private readonly checks: ExpressionChecksPort,
   ) {}
 
-  async execute(
-    query: CheckExpressionQuery,
-  ): Promise<CheckedExpression | Forbidden> {
+  execute(query: CheckExpressionQuery): Promise<CheckedExpression | Forbidden> {
     if (!this.access.mayPlan(query.principal)) {
-      return forbiddenTo('plan');
+      return Promise.resolve(forbiddenTo('plan'));
     }
 
-    return this.checks.check(
-      query.position,
-      query.expression,
-      query.definition,
+    return Promise.resolve(
+      this.checks.check(query.position, query.expression, query.definition),
     );
   }
 }

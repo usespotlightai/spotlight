@@ -7,6 +7,7 @@ import {
   IntegrationCompiler,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
@@ -103,13 +104,13 @@ describe('compiling an integration', () => {
     });
 
     it('names the integration a problem is in', () => {
-      const [problem] = problems(WITHOUT_VERIFY);
+      const problem = firstOf(problems(WITHOUT_VERIFY));
 
       expect(problem?.path).toBe('integrations/linear');
     });
 
     it('names the integrations themselves where it cannot tell which', () => {
-      const [problem] = problems('integration: LINEAR');
+      const problem = firstOf(problems('integration: LINEAR'));
 
       expect(problem?.path).toBe('integrations');
     });
@@ -178,18 +179,22 @@ describe('compiling an integration', () => {
     });
 
     it('rejects a word named for another integration', () => {
-      const [problem] = complaining(
-        WHOLE.replace('linear.issue.completed', 'github.issue.completed'),
-        'webhook.events.0.raise.happening',
+      const problem = firstOf(
+        complaining(
+          WHOLE.replace('linear.issue.completed', 'github.issue.completed'),
+          'webhook.events.0.raise.happening',
+        ),
       );
 
       expect(problem?.reason).toMatch(/without the linear\. prefix/);
     });
 
     it('rejects an expression that will not parse', () => {
-      const [problem] = complaining(
-        WHOLE.replace('body.type == "Issue"', 'body.type =='),
-        'webhook.events.0.when',
+      const problem = firstOf(
+        complaining(
+          WHOLE.replace('body.type == "Issue"', 'body.type =='),
+          'webhook.events.0.when',
+        ),
       );
 
       expect(problem?.reason).toMatch(/body\.type/);
@@ -260,8 +265,10 @@ on:
     - action: post
 `;
 
-      const [problem] = problems(text).filter(
-        (each) => dottedOf(each.field) === 'on.task.moved.0',
+      const problem = firstOf(
+        problems(text).filter(
+          (each) => dottedOf(each.field) === 'on.task.moved.0',
+        ),
       );
 
       expect(problem?.reason).toMatch(/must be one of/);
@@ -696,7 +703,9 @@ on:
     });
 
     it('suggests the name that is there nearest one that is not', () => {
-      const [warning] = warnings(BINDING.replace('ask.body', 'asked.body'));
+      const warning = firstOf(
+        warnings(BINDING.replace('ask.body', 'asked.body')),
+      );
 
       expect(dottedOf(warning?.field)).toBe('actions.post.request.body');
       expect(warning?.reason).toMatch(
@@ -705,8 +714,8 @@ on:
     });
 
     it('warns about a rule that does not say yes or no', () => {
-      const [warning] = warnings(
-        WHOLE.replace('body.type == "Issue"', '"Issue"'),
+      const warning = firstOf(
+        warnings(WHOLE.replace('body.type == "Issue"', '"Issue"')),
       );
 
       expect(dottedOf(warning?.field)).toBe('webhook.events.0.when');
@@ -1317,8 +1326,8 @@ actions:
   });
 
   it('finds a misspelling of what a delivery’s shape says, where it is written', () => {
-    const [warning] = warnings(
-      HINTED.replace('body.data.identifier', 'body.data.identifer'),
+    const warning = firstOf(
+      warnings(HINTED.replace('body.data.identifier', 'body.data.identifer')),
     );
 
     expect(dottedOf(warning?.field)).toBe(

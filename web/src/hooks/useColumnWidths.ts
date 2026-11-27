@@ -27,7 +27,7 @@ export function useColumnWidths(count: number): ColumnWidths {
     pin: (measured) =>
       setChosen(
         Array.from({ length: count }, (_, at) => {
-          const width = measured[at];
+          const width = measured.at(at);
           return width === undefined ? null : Math.round(width);
         }),
       ),

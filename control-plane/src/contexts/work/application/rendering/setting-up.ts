@@ -114,7 +114,7 @@ const ciStep = (
 export const SettingUp = {
   opening(team: string | null): string {
     return [
-      `You are setting up${team ? ` the ${team} team's` : ' the team’s'} Spotlight configuration as code, together with a person. Learn how the team works from its code and its tools, then propose the team's first Terraform as a pull request.`,
+      `You are setting up${team !== null && team !== '' ? ` the ${team} team's` : ' the team’s'} Spotlight configuration as code, together with a person. Learn how the team works from its code and its tools, then propose the team's first Terraform as a pull request.`,
       'You recommend; a person reviews and applies. Never run `terraform apply`, and never change Spotlight through its API.',
     ].join(' ');
   },

@@ -141,7 +141,7 @@ export abstract class Station {
   ): void {
     const problem = skillsProblem(skills) ?? toolsProblem(tools);
 
-    if (problem) {
+    if (problem !== null && problem !== '') {
       throw new InvalidStationChangeError(problem);
     }
   }

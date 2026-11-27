@@ -4,7 +4,7 @@ import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-ima
 import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 
 export class RunnerOffer {
-  private readonly kind = 'runner-offer' as const;
+  private readonly kind: string = 'runner-offer';
 
   private constructor(
     readonly values: readonly string[],

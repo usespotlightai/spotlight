@@ -15,6 +15,7 @@ import type { SideBySideJudgePort } from '@insights/application/ports/side-by-si
 import { groundedPair } from '@insights/domain/services/grounded-pair';
 import { PairEvidence } from '@insights/domain/services/pair-evidence';
 import type { PairOrder } from '@insights/domain/value-objects/pair-order';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { JudgingFailureCode } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 
 const ORDER_OF: Readonly<Record<PairJudgmentOrderKind, PairOrder>> = {
@@ -94,11 +95,13 @@ export class PairJudgments implements PairJudgmentsPort {
       return unjudged(failed.failure);
     }
 
-    const passes = judged.flatMap((each, at) =>
-      each.status === 'judged' && shown[at]
-        ? [{ verdict: each.verdict, evidence: shown[at].evidence }]
-        : [],
-    );
+    const passes = judged.flatMap((each, at) => {
+      const seen = itemAt(shown, at);
+
+      return each.status === 'judged' && seen !== undefined
+        ? [{ verdict: each.verdict, evidence: seen.evidence }]
+        : [];
+    });
     const model = judged.find((each) => each.status === 'judged')?.model;
     const grounded = groundedPair(passes);
 

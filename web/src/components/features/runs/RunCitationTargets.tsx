@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from 'react';
+import { type ReactElement, type ReactNode, useMemo } from 'react';
 
 import { changesOf, repoRelative } from '@/lib/changes';
 import { CitationTargetsContext } from '@/lib/citation-targets';
@@ -17,7 +17,7 @@ export function RunCitationTargets({
   runId,
   journals,
   children,
-}: RunCitationTargetsProps) {
+}: RunCitationTargetsProps): ReactElement {
   const anchors = useStepAnchors();
   const { open } = useRunSidePanel();
 

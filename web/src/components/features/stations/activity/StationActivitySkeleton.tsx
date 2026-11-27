@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { RecentRunsSkeleton } from '@/components/features/stations/activity/RecentRunsSkeleton';
@@ -6,7 +7,7 @@ import { StationAttentionSkeleton } from '@/components/features/stations/activit
 import { SummarySkeleton } from '@/components/features/stations/activity/SummarySkeleton';
 import { activityPeriodOf } from '@/lib/station';
 
-export function StationActivitySkeleton() {
+export function StationActivitySkeleton(): ReactElement {
   const [params] = useSearchParams();
 
   return (

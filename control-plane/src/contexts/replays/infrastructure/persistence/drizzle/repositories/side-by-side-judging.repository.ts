@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { SideBySideJudging } from '@replays/domain/aggregates/side-by-side-judging.aggregate';
@@ -142,7 +143,7 @@ export class DrizzleSideBySideJudgingRepository
   }
 
   async of(runId: RunId, otherRunId: RunId): Promise<SideBySideJudging | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(sideBySideJudging)
       .where(
@@ -151,7 +152,7 @@ export class DrizzleSideBySideJudgingRepository
           eq(sideBySideJudging.otherRunId, otherRunId.value),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return row ? toSideBySideJudging(row) : null;
   }
@@ -166,7 +167,7 @@ export class DrizzleSideBySideJudgingRepository
   }
 
   async nextDueJob(now: Date): Promise<SideBySideJudging | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(sideBySideJudging)
       .where(
@@ -180,7 +181,7 @@ export class DrizzleSideBySideJudgingRepository
       )
       .orderBy(asc(sideBySideJudging.queuedAt))
       .limit(1)
-      .for('update', { skipLocked: true });
+      .for('update', { skipLocked: true }));
 
     return row ? toSideBySideJudging(row) : null;
   }

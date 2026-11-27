@@ -4,7 +4,11 @@ import type {
 } from '@configuration/application/ports/harness-profile-resources.port';
 import { ProfileSecretUses } from '@configuration/application/services/profile-secret-uses.service';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
-import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type {
+  TeamDirectoryPort,
+  TeamProfile,
+} from '@identity/application/ports/team-directory.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -27,15 +31,19 @@ const profile = (
 });
 
 const uses = new ProfileSecretUses(
-  {
-    inWorkspace: async () => [{ id: TeamId.of('team_core'), key: 'core' }],
-  } as unknown as TeamDirectoryPort,
-  {
-    ofTeam: async () => [
-      profile('careful', { LINEAR_API_KEY: 'secret.LINEAR_API_KEY' }),
-      profile('plain', { LINEAR_API_KEY: 'LINEAR_API_KEY' }),
-    ],
-  } as unknown as HarnessProfileResourcesPort,
+  partial<TeamDirectoryPort>({
+    inWorkspace: () =>
+      Promise.resolve([
+        partial<TeamProfile>({ id: TeamId.of('team_core'), key: 'core' }),
+      ]),
+  }),
+  partial<HarnessProfileResourcesPort>({
+    ofTeam: () =>
+      Promise.resolve([
+        profile('careful', { LINEAR_API_KEY: 'secret.LINEAR_API_KEY' }),
+        profile('plain', { LINEAR_API_KEY: 'LINEAR_API_KEY' }),
+      ]),
+  }),
 );
 
 describe('ProfileSecretUses', () => {

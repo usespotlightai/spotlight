@@ -15,6 +15,7 @@ import {
   type ResourceCreated,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -93,7 +94,7 @@ describe('a line reconciled with its definition (e2e)', () => {
       throw new Error(JSON.stringify(result));
     }
 
-    return (await lines.find(LineId.of(result.id))) as Line;
+    return present(await lines.find(LineId.of(result.id)));
   };
 
   beforeEach(async () => {

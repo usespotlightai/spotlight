@@ -4,7 +4,7 @@ import { trimmedWithin } from '@identity/domain/value-objects/trimmed-within';
 const LONGEST = 255;
 
 export class TokenDescription {
-  private readonly kind = 'token-description';
+  private readonly kind: string = 'token-description';
 
   private constructor(readonly value: string) {}
 

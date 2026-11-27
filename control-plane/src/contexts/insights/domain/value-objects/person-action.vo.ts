@@ -77,7 +77,7 @@ export class PersonAction {
   }
 
   dismissalOf(acted: ActedOnTool): Dismissal | null {
-    return this.kind === 'dismissed' && acted.tool
+    return this.kind === 'dismissed' && acted.tool !== null && acted.tool !== ''
       ? Dismissal.of({ tool: acted.tool, server: acted.server, at: this.at })
       : null;
   }

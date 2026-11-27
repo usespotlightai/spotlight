@@ -6,6 +6,9 @@ const SHAPE = new RegExp(`^v${PART}\\.${PART}\\.${PART}(?:-rc\\.${PART})?$`);
 
 const FINAL = Number.MAX_SAFE_INTEGER;
 
+const capturedIn = (parts: RegExpExecArray): readonly (string | undefined)[] =>
+  parts;
+
 const orderOf = (raw: string): number[] | null => {
   const parts = SHAPE.exec(raw);
 
@@ -13,7 +16,7 @@ const orderOf = (raw: string): number[] | null => {
     return null;
   }
 
-  const [, major, minor, patch, candidate] = parts;
+  const [, major, minor, patch, candidate] = capturedIn(parts);
   return [
     Number(major),
     Number(minor),

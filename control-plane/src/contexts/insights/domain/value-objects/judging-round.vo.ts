@@ -7,7 +7,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
  * is a new round, so it orders a new judging session; the same round reads its session back.
  */
 export class JudgingRound {
-  private readonly kind = 'judging-round';
+  private readonly kind: string = 'judging-round';
 
   private constructor(
     readonly runId: RunId,

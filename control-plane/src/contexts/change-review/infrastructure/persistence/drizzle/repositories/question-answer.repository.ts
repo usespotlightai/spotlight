@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
 import { QuestionAnswerVersionConflictError } from '@change-review/domain/exceptions/question-answer-version-conflict.error';
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
@@ -34,10 +35,10 @@ const toAnswer = (row: Row): QuestionAnswer =>
   QuestionAnswer.rehydrate({
     id: QuestionAnswerId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    taskId: row.taskId ? TaskId.of(row.taskId) : null,
-    teamId: row.teamId ? TeamId.of(row.teamId) : null,
+    taskId: row.taskId !== null && row.taskId !== '' ? TaskId.of(row.taskId) : null,
+    teamId: row.teamId !== null && row.teamId !== '' ? TeamId.of(row.teamId) : null,
     stackId: ChangeStackId.of(row.stackId),
-    repository: row.repository ? RepositoryName.of(row.repository) : null,
+    repository: row.repository !== null && row.repository !== '' ? RepositoryName.of(row.repository) : null,
     questionId: QuestionId.of(row.questionId),
     personId: UserId.of(row.personId),
     asked: row.asked,
@@ -133,17 +134,17 @@ export class DrizzleQuestionAnswerRepository
   }
 
   async find(id: QuestionAnswerId): Promise<QuestionAnswer | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(questionAnswer)
       .where(eq(questionAnswer.id, id.value))
-      .limit(1);
+      .limit(1));
 
     return row ? toAnswer(row) : null;
   }
 
   async nextDueGrading(now: Date): Promise<QuestionAnswer | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(questionAnswer)
       .where(
@@ -154,7 +155,7 @@ export class DrizzleQuestionAnswerRepository
       )
       .orderBy(asc(questionAnswer.answeredAt))
       .limit(1)
-      .for('update', { skipLocked: true });
+      .for('update', { skipLocked: true }));
 
     return row ? toAnswer(row) : null;
   }
@@ -164,7 +165,7 @@ export class DrizzleQuestionAnswerRepository
     questionId: QuestionId,
     personId: UserId,
   ): Promise<QuestionAnswer | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(questionAnswer)
       .where(
@@ -174,7 +175,7 @@ export class DrizzleQuestionAnswerRepository
           eq(questionAnswer.personId, personId.value),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return row ? toAnswer(row) : null;
   }

@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { ChangeJudging } from '@replays/domain/aggregates/change-judging.aggregate';
@@ -57,7 +58,7 @@ const toChangeJudging = (row: Row): ChangeJudging =>
       claims: row.claims,
       passThreshold: row.passThreshold,
     }),
-    reference: row.referenceRunId ? RunId.of(row.referenceRunId) : null,
+    reference: row.referenceRunId !== null && row.referenceRunId !== '' ? RunId.of(row.referenceRunId) : null,
     queuedAt: row.queuedAt,
     job: row.pending
       ? PendingJob.rehydrate({
@@ -150,7 +151,7 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
     runId: RunId,
     attempt: JudgingAttempt,
   ): Promise<ChangeJudging | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(changeJudging)
       .where(
@@ -159,7 +160,7 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
           eq(changeJudging.attempt, attempt),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return row ? toChangeJudging(row) : null;
   }
@@ -174,7 +175,7 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
   }
 
   async nextDueJob(now: Date): Promise<ChangeJudging | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(changeJudging)
       .where(
@@ -185,7 +186,7 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
       )
       .orderBy(asc(changeJudging.queuedAt))
       .limit(1)
-      .for('update', { skipLocked: true });
+      .for('update', { skipLocked: true }));
 
     return row ? toChangeJudging(row) : null;
   }

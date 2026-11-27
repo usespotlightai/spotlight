@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   Tooltip,
   TooltipContent,
@@ -17,12 +19,12 @@ export function PoolEgress({
 }: {
   slug: string;
   poolKey: string | null;
-}) {
+}): ReactElement {
   const { data: workspace } = useWorkspace(slug);
   const { data: pools } = useRunnerPools(workspace?.id);
   const egress = pools?.find((each) => each.key === poolKey)?.provision?.egress;
 
-  if (!egress) {
+  if (egress === null || egress === undefined || egress === '') {
     return (
       <span className="min-w-0 truncate text-muted-foreground text-xs">
         {PUSH_POOL}

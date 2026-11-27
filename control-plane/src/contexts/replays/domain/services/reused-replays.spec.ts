@@ -12,7 +12,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const SET = aSet(3);
-const [FIRST, SECOND, THIRD] = SET.runs as [RunId, RunId, RunId];
+const [FIRST, SECOND, THIRD] = SET.runs;
 
 const seed = (id = 'replay_seed', repeats = 3) =>
   replayedAs(

@@ -12,6 +12,7 @@ import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo'
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -35,28 +36,30 @@ const OLD = Memory.write({
 const editing = (member = true) => {
   const added: Memory[] = [];
   const memories = {
-    find: async (id: MemoryId) => (id.equals(OLD.id) ? OLD : null),
-    nextHandle: async () => MemoryHandle.of(8),
-    add: vi.fn(async (memory: Memory) => {
+    find: (id: MemoryId) => Promise.resolve(id.equals(OLD.id) ? OLD : null),
+    nextHandle: () => Promise.resolve(MemoryHandle.of(8)),
+    add: vi.fn((memory: Memory) => {
       added.push(memory);
+      return Promise.resolve();
     }),
     save: vi.fn(),
   };
-  const work = {
-    reasoning: async () => null,
-    notesOf: async () => null,
-  } as unknown as WorkPort;
-  const people = {
-    viewerOf: async () => (member ? { workspaceId: WORKSPACE, by: ADA } : null),
-    find: async () => ({ name: 'Ada', image: null }),
-  } as unknown as PeoplePort;
-  const repository = memories as unknown as MemoryRepository;
+  const work = partial<WorkPort>({
+    reasoning: () => Promise.resolve(null),
+    notesOf: () => Promise.resolve(null),
+  });
+  const people = partial<PeoplePort>({
+    viewerOf: () =>
+      Promise.resolve(member ? { workspaceId: WORKSPACE, by: ADA } : null),
+    find: () => Promise.resolve({ name: 'Ada', image: null }),
+  });
+  const repository = partial<MemoryRepository>(memories);
   const handler = new EditMemoryHandler(
     new MemoryAccess(people, work),
-    new TeamMemoryLoader(repository, { ofTeam: async () => [] }),
+    new TeamMemoryLoader(repository, { ofTeam: () => Promise.resolve([]) }),
     repository,
     { generate: () => 'memory_new' },
-    { now: () => NOW, sleep: async () => undefined },
+    { now: () => NOW, sleep: () => Promise.resolve(undefined) },
   );
 
   return {

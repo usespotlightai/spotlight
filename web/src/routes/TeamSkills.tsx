@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useLocation, useParams } from 'react-router';
 
 import { SettingsEmpty } from '@/components/features/settings/SettingsEmpty';
@@ -11,7 +12,7 @@ import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { failed, loading } from '@/lib/query';
 import { pointedSkill } from '@/lib/skills';
 
-export function TeamSkills() {
+export function TeamSkills(): ReactElement | null {
   const { teamId } = useParams();
   const skills = useTeamSkills(teamId);
   const { hash } = useLocation();
@@ -19,7 +20,7 @@ export function TeamSkills() {
 
   useScrollToHash(Boolean(skills.data));
 
-  if (!teamId) {
+  if (teamId === undefined || teamId === '') {
     return null;
   }
 

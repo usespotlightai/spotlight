@@ -79,7 +79,8 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
 
     const existing = await this.registrations.of(teamId, integration);
 
-    return existing?.liveAt(this.clock.now()) && existing.servedBy(server)
+    return existing?.liveAt(this.clock.now()) === true &&
+      existing.servedBy(server)
       ? clientOf(existing)
       : null;
   }
@@ -105,7 +106,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
       return { id: configured.id, secret: configured.secret };
     }
 
-    if (!registration) {
+    if (registration === null || registration === '') {
       throw this.missing(integration, null);
     }
 
@@ -116,7 +117,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     };
     const existing = await this.registrations.of(teamId, integration);
 
-    if (existing?.fits(wanted, this.clock.now())) {
+    if (existing?.fits(wanted, this.clock.now()) === true) {
       return clientOf(existing);
     }
 
@@ -155,7 +156,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
 
       const winner = await this.registrations.of(teamId, integration);
 
-      if (!winner?.servedBy(server)) {
+      if (winner?.servedBy(server) !== true) {
         throw new OAuth2ServerUnavailableError(
           integration.value,
           'registration-failed',

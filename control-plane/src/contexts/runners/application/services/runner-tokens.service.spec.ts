@@ -6,18 +6,19 @@ import {
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const tokensAt = (now: Date) =>
   new RunnerTokens(
-    {
-      findByTokenHash: vi.fn(async (hash: TokenHash) =>
-        hash.equals(hashOf('b')) ? aRunner() : null,
+    partial<RunnerRepository>({
+      findByTokenHash: vi.fn((hash: TokenHash) =>
+        Promise.resolve(hash.equals(hashOf('b')) ? aRunner() : null),
       ),
-    } as unknown as RunnerRepository,
-    { hash: () => hashOf('b').value } as unknown as TokenIssuer,
+    }),
+    partial<TokenIssuer>({ hash: () => hashOf('b').value }),
     { now: () => now, sleep: async () => {} },
   );
 

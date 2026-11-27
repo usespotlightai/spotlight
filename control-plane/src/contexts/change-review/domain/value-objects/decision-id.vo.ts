@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class DecisionId {
-  private readonly kind = 'decision';
+  private readonly kind: string = 'decision';
 
   private constructor(readonly value: string) {}
 

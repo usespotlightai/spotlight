@@ -93,7 +93,9 @@ export class GitHubReviewPosting implements ReviewPostingPort {
     };
   }
 
-  async reply(input: Parameters<ReviewPostingPort['reply']>[0]) {
+  async reply(
+    input: Parameters<ReviewPostingPort['reply']>[0],
+  ): Promise<OnGitHub> {
     return placed(
       await posted(() =>
         this.github.reply({
@@ -107,7 +109,7 @@ export class GitHubReviewPosting implements ReviewPostingPort {
 
   async commentOnFile(
     input: Parameters<ReviewPostingPort['commentOnFile']>[0],
-  ) {
+  ): Promise<OnGitHub> {
     return placed(
       await posted(() =>
         this.github.commentOnFile({
@@ -119,7 +121,7 @@ export class GitHubReviewPosting implements ReviewPostingPort {
     );
   }
 
-  edit(input: Parameters<ReviewPostingPort['edit']>[0]) {
+  edit(input: Parameters<ReviewPostingPort['edit']>[0]): Promise<void> {
     return posted(() =>
       this.github.edit({
         ...onPullRequest(input),
@@ -129,7 +131,7 @@ export class GitHubReviewPosting implements ReviewPostingPort {
     );
   }
 
-  remove(input: Parameters<ReviewPostingPort['remove']>[0]) {
+  remove(input: Parameters<ReviewPostingPort['remove']>[0]): Promise<void> {
     return posted(() =>
       this.github.remove({
         ...onPullRequest(input),

@@ -151,8 +151,10 @@ export class WorkspaceTokenResourceController {
       this.toResponse(id, actor.principal),
     );
 
-    if (issued?.token) {
-      httpResponse.setHeader(WORKSPACE_TOKEN_HEADER, issued.token);
+    const token = issued?.token;
+
+    if (token !== null && token !== undefined && token !== '') {
+      httpResponse.setHeader(WORKSPACE_TOKEN_HEADER, token);
     }
 
     return response;

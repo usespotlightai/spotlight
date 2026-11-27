@@ -2,6 +2,7 @@ import type { DeliveryWorkPort } from '@integrations/application/ports/delivery-
 import type { InboundDeliveryRetention } from '@integrations/application/services/inbound-delivery-retention.service';
 import { DeliveryWorker } from '@integrations/presentation/workers/delivery-worker';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const gate = () => {
@@ -14,19 +15,19 @@ const gate = () => {
 };
 
 const ticking = (processDue: () => Promise<number>) => {
-  const logger = { error: vi.fn() } as unknown as LoggerPort;
-  const work = { processDue: vi.fn(processDue) } as unknown as DeliveryWorkPort;
+  const logger = partial<LoggerPort>({ error: vi.fn() });
+  const work = partial<DeliveryWorkPort>({ processDue: vi.fn(processDue) });
 
-  const retention = {
-    purgeFinished: vi.fn(async () => 0),
-  } as unknown as InboundDeliveryRetention;
+  const retention = partial<InboundDeliveryRetention>({
+    purgeFinished: vi.fn(() => Promise.resolve(0)),
+  });
 
   return { worker: new DeliveryWorker(work, retention, logger), work, logger };
 };
 
 describe('DeliveryWorker', () => {
   it('works off what is waiting when its turn comes', async () => {
-    const { worker, work } = ticking(async () => 2);
+    const { worker, work } = ticking(() => Promise.resolve(2));
 
     await worker.tick();
 
@@ -50,7 +51,7 @@ describe('DeliveryWorker', () => {
   });
 
   it('takes its next turn once the last one is done', async () => {
-    const { worker, work } = ticking(async () => 0);
+    const { worker, work } = ticking(() => Promise.resolve(0));
 
     await worker.tick();
     await worker.tick();
@@ -59,7 +60,7 @@ describe('DeliveryWorker', () => {
   });
 
   it('starts no new turn once it is going down', async () => {
-    const { worker, work } = ticking(async () => 1);
+    const { worker, work } = ticking(() => Promise.resolve(1));
 
     void worker.onModuleDestroy();
     await worker.tick();
@@ -69,9 +70,9 @@ describe('DeliveryWorker', () => {
 
   it('says what went wrong and takes its next turn anyway', async () => {
     let turns = 0;
-    const { worker, logger } = ticking(async () => {
+    const { worker, logger } = ticking(() => {
       turns += 1;
-      throw new Error('the database was away');
+      return Promise.reject(new Error('the database was away'));
     });
 
     await expect(worker.tick()).resolves.toBeUndefined();

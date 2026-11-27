@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import type { useChatMessage } from '@/hooks/useChatMessage';
-import { useChatSend } from '@/hooks/useChatSend';
+import { type ChatSendResult, useChatSend } from '@/hooks/useChatSend';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
 import type { Outgoing } from '@/lib/chat-input';
 
@@ -12,7 +12,8 @@ const forwardSend = (
   latestGeneration: { readonly current: number | undefined },
   restore: () => void,
 ) => {
-  const sentGeneration = shared?.synced ? shared.generation : undefined;
+  const sentGeneration =
+    shared?.synced === true ? shared.generation : undefined;
 
   onSend(
     shared
@@ -51,7 +52,7 @@ export function useChatSending({
   running,
   onStop,
   onSend,
-}: SendingOptions) {
+}: SendingOptions): ChatSendResult {
   const latestGeneration = useRef(shared?.generation);
   const generation = shared?.generation;
   useEffect(() => {

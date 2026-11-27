@@ -14,7 +14,7 @@ import {
   ScrollText,
   Terminal,
 } from 'lucide-react';
-import { createElement } from 'react';
+import { createElement, type ReactElement } from 'react';
 
 import { extensionOf, isCode, type Reference } from '@/lib/chat-input';
 import { cn } from '@/lib/utils';
@@ -62,7 +62,11 @@ const isPlainCode = (reference: Reference): boolean =>
   !BY_EXTENSION.has(extensionOf(reference.name)) &&
   isCode(reference.name);
 
-export function ReferenceIcon({ reference }: { reference: Reference }) {
+export function ReferenceIcon({
+  reference,
+}: {
+  reference: Reference;
+}): ReactElement {
   return createElement(iconOf(reference), {
     'aria-hidden': true,
     className: cn(

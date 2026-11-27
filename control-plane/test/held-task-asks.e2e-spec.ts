@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunReadModel } from '@runs/application/services/run-read-model.service';
 import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/readers/run-facts.reader';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -59,7 +61,7 @@ beforeAll(async () => {
   tasks = new DrizzleTaskRepository(context, { dispatch: async () => {} });
   reader = new DrizzleInboxReader(
     database.db,
-    { findMany: async () => new Map() } as never,
+    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
     new RunReadModel(new DrizzleRunFactsReader(context)),
   );
 
@@ -100,7 +102,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const scopeOf = (viewer: UserId, actsOnTeam = true): InboxScope => ({

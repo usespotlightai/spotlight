@@ -7,7 +7,9 @@ import {
 } from '@replays/domain/value-objects/failure-cause.vo';
 import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import type { ReflectionResult } from '@replays/domain/value-objects/reflection-result';
+import type { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
 import type { SearchStopReason } from '@replays/domain/value-objects/search-stop-reason';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -33,25 +35,26 @@ const reflection = (
   result: ReflectionResult,
   endedSearch: boolean,
   causes: readonly FailureCause[],
-) => ({
-  reflects: true,
-  result,
-  endedSearch,
-  reflectedOn: causes.map((_, at) => taskAt(at)),
-  causes,
-});
+): SearchIteration =>
+  partial<SearchIteration>({
+    reflects: true,
+    result,
+    endedSearch,
+    reflectedOn: causes.map((_, at) => taskAt(at)),
+    causes,
+  });
 
-const proposing = { reflects: false };
+const proposing = partial<SearchIteration>({ reflects: false });
 
 const searchOf = (
   stopReason: SearchStopReason | null,
-  iterations: readonly object[],
+  iterations: readonly SearchIteration[],
 ): Search =>
-  ({
+  partial<Search>({
     stopReason,
     iterations,
     workspaceId: WorkspaceId.of('ws_1'),
-  }) as unknown as Search;
+  });
 
 const findings = () => new SearchFindings(new FakeSuppliers().trialableRuns);
 

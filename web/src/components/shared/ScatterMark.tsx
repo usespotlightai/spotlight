@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 export type MarkShape = 'circle' | 'diamond' | 'square';
 
 const SIZE = 4;
@@ -16,7 +17,7 @@ export function ScatterMark({
   fill,
   shape,
   hollow = false,
-}: ScatterMarkProps) {
+}: ScatterMarkProps): ReactElement | null {
   if (cx === undefined || cy === undefined) {
     return null;
   }

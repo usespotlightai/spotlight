@@ -4,7 +4,7 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 const STEP_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export class HookStepName {
-  private readonly kind = 'hook-step-name';
+  private readonly kind: string = 'hook-step-name';
 
   private constructor(readonly value: string) {}
 

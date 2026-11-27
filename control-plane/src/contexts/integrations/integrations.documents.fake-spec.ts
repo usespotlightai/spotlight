@@ -11,11 +11,13 @@ export const documentsContaining = (
 
   return {
     stored,
-    withHash: async (hash) => withHash(hash.value),
-    save: async (document) => {
+    withHash: (hash) => Promise.resolve(withHash(hash.value)),
+    save: (document) => {
       if (!withHash(document.hash.value)) {
         stored.push(document);
       }
+
+      return Promise.resolve();
     },
   };
 };
@@ -24,6 +26,9 @@ export const operationsContaining = (
   ...documents: SpecDocument[]
 ): OperationCache =>
   new OperationCache({
-    operation: async (hash, name) =>
-      documents.find((each) => each.hash.equals(hash))?.operation(name) ?? null,
+    operation: (hash, name) =>
+      Promise.resolve(
+        documents.find((each) => each.hash.equals(hash))?.operation(name) ??
+          null,
+      ),
   });

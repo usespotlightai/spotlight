@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { MemberRole } from '@/components/features/settings/MemberRole';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { MemberResponseDto } from '@/lib/api';
@@ -16,11 +18,13 @@ export function TeamMemberRow({
   onOffer,
   onChange,
   pending,
-}: TeamMemberRowProps) {
+}: TeamMemberRowProps): ReactElement {
   return (
     <div className="flex min-h-12 items-center gap-3 px-4 py-2">
       <Avatar size="sm">
-        {member.image && <AvatarImage src={member.image} alt="" />}
+        {member.image !== null && member.image !== '' && (
+          <AvatarImage src={member.image} alt="" />
+        )}
         <AvatarFallback>{initialsOf(member.name)}</AvatarFallback>
       </Avatar>
 

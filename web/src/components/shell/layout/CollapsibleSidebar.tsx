@@ -1,4 +1,10 @@
-import { type ReactNode, useId, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useId,
+  useRef,
+  useState,
+  type ReactElement,
+} from 'react';
 
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { SidebarAside } from '@/components/shell/layout/SidebarAside';
@@ -55,7 +61,9 @@ type CollapsibleSidebarProps = {
   children?: ReactNode;
 };
 
-export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
+export function CollapsibleSidebar({
+  children,
+}: CollapsibleSidebarProps): ReactElement {
   const [closing, setClosing] = useState(false);
   const [leaving, setLeaving] = useSettling<true>();
   const asideRef = useRef<HTMLElement | null>(null);
@@ -101,7 +109,8 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
     narrow,
   });
 
-  useSidebarKey(() => setCollapsed(!collapsed), Boolean(children));
+  const hasSidebar = Boolean(children);
+  useSidebarKey(() => setCollapsed(!collapsed), hasSidebar);
 
   const closes = (wanted: number, velocity: number) =>
     wanted < CLOSES_AT_PX ||
@@ -135,7 +144,7 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
 
   return (
     <>
-      {children && (
+      {hasSidebar && (
         <SidebarPeekLayer
           collapsed={collapsed}
           docking={docking}
@@ -209,7 +218,7 @@ export function CollapsibleSidebar({ children }: CollapsibleSidebarProps) {
         narrow={narrow}
         desktop={desktop}
         coarse={touch}
-        disabled={!children}
+        disabled={!hasSidebar}
         peekIntent={peek.peekIntent}
         onToggle={() => {
           if (!narrow) {

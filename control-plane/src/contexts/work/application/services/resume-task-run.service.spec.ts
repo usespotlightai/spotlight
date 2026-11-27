@@ -1,4 +1,5 @@
 import type { RunResumption } from '@runs/application/ports/runs.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -22,7 +23,7 @@ import { describe, expect, it } from 'vitest';
 
 const RUN = RunId.of('run_1');
 const TEAM = TeamId.of('team_1');
-const LINE = { teamId: TEAM } as unknown as LineMap;
+const LINE = partial<LineMap>({ teamId: TEAM });
 const ISSUE = Tool.of('sentry.get-issue');
 const LINEAR = Tool.of('linear.get-issue');
 
@@ -94,42 +95,48 @@ const resuming = ({
   const warned: string[] = [];
   let open = false;
   const runs = recordingRuns({
-    resume: async () => {
+    resume: () => {
       steps.push(open ? 'resume in transaction' : 'resume');
-      return resumption;
+      return Promise.resolve(resumption);
     },
   });
   const dispatches: DispatchRepository = {
-    find: async () => {
+    find: () => {
       steps.push(open ? 'read in transaction' : 'read');
       reads += 1;
-      return dispatchedWith(before);
+      return Promise.resolve(dispatchedWith(before));
     },
-    add: async () => undefined,
-    save: async (each) => {
+    add: () => Promise.resolve(undefined),
+    save: (each) => {
       steps.push(open ? 'save in transaction' : 'save');
       if (conflicts > 0) {
         conflicts -= 1;
-        throw new DispatchVersionConflictError(RUN.value);
+        return Promise.reject(new DispatchVersionConflictError(RUN.value));
       }
       saved.push(each);
+
+      return Promise.resolve();
     },
   };
   const service = new ResumeTaskRun(
     runs,
     dispatches,
     new TeamIntegrations({
-      provided: async (_team, tools) =>
-        tools
-          .filter((each) => !undescribed.some((tool) => tool.value === each))
-          .map((each) => declared(Tool.of(each))),
-      toolsOnAnyMark: async () => [],
-      toolsOnMarks: async (_team, kinds) => {
+      provided: (_team, tools) =>
+        Promise.resolve(
+          tools
+            .filter((each) => !undescribed.some((tool) => tool.value === each))
+            .map((each) => declared(Tool.of(each))),
+        ),
+      toolsOnAnyMark: () => Promise.resolve([]),
+      toolsOnMarks: (_team, kinds) => {
         if (lookupFails) {
-          throw new Error('Integrations unavailable');
+          return Promise.reject(new Error('Integrations unavailable'));
         }
         asked.push([...kinds]);
-        return [...onMarks, ...undescribed].map((each) => each.value);
+        return Promise.resolve(
+          [...onMarks, ...undescribed].map((each) => each.value),
+        );
       },
     }),
     {
@@ -151,10 +158,10 @@ const resuming = ({
       error: () => undefined,
     },
   );
-  const task = {
+  const task = partial<Task>({
     id: TaskId.of('task_1'),
     marks: [Mark.of('sentry.issue', '158744890')],
-  } as unknown as Task;
+  });
   const resume = (line: LineMap | null = LINE) =>
     service.resume({
       task,

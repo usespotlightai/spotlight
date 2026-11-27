@@ -27,7 +27,9 @@ export class RepositoryName {
   }
 
   static optional(raw: string | null | undefined): RepositoryName | null {
-    return raw?.trim() ? RepositoryName.of(raw) : null;
+    return raw !== null && raw !== undefined && raw.trim() !== ''
+      ? RepositoryName.of(raw)
+      : null;
   }
 
   static ofPullRequest(pullRequest: PullRequestUrl): RepositoryName | null {

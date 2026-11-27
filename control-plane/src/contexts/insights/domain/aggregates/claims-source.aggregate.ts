@@ -7,6 +7,7 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import type { SourceCommit } from '@shared-kernel/domain/value-objects/source-commit.vo';
@@ -50,9 +51,9 @@ export interface ClaimsSourceFields {
 const mergingOf = (
   found: readonly CommitPullRequest[],
 ): SourcePullRequest | null => {
-  const picked = found.find((each) => each.merged) ?? found[0];
+  const picked = found.find((each) => each.merged) ?? firstOf(found);
 
-  return picked
+  return picked !== undefined
     ? { number: picked.number, url: picked.url, title: picked.title }
     : null;
 };
@@ -205,7 +206,7 @@ export class ClaimsSource
 
     const lookups = this.fields.lookups + 1;
     const merging = mergingOf(found);
-    const delay = LOOKUP_DELAYS_MS[lookups - 1];
+    const delay = itemAt(LOOKUP_DELAYS_MS, lookups - 1);
 
     if (merging || delay === undefined) {
       return this.with({ lookups }).resolved(merging, at);

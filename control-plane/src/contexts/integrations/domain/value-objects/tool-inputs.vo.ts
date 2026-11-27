@@ -1,14 +1,17 @@
 import { InvalidToolInputsError } from '@integrations/domain/exceptions/invalid-tool-inputs.error';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
-import { type JsonValue, sameJson } from '@shared-kernel/domain/json-value';
+import {
+  isJsonObject,
+  isJsonValue,
+  type JsonValue,
+  sameJson,
+} from '@shared-kernel/domain/json-value';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 type Values = Readonly<Record<string, JsonValue>>;
 
 const fieldsOf = (written: unknown): Readonly<Record<string, unknown>> =>
-  written && typeof written === 'object' && !Array.isArray(written)
-    ? (written as Record<string, unknown>)
-    : {};
+  isJsonObject(written) ? written : {};
 
 const isUnset = (value: unknown): boolean =>
   value === undefined || value === null || value === '';
@@ -58,7 +61,9 @@ export class ToolInputs {
         );
       }
 
-      values[input.name] = coerced as JsonValue;
+      if (isJsonValue(coerced)) {
+        values[input.name] = coerced;
+      }
     }
 
     return new ToolInputs(values);

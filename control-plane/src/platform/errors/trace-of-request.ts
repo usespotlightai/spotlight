@@ -10,7 +10,7 @@ export function traceOfRequest(
 ): void {
   const traceId = traceIdOf(req);
 
-  if (traceId) {
+  if (traceId !== undefined && traceId !== '') {
     for (const scope of [getIsolationScope(), getCurrentScope()]) {
       scope.setPropagationContext({
         ...scope.getPropagationContext(),

@@ -10,11 +10,11 @@ export function useCurrentTeam(teams: readonly Team[]): Team | null {
   const here = inTeam ?? inSettings ?? null;
   const [last, setLast] = useState<string | null>(null);
 
-  if (here && here !== last) {
+  if (here !== null && here !== '' && here !== last) {
     setLast(here);
   }
 
   const wanted = here ?? last;
 
-  return teams.find((team) => team.id === wanted) ?? teams[0] ?? null;
+  return teams.find((team) => team.id === wanted) ?? teams.at(0) ?? null;
 }

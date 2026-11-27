@@ -10,6 +10,7 @@ import {
   SEARCH_CONCURRENCY,
   SearchBudget,
 } from '@replays/domain/value-objects/search-budget.vo';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -286,10 +287,11 @@ describe('SearchBudget', () => {
     const split = splitOf(13);
     const budgetOf = (ceiling: number) =>
       aBudget({ iterations: 10, perIteration: 5, ceiling });
-    const lowest = Array.from(
-      { length: 10_000 },
-      (_, at) => (at + 1) / 100,
-    ).find((ceiling) => budgetOf(ceiling).affords(split, false)) as number;
+    const lowest = present(
+      Array.from({ length: 10_000 }, (_, at) => (at + 1) / 100).find(
+        (ceiling) => budgetOf(ceiling).affords(split, false),
+      ),
+    );
 
     expect(lowest).toBeGreaterThan(0.01);
     expect(budgetOf(lowest).affords(split, true)).toBe(false);

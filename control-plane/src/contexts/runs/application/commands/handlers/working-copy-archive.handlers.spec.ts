@@ -53,8 +53,8 @@ const setUpWith = (input: {
   );
   const restored = new RestoredArchives(archives, store);
   const stores: WorkingCopyStoresPort = {
-    ofRunner: async () => keptStore,
-    ofSandbox: async () => keptStore,
+    ofRunner: () => Promise.resolve(keptStore),
+    ofSandbox: () => Promise.resolve(keptStore),
   };
 
   return {
@@ -138,8 +138,10 @@ describe('archiving a working copy between runs', () => {
 
   it('keeps no archive the store cannot take', async () => {
     const { grant, archives, store } = setUp();
-    store.grantUpload = async () => {
-      throw new InvalidWorkingCopyArchiveError('cannot be stored here');
+    store.grantUpload = () => {
+      return Promise.reject(
+        new InvalidWorkingCopyArchiveError('cannot be stored here'),
+      );
     };
 
     await expect(

@@ -24,6 +24,7 @@ import type { SearchIteration } from '@replays/domain/value-objects/search-itera
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const UNBRIEFED: SearchRunQueued = { queued: false };
@@ -73,17 +74,18 @@ export class DispatchSearchIteration {
     const briefing = station
       ? await this.briefingFor(search, iteration, station)
       : null;
-    const queued = briefing
-      ? await this.searchRuns.dispatchSearch({
-          run,
-          searchId: search.id,
-          iteration: iteration.number,
-          lineId: search.station.lineId,
-          stationId: search.station.stationId,
-          agent,
-          briefing,
-        })
-      : UNBRIEFED;
+    const queued =
+      briefing !== null && briefing !== ''
+        ? await this.searchRuns.dispatchSearch({
+            run,
+            searchId: search.id,
+            iteration: iteration.number,
+            lineId: search.station.lineId,
+            stationId: search.station.stationId,
+            agent,
+            briefing,
+          })
+        : UNBRIEFED;
     const stationLeft =
       !queued.queued && (!station || !(await this.stationOf(search)));
     const stillWanted = await this.transaction.inTransaction(async () => {
@@ -120,7 +122,7 @@ export class DispatchSearchIteration {
     return this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(searchId);
 
-      if (!search?.wantedIteration?.awaitsRequests) {
+      if (search?.wantedIteration?.awaitsRequests !== true) {
         return;
       }
 
@@ -143,7 +145,9 @@ export class DispatchSearchIteration {
     iteration: SearchIteration,
     station: StationView,
   ): Promise<string | null> {
-    const [seed] = await this.candidates.findMany([search.seed.candidateId]);
+    const seed = firstOf(
+      await this.candidates.findMany([search.seed.candidateId]),
+    );
 
     if (!seed) {
       return null;
@@ -225,7 +229,7 @@ export class DispatchSearchIteration {
         ? search?.iterationOf(reflection.runId)
         : null;
 
-      if (!search || !current?.ownsActiveRun || !current.runId) {
+      if (!search || current?.ownsActiveRun !== true || !current.runId) {
         return null;
       }
       if (current.incumbent) {
@@ -248,7 +252,7 @@ export class DispatchSearchIteration {
 
       await this.searches.save(reflecting);
 
-      return after?.ownsActiveRun && after.incumbent
+      return after?.ownsActiveRun === true && after.incumbent
         ? { incumbent: after.incumbent, tasks: after.reflectedOn }
         : null;
     });

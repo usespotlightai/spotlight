@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { StepBody } from '@/components/features/inbox/conversation/StepBody';
 import { StepHead } from '@/components/features/inbox/conversation/StepHead';
 import { Collapsible } from '@/components/shared/Collapsible';
@@ -15,7 +17,11 @@ type ExpandableStepProps = {
   focused: boolean;
 };
 
-export function ExpandableStep({ step, live, focused }: ExpandableStepProps) {
+export function ExpandableStep({
+  step,
+  live,
+  focused,
+}: ExpandableStepProps): ReactElement {
   const { open, toggle } = useOpenWhenFocused(focused);
   const shown = shownStep(step);
   const expandable = Boolean(shown.body);

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { type Expansion, useExpandingRow } from '@/hooks/useExpandingRow';
 import { cn } from '@/lib/utils';
@@ -9,7 +9,11 @@ type ExpandingRowProps = {
   children: (expansion: Expansion) => ReactNode;
 };
 
-export function ExpandingRow({ slot, className, children }: ExpandingRowProps) {
+export function ExpandingRow({
+  slot,
+  className,
+  children,
+}: ExpandingRowProps): ReactElement {
   const { row, expansion } = useExpandingRow();
   const { expanded, clamped, expandable } = expansion;
 

@@ -56,6 +56,7 @@ import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -119,7 +120,7 @@ export class StationChangeTests {
     const station = await this.lines.station(lineId, stationId);
 
     if (
-      !station?.workspaceId.equals(request.workspaceId) ||
+      station?.workspaceId.equals(request.workspaceId) !== true ||
       !station.teamId.equals(request.teamId)
     ) {
       return this.refused('station-gone');
@@ -130,7 +131,7 @@ export class StationChangeTests {
     if (!live) {
       return this.refused('not-replayable');
     }
-    if (!live.search?.enabled) {
+    if (live.search?.enabled !== true) {
       return this.refused('search-off');
     }
 
@@ -152,7 +153,9 @@ export class StationChangeTests {
     request: StationChangeTestRequest,
     station: StationView,
   ): Promise<StationChangeTestOutcome> {
-    const [seed] = await this.candidates.findMany([active.seed.candidateId]);
+    const seed = firstOf(
+      await this.candidates.findMany([active.seed.candidateId]),
+    );
 
     if (!seed) {
       return this.refused('station-gone');
@@ -321,7 +324,10 @@ export class StationChangeTests {
       const outcome = await this.transaction.inTransaction(async () => {
         const search = await this.searches.locked(seen.id);
 
-        if (!search?.takesRequests || search.requestIteration !== iteration) {
+        if (
+          search?.takesRequests !== true ||
+          search.requestIteration !== iteration
+        ) {
           return this.refused('search-running');
         }
 
@@ -395,7 +401,7 @@ export class StationChangeTests {
       return null;
     }
 
-    return search.openingRequest?.equals(earlier.id)
+    return search.openingRequest?.equals(earlier.id) === true
       ? { outcome: 'started', ...scopeOf(search) }
       : {
           outcome: 'joined',
@@ -418,7 +424,9 @@ export class StationChangeTests {
         : request.fields,
     );
     const address =
-      teamKey && StationPath.of(teamKey, station.lineKey, station.key);
+      teamKey !== null && teamKey !== ''
+        ? StationPath.of(teamKey, station.lineKey, station.key)
+        : null;
 
     if (!validated || !address) {
       return { ok: false, outcome: this.refused('station-gone') };

@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class PushDiffId {
-  private readonly kind = 'push-diff';
+  private readonly kind: string = 'push-diff';
 
   private constructor(readonly value: string) {}
 

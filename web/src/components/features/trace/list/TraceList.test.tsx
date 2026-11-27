@@ -1,34 +1,31 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import {
-  type Location,
-  MemoryRouter,
-  Route,
-  Routes,
-  useLocation,
-} from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TraceList } from '@/components/features/trace/list/TraceList';
 import type { InsightsTrace, RunFilter } from '@/lib/insights';
 
 const traces = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useInsightsTraces', () => ({
   useInsightsTraces: () => ({
-    data: traces() && {
-      range: '7d',
-      from: '2026-08-22T12:00:00.000Z',
-      to: '2026-08-29T12:00:00.000Z',
-      volume: [],
-      traces: traces(),
-      matched: 1,
-      truncated: false,
-      people: [{ personId: 'user_ada', name: 'Ada Lovelace' }],
-    },
+    data:
+      traces() === undefined
+        ? undefined
+        : {
+            range: '7d',
+            from: '2026-08-22T12:00:00.000Z',
+            to: '2026-08-29T12:00:00.000Z',
+            volume: [],
+            traces: traces(),
+            matched: 1,
+            truncated: false,
+            people: [{ personId: 'user_ada', name: 'Ada Lovelace' }],
+          },
     isPending: traces() === undefined,
     errorUpdateCount: failing() ? 1 : 0,
     isFetching: false,
@@ -88,9 +85,13 @@ const traced: InsightsTrace = {
 const everyTrace = vi.fn();
 
 function HandedOver() {
-  const { state } = useLocation() as Location<{ traces: unknown }>;
+  const state: unknown = useLocation().state;
+  const traces =
+    typeof state === 'object' && state !== null && 'traces' in state
+      ? state.traces
+      : undefined;
 
-  return <pre>{JSON.stringify(state.traces)}</pre>;
+  return <pre>{JSON.stringify(traces)}</pre>;
 }
 
 const showing = (filter: RunFilter = {}, filters?: ReactNode) =>
@@ -183,7 +184,7 @@ describe('TraceList', () => {
       screen.getByRole('button', { name: 'Discuss with the agent' }),
     );
 
-    expect(JSON.parse(screen.getByText(/task_1/).textContent ?? '[]')).toEqual([
+    expect(JSON.parse(screen.getByText(/task_1/).textContent)).toEqual([
       { taskId: 'task_1', title: 'Drain the stuck retry queues' },
     ]);
   });

@@ -1,4 +1,5 @@
 import { ArrowLeftRight } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { RowActions } from '@/components/shared/RowActions';
 import { useConnectIntegration } from '@/hooks/api/useConnectIntegration';
@@ -12,7 +13,7 @@ type TeamAccountActionsProps = {
 export function TeamAccountActions({
   integration,
   teamId,
-}: TeamAccountActionsProps) {
+}: TeamAccountActionsProps): ReactElement {
   const connect = useConnectIntegration(teamId);
 
   return (

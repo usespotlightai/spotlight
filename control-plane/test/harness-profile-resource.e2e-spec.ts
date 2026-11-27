@@ -33,6 +33,7 @@ import {
   served,
   TEST_USER_HEADER,
 } from './support/app';
+import { bodyOf } from './support/body';
 import { definitionOf } from './support/line-definition';
 import {
   conformsAsResource,
@@ -312,11 +313,13 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     const seen = await read.read(made.body.id);
     const refused = await read.delete(made.body.id, made.body.version);
     const removed = await configure.delete(made.body.id, made.body.version);
-    const changes = (
+    const changes = bodyOf<
+      { resource: string; action: string; by: { kind: string } }[]
+    >(
       await as(fixture.admin).read(
         `/api/workspaces/${teamId}/configuration-changes`,
-      )
-    ).body as { resource: string; action: string; by: { kind: string } }[];
+      ),
+    );
 
     expect([made.status, seen.status, removed.status]).toEqual([201, 200, 204]);
     expect([forbidden.status, refused.status]).toEqual([403, 403]);

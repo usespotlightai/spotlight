@@ -1,16 +1,26 @@
 import { useState } from 'react';
 
 import { useEditMemory } from '@/hooks/api/useEditMemory';
-import { useMemoryDraft } from '@/hooks/useMemoryDraft';
+import { type MemoryDraftResult, useMemoryDraft } from '@/hooks/useMemoryDraft';
 import type { LineResponseDto } from '@/lib/api';
 import type { TeamMemory } from '@/lib/memory';
+
+type MemoryEditingResult = {
+  editing: boolean;
+  draft: MemoryDraftResult;
+  saving: boolean;
+  unsaveable: boolean;
+  start: () => void;
+  cancel: () => void;
+  save: () => void;
+};
 
 export function useMemoryEditing(
   teamId: string,
   memory: TeamMemory,
   lines: readonly LineResponseDto[],
   open: boolean,
-) {
+): MemoryEditingResult {
   const [editing, setEditing] = useState(false);
   const draft = useMemoryDraft(memory, lines);
   const edit = useEditMemory();

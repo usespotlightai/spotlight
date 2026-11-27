@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -43,11 +44,13 @@ const row = (change: Partial<EndedRunRow> = {}): EndedRunRow => ({
 const NO_DISPATCHES: DispatchRepository = {
   add: async () => {},
   save: async () => {},
-  find: async () => null,
+  find: () => Promise.resolve(null),
 };
 
 const readingOnly = (found: EndedRunRow): StationRunReaderPort =>
-  ({ endedRun: async () => found }) as unknown as StationRunReaderPort;
+  partial<StationRunReaderPort>({
+    endedRun: () => Promise.resolve(found),
+  });
 
 describe('StationRuns.ended', () => {
   it('names the harness, model, effort, profile, repositories and skills the run was configured with', async () => {
@@ -177,30 +180,31 @@ const unfinishedRow = (
 describe('StationRuns.unfinished', () => {
   it('gives each unfinished run its progress, and leaves out runs that wait for a person', async () => {
     const stations = new StationRuns(
-      {
-        unfinishedOfTeam: async () => [
-          unfinishedRow('run_queued'),
-          unfinishedRow('run_claimed', {
-            progress: 'in-progress',
-            startedAt: STARTED,
-            config: {
-              prompt: null,
-              harness: 'codex',
-              model: 'gpt-5',
-              effort: null,
-              profile: null,
-              image: null,
-              repositories: [],
-              skills: [],
-              tools: [],
-              decisions: false,
-              memories: false,
-            },
-          }),
-          unfinishedRow('run_stopping', { progress: 'stopping' }),
-          unfinishedRow('run_suspended', { progress: null }),
-        ],
-      } as unknown as StationRunReaderPort,
+      partial<StationRunReaderPort>({
+        unfinishedOfTeam: () =>
+          Promise.resolve([
+            unfinishedRow('run_queued'),
+            unfinishedRow('run_claimed', {
+              progress: 'in-progress',
+              startedAt: STARTED,
+              config: {
+                prompt: null,
+                harness: 'codex',
+                model: 'gpt-5',
+                effort: null,
+                profile: null,
+                image: null,
+                repositories: [],
+                skills: [],
+                tools: [],
+                decisions: false,
+                memories: false,
+              },
+            }),
+            unfinishedRow('run_stopping', { progress: 'stopping' }),
+            unfinishedRow('run_suspended', { progress: null }),
+          ]),
+      }),
       NO_DISPATCHES,
     );
 
@@ -222,37 +226,38 @@ describe('StationRuns.unfinished', () => {
 describe('StationRuns.traced', () => {
   it('shortens what a task asks and what a run wrote, and leaves out empty notes', async () => {
     const stations = new StationRuns(
-      {
-        traced: async () => ({
-          tasks: [
-            {
-              taskId: 'task_1',
-              title: 'Fix the queue',
-              description: `  ${'a'.repeat(400)}  `,
-              stationId: 'station_1',
-            },
-            {
-              taskId: 'task_2',
-              title: 'Tidy up',
-              description: '   ',
-              stationId: 'station_1',
-            },
-          ],
-          stations: [
-            {
-              stationId: 'station_1',
-              name: 'Implementation',
-              color: '#edc12b',
-              position: 0,
-              stations: 3,
-            },
-          ],
-          notes: new Map([
-            ['run_1', ' Done '],
-            ['run_2', '  '],
-          ]),
-        }),
-      } as unknown as StationRunReaderPort,
+      partial<StationRunReaderPort>({
+        traced: () =>
+          Promise.resolve({
+            tasks: [
+              {
+                taskId: 'task_1',
+                title: 'Fix the queue',
+                description: `  ${'a'.repeat(400)}  `,
+                stationId: 'station_1',
+              },
+              {
+                taskId: 'task_2',
+                title: 'Tidy up',
+                description: '   ',
+                stationId: 'station_1',
+              },
+            ],
+            stations: [
+              {
+                stationId: 'station_1',
+                name: 'Implementation',
+                color: '#edc12b',
+                position: 0,
+                stations: 3,
+              },
+            ],
+            notes: new Map([
+              ['run_1', ' Done '],
+              ['run_2', '  '],
+            ]),
+          }),
+      }),
       NO_DISPATCHES,
     );
 
@@ -284,16 +289,18 @@ describe('StationRuns.taskRunOf', () => {
     subject: Parameters<typeof Dispatch.ordered>[0]['subject'],
   ): DispatchRepository => ({
     ...NO_DISPATCHES,
-    find: async () =>
-      Dispatch.ordered({
-        id: RunId.of('run_1'),
-        workspaceId: WorkspaceId.of('ws_1'),
-        teamId: TeamId.of('team_1'),
-        subject,
-        configuredAs: null,
-        order: runOrderOf(RunId.of('run_1')),
-        now: QUEUED,
-      }),
+    find: () =>
+      Promise.resolve(
+        Dispatch.ordered({
+          id: RunId.of('run_1'),
+          workspaceId: WorkspaceId.of('ws_1'),
+          teamId: TeamId.of('team_1'),
+          subject,
+          configuredAs: null,
+          order: runOrderOf(RunId.of('run_1')),
+          now: QUEUED,
+        }),
+      ),
   });
 
   it('names the task and team of a run ordered for a task', async () => {

@@ -1,4 +1,5 @@
 import { MoreHorizontal } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
@@ -10,7 +11,7 @@ type RowActionsTriggerProps = {
 export function RowActionsTrigger({
   label,
   disabled = false,
-}: RowActionsTriggerProps) {
+}: RowActionsTriggerProps): ReactElement {
   return (
     <DropdownMenuTrigger
       aria-label={label}

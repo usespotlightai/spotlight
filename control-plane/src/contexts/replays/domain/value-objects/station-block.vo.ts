@@ -28,7 +28,15 @@ export class StationBlock {
   }
 
   get value(): Block {
-    return JSON.parse(this.written) as Block;
+    const parsed: unknown = JSON.parse(this.written);
+
+    if (!isBlock(parsed)) {
+      throw new InvalidCandidateError(
+        'must contain a station block with its key',
+      );
+    }
+
+    return parsed;
   }
 
   overlaidWith(fields: Block): Block {

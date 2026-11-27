@@ -1,8 +1,15 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import {
+  type QueryKeyWithDataTag,
+  type UnusedSkipTokenOptions,
+  queryOptions,
+  useQuery,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
-import { usePagedList } from '@/hooks/api/usePagedList';
-import { listTasks, readTask } from '@/lib/api';
+import { type PagedList, usePagedList } from '@/hooks/api/usePagedList';
+import { listTasks, readTask, type TaskResponseDto } from '@/lib/api';
 import { liveStaleTime, useLivePoll } from '@/lib/live';
+import { required } from '@/lib/required';
 
 export const taskKeys = {
   all: ['tasks'] as const,
@@ -15,20 +22,32 @@ export const taskKeys = {
 
 const POLL_MS = 5_000;
 
-export const tasksQuery = (teamId: string | undefined) =>
+type TasksKey = ReturnType<typeof taskKeys.forTeam>;
+
+type TasksQuery = UnusedSkipTokenOptions<
+  TaskResponseDto[],
+  Error,
+  TaskResponseDto[],
+  TasksKey
+> &
+  QueryKeyWithDataTag<TasksKey, TaskResponseDto[]>;
+
+export const tasksQuery = (teamId: string | undefined): TasksQuery =>
   queryOptions({
     queryKey: taskKeys.forTeam(teamId),
     enabled: Boolean(teamId),
     queryFn: async () => {
       const { data } = await listTasks({
-        path: { teamId: teamId as string },
+        path: { teamId: required(teamId) },
         throwOnError: true,
       });
       return data.items;
     },
   });
 
-export function useTasks(teamId: string | undefined) {
+export function useTasks(
+  teamId: string | undefined,
+): UseQueryResult<TaskResponseDto[]> {
   const livePollMs = useLivePoll(POLL_MS);
 
   return useQuery({
@@ -42,14 +61,14 @@ export function useCompletedTasks(
   teamId: string | undefined,
   lineId: string | undefined,
   enabled: boolean,
-) {
+): PagedList<TaskResponseDto> {
   return usePagedList({
     queryKey: taskKeys.completed(teamId, lineId),
-    enabled: enabled && Boolean(teamId && lineId),
+    enabled: enabled && Boolean(teamId) && Boolean(lineId),
     keyOf: (task) => task.id,
     fetchPage: async (before?: string) => {
       const { data } = await listTasks({
-        path: { teamId: teamId as string },
+        path: { teamId: required(teamId) },
         query: { state: 'completed-station', lineId, before },
         throwOnError: true,
       });
@@ -61,17 +80,17 @@ export function useCompletedTasks(
 export function useTask(
   teamId: string | undefined,
   taskId: string | undefined,
-) {
+): UseQueryResult<TaskResponseDto> {
   const livePollMs = useLivePoll(POLL_MS);
 
   return useQuery({
     queryKey: taskKeys.one(teamId, taskId),
-    enabled: Boolean(teamId && taskId),
+    enabled: Boolean(teamId) && Boolean(taskId),
     refetchInterval: livePollMs,
     staleTime: liveStaleTime,
     queryFn: async () => {
       const { data } = await readTask({
-        path: { teamId: teamId as string, taskId: taskId as string },
+        path: { teamId: required(teamId), taskId: required(taskId) },
         throwOnError: true,
       });
       return data;

@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -56,24 +57,23 @@ const owning = (pullRequest: PullRequestUrl) =>
 
 const lookingUp = (markedTasks: readonly Task[]) =>
   new WorkTaskLookup(
-    {} as TaskLookupReaderPort,
-    {
-      owningPullRequest: async (
-        _at: WorkspaceId,
-        pullRequest: PullRequestUrl,
-      ) =>
-        markedTasks.find((each) =>
-          each.pullRequests.some((owned) => owned.equals(pullRequest)),
-        ) ?? null,
-      reviewingPullRequest: async (
-        _at: WorkspaceId,
-        pullRequest: PullRequestUrl,
-      ) =>
-        markedTasks.find(
-          (each) => each.reviewedPullRequest?.url.equals(pullRequest) ?? false,
-        ) ?? null,
-    } as unknown as TaskRepository,
-    { findByStation: async () => line } as unknown as LineMapsPort,
+    partial<TaskLookupReaderPort>({}),
+    partial<TaskRepository>({
+      owningPullRequest: (_at: WorkspaceId, pullRequest: PullRequestUrl) =>
+        Promise.resolve(
+          markedTasks.find((each) =>
+            each.pullRequests.some((owned) => owned.equals(pullRequest)),
+          ) ?? null,
+        ),
+      reviewingPullRequest: (_at: WorkspaceId, pullRequest: PullRequestUrl) =>
+        Promise.resolve(
+          markedTasks.find(
+            (each) =>
+              each.reviewedPullRequest?.url.equals(pullRequest) ?? false,
+          ) ?? null,
+        ),
+    }),
+    partial<LineMapsPort>({ findByStation: () => Promise.resolve(line) }),
   );
 
 describe('WorkTaskLookup, finding the task a pull request belongs to', () => {
@@ -156,15 +156,16 @@ describe('WorkTaskLookup, reading the notes of people on a task', () => {
 
   it('reads the notes of people and the world, and who of the team wrote them, and nothing the stations did', async () => {
     const views = await new WorkTaskLookup(
-      {
-        notesOf: async () => [
-          note(0, Voice.station(RunId.of('run_1')), 'Which bucket?'),
-          note(1, Voice.person(UserId.of('user_1')), 'The archive one.'),
-          note(2, Voice.world(), 'Never retry on a 403.'),
-        ],
-      } as unknown as TaskLookupReaderPort,
-      {} as TaskRepository,
-      {} as LineMapsPort,
+      partial<TaskLookupReaderPort>({
+        notesOf: () =>
+          Promise.resolve([
+            note(0, Voice.station(RunId.of('run_1')), 'Which bucket?'),
+            note(1, Voice.person(UserId.of('user_1')), 'The archive one.'),
+            note(2, Voice.world(), 'Never retry on a 403.'),
+          ]),
+      }),
+      partial<TaskRepository>({}),
+      partial<LineMapsPort>({}),
     ).notesOf(TaskId.of('task_1'));
 
     expect(views).toEqual([

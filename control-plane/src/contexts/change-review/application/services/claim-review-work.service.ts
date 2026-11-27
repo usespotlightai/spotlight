@@ -87,11 +87,11 @@ export class ClaimReviewWork implements ReviewWorkPort {
     return this.transaction.inTransaction(async () =>
       this.firstClaimed(
         reviewWorkOrder(
-          (await this.diffs.reservedFor(runner)).filter((each) =>
-            each.reservation?.isActiveAt(now),
+          (await this.diffs.reservedFor(runner)).filter(
+            (each) => each.reservation?.isActiveAt(now) === true,
           ),
-          (await this.checks.reservedFor(runner)).filter((each) =>
-            each.reservation?.isActiveAt(now),
+          (await this.checks.reservedFor(runner)).filter(
+            (each) => each.reservation?.isActiveAt(now) === true,
           ),
         ),
         runner,
@@ -184,7 +184,7 @@ export class ClaimReviewWork implements ReviewWorkPort {
         StackCheckId.of(ChangeStackId.of(work.id.value), work.recheck),
       );
 
-      if (!existing?.beingCheckedBy(runner, now)) {
+      if (existing?.beingCheckedBy(runner, now) !== true) {
         return;
       }
 
@@ -239,7 +239,10 @@ export class ClaimReviewWork implements ReviewWorkPort {
         StackCheckId.of(ChangeStackId.of(work.id.value), work.recheck),
       );
 
-      if (!check?.beingCheckedBy(runner, now) || !check.checkableAt(now)) {
+      if (
+        check?.beingCheckedBy(runner, now) !== true ||
+        !check.checkableAt(now)
+      ) {
         return 'stop';
       }
 

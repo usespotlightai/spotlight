@@ -1,6 +1,7 @@
 import { Radio } from '@base-ui/react/radio';
 import { RadioGroup } from '@base-ui/react/radio-group';
 import { type LucideIcon, Monitor, Moon, Sun } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import {
   Tooltip,
@@ -20,7 +21,10 @@ type ThemeToggleProps = {
   onChange: (theme: Theme) => void;
 };
 
-export function ThemeToggle({ theme, onChange }: ThemeToggleProps) {
+export function ThemeToggle({
+  theme,
+  onChange,
+}: ThemeToggleProps): ReactElement {
   const selectedIndex = OPTIONS.findIndex(({ value }) => value === theme);
 
   return (

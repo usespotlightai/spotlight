@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { runnerKeys } from '@/hooks/api/useRunners';
 import { deleteHost } from '@/lib/api';
@@ -8,7 +12,11 @@ type DeleteHostsInput = {
   hostIds: readonly string[];
 };
 
-export function useDeleteHosts() {
+export function useDeleteHosts(): UseMutationResult<
+  void,
+  Error,
+  DeleteHostsInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

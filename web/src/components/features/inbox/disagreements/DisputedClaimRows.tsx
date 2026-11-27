@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { ClaimMarkText } from '@/components/features/runs/judge/ClaimMarkText';
 import { JudgeReasons } from '@/components/features/runs/judge/JudgeReasons';
@@ -22,7 +22,7 @@ export function DisputedClaimRows({
   loading,
   textId,
   children,
-}: DisputedClaimRowsProps) {
+}: DisputedClaimRowsProps): ReactElement {
   return (
     <dl>
       <FactRow wide>

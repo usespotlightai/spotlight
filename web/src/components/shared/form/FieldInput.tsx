@@ -1,8 +1,11 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
-export function FieldInput({ className, ...props }: ComponentProps<'input'>) {
+export function FieldInput({
+  className,
+  ...props
+}: ComponentProps<'input'>): ReactElement {
   return (
     <input
       {...props}

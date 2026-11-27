@@ -1,3 +1,4 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
 import ts from 'typescript';
 
 import { AGGREGATE_TABLE_NAMES } from './aggregate-versions';
@@ -290,12 +291,12 @@ const builderWrites = (file: SourceFile): string[] => {
   const tables = tableBindingsOf(file);
 
   return descendants(file.tree, ts.isCallExpression).flatMap((call) => {
-    const argument = call.arguments[0];
+    const argument = itemAt(call.arguments, 0);
 
     if (
       !ts.isPropertyAccessExpression(call.expression) ||
       !WRITE_METHODS.has(call.expression.name.text) ||
-      !argument
+      argument === undefined
     ) {
       return [];
     }
@@ -344,9 +345,10 @@ const childWritesOf = (
   const written = tablesWrittenIn(file);
 
   return [...written].flatMap((table): Violation[] => {
-    const writers = TABLE_WRITERS[table]?.writers;
+    const writers =
+      table in TABLE_WRITERS ? TABLE_WRITERS[table].writers : undefined;
 
-    if (writers) {
+    if (writers !== undefined) {
       return writers.includes(file.path)
         ? []
         : [

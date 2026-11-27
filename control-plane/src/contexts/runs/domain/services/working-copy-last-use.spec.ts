@@ -9,8 +9,12 @@ const use = (
 ) => ({
   id,
   createdAt: at(times.created),
-  startedAt: times.started ? at(times.started) : null,
-  endedAt: times.ended ? at(times.ended) : null,
+  startedAt:
+    times.started !== undefined && times.started !== ''
+      ? at(times.started)
+      : null,
+  endedAt:
+    times.ended !== undefined && times.ended !== '' ? at(times.ended) : null,
 });
 
 describe('lastUseOf', () => {

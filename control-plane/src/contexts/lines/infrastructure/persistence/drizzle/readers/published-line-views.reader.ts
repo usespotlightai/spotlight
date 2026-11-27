@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { LineView } from '@lines/application/contracts/line-view.contract';
 import { LineViewMapper } from '@lines/application/mappers/line-view.mapper';
 import {
@@ -29,13 +30,13 @@ export class DrizzlePublishedLineViews implements PublishedLineViewsPort {
   ) {}
 
   async withId(lineId: LineId): Promise<LineView | null> {
-    const [found] = await this.viewsWhere(eq(line.id, lineId.value));
+    const found = firstOf(await this.viewsWhere(eq(line.id, lineId.value)));
 
     return found ?? null;
   }
 
   async atStation(stationId: StationId): Promise<LineView | null> {
-    const [found] = await this.viewsWhere(
+    const found = firstOf(await this.viewsWhere(
       inArray(
         line.id,
         this.context.db
@@ -43,7 +44,7 @@ export class DrizzlePublishedLineViews implements PublishedLineViewsPort {
           .from(station)
           .where(eq(station.id, stationId.value)),
       ),
-    );
+    ));
 
     return found ?? null;
   }

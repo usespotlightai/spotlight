@@ -1,7 +1,7 @@
 import { type RefObject, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 
-export function useInAppLinks(within: RefObject<HTMLElement | null>) {
+export function useInAppLinks(within: RefObject<HTMLElement | null>): void {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -12,10 +12,11 @@ export function useInAppLinks(within: RefObject<HTMLElement | null>) {
     }
 
     const following = (event: MouseEvent) => {
-      const anchor = (event.target as HTMLElement).closest('a');
+      const anchor =
+        event.target instanceof Element ? event.target.closest('a') : null;
       const href = anchor?.getAttribute('href');
 
-      if (!href?.startsWith('/') || event.metaKey || event.ctrlKey) {
+      if (href?.startsWith('/') !== true || event.metaKey || event.ctrlKey) {
         return;
       }
 

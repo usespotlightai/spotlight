@@ -6,7 +6,8 @@ export type LazyPage = ComponentType & {
 
 export const isLazyPage = (type: unknown): type is LazyPage =>
   typeof type === 'function' &&
-  typeof (type as Partial<LazyPage>).preload === 'function';
+  'preload' in type &&
+  typeof type.preload === 'function';
 
 export const lazyPage = <Module>(
   load: () => Promise<Module>,

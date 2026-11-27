@@ -1,5 +1,5 @@
 import { useDroppable } from '@dnd-kit/core';
-import { use, useRef } from 'react';
+import { use, useRef, type ReactElement } from 'react';
 
 import { TabDragContext, zoneId } from '@/components/shell/tabs/tab-drag';
 import { useNarrowerThan } from '@/hooks/useNarrowerThan';
@@ -11,7 +11,7 @@ type SplitDropZonesProps = {
   sides: readonly SplitSide[];
 };
 
-export function SplitDropZones({ sides }: SplitDropZonesProps) {
+export function SplitDropZones({ sides }: SplitDropZonesProps): ReactElement {
   const frame = useRef<HTMLDivElement>(null);
   const narrow = useNarrowerThan(frame, TWO_PANES_PX);
   const shown = sides.length > 1 && narrow ? [] : sides;
@@ -45,7 +45,9 @@ function SplitDropZone({ side }: { side: SplitSide }) {
       <div
         className={cn(
           'absolute inset-1.5 rounded-md bg-card/70 ring-[0.5px] ring-border shadow-pane backdrop-blur-[2px] transition-opacity duration-150',
-          draggedId && overSide === side ? 'opacity-100' : 'opacity-0',
+          draggedId !== null && draggedId !== '' && overSide === side
+            ? 'opacity-100'
+            : 'opacity-0',
         )}
       />
     </div>

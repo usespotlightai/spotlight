@@ -13,7 +13,9 @@ export class SignupSurvey {
     jobFunction: string;
     referralSource: string | null;
   }): SignupSurvey {
-    const referralSource = answers.referralSource?.trim() || null;
+    const trimmed = answers.referralSource?.trim();
+    const referralSource =
+      trimmed === undefined || trimmed === '' ? null : trimmed;
 
     if (
       referralSource !== null &&

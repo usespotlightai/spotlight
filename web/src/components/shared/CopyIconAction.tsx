@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { CopyIcon } from '@/components/shared/CopyIcon';
 import { IconAction } from '@/components/shared/IconAction';
 import { useCopied } from '@/hooks/useCopied';
@@ -7,7 +9,10 @@ type CopyIconActionProps = {
   label: string;
 };
 
-export function CopyIconAction({ text, label }: CopyIconActionProps) {
+export function CopyIconAction({
+  text,
+  label,
+}: CopyIconActionProps): ReactElement {
   const { copied, copy } = useCopied();
 
   return (

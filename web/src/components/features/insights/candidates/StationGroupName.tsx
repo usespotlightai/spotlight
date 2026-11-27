@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { formatStation, type StationNames } from '@/lib/insights';
 
 type StationGroupNameProps = {
@@ -5,7 +7,10 @@ type StationGroupNameProps = {
   names: StationNames;
 };
 
-export function StationGroupName({ stationId, names }: StationGroupNameProps) {
+export function StationGroupName({
+  stationId,
+  names,
+}: StationGroupNameProps): ReactElement {
   const line = names.get(stationId)?.lineName;
 
   return (
@@ -13,7 +18,9 @@ export function StationGroupName({ stationId, names }: StationGroupNameProps) {
       <span className="truncate font-medium text-foreground">
         {formatStation(names, stationId)}
       </span>
-      {line && <span className="text-muted-foreground">{line}</span>}
+      {line !== undefined && line !== '' && (
+        <span className="text-muted-foreground">{line}</span>
+      )}
     </p>
   );
 }

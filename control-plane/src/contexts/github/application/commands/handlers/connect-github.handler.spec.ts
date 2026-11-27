@@ -15,6 +15,7 @@ import type {
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -33,7 +34,11 @@ const connecting = (
     connectedWorkspace?: WorkspaceId | null;
   } = {},
 ) => {
-  const events = { dispatch: vi.fn().mockResolvedValue(undefined) };
+  const events = {
+    dispatch: vi
+      .fn<(raised: readonly DomainEvent[]) => Promise<void>>()
+      .mockResolvedValue(undefined),
+  };
   const inTransaction = vi.fn();
   const transaction: TransactionPort = {
     inTransaction: async (work) => {
@@ -49,7 +54,7 @@ const connecting = (
     await events.dispatch(connection.pullEvents());
   });
   const administration = {
-    of: vi.fn(async () => over.administration ?? 'admin'),
+    of: vi.fn(() => Promise.resolve(over.administration ?? 'admin')),
   } satisfies InstallationAdministrationPort;
 
   const handler = new ConnectGitHubHandler(
@@ -59,8 +64,10 @@ const connecting = (
       teamAccessIn: vi.fn(),
       teamAccessOfMembers: vi.fn(),
       inWorkspaceOfTeam: vi.fn(),
-      inWorkspace: vi.fn(async () =>
-        over.membership === undefined ? membership() : over.membership,
+      inWorkspace: vi.fn(() =>
+        Promise.resolve(
+          over.membership === undefined ? membership() : over.membership,
+        ),
       ),
       permissionsIn: vi.fn(),
       permissionsInSlug: vi.fn(),
@@ -70,10 +77,14 @@ const connecting = (
       mayPlan: vi.fn(),
     } satisfies WorkspaceAccessPort,
     {
-      of: vi.fn(async (id: WorkspaceId) => GitHubConnection.none(id)),
-      connectedWorkspaceOf: vi.fn(async () => over.connectedWorkspace ?? null),
-      lockedConnectedWorkspaceOf: vi.fn(
-        async () => over.connectedWorkspace ?? null,
+      of: vi.fn((id: WorkspaceId) =>
+        Promise.resolve(GitHubConnection.none(id)),
+      ),
+      connectedWorkspaceOf: vi.fn(() =>
+        Promise.resolve(over.connectedWorkspace ?? null),
+      ),
+      lockedConnectedWorkspaceOf: vi.fn(() =>
+        Promise.resolve(over.connectedWorkspace ?? null),
       ),
       save,
     } satisfies GitHubConnectionRepository,
@@ -102,7 +113,7 @@ describe('ConnectGitHubHandler', () => {
 
     await handler.execute(command());
 
-    const [raised] = events.dispatch.mock.calls[0] as [readonly DomainEvent[]];
+    const raised = firstOf(events.dispatch.mock.calls)?.[0] ?? [];
     expect(raised.some((each) => each instanceof WorkspaceConnected)).toBe(
       true,
     );

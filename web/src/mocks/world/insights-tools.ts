@@ -165,7 +165,9 @@ export const toolsOf = (
   );
   const dismissals = runs.flatMap((run) =>
     run.calls.flatMap((call) =>
-      call.dismissed ? [{ tool: call.dismissed, server: call.server }] : [],
+      call.dismissed !== null && call.dismissed !== ''
+        ? [{ tool: call.dismissed, server: call.server }]
+        : [],
     ),
   );
 

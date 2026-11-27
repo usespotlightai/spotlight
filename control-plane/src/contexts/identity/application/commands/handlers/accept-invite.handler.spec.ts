@@ -14,6 +14,7 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -50,9 +51,10 @@ const sentInvite = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
     now: over.sentAt ?? new Date('2026-09-12T09:00:00.000Z'),
   });
 
-  const invite = over.revoked
-    ? created.revoke(UserId.of('user_leon'), NOW)
-    : created;
+  const invite =
+    over.revoked === true
+      ? created.revoke(UserId.of('user_leon'), NOW)
+      : created;
 
   invite.pullEvents();
 
@@ -61,18 +63,19 @@ const sentInvite = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
 
 const accepting = (invite: WorkspaceInvite | null = sentInvite()) => {
   const dispatched: DomainEvent[] = [];
-  const save = vi.fn(async (saved: WorkspaceInvite) => {
+  const save = vi.fn((saved: WorkspaceInvite) => {
     dispatched.push(...saved.pullEvents());
+    return Promise.resolve();
   });
 
   const handler = new AcceptInviteHandler(
-    {
-      withToken: async () => invite,
+    partial<WorkspaceInviteRepository>({
+      withToken: () => Promise.resolve(invite),
       save,
-    } as unknown as WorkspaceInviteRepository,
-    { find: async () => workspace } as unknown as WorkspaceRepository,
-    { hash: () => 'a'.repeat(64) } as unknown as TokenIssuer,
-    { now: () => NOW } as ClockPort,
+    }),
+    partial<WorkspaceRepository>({ find: () => Promise.resolve(workspace) }),
+    partial<TokenIssuer>({ hash: () => 'a'.repeat(64) }),
+    partial<ClockPort>({ now: () => NOW }),
   );
 
   return { handler, save, dispatched };
@@ -154,8 +157,8 @@ describe('AcceptInviteHandler', () => {
 
   it('fails with a conflict where the invite was revoked while it was being accepted', async () => {
     const { handler, save, dispatched } = accepting();
-    save.mockImplementationOnce(async () => {
-      throw new InviteVersionConflictError('invite_1');
+    save.mockImplementationOnce(() => {
+      return Promise.reject(new InviteVersionConflictError('invite_1'));
     });
 
     await expect(handler.execute(accept())).rejects.toMatchObject({

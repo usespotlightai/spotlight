@@ -39,7 +39,7 @@ export class UpdateWorkspaceHandler implements CommandHandlerPort<
 
       const permissions = existing?.permissionsFor(command.actor.principal);
 
-      if (!existing || !permissions?.reads) {
+      if (!existing || permissions?.reads !== true) {
         return null;
       }
 

@@ -3,7 +3,7 @@ import { InvalidLineNameError } from '@shared-kernel/domain/exceptions/invalid-l
 const MAX_LENGTH = 100;
 
 export class LineName {
-  private readonly kind = 'line-name' as const;
+  private readonly kind: string = 'line-name';
 
   private constructor(readonly value: string) {}
 

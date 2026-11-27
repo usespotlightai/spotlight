@@ -17,6 +17,7 @@ import {
   type ParsedValue,
   parsedHcl,
 } from '@platform/hcl/hcl.parse';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 interface HclFile {
   readonly path: string;
@@ -142,7 +143,8 @@ const quotedKey = (key: string): string => JSON.stringify(key);
 const literalAt = (body: ParsedBody, path: string): string | null => {
   const [name, ...within] = path.split('.');
   const found = body.attributes.find((each) => each.name === name);
-  const [key, ...deeper] = within;
+  const key = firstOf(within);
+  const deeper = within.slice(1);
   const read =
     key === undefined
       ? found?.read
@@ -433,15 +435,13 @@ class Editing {
       (each) => literalAt(each.body, rule.storedAt),
     );
 
-    if (!found) {
+    const name = found?.labels[1];
+
+    if (typeof name !== 'string') {
       return null;
     }
 
-    const traversal = HclExpression.traversal(
-      rule.type,
-      found.labels[1] as string,
-      rule.attribute,
-    );
+    const traversal = HclExpression.traversal(rule.type, name, rule.attribute);
 
     return rule.suffixed
       ? HclExpression.template(traversal, value.slice(dot))
@@ -491,11 +491,10 @@ class Editing {
   }
 
   private async freshPath(
-    field: HclField,
+    fresh: string,
     current: string,
     attribute: ParsedAttribute,
   ): Promise<string> {
-    const fresh = field.freshFile as string;
     const referenced = (path: string) =>
       everyAttribute(this.parsed).filter(
         (each) =>
@@ -579,7 +578,7 @@ class Editing {
         );
       }
 
-      const [existing] = found;
+      const existing = firstOf(found);
       const current = await this.resolved(existing, field.unset, field.name);
       const changes = !same(field.expected, field.desired);
 
@@ -615,15 +614,19 @@ class Editing {
       if (
         existing.read.kind === 'file' &&
         typeof field.desired === 'string' &&
-        field.freshFile &&
-        current.path
+        field.freshFile !== undefined &&
+        field.freshFile !== '' &&
+        current.path !== undefined &&
+        current.path !== '' &&
+        typeof current.value === 'string'
       ) {
-        const expected = current.value as string;
+        const expected = current.value;
+        const fresh = field.freshFile;
         const path = current.path;
         const desired = field.desired;
 
         writes.push(async () => {
-          const chosen = await this.freshPath(field, path, existing);
+          const chosen = await this.freshPath(fresh, path, existing);
           const target = inRepository(this.edit.file.path, chosen);
 
           this.pendingFiles.set(
@@ -736,7 +739,7 @@ class Editing {
       return [];
     }
 
-    const [nested] = found;
+    const nested = firstOf(found);
 
     if (!nested || found.length > 1) {
       return baseChanged();
@@ -871,7 +874,7 @@ class Editing {
           )
         : null;
 
-      if (!read?.ok || !same(read.value, change.desired)) {
+      if (read?.ok !== true || !same(read.value, change.desired)) {
         fail(
           'edit-failed',
           `Spotlight's edit of \`${attribute}\` reads back with a different value. Please change it by hand.`,
@@ -914,7 +917,7 @@ const parsedOrFailed = async (
     if (error instanceof HclSyntaxError) {
       return fail(
         'unparsable',
-        `The file${path ? ` ${quotedKey(path)}` : ''} ${error.message}.`,
+        `The file${path !== undefined && path !== '' ? ` ${quotedKey(path)}` : ''} ${error.message}.`,
       );
     }
     throw error;

@@ -14,21 +14,27 @@ export const revertTargetOf = (pullRequest: {
   readonly body: string | null;
   readonly repository: Repository;
 }): RevertTarget | null => {
-  const named = pullRequest.body
-    ? REVERTS_IN_BODY.exec(pullRequest.body)
-    : null;
+  const named =
+    pullRequest.body !== null && pullRequest.body !== ''
+      ? REVERTS_IN_BODY.exec(pullRequest.body)
+      : null;
+
+  const owner = named?.[1];
+  const number = named?.[2];
 
   if (
-    named?.[1] &&
-    named[2] &&
-    named[1].toLowerCase() === pullRequest.repository.value.toLowerCase()
+    owner !== undefined &&
+    owner !== '' &&
+    number !== undefined &&
+    number !== '' &&
+    owner.toLowerCase() === pullRequest.repository.value.toLowerCase()
   ) {
-    return { kind: 'number', number: Number(named[2]) };
+    return { kind: 'number', number: Number(number) };
   }
 
-  const titled = REVERT_TITLE.exec(pullRequest.title.trim());
+  const title = REVERT_TITLE.exec(pullRequest.title.trim())?.[1];
 
-  return titled?.[1] ? { kind: 'title', title: titled[1] } : null;
+  return title !== undefined && title !== '' ? { kind: 'title', title } : null;
 };
 
 export const sameRevertTarget = (

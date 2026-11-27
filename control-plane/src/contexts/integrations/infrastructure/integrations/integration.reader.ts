@@ -20,6 +20,7 @@ import {
 } from '@integrations/infrastructure/integrations/integration.compile';
 import type { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
 import type { ExpressionEnginePort } from '@platform/expressions/expression-engine.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
@@ -62,7 +63,9 @@ const offeredBy = (
   OfferedTools.listed(
     integration,
     defined.tools.map((tool) => ToolName.rehydrate(tool)),
-    defined.generatedFrom ? ContentHash.of(defined.generatedFrom) : null,
+    defined.generatedFrom !== null && defined.generatedFrom !== ''
+      ? ContentHash.of(defined.generatedFrom)
+      : null,
   );
 
 export class IntegrationReader implements ToolDeclarationsPort {
@@ -180,7 +183,7 @@ export class IntegrationReader implements ToolDeclarationsPort {
       : undefined;
     const compiled = defined ? this.compiledOf(defined) : null;
 
-    if (!named || !defined || !compiled?.ok) {
+    if (!named || !defined || compiled?.ok !== true) {
       return null;
     }
 
@@ -195,7 +198,7 @@ export class IntegrationReader implements ToolDeclarationsPort {
       source.kind === 'generated' && readable.apiSpec
         ? await this.operations.of(source.from, named.name)
         : null;
-    const [provided] =
+    const provided = firstOf(
       operation && readable.apiSpec && source.kind === 'generated'
         ? generatedTools({
             integration: readable.integration.key,
@@ -207,7 +210,8 @@ export class IntegrationReader implements ToolDeclarationsPort {
             approvals: readable.apiSpec.approvals,
             handWritten: [...readable.tools.keys()],
           }).tools
-        : [];
+        : [],
+    );
 
     return operation && provided
       ? { readable, tool: provided, operation }

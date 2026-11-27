@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode, useState } from 'react';
+import { Fragment, type ReactElement, type ReactNode, useState } from 'react';
 
 import { RetireReply } from '@/components/features/memory/RetireReply';
 import { ThisWasWrong } from '@/components/features/runs/memories/ThisWasWrong';
@@ -21,7 +21,7 @@ export function MemoryCard({
   retirable,
   action,
   footer,
-}: MemoryCardProps) {
+}: MemoryCardProps): ReactElement {
   const [retiring, setRetiring] = useState(false);
   return (
     <li
@@ -49,7 +49,7 @@ export function MemoryCard({
             </div>
           )}
 
-          {action && <div className="flex shrink-0">{action}</div>}
+          {Boolean(action) && <div className="flex shrink-0">{action}</div>}
         </div>
       </div>
 
@@ -60,7 +60,7 @@ export function MemoryCard({
         className={BELOW}
       />
 
-      {footer && <div className={BELOW}>{footer}</div>}
+      {Boolean(footer) && <div className={BELOW}>{footer}</div>}
     </li>
   );
 }

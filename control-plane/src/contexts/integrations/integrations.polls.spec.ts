@@ -1,4 +1,7 @@
-import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type {
+  TeamDirectoryPort,
+  TeamProfile,
+} from '@identity/application/ports/team-directory.port';
 import { unscoped } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type {
   DefinedIntegrationsPort,
@@ -36,6 +39,9 @@ import {
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -46,15 +52,15 @@ import { describe, expect, it, vi } from 'vitest';
 const expressions = new CelExpressionEngine();
 
 const runtimeWith = (
-  outbound: unknown,
-  exchange: unknown = {},
+  outbound: Partial<HttpOutbound>,
+  exchange: Partial<OAuth2Exchange> = {},
   clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsContaining()),
-    outbound as HttpOutbound,
+    partial<HttpOutbound>(outbound),
     clients,
-    exchange as OAuth2Exchange,
+    partial<OAuth2Exchange>(exchange),
     discoveringNothing(),
     callingNoServer(),
     unlimited,
@@ -120,40 +126,43 @@ const polling = (
   injection: SecretInjectionPort = injecting().injection,
 ) =>
   new ProcessDuePolls(
-    {
-      everywhere: async () => [config(file)],
-    } as unknown as DefinedIntegrationsPort,
+    partial<DefinedIntegrationsPort>({
+      everywhere: () => Promise.resolve([config(file)]),
+    }),
     runtimeWith({ run }),
-    {
-      find: async () => ({
-        id: TEAM,
-        workspaceId: WorkspaceId.of('ws_1'),
-        name: 'Platform',
-        members: [],
-      }),
-    } as unknown as TeamDirectoryPort,
+    partial<TeamDirectoryPort>({
+      find: () =>
+        Promise.resolve(
+          partial<TeamProfile>({
+            id: TEAM,
+            workspaceId: WorkspaceId.of('ws_1'),
+            name: 'Platform',
+            members: [],
+          }),
+        ),
+    }),
     callAuthFor(injection),
     cursors,
     new WorkDeliveryReactions({ react }),
-    { now: () => NOW } as ClockPort,
+    partial<ClockPort>({ now: () => NOW }),
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
 
 const working = (state: PollState = { cursor: null, polledAt: null }) => {
-  const run = vi.fn(
-    async (_request: unknown, _against: { cursor: string }) => REPLY,
+  const run = vi.fn((_request: unknown, _against: { cursor: string }) =>
+    Promise.resolve(REPLY),
   );
   const react = vi.fn(
-    async (
+    (
       _workspaceId: unknown,
       _teamId: unknown,
       _happenings: Happened[],
       _receivedAs: string | null,
-    ) => ({ kind: 'reacted' }) as const,
+    ) => Promise.resolve({ kind: 'reacted' } as const),
   );
   const cursors = new FakePollCursors();
 
-  if (state.polledAt || state.cursor) {
+  if (state.polledAt || (state.cursor !== null && state.cursor !== '')) {
     cursors.setState(TEAM, 'linear', state);
   }
 
@@ -166,7 +175,7 @@ describe('ProcessDuePolls', () => {
 
     await polls.processDue();
 
-    const against = run.mock.calls[0]?.[1];
+    const against = firstOf(run.mock.calls)?.[1];
     expect(against?.cursor).toBe('ENG-0');
   });
 
@@ -175,10 +184,10 @@ describe('ProcessDuePolls', () => {
 
     await polls.processDue();
 
-    const raised = react.mock.calls[0]?.[2];
+    const raised = firstOf(react.mock.calls)?.[2];
     expect(raised).toHaveLength(1);
     expect(
-      raised?.[0]?.correlationKeys.marks.map((each) => each.value),
+      firstOf(raised ?? [])?.correlationKeys.marks.map((each) => each.value),
     ).toEqual(['ENG-1']);
   });
 
@@ -224,13 +233,19 @@ describe('ProcessDuePolls', () => {
   });
 
   it('keeps its cursor and does not react when the service answers with an error', async () => {
-    const react = vi.fn(async () => ({ kind: 'reacted' }) as const);
+    const react = vi.fn(() => Promise.resolve({ kind: 'reacted' } as const));
     const cursors = new FakePollCursors();
     cursors.setState(TEAM, 'linear', { cursor: 'ENG-0', polledAt: null });
 
     await polling(
       cursors,
-      async () => ({ ok: false, status: 500, response: null, capture: {} }),
+      () =>
+        Promise.resolve({
+          ok: false,
+          status: 500,
+          response: null,
+          capture: {},
+        }),
       react,
     ).processDue();
 
@@ -246,22 +261,19 @@ describe('ProcessDuePolls', () => {
       LINEAR_TOKEN: { host: 'api.linear.app', value: 'lin-1' },
     });
     const run = vi.fn(
-      async (
-        _request: unknown,
-        _against: unknown,
-        _credentials?: Credentials,
-      ) => REPLY,
+      (_request: unknown, _against: unknown, _credentials?: Credentials) =>
+        Promise.resolve(REPLY),
     );
 
     await polling(
       new FakePollCursors(),
       run,
-      vi.fn(async () => ({ kind: 'reacted' }) as const),
+      vi.fn(() => Promise.resolve({ kind: 'reacted' } as const)),
       poll(READS_A_SECRET),
       injection,
     ).processDue();
 
-    const credentials = run.mock.calls[0]?.[2] as Credentials;
+    const credentials = present(firstOf(run.mock.calls)?.[2]);
     await credentials.injectedFor('https://api.linear.app/issues', [
       SecretName.of('LINEAR_TOKEN'),
     ]);
@@ -286,8 +298,8 @@ describe('ProcessDuePolls', () => {
       }
       await together;
     });
-    const run = vi.fn(async () => REPLY);
-    const react = vi.fn(async () => ({ kind: 'reacted' }) as const);
+    const run = vi.fn(() => Promise.resolve(REPLY));
+    const react = vi.fn(() => Promise.resolve({ kind: 'reacted' } as const));
 
     await Promise.all([
       polling(cursors, run, react).processDue(),
@@ -301,10 +313,10 @@ describe('ProcessDuePolls', () => {
   it('will not move the cursor back when a later poll got the turn', async () => {
     const cursors = new FakePollCursors();
     const later = new Date(NOW.getTime() + 90_000);
-    const react = vi.fn(async () => ({ kind: 'reacted' }) as const);
-    const run = vi.fn(async () => {
+    const react = vi.fn(() => Promise.resolve({ kind: 'reacted' } as const));
+    const run = vi.fn(() => {
       cursors.setState(TEAM, 'linear', { cursor: 'ENG-9', polledAt: later });
-      return REPLY;
+      return Promise.resolve(REPLY);
     });
 
     await polling(cursors, run, react).processDue();

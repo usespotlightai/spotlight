@@ -16,6 +16,7 @@ import type { EgressSecretFetches } from '@runs/application/services/egress-secr
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import type { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const record = (
@@ -37,10 +38,7 @@ const recording = () => {
   const recorded: { run: string; attempt: number; host: string }[] = [];
   const taken: RunConnection[] = [];
   const connections: RunConnectionLedgerPort = {
-    record: async (
-      attempt: RunAttempt,
-      connections: readonly RunConnection[],
-    ) => {
+    record: (attempt: RunAttempt, connections: readonly RunConnection[]) => {
       taken.push(...connections);
       recorded.push(
         ...connections.map((each) => ({
@@ -49,8 +47,9 @@ const recording = () => {
           host: each.host,
         })),
       );
+      return Promise.resolve();
     },
-    purgeBefore: async () => 0,
+    purgeBefore: () => Promise.resolve(0),
   };
   const handler = new RecordEgressConnectionsHandler(
     sharedEgress(
@@ -62,9 +61,9 @@ const recording = () => {
         runOf('expired', 'run_4'),
       ]),
     ),
-    leasing([], ['run_1', 'run_2']) as unknown as EgressSecretFetches,
+    partial<EgressSecretFetches>(leasing([], ['run_1', 'run_2'])),
     connections,
-    { now: () => NOW } as ClockPort,
+    partial<ClockPort>({ now: () => NOW }),
   );
 
   return { handler, recorded, taken };

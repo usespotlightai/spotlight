@@ -6,11 +6,10 @@ import {
 } from '@replays/domain/replays.fake-spec';
 import { checkedOutcomeOf } from '@replays/domain/services/checked-outcome';
 import { totalsOf } from '@replays/domain/services/replay-results';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const SET = aSet(3);
-const [FIRST, SECOND, THIRD] = SET.runs as [RunId, RunId, RunId];
+const [FIRST, SECOND, THIRD] = SET.runs;
 
 describe('checkedOutcomeOf', () => {
   it('joins the check’s own runs with the reused ones, counting only its own spend', () => {

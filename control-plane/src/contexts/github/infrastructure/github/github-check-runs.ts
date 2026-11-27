@@ -9,6 +9,7 @@ import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invali
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { z } from 'zod';
 
 const FAILED = ['failure', 'timed_out', 'startup_failure'];
 
@@ -54,12 +55,11 @@ interface CheckRuns {
   readonly check_runs: readonly CheckRun[];
 }
 
-interface Job {
-  readonly steps?: readonly {
-    readonly name: string;
-    readonly conclusion: string | null;
-  }[];
-}
+const JOB = z.object({
+  steps: z
+    .array(z.object({ name: z.string(), conclusion: z.string().nullish() }))
+    .optional(),
+});
 
 const failed = (runs: readonly CheckRun[]): readonly CheckRun[] =>
   runs.filter((run) => FAILED.includes(run.conclusion ?? ''));
@@ -244,7 +244,13 @@ export class GitHubCheckRuns implements CheckRunsPort {
       return null;
     }
 
-    const { steps } = (await response.json()) as Job;
+    const answer = JOB.safeParse(await response.json());
+
+    if (!answer.success) {
+      return null;
+    }
+
+    const { steps } = answer.data;
 
     return (
       steps?.find((each) => FAILED.includes(each.conclusion ?? ''))?.name ??

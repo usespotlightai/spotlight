@@ -3,6 +3,7 @@ import type { OidcTrustReaderPort } from '@identity/application/ports/oidc-trust
 import { ListOidcTrustsHandler } from '@identity/application/queries/handlers/list-oidc-trusts.handler';
 import { ListOidcTrustsQuery } from '@identity/application/queries/list-oidc-trusts.query';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -34,9 +35,9 @@ const listing = (found: { admin: boolean } | null) => {
     listIn: vi.fn().mockResolvedValue(TRUSTS),
   } satisfies OidcTrustReaderPort;
   const handler = new ListOidcTrustsHandler(
-    {
+    partial<WorkspaceRepository>({
       findBySlug: vi.fn().mockResolvedValue(workspace),
-    } as unknown as WorkspaceRepository,
+    }),
     trusts,
   );
 

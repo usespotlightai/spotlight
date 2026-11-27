@@ -785,7 +785,7 @@ describe('Secret', () => {
       });
       const [, uploads] = secret.grantTo(RunId.of('run_1'));
 
-      expect(uploads && secret.bindingFor(uploads)).toMatchObject({
+      expect(secret.bindingFor(uploads)).toMatchObject({
         host: { value: 'uploads.linear.app' },
         target: { location: 'header', name: 'x-api-key' },
         prefix: '',
@@ -798,9 +798,7 @@ describe('Secret', () => {
       }).grantTo(RunId.of('run_1'));
       const rebound = stored({ bindings: [{ host: 'new.linear.app' }] });
 
-      expect(() => grant && rebound.bindingFor(grant)).toThrow(
-        SecretNotBoundError,
-      );
+      expect(() => rebound.bindingFor(grant)).toThrow(SecretNotBoundError);
     });
 
     it('rejects a value it cannot inject in a header', () => {

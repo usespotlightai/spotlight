@@ -1275,7 +1275,10 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     provide: CONTROL_PLANE_RELEASE,
     inject: [ENV],
     useFactory: (env: Env): ControlPlaneReleasePort => ({
-      release: env.SPOTLIGHT_RELEASE || null,
+      release:
+        env.SPOTLIGHT_RELEASE !== undefined && env.SPOTLIGHT_RELEASE !== ''
+          ? env.SPOTLIGHT_RELEASE
+          : null,
     }),
   },
 

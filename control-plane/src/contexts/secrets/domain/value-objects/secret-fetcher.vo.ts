@@ -2,7 +2,7 @@ import type { EgressId } from '@secrets/domain/value-objects/egress-id.vo';
 import type { Recipient } from '@secrets/domain/value-objects/recipient.vo';
 
 export class SecretFetcher {
-  private readonly kind = 'secret-fetcher';
+  private readonly kind: string = 'secret-fetcher';
 
   private constructor(
     readonly recipient: Recipient,

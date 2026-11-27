@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { type ReactElement, useRef } from 'react';
 
 import { COMPACT_PILL } from '@/components/features/runners/columns';
 import { ImagePill } from '@/components/features/runners/ImagePill';
@@ -13,17 +13,20 @@ export function HostImageCell({
   images,
 }: {
   images: readonly HostImageResponseDto[];
-}) {
+}): ReactElement {
   const cell = useRef<HTMLSpanElement>(null);
   const overflows = useOverflows(cell, true, 'x');
-  const defaultImage = images.find((image) => image.isDefault) ?? images[0];
+  const defaultImage = images.find((image) => image.isDefault) ?? images.at(0);
 
-  if (!defaultImage) {
+  if (defaultImage === undefined) {
     return <span className="text-muted-foreground text-xs">–</span>;
   }
 
   const others = images.filter((image) => image !== defaultImage);
-  const unavailable = others.filter((image) => image.unavailableReason);
+  const unavailable = others.filter(
+    (image) =>
+      image.unavailableReason !== null && image.unavailableReason !== '',
+  );
 
   return (
     <span
@@ -34,7 +37,8 @@ export function HostImageCell({
           '[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]',
       )}
     >
-      {defaultImage.unavailableReason ? (
+      {defaultImage.unavailableReason !== null &&
+      defaultImage.unavailableReason !== '' ? (
         <UnavailableImagesPill
           unavailable={[defaultImage]}
           className="min-w-20 shrink-[100]"

@@ -58,7 +58,7 @@ const authorOf = (record: PullRequestRecord): PullRequestAuthor => {
     return 'reviewed';
   }
 
-  return record.seen?.authorIsBot ? 'bots' : 'people';
+  return record.seen?.authorIsBot === true ? 'bots' : 'people';
 };
 
 const roundBucketOf = (rounds: number): RoundBucket => {

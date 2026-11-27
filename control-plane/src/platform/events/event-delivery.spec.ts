@@ -11,6 +11,8 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -56,9 +58,9 @@ class FakeContext {
 
   constructor(private readonly attempts: number) {}
 
-  get db(): unknown {
-    return {
-      select: () => {
+  get db(): DrizzleContext['db'] {
+    return partial<DrizzleContext['db']>({
+      select: partial<DrizzleContext['db']['select']>(() => {
         this.steps.push('claim');
         const due = this.claimable
           ? [
@@ -77,16 +79,16 @@ class FakeContext {
         this.claimable = false;
 
         return thenable(due);
-      },
-      update: () => ({
+      }),
+      update: partial<DrizzleContext['db']['update']>(() => ({
         set: (values: Record<string, unknown>) => ({
           where: (condition: unknown) => {
             this.leasesGuarded.push(...datesIn(condition));
-            const written = async () => {
+            const written = () => {
               if (this.failingUpdateAt === this.updates.length) {
                 this.failingUpdateAt = null;
                 this.steps.push('update failed');
-                throw new Error('connection terminated');
+                return Promise.reject(new Error('connection terminated'));
               }
               if (
                 this.failingUpdates > 0 &&
@@ -94,15 +96,15 @@ class FakeContext {
               ) {
                 this.failingUpdates -= 1;
                 this.steps.push('update failed');
-                throw new Error('connection terminated');
+                return Promise.reject(new Error('connection terminated'));
               }
               if (this.settledElsewhere && this.updates.length > 0) {
                 this.steps.push('update matched nothing');
-                return [];
+                return Promise.resolve([]);
               }
               this.steps.push('update');
               this.updates.push(values);
-              return [{ eventId: 'event_1' }];
+              return Promise.resolve([{ eventId: 'event_1' }]);
             };
 
             const rows = written();
@@ -110,8 +112,8 @@ class FakeContext {
             return Object.assign(rows, { returning: () => rows });
           },
         }),
-      }),
-    };
+      })),
+    });
   }
 
   async inTransaction<T>(work: () => Promise<T>): Promise<T> {
@@ -176,19 +178,19 @@ const delivering = (
     inSpan: <T>(_name: string, _attributes: unknown, work: () => Promise<T>) =>
       work(),
     count: vi.fn(),
-  };
+  } satisfies Partial<TelemetryPort>;
   const delivery = new EventDelivery(
-    context as unknown as DrizzleContext,
-    {
-      decode: (payload: unknown) => payload,
-      record: async () => undefined,
-    } as unknown as EventOutbox,
+    partial<DrizzleContext>(context),
+    partial<EventOutbox>({
+      decode: () => partial<DomainEvent>({}),
+      record: () => Promise.resolve(undefined),
+    }),
     subscribers,
-    { now: () => clock.now(), sleep: async () => undefined },
+    { now: () => clock.now(), sleep: () => Promise.resolve(undefined) },
     logger,
     new CauseCarrier(),
     reports,
-    telemetry as unknown as TelemetryPort,
+    partial<TelemetryPort>(telemetry),
   );
 
   return { delivery, context, logger, reports, telemetry };
@@ -196,7 +198,7 @@ const delivering = (
 
 describe('EventDelivery', () => {
   it('records a delivery in the transaction that claimed it, after the subscriber handled it in a savepoint', async () => {
-    const { delivery, context } = delivering(async () => undefined);
+    const { delivery, context } = delivering(() => Promise.resolve(undefined));
 
     expect(await delivery.processDue('contexts')).toBe(1);
     expect(context.steps.slice(0, 6)).toEqual([
@@ -211,8 +213,8 @@ describe('EventDelivery', () => {
   });
 
   it('records a failed delivery and its backoff in the transaction that claimed it, so no other control plane takes it before', async () => {
-    const { delivery, context } = delivering(async () => {
-      throw new Error('nobody home');
+    const { delivery, context } = delivering(() => {
+      return Promise.reject(new Error('nobody home'));
     }, 2);
 
     expect(await delivery.processDue('contexts')).toBe(1);
@@ -236,8 +238,8 @@ describe('EventDelivery', () => {
   });
 
   it('records and logs the subscriber’s failure, not the database’s, when writing it in the claiming transaction fails', async () => {
-    const { delivery, context, logger } = delivering(async () => {
-      throw new Error('nobody home');
+    const { delivery, context, logger } = delivering(() => {
+      return Promise.reject(new Error('nobody home'));
     });
     context.failingUpdates = 1;
 
@@ -253,8 +255,8 @@ describe('EventDelivery', () => {
   });
 
   it('logs the subscriber’s failure even when no transaction can record it', async () => {
-    const { delivery, context, logger } = delivering(async () => {
-      throw new Error('nobody home');
+    const { delivery, context, logger } = delivering(() => {
+      return Promise.reject(new Error('nobody home'));
     });
     context.failingUpdates = 2;
 
@@ -268,8 +270,8 @@ describe('EventDelivery', () => {
   });
 
   it('dead-letters the delivery in the same transaction on the last attempt, and reports it once it committed', async () => {
-    const { delivery, context, reports } = delivering(async () => {
-      throw new Error('nobody home');
+    const { delivery, context, reports } = delivering(() => {
+      return Promise.reject(new Error('nobody home'));
     }, DEFAULT_RETRY.maxAttempts - 1);
 
     await delivery.processDue('contexts');
@@ -287,12 +289,9 @@ describe('EventDelivery', () => {
   });
 
   it('counts and reports nothing when another instance settled the delivery before the fallback wrote it', async () => {
-    const { delivery, context, logger, reports, telemetry } = delivering(
-      async () => {
-        throw new Error('nobody home');
-      },
-      DEFAULT_RETRY.maxAttempts - 1,
-    );
+    const { delivery, context, logger, reports, telemetry } = delivering(() => {
+      return Promise.reject(new Error('nobody home'));
+    }, DEFAULT_RETRY.maxAttempts - 1);
     context.failingUpdates = 1;
     context.settledElsewhere = true;
     context.updates.push({ deliveredAt: NOW });
@@ -309,7 +308,7 @@ describe('EventDelivery', () => {
   });
 
   it('gives the subscriber the outbox record of the event', async () => {
-    const handle = vi.fn(async () => undefined);
+    const handle = vi.fn(() => Promise.resolve(undefined));
     const { delivery } = delivering(handle);
 
     await delivery.processDue('contexts');
@@ -321,7 +320,7 @@ describe('EventDelivery', () => {
   });
 
   it('claims nothing in a lane where this instance registers no subscriber', async () => {
-    const { delivery, context } = delivering(async () => undefined);
+    const { delivery, context } = delivering(() => Promise.resolve(undefined));
 
     expect(await delivery.processDue('sinks')).toBe(0);
     expect(context.steps).toEqual(['begin', 'commit']);
@@ -335,8 +334,8 @@ describe('EventDelivery', () => {
       initialDelayMs: 2_000,
       maxDelayMs: 60 * 60 * 1000,
     });
-    const failing = async () => {
-      throw new Error('nobody home');
+    const failing = () => {
+      return Promise.reject(new Error('nobody home'));
     };
 
     it('waits 2^attempts seconds, but never longer than the longest backoff', async () => {
@@ -401,8 +400,9 @@ describe('EventDelivery', () => {
 
     it('leases the delivery in a transaction of its own, calls out with none open, and records it in another', async () => {
       const { delivery, context, telemetry } = delivering(
-        async () => {
+        () => {
           context.steps.push('called out');
+          return Promise.resolve();
         },
         0,
         CALLS_OUT,
@@ -482,8 +482,8 @@ describe('EventDelivery', () => {
 
     it('records a failed call and its backoff once it failed', async () => {
       const { delivery, context, logger } = delivering(
-        async () => {
-          throw new Error('nobody home');
+        () => {
+          return Promise.reject(new Error('nobody home'));
         },
         2,
         CALLS_OUT,
@@ -508,8 +508,8 @@ describe('EventDelivery', () => {
 
     it('dead-letters a call that fails on the last attempt, and reports it', async () => {
       const { delivery, reports } = delivering(
-        async () => {
-          throw new Error('nobody home');
+        () => {
+          return Promise.reject(new Error('nobody home'));
         },
         DEFAULT_RETRY.maxAttempts - 1,
         CALLS_OUT,
@@ -525,7 +525,7 @@ describe('EventDelivery', () => {
 
     it('counts and reports nothing where another instance took the delivery over', async () => {
       const { delivery, context, logger, reports, telemetry } = delivering(
-        async () => undefined,
+        () => Promise.resolve(undefined),
         0,
         CALLS_OUT,
       );
@@ -544,7 +544,7 @@ describe('EventDelivery', () => {
 
     it('counts a failed recording of a call that worked as an attempt, so it ends dead-lettered', async () => {
       const { delivery, context, logger, reports } = delivering(
-        async () => undefined,
+        () => Promise.resolve(undefined),
         DEFAULT_RETRY.maxAttempts - 1,
         CALLS_OUT,
       );
@@ -569,7 +569,7 @@ describe('EventDelivery', () => {
 
     it('leaves a call that worked to its lease when nothing can be recorded', async () => {
       const { delivery, context, logger, reports } = delivering(
-        async () => undefined,
+        () => Promise.resolve(undefined),
         0,
         CALLS_OUT,
       );

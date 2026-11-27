@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { NumberedClaim } from '@/components/features/runs/judge/NumberedClaim';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import type { NotMetAnswerResponseDto } from '@/lib/api';
@@ -16,7 +18,7 @@ type DisagreementAnsweredProps = {
 export function DisagreementAnswered({
   disagreement,
   answer,
-}: DisagreementAnsweredProps) {
+}: DisagreementAnsweredProps): ReactElement {
   const named = disagreement.claims.find((each) => each.index === answer.claim);
 
   return (
@@ -31,7 +33,7 @@ export function DisagreementAnswered({
           )}
         </dd>
       </FactRow>
-      {answer.note && (
+      {answer.note !== null && answer.note !== '' && (
         <FactRow wide>
           <dt className={FACT_LABEL}>{WHAT_WAS_WRONG}</dt>
           <dd className={FACT_VALUE}>{answer.note}</dd>

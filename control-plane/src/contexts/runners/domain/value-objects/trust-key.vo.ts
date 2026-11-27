@@ -5,7 +5,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class TrustKey {
-  private readonly kind = 'trust-key';
+  private readonly kind: string = 'trust-key';
 
   private constructor(readonly value: string) {}
 

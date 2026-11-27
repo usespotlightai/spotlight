@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 
 import { MARKDOWN } from '@/lib/markdown-table';
 
-export function useShownMarkdown(value: string, shortLines: boolean) {
+export function useShownMarkdown(value: string, shortLines: boolean): void {
   const [editor] = useLexicalComposerContext();
   const shown = useRef(value);
 

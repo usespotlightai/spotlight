@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 
+import { itemAt } from '@shared-kernel/domain/item-at';
 import { Language, type Node, Parser } from '@vscode/tree-sitter-wasm';
 
 interface HclSpan {
@@ -99,6 +100,9 @@ const childrenOf = (node: Node): Node[] =>
 const namedOf = (node: Node): Node[] =>
   childrenOf(node).filter((each) => each.isNamed && each.type !== 'comment');
 
+const partsOf = (nodes: readonly Node[]): readonly (Node | undefined)[] =>
+  nodes;
+
 const childOf = (node: Node, type: string): Node | null =>
   childrenOf(node).find((each) => each.type === type) ?? null;
 
@@ -155,8 +159,8 @@ const dedent = (lines: readonly string[]): string[] => {
 
 const heredoc = (node: Node, text: string): string | null => {
   const named = namedOf(node);
-  const [start, opening] = named;
-  const closing = named[named.length - 1];
+  const [start, opening] = partsOf(named);
+  const closing = itemAt(named, named.length - 1);
 
   if (
     !start ||
@@ -194,7 +198,7 @@ const literalOf = (node: Node, text: string): HclLiteral | undefined => {
     case 'literal_value':
     case 'collection_value':
     case 'template_expr': {
-      const [only, ...rest] = namedOf(node);
+      const [only, ...rest] = partsOf(namedOf(node));
 
       return only && rest.length === 0 ? literalOf(only, text) : undefined;
     }
@@ -226,7 +230,7 @@ const literalOf = (node: Node, text: string): HclLiteral | undefined => {
 
 const inner = (node: Node): Node => {
   const named = namedOf(node);
-  const [only] = named;
+  const [only] = partsOf(named);
 
   return (node.type === 'expression' || node.type === 'template_expr') &&
     only &&
@@ -237,7 +241,7 @@ const inner = (node: Node): Node => {
 
 const isModulePath = (node: Node): boolean => {
   const named = namedOf(node);
-  const [start, interpolation, rest, end] = named;
+  const [start, interpolation, rest, end] = partsOf(named);
 
   if (
     named.length !== 4 ||
@@ -267,9 +271,9 @@ const fileOf = (node: Node): ParsedValue | null => {
 
   const args = childOf(called, 'function_arguments');
   const named = args ? namedOf(args) : [];
-  const [only] = named;
+  const [only] = partsOf(named);
 
-  if (!only || named.length !== 1 || args?.text.includes('...')) {
+  if (!only || named.length !== 1 || args?.text.includes('...') === true) {
     return null;
   }
 
@@ -300,7 +304,7 @@ const traversalOf = (
   node: Node,
 ): Omit<HclReference, 'kind' | 'suffix'> | null => {
   const named = namedOf(node);
-  const [root, name, attribute] = named;
+  const [root, name, attribute] = partsOf(named);
   const nameOf = (step: Node | undefined): string | null =>
     step?.type === 'get_attr'
       ? (childOf(step, 'identifier')?.text ?? null)
@@ -314,9 +318,12 @@ const traversalOf = (
 
   return node.type === 'expression' &&
     named.length === 3 &&
-    type &&
-    resource &&
-    field
+    type !== null &&
+    type !== '' &&
+    resource !== null &&
+    resource !== '' &&
+    field !== null &&
+    field !== ''
     ? { type, name: resource, attribute: field }
     : null;
 };
@@ -334,7 +341,7 @@ const referenceOf = (node: Node): HclReference | null => {
     return null;
   }
 
-  const [start, interpolation, rest, end, ...more] = namedOf(template);
+  const [start, interpolation, rest, end, ...more] = partsOf(namedOf(template));
   const expression = interpolation
     ? childOf(interpolation, 'expression')
     : null;
@@ -378,8 +385,8 @@ function entriesOf(
     namedOf(element)
       .filter((each) => each.type === 'object_elem')
       .flatMap((each) => {
-        const [key, value] = namedOf(each).filter(
-          (part) => part.type === 'expression',
+        const [key, value] = partsOf(
+          namedOf(each).filter((part) => part.type === 'expression'),
         );
         const named = key ? inner(key) : null;
         const label =
@@ -419,7 +426,7 @@ function readOf(node: Node, text: string): ParsedValue {
 
   return items?.every(
     (each) => each.read.kind === 'literal' || each.read.kind === 'reference',
-  )
+  ) === true
     ? { kind: 'list', items }
     : { kind: 'computed' };
 }
@@ -473,10 +480,11 @@ const bodyOf = (
 };
 
 const blockOf = (node: Node, text: string): ParsedBlock => {
-  const [type, ...rest] = namedOf(node);
-  const labels = rest.filter(
-    (each) => each.type === 'identifier' || each.type === 'string_lit',
-  );
+  const named = namedOf(node);
+  const [type] = partsOf(named);
+  const labels = named
+    .slice(1)
+    .filter((each) => each.type === 'identifier' || each.type === 'string_lit');
   const start = childOf(node, 'block_start');
   const end = childOf(node, 'block_end');
 

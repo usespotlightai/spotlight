@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { FilterMenu } from '@/components/shared/filter/FilterMenu';
@@ -23,7 +24,9 @@ type MemoryFilterMenuProps = {
   teamId: string;
 };
 
-export function MemoryFilterMenu({ teamId }: MemoryFilterMenuProps) {
+export function MemoryFilterMenu({
+  teamId,
+}: MemoryFilterMenuProps): ReactElement {
   const [params, setParams] = useSearchParams();
   const lines = useLines(teamId).data ?? [];
 

@@ -6,6 +6,7 @@ import type {
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import type { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 
 export interface ClaimCursor {
@@ -128,7 +129,7 @@ export const ClaimOrder = {
   },
 
   cursorAfter(page: readonly Run[]): ClaimCursor | null {
-    const last = page[page.length - 1];
+    const last = itemAt(page, page.length - 1);
 
     return last
       ? {

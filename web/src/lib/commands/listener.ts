@@ -20,7 +20,7 @@ export function listenForKeys(
     }
 
     const chord = chordOf(event);
-    if (!chord) {
+    if (chord === null || chord === '') {
       return;
     }
 

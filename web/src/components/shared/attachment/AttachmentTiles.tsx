@@ -1,4 +1,5 @@
 import { FileIcon } from 'lucide-react';
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { ImageGallery } from '@/components/shared/attachment/ImageGallery';
@@ -25,10 +26,10 @@ export function AttachmentTiles({
   attachments,
 }: {
   attachments: readonly Attachment[];
-}) {
+}): ReactElement | null {
   const { slug } = useParams();
 
-  if (!slug || attachments.length === 0) {
+  if (slug === undefined || slug === '' || attachments.length === 0) {
     return null;
   }
 

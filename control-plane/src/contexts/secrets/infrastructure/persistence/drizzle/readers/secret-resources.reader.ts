@@ -13,6 +13,7 @@ import {
   secret,
   secretValue,
 } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, inArray, not, like, type SQL } from 'drizzle-orm';
 
@@ -115,9 +116,9 @@ export class DrizzleSecretResources
   }
 
   private async first(where: SQL | undefined): Promise<SecretRecord | null> {
-    const [found] = await this.held().where(where).limit(1);
+    const found = firstOf(await this.held().where(where).limit(1));
 
-    return found ? recordOf(found) : null;
+    return found !== undefined ? recordOf(found) : null;
   }
 
   private held() {

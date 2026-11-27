@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useLocation } from 'react-router';
 
 import { PillButton } from '@/components/shared/PillButton';
@@ -12,7 +13,7 @@ type YourAccountButtonProps = {
 export function YourAccountButton({
   integration,
   teamId,
-}: YourAccountButtonProps) {
+}: YourAccountButtonProps): ReactElement {
   const { pathname } = useLocation();
   const connect = useConnectIntegration(teamId);
 

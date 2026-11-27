@@ -1,8 +1,9 @@
 import { MousePointer2 } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { EmptyState } from '@/components/shared/EmptyState';
 
-export function ChatEmpty() {
+export function ChatEmpty(): ReactElement {
   return (
     <EmptyState
       icon={MousePointer2}

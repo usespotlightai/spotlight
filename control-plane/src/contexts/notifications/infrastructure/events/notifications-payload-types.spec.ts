@@ -6,6 +6,9 @@ import { describe, expect, it } from 'vitest';
 
 const FOLDERS = ['value-objects', 'events'];
 
+const isModule = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
 describe('NOTIFICATIONS_PAYLOAD_TYPES', () => {
   it('contains every class that can travel in an event', async () => {
     const listed = new Set<unknown>(NOTIFICATIONS_PAYLOAD_TYPES);
@@ -21,10 +24,11 @@ describe('NOTIFICATIONS_PAYLOAD_TYPES', () => {
       for (const file of readdirSync(within).filter(
         (each) => each.endsWith('.ts') && !each.endsWith('.spec.ts'),
       )) {
-        const loaded = (await import(join(within, file))) as Record<
-          string,
-          unknown
-        >;
+        const loaded: unknown = await import(join(within, file));
+
+        if (!isModule(loaded)) {
+          continue;
+        }
 
         for (const [name, value] of Object.entries(loaded)) {
           if (

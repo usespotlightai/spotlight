@@ -1,5 +1,6 @@
 import type { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
+import { isOneOf } from '@change-review/domain/services/one-of';
 import type { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
@@ -77,7 +78,7 @@ export class Decision {
     recordedIn: RunId,
     proposed: ProposedDecision,
   ): Decision {
-    if (!(DECISION_KINDS as readonly string[]).includes(proposed.kind)) {
+    if (!isOneOf(DECISION_KINDS, proposed.kind)) {
       throw InvalidDecisionError.at(
         'kind',
         `kind must be one of ${DECISION_KINDS.join(', ')}, not ${proposed.kind}`,
@@ -110,7 +111,7 @@ export class Decision {
 
     return new Decision(
       id,
-      proposed.kind as DecisionKind,
+      proposed.kind,
       text(proposed.title, MAX_TITLE, 'title', 'title'),
       text(proposed.why, MAX_WHY, 'reason', 'why'),
       alternatives,

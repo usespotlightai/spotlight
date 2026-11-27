@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Outlet, useMatch } from 'react-router';
 
 import { useSession } from '@/hooks/api/useSession';
@@ -11,7 +12,7 @@ const PublicChangeStack = lazyPage(
   (module) => module.PublicChangeStack,
 );
 
-export function PublicStackGate() {
+export function PublicStackGate(): ReactElement | null {
   const task = useMatch(TASK_CHANGES_URL);
   const run = useMatch(RUN_CHANGES_URL);
   const slug = (task ?? run)?.params.slug;

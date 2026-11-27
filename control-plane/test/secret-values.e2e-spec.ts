@@ -27,6 +27,7 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -109,7 +110,7 @@ describe('secret values set outside Terraform (e2e)', () => {
 
     expect(created.status).toBe(201);
 
-    return created.body as { id: string; version: number };
+    return bodyOf<{ id: string; version: number }>(created);
   };
 
   const tokenWith = async (scopes: readonly string[]) => {
@@ -143,7 +144,7 @@ describe('secret values set outside Terraform (e2e)', () => {
 
     expect(listed.status).toBe(200);
 
-    return listed.body as Listed[];
+    return bodyOf<Listed[]>(listed);
   };
 
   const injected = async (name: string, url: string) =>
@@ -199,7 +200,7 @@ describe('secret values set outside Terraform (e2e)', () => {
     const updated = await http()
       .put(`/api/v1/resources/secrets/${created.id}`)
       .set(TEST_USER_HEADER, owner)
-      .set('If-Match', `"${(current.body as { version: number }).version}"`)
+      .set('If-Match', `"${bodyOf<{ version: number }>(current).version}"`)
       .send({
         ...STAGING,
         bindings: [{ host: 'staging.example.com', prefix: 'Token ' }],

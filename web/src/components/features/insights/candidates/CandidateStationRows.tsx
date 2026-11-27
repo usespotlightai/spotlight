@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { CandidateSetRows } from '@/components/features/insights/candidates/CandidateSetRows';
 import { SetSummary } from '@/components/features/insights/candidates/SetSummary';
 import { StationGroupName } from '@/components/features/insights/candidates/StationGroupName';
@@ -21,7 +23,7 @@ export function CandidateStationRows({
   heldOut,
   chartStatus,
   collapsibles,
-}: CandidateStationRowsProps) {
+}: CandidateStationRowsProps): ReactElement {
   const open = collapsibles.isOpen(station.stationId);
 
   return (

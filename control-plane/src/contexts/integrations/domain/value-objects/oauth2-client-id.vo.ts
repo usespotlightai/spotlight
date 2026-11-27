@@ -2,7 +2,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class OAuth2ClientId {
-  private readonly kind = 'oauth2-client-id';
+  private readonly kind: string = 'oauth2-client-id';
 
   private constructor(readonly value: string) {}
 

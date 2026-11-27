@@ -17,6 +17,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import { SubscribeToPushCommand } from '@notifications/application/commands/subscribe-to-push.command';
 import { UnsubscribeFromPushCommand } from '@notifications/application/commands/unsubscribe-from-push.command';
@@ -68,16 +69,18 @@ export class NotificationsController {
     description:
       'The address is not HTTPS on a known push service, or the keys are not valid',
   })
+  @ApiBody({ type: PushSubscriptionRequestDto })
   async subscribe(
-    @Body() body: PushSubscriptionRequestDto,
+    @Body() body: PushSubscriptionRequestDto | undefined,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
+    const keys = body?.keys;
     await this.commandBus.execute<SubscribeToPushCommand, void>(
       new SubscribeToPushCommand(
         user.id,
         textOf(body?.endpoint),
-        textOf(body?.keys?.p256dh),
-        textOf(body?.keys?.auth),
+        textOf(keys?.p256dh),
+        textOf(keys?.auth),
       ),
     );
   }
@@ -93,8 +96,9 @@ export class NotificationsController {
   @ApiUnprocessableEntityResponse({
     description: 'The address is not HTTPS on a known push service',
   })
+  @ApiBody({ type: PushUnsubscriptionRequestDto })
   async unsubscribe(
-    @Body() body: PushUnsubscriptionRequestDto,
+    @Body() body: PushUnsubscriptionRequestDto | undefined,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     const removed = await this.commandBus.execute<

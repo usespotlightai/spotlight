@@ -8,7 +8,7 @@ export class GetPushKeyHandler implements QueryHandlerPort<
 > {
   constructor(private readonly push: WebPushPort) {}
 
-  async execute(): Promise<string | null> {
-    return this.push.publicKey;
+  execute(): Promise<string | null> {
+    return Promise.resolve(this.push.publicKey);
   }
 }

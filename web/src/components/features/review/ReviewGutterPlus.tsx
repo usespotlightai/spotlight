@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react';
-import { useRef } from 'react';
+import { type ReactElement, useRef } from 'react';
 
 import type { HoveredLine } from '@/components/shared/PatchCodeDiff';
 import { useLineDigits } from '@/hooks/useLineDigits';
@@ -8,7 +8,11 @@ const DIGIT_PX = 6.6;
 const NUMBER_INSET_PX = 8.6;
 const HALF_PLUS_PX = 8;
 
-export function ReviewGutterPlus({ hovered }: { hovered: HoveredLine }) {
+export function ReviewGutterPlus({
+  hovered,
+}: {
+  hovered: HoveredLine;
+}): ReactElement {
   const plus = useRef<HTMLSpanElement>(null);
   const digits = useLineDigits(plus, hovered);
 

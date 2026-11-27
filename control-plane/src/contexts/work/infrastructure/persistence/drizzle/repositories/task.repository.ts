@@ -10,6 +10,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -115,7 +116,10 @@ const toApproval = (row: ApprovalRow): Approval =>
     because: row.because,
     status: row.status,
     decided:
-      row.decidedBy && row.decidedAt
+      row.decidedBy !== null &&
+      row.decidedBy !== '' &&
+      row.decidedAt !== null &&
+      row.decidedAt !== ''
         ? {
             by: UserId.of(row.decidedBy),
             at: new Date(row.decidedAt),
@@ -124,8 +128,14 @@ const toApproval = (row: ApprovalRow): Approval =>
         : null,
     spent: row.spent,
     edited: toEditedCall(row),
-    intent: row.intent ? ApprovalIntent.rehydrate(row.intent) : null,
-    askedOf: row.askedOf ? UserId.of(row.askedOf) : null,
+    intent:
+      row.intent !== undefined && row.intent !== null && row.intent !== ''
+        ? ApprovalIntent.rehydrate(row.intent)
+        : null,
+    askedOf:
+      row.askedOf !== undefined && row.askedOf !== null && row.askedOf !== ''
+        ? UserId.of(row.askedOf)
+        : null,
   });
 
 const toApprovalRow = (approval: Approval): ApprovalRow => ({
@@ -209,12 +219,19 @@ const toHold = (row: HoldRow): Hold =>
   Hold.rehydrate({
     id: HoldId.of(row.id),
     by: UserId.of(row.heldBy),
-    chat: row.chatId ? ChatId.of(row.chatId) : null,
+    chat:
+      row.chatId !== null && row.chatId !== '' ? ChatId.of(row.chatId) : null,
     stationId: StationId.of(row.stationId),
-    from: row.fromRunId ? RunId.of(row.fromRunId) : null,
+    from:
+      row.fromRunId !== null && row.fromRunId !== ''
+        ? RunId.of(row.fromRunId)
+        : null,
     verdict: row.verdict,
     turns: row.turnRunIds.map((each) => RunId.of(each)),
-    heldMove: row.heldMoveTo ? StationId.of(row.heldMoveTo) : null,
+    heldMove:
+      row.heldMoveTo !== null && row.heldMoveTo !== ''
+        ? StationId.of(row.heldMoveTo)
+        : null,
     startedAt: row.startedAt,
     endedAt: row.endedAt,
     end: row.end,
@@ -238,18 +255,34 @@ const toTask = (
     stationId: StationId.of(row.stationId),
     title: TaskTitle.of(row.title),
     branch: Branch.of(row.branch),
-    base: row.base ? Branch.of(row.base) : null,
-    description: row.description ? TaskDescription.of(row.description) : null,
+    base: row.base !== null && row.base !== '' ? Branch.of(row.base) : null,
+    description:
+      row.description !== null && row.description !== ''
+        ? TaskDescription.of(row.description)
+        : null,
     rank: TaskRank.of(row.rank),
-    currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
-    session: row.sessionId ? HarnessSession.of(row.sessionId) : null,
-    claimedBy: row.runnerId ? RunnerId.of(row.runnerId) : null,
+    currentRunId:
+      row.currentRunId !== null && row.currentRunId !== ''
+        ? RunId.of(row.currentRunId)
+        : null,
+    session:
+      row.sessionId !== null && row.sessionId !== ''
+        ? HarnessSession.of(row.sessionId)
+        : null,
+    claimedBy:
+      row.runnerId !== null && row.runnerId !== ''
+        ? RunnerId.of(row.runnerId)
+        : null,
     notes: notes.map((note) => toNote(note, attachments)),
     createdAt: row.createdAt,
-    originStationId: row.originStationId
-      ? StationId.of(row.originStationId)
-      : null,
-    createdBy: row.createdById ? UserId.of(row.createdById) : null,
+    originStationId:
+      row.originStationId !== null && row.originStationId !== ''
+        ? StationId.of(row.originStationId)
+        : null,
+    createdBy:
+      row.createdById !== null && row.createdById !== ''
+        ? UserId.of(row.createdById)
+        : null,
     openedFrom: TaskOrigin.decode(row.openedFrom),
     proposedIn:
       row.proposedInChatId !== null && row.proposedInPosition !== null
@@ -258,24 +291,36 @@ const toTask = (
             position: MessagePosition.of(row.proposedInPosition),
           })
         : null,
-    assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
+    assignee:
+      row.assigneeId !== null && row.assigneeId !== ''
+        ? UserId.of(row.assigneeId)
+        : null,
     finishedAt: row.finishedAt,
     draftGeneration: DraftGeneration.of(row.draftGeneration),
     awaitedTurn:
-      row.awaitedTurnAttempt !== null && row.currentRunId
+      row.awaitedTurnAttempt !== null &&
+      row.currentRunId !== null &&
+      row.currentRunId !== ''
         ? AwaitedTurn.of(RunId.of(row.currentRunId), row.awaitedTurnAttempt)
         : null,
     answeredTurnAt: row.answeredTurnAt,
     revision: TaskRevision.of(row.revision),
     version: row.version,
-    reviewedPullRequest: row.reviewedPullRequest
-      ? ReviewedPullRequest.of(PullRequestUrl.of(row.reviewedPullRequest), {
-          outside: row.reviewFromOutside,
-        })
-      : null,
-    moveHeldTo: row.moveHeldTo ? StationId.of(row.moveHeldTo) : null,
+    reviewedPullRequest:
+      row.reviewedPullRequest !== null && row.reviewedPullRequest !== ''
+        ? ReviewedPullRequest.of(PullRequestUrl.of(row.reviewedPullRequest), {
+            outside: row.reviewFromOutside,
+          })
+        : null,
+    moveHeldTo:
+      row.moveHeldTo !== null && row.moveHeldTo !== ''
+        ? StationId.of(row.moveHeldTo)
+        : null,
     runNotStarted:
-      row.notStartedStationId && row.notStartedHarness
+      row.notStartedStationId !== null &&
+      row.notStartedStationId !== '' &&
+      row.notStartedHarness !== null &&
+      row.notStartedHarness !== ''
         ? RunNotStarted.at(
             StationId.of(row.notStartedStationId),
             HarnessId.of(row.notStartedHarness),
@@ -736,11 +781,13 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   async find(id: TaskId): Promise<Task | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(task)
-      .where(eq(task.id, id.value))
-      .limit(1);
+    const found = firstOf(
+      await this.context.db
+        .select()
+        .from(task)
+        .where(eq(task.id, id.value))
+        .limit(1),
+    );
 
     return found ? ((await this.whole([found]))[0] ?? null) : null;
   }
@@ -903,7 +950,9 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   async settingUpFor(teamId: TeamId): Promise<Task | null> {
-    const [found] = await this.openSetups(eq(workStation.teamId, teamId.value));
+    const found = firstOf(
+      await this.openSetups(eq(workStation.teamId, teamId.value)),
+    );
 
     return found ?? null;
   }

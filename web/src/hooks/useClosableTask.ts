@@ -1,7 +1,21 @@
 import { useTaskStation } from '@/hooks/api/useTaskStation';
+import type {
+  LineResponseDto,
+  TaskResponseDto,
+  StationResponseDto,
+} from '@/lib/api';
 import { mayLand } from '@/lib/task';
 
-export function useClosableTask(teamId: string, taskId: string) {
+type ClosableTaskResult = {
+  line: LineResponseDto;
+  task: TaskResponseDto;
+  completed: StationResponseDto;
+} | null;
+
+export function useClosableTask(
+  teamId: string,
+  taskId: string,
+): ClosableTaskResult {
   const { line, task } = useTaskStation(teamId, taskId);
   const completed = line?.stations.find((each) => each.kind === 'completed');
 

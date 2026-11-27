@@ -6,11 +6,11 @@ import {
   candidateOf,
   endOf,
   FINGERPRINT,
-  LIVE_FINGERPRINT,
+  JUDGE,
   later,
+  LIVE_FINGERPRINT,
   measuresOf,
   NOW,
-  JUDGE,
   replayedAs,
   runIds,
   slots,
@@ -27,6 +27,7 @@ import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -105,7 +106,7 @@ const calibrated = (
 ) =>
   started('replay_calibration', SCORED, 2, true).entries.reduce(
     (built, entry, place) => {
-      const run = entry.run as RunId;
+      const run = present(entry.run);
 
       return built
         .confirm(run, FINGERPRINT, NOW)
@@ -194,7 +195,7 @@ describe('setHealthOf', () => {
     const calibration = calibrated(() => true);
     const answered = calibration.entries.reduce(
       (built, entry, place) =>
-        built.recordRejudgment(entry.run as RunId, verdictOf(place >= 3)),
+        built.recordRejudgment(present(entry.run), verdictOf(place >= 3)),
       calibration,
     );
     const health = setHealthOf(
@@ -227,7 +228,7 @@ describe('setHealthOf', () => {
     const rechecked = calibration.entries.reduce(
       (built, entry, place) =>
         built.recheck(
-          entry.run as RunId,
+          present(entry.run),
           checksOf(place === 1 ? 'failed' : 'passed'),
         ),
       calibration,

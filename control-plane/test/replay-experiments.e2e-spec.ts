@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
+import { fieldOf } from '@platform/json/field-of';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
@@ -13,8 +14,6 @@ import { healthView } from '@replays/application/queries/views/replay-views';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
-import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { dispatchedInTurn } from '@replays/domain/services/replay-dispatch';
 import {
   taskComparisons,
@@ -48,6 +47,9 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -66,6 +68,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { posted, spent } from './support/harness-events';
 import { keptSet, runEnded } from './support/kept-sets';
@@ -90,22 +93,26 @@ const SHIP = randomUUID();
 const POLISH = randomUUID();
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 const DAY = 24 * 60 * 60_000;
-const attachmentStore = {
-  received: async () => [],
-  stored: async () => true,
-  taken: async () => undefined,
-  open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
-} as unknown as AttachmentStorePort;
+const attachmentStore = partial<AttachmentStorePort>({
+  received: () => Promise.resolve([]),
+  stored: () => Promise.resolve(true),
+  taken: () => Promise.resolve(undefined),
+  open: () =>
+    Promise.resolve({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
+});
 
 const archiveStore: WorkingCopyArchiveStorePort = {
-  grantUpload: async (archive) => ({
-    url: `https://archives.test/${archive.id.value}`,
-    headers: {},
-  }),
-  stored: async (archive) =>
-    archive.location.kind === 'spotlight' ? archive.location : null,
-  grantDownload: async (archive) =>
-    `https://archives.test/${archive.id.value}?download`,
+  grantUpload: (archive) =>
+    Promise.resolve({
+      url: `https://archives.test/${archive.id.value}`,
+      headers: {},
+    }),
+  stored: (archive) =>
+    Promise.resolve(
+      archive.location.kind === 'spotlight' ? archive.location : null,
+    ),
+  grantDownload: (archive) =>
+    Promise.resolve(`https://archives.test/${archive.id.value}?download`),
   remove: async () => {},
 };
 
@@ -168,7 +175,10 @@ const anOriginal = async (
     title: `Drain queue ${runId.slice(0, 4)}`,
     description: 'It stalls on restart.',
     originStationId: input.originStationId ?? taskAt,
-    createdById: input.openedFrom ? null : team.owner.value,
+    createdById:
+      input.openedFrom !== undefined && input.openedFrom !== ''
+        ? null
+        : team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
     workingCopyReleasedAt: at,
@@ -251,10 +261,9 @@ const createSetAt = (stationId: string, ...originals: Original[]) =>
   );
 
 const replayRow = async (replayId: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.replay)
-    .where(eq(schema.replay.id, replayId));
+  const row = firstOf(
+    await db.select().from(schema.replay).where(eq(schema.replay.id, replayId)),
+  );
 
   return row;
 };
@@ -272,22 +281,25 @@ const replayRunsOf = async (replayIds: readonly string[]) =>
       .select({ runId: schema.replayEntry.runId })
       .from(schema.replayEntry)
       .where(inArray(schema.replayEntry.replayId, [...replayIds]))
-  ).flatMap((each) => (each.runId ? [each.runId] : []));
+  ).flatMap((each) =>
+    each.runId !== null && each.runId !== '' ? [each.runId] : [],
+  );
 
 const runRow = async (runId: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.run)
-    .where(eq(schema.run.id, runId));
+  const row = firstOf(
+    await db.select().from(schema.run).where(eq(schema.run.id, runId)),
+  );
 
   return row;
 };
 
 const dispatchRow = async (runId: string) => {
-  const [row] = await db
-    .select()
-    .from(schema.dispatch)
-    .where(eq(schema.dispatch.id, runId));
+  const row = firstOf(
+    await db
+      .select()
+      .from(schema.dispatch)
+      .where(eq(schema.dispatch.id, runId)),
+  );
 
   return row;
 };
@@ -316,13 +328,13 @@ const dispatched = async () => {
 };
 
 const claimed = async (): Promise<{ token: string; runId: string }> => {
-  const assignment = (
+  const assignment = bodyOf<{ token: string; work: { run: { id: string } } }>(
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
       .send({ host: HOST, image: IMAGE })
-      .expect(200)
-  ).body as { token: string; work: { run: { id: string } } };
+      .expect(200),
+  );
 
   return { token: assignment.token, runId: assignment.work.run.id };
 };
@@ -353,10 +365,12 @@ const finishes = async (
 
 const untilEnded = (runId: string) =>
   eventually(async () => {
-    const [entry] = await db
-      .select()
-      .from(schema.replayEntry)
-      .where(eq(schema.replayEntry.runId, runId));
+    const entry = firstOf(
+      await db
+        .select()
+        .from(schema.replayEntry)
+        .where(eq(schema.replayEntry.runId, runId)),
+    );
 
     return entry?.result !== null && entry?.measured;
   });
@@ -485,7 +499,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 describe('a replay set', () => {
@@ -505,7 +519,9 @@ describe('a replay set', () => {
     expect(runs).toEqual(expect.arrayContaining([first.runId, second.runId]));
     expect(runs).not.toContain(unanchored.runId);
     expect(runs).not.toContain(elsewhere.runId);
-    expect(set?.entries.every((each) => each.endedAt !== null)).toBe(true);
+    expect(set?.entries.every((each) => each.endedAt instanceof Date)).toBe(
+      true,
+    );
     expect(set?.refreshedAt).not.toBeNull();
     expect(set?.lastRefresh?.added.map((each) => each.value)).toEqual(
       expect.arrayContaining([second.runId]),
@@ -550,9 +566,11 @@ describe('a replay set', () => {
     await createSet(original);
     await db.delete(schema.task).where(eq(schema.task.id, original.taskId));
 
-    const [summary] = await app
-      .get<ReplaysTrialableRunsPort>(REPLAYS_TRIALABLE_RUNS)
-      .runSummaries(team.workspaceId, [RunId.of(original.runId)]);
+    const summary = firstOf(
+      await app
+        .get<ReplaysTrialableRunsPort>(REPLAYS_TRIALABLE_RUNS)
+        .runSummaries(team.workspaceId, [RunId.of(original.runId)]),
+    );
 
     expect(summary?.unreplayableReason).toBe('task-gone');
   });
@@ -651,13 +669,13 @@ describe('a candidate', () => {
       ...station,
       prompt: 'Build it, then drain the queue.',
     });
-    expect(changed?.ok && changed.candidate.fingerprint).not.toBe(
+    expect(
+      changed?.ok === true ? changed.candidate.fingerprint : changed?.ok,
+    ).not.toBe(live?.config.fingerprint);
+    expect(changed?.ok === true ? changed.live.fingerprint : changed?.ok).toBe(
       live?.config.fingerprint,
     );
-    expect(changed?.ok && changed.live.fingerprint).toBe(
-      live?.config.fingerprint,
-    );
-    expect(changed?.ok && changed.changes).toEqual([
+    expect(changed?.ok === true ? changed.changes : changed?.ok).toEqual([
       {
         part: 'prompt',
         name: null,
@@ -696,10 +714,10 @@ describe('a replay', () => {
     const { id, baselineId } = await startReplay(setId, candidate, 5);
     expect(baselineId).not.toBeNull();
     await eventually(
-      async () => (await replayRow(baselineId as string)) !== undefined,
+      async () => (await replayRow(present(baselineId))) !== undefined,
     );
 
-    const both = [id, baselineId as string];
+    const both = [id, present(baselineId)];
 
     await dispatched();
     expect(await replayRunsOf(both)).toHaveLength(2);
@@ -710,12 +728,14 @@ describe('a replay', () => {
       const assignments = [await claimed(), await claimed()];
 
       for (const each of assignments) {
-        const [entry] = await db
-          .select()
-          .from(schema.replayEntry)
-          .where(eq(schema.replayEntry.runId, each.runId));
+        const entry = firstOf(
+          await db
+            .select()
+            .from(schema.replayEntry)
+            .where(eq(schema.replayEntry.runId, each.runId)),
+        );
         const ofCandidate = entry?.replayId === id;
-        const failsAt = ofCandidate && entry?.originalRunId === second.runId;
+        const failsAt = ofCandidate && entry.originalRunId === second.runId;
 
         expect((await dispatchRow(each.runId))?.basedOnRunId).toBe(
           entry?.originalRunId,
@@ -730,11 +750,11 @@ describe('a replay', () => {
     await eventually(
       async () =>
         (await replayRow(id))?.state === 'finished' &&
-        (await replayRow(baselineId as string))?.state === 'finished',
+        (await replayRow(present(baselineId)))?.state === 'finished',
     );
 
     const replayed = await replayOf(app, id);
-    const baseline = await replayOf(app, baselineId as string);
+    const baseline = await replayOf(app, present(baselineId));
     const live = await app
       .get(DrizzleCandidateRepository)
       .find(baseline.candidateId);
@@ -742,7 +762,7 @@ describe('a replay', () => {
     expect(baseline.baseline).toBe(true);
     expect(live?.kind).toBe('live');
     expect(
-      (await dispatchRow((await replayRunsOf([baselineId as string]))[0] ?? ''))
+      (await dispatchRow((await replayRunsOf([present(baselineId)]))[0] ?? ''))
         ?.stationFingerprint,
     ).toBe(live?.fingerprint.value);
     expect(totalsOf(baseline.outcome()).endings.completed).toBe(2);
@@ -781,7 +801,7 @@ describe('a replay', () => {
     const candidate = await proposed('Build it, and say what you drained.');
     const { id, baselineId } = await startReplay(setId, candidate, 5);
     await eventually(
-      async () => (await replayRow(baselineId as string)) !== undefined,
+      async () => (await replayRow(present(baselineId))) !== undefined,
     );
 
     await dispatched();
@@ -790,7 +810,7 @@ describe('a replay', () => {
       await untilEnded(each.runId);
     }
 
-    const [runId] = await replayRunsOf([id]);
+    const runId = firstOf(await replayRunsOf([id]));
     const run = await runRow(runId ?? '');
 
     expect(run?.state).toBe('completed');
@@ -801,9 +821,7 @@ describe('a replay', () => {
       listed: false,
     });
     expect((await dispatchRow(runId ?? ''))?.basedOnRunId).toBe(original.runId);
-    expect(
-      (run?.spec as { briefing?: string } | undefined)?.briefing,
-    ).toBeTruthy();
+    expect(fieldOf(run?.spec, 'briefing')).toBeTruthy();
 
     for (const path of [
       `${teamPath()}/replay-runs/${runId}`,
@@ -815,13 +833,13 @@ describe('a replay', () => {
       await owner().get(path).expect(404);
     }
     expect(
-      (
-        (await owner().get(`${teamPath()}/runs`).expect(200)).body as {
-          readonly items: {
-            id: string;
-          }[];
-        }
-      ).items.some((each) => each.id === runId),
+      bodyOf<{
+        readonly items: {
+          id: string;
+        }[];
+      }>(await owner().get(`${teamPath()}/runs`).expect(200)).items.some(
+        (each) => each.id === runId,
+      ),
     ).toBe(false);
   });
 
@@ -842,8 +860,8 @@ describe('a replay', () => {
     await dispatched();
 
     const [, , third] = await entriesOf(id);
-    expect(third?.runId).not.toBeNull();
-    expect((await runRow(third?.runId ?? ''))?.state).toBe('queued');
+    expect(third.runId).not.toBeNull();
+    expect((await runRow(third.runId ?? ''))?.state).toBe('queued');
 
     await finishes(two, 0.4);
     await untilEnded(two.runId);
@@ -855,7 +873,7 @@ describe('a replay', () => {
 
     const row = await replayRow(id);
     expect(row?.state).toBe('ceiling-reached');
-    expect((await runRow(third?.runId ?? ''))?.state).not.toBe('queued');
+    expect((await runRow(third.runId ?? ''))?.state).not.toBe('queued');
 
     const capped = await replayOf(app, id);
 
@@ -895,16 +913,18 @@ describe('a replay', () => {
       const assignments = [await claimed(), await claimed()];
 
       for (const each of assignments) {
-        const [entry] = await db
-          .select()
-          .from(schema.replayEntry)
-          .where(eq(schema.replayEntry.runId, each.runId));
+        const entry = firstOf(
+          await db
+            .select()
+            .from(schema.replayEntry)
+            .where(eq(schema.replayEntry.runId, each.runId)),
+        );
 
         await finishes(
           each,
           0.1,
-          (entry?.originalRunId === first.runId && entry?.repeat === 1) ||
-            (entry?.originalRunId === second.runId && entry?.repeat === 2),
+          (entry?.originalRunId === first.runId && entry.repeat === 1) ||
+            (entry?.originalRunId === second.runId && entry.repeat === 2),
         );
         await untilEnded(each.runId);
       }
@@ -932,7 +952,7 @@ describe('a replay', () => {
     });
     expect(totals.interval).toEqual({ rate: 0, low: 0, high: 0 });
 
-    const set = (await setOf()) as ReplaySet;
+    const set = present(await setOf());
     const healths = app.get(SetHealths);
     const standard = await healths.standardAt(set.station);
 
@@ -969,7 +989,7 @@ describe('a replay set whose station leaves its line', () => {
       const replay = await replays.find(ReplayId.of(replayId));
 
       await replays.save(
-        (replay as Replay).stop(
+        present(replay).stop(
           new Date(),
           ChangeActor.spotlight(team.workspaceId),
           'search-ended',
@@ -977,12 +997,10 @@ describe('a replay set whose station leaves its line', () => {
       );
     });
 
-    const line = (
-      await owner().get(`/api/v1/resources/lines/${DELIVERY}`).expect(200)
-    ).body as {
+    const line = bodyOf<{
       version: number;
       definition: { stations: { key: string; passesTo: string[] }[] };
-    };
+    }>(await owner().get(`/api/v1/resources/lines/${DELIVERY}`).expect(200));
     await owner()
       .put(`/api/v1/resources/lines/${DELIVERY}`)
       .set('If-Match', `"${line.version}"`)

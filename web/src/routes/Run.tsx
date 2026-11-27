@@ -1,4 +1,5 @@
 import type { UseQueryResult } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { RunPage } from '@/components/features/runs/RunPage';
@@ -33,10 +34,10 @@ const lostOf = (found: Query, conversation: Query) => {
     return found;
   }
 
-  return found.data && failed(conversation) ? conversation : null;
+  return Boolean(found.data) && failed(conversation) ? conversation : null;
 };
 
-export function Run() {
+export function Run(): ReactElement | null {
   const { slug, teamId, runId } = useParams();
   const found = useTeamRun(teamId, runId);
   const run = found.data;
@@ -47,6 +48,7 @@ export function Run() {
   const conversation = conversationQuery.data;
   const journal = useTaskJournal(slug, conversation?.taskId, [
     runId,
+    // oxlint-disable-next-line typescript/no-unnecessary-condition
     conversation?.latestRun?.id,
   ]);
 
@@ -65,7 +67,12 @@ export function Run() {
     following: conversation?.latestRun,
   });
 
-  if (!slug || !teamId) {
+  if (
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === ''
+  ) {
     return null;
   }
 

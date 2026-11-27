@@ -175,7 +175,7 @@ const normalised = (
   }
 
   const description = textOf(raw.description);
-  if (description) {
+  if (description !== null && description !== '') {
     written.description = description;
   }
 
@@ -208,7 +208,7 @@ const normalised = (
 
   for (const key of ['pattern', 'format'] as const) {
     const read = textOf(raw[key]);
-    if (read) {
+    if (read !== null && read !== '') {
       written[key] = read;
     }
   }
@@ -218,9 +218,9 @@ const normalised = (
 
 const typesOf = (node: JsonObject): readonly InputType[] =>
   Array.isArray(node.type)
-    ? (node.type as readonly InputType[])
-    : typeof node.type === 'string'
-      ? [node.type as InputType]
+    ? node.type.filter(isInputType)
+    : isInputType(node.type)
+      ? [node.type]
       : [];
 
 const kindOf = (node: JsonObject): InputType | null => {
@@ -401,7 +401,11 @@ export class InputSchema {
     type: ScalarInputType,
     description: string | null = null,
   ): InputSchema {
-    return InputSchema.of(description ? { type, description } : { type });
+    return InputSchema.of(
+      description !== null && description !== ''
+        ? { type, description }
+        : { type },
+    );
   }
 
   get type(): InputType | null {

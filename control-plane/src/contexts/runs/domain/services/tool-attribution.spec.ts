@@ -135,7 +135,7 @@ describe('toolUseOf', () => {
   });
 
   it('counts a call that never finished as failed, without timing it', () => {
-    const [linear] = toolUseOf(
+    const servers = toolUseOf(
       [
         mcp('linear', { ms: 300 }),
         mcp('linear', { ms: null, ending: 'unfinished' }),
@@ -143,8 +143,12 @@ describe('toolUseOf', () => {
       HOMES,
     ).servers;
 
-    expect(linear).toMatchObject({ calls: 2, failed: 1, lastCallFailed: true });
-    expect(linear?.latency.timed).toBe(1);
+    expect(servers[0]).toMatchObject({
+      calls: 2,
+      failed: 1,
+      lastCallFailed: true,
+    });
+    expect(servers[0]?.latency.timed).toBe(1);
   });
 
   it('leaves a call refused permission out of the server’s calls and failures', () => {

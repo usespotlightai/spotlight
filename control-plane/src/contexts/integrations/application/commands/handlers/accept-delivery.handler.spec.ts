@@ -10,6 +10,7 @@ import { WebhookProviders } from '@integrations/application/services/webhook-pro
 import type { InboundDelivery } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import type { InboundDeliveryRepository } from '@integrations/domain/repositories/inbound-delivery.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -25,20 +26,27 @@ const provider = (
   ({
     key: 'github',
     happenings: [],
-    verifies: vi.fn(async (delivered: Delivered) => verifies(delivered)),
-    delivery: (delivered: Delivered) =>
-      (delivered.headers as Record<string, string>)['x-delivery'] ?? 'unnamed',
-    routes: async () => null,
-    read: async () => [],
+    verifies: vi.fn((delivered: Delivered) =>
+      Promise.resolve(verifies(delivered)),
+    ),
+    delivery: (delivered: Delivered) => {
+      const named = delivered.headers['x-delivery'];
+
+      return typeof named === 'string' ? named : 'unnamed';
+    },
+    routes: () => Promise.resolve(null),
+    read: () => Promise.resolve([]),
     ...over,
   }) satisfies WebhookProviderPort;
 
-const workspaces = {
-  identifyTeam: async (_slug: string, teamKey: string) =>
-    teamKey === 'platform'
-      ? { workspaceId: WorkspaceId.of('ws_1'), teamId: TeamId.of('team_1') }
-      : null,
-} as unknown as WorkspaceReaderPort;
+const workspaces = partial<WorkspaceReaderPort>({
+  identifyTeam: (_slug: string, teamKey: string) =>
+    Promise.resolve(
+      teamKey === 'platform'
+        ? { workspaceId: WorkspaceId.of('ws_1'), teamId: TeamId.of('team_1') }
+        : null,
+    ),
+});
 
 const accepting = (
   providers: WebhookProviderPort[] = [provider()],
@@ -46,19 +54,19 @@ const accepting = (
 ) => {
   const taken: InboundDelivery[] = [];
   const deliveries = {
-    add: vi.fn(async (delivery: InboundDelivery) => {
+    add: vi.fn((delivery: InboundDelivery) => {
       const first = !taken.some(
         (each) =>
           each.integration.equals(delivery.integration) &&
           each.id.equals(delivery.id),
       );
       taken.push(delivery);
-      return first;
+      return Promise.resolve(first);
     }),
-    claimCandidates: vi.fn(async () => []),
-    current: vi.fn(async () => null),
-    addressedTo: vi.fn(async () => []),
-    finishedBefore: vi.fn(async () => []),
+    claimCandidates: vi.fn(() => Promise.resolve([])),
+    current: vi.fn(() => Promise.resolve(null)),
+    addressedTo: vi.fn(() => Promise.resolve([])),
+    finishedBefore: vi.fn(() => Promise.resolve([])),
     remove: vi.fn(async () => {}),
     save: vi.fn(async () => {}),
   } satisfies InboundDeliveryRepository;
@@ -72,13 +80,15 @@ const accepting = (
   return {
     handler: new AcceptDeliveryHandler(
       new ProviderForDelivery(WebhookProviders.of(providers), {
-        find: async (_team, key) =>
-          configured.find((each) => each.key === key.value) ?? null,
-        all: async () => configured,
+        find: (_team, key) =>
+          Promise.resolve(
+            configured.find((each) => each.key === key.value) ?? null,
+          ),
+        all: () => Promise.resolve(configured),
       }),
       workspaces,
       deliveries,
-      { now: () => NOW } as ClockPort,
+      partial<ClockPort>({ now: () => NOW }),
       logger,
     ),
     deliveries,

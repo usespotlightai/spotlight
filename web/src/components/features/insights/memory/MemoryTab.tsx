@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
@@ -24,7 +26,11 @@ type MemoryTabProps = {
   period: InsightsPeriod;
 };
 
-export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
+export function MemoryTab({
+  slug,
+  teamId,
+  period,
+}: MemoryTabProps): ReactElement {
   const memory = useInsightsMemory(teamId, period);
 
   if (loading(memory)) {

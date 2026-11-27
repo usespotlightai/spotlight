@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
@@ -61,9 +62,9 @@ export class LineRepositories {
       return named;
     }
 
-    const [only] = this.all;
+    const only = firstOf(this.all);
 
-    if (only && this.entries.length === 1) {
+    if (only !== undefined && this.entries.length === 1) {
       return only;
     }
 

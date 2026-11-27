@@ -1,5 +1,5 @@
 import { Pencil, Undo2 } from 'lucide-react';
-import { use } from 'react';
+import { use, type ReactElement } from 'react';
 
 import { CopyIconAction } from '@/components/shared/CopyIconAction';
 import { IconAction } from '@/components/shared/IconAction';
@@ -21,7 +21,7 @@ export function DecisionActions({
   onEdit,
   restoreLabel,
   onRestore,
-}: DecisionActionsProps) {
+}: DecisionActionsProps): ReactElement {
   const docked = use(DockedContext) !== null;
 
   return (

@@ -32,8 +32,15 @@ const delivery = (harness: HarnessId | null = HarnessId.of('claude-code')) => {
   });
 };
 
-const keyed = (line: LineMap, key: string) =>
-  line.stations.find((each) => each.key.value === key) as Station;
+const keyed = (line: LineMap, key: string): Station => {
+  const station = line.stations.find((each) => each.key.value === key);
+
+  if (station === undefined) {
+    throw new Error(`expected a station keyed ${key}`);
+  }
+
+  return station;
+};
 
 const at = (
   position: number,
@@ -87,7 +94,7 @@ const reacting = (reactions: readonly Reaction[]) =>
 const sends = (to: string, from?: string) =>
   Reaction.of({
     happening: COMMENTED,
-    from: from ? StationId.of(from) : null,
+    from: from !== undefined && from !== '' ? StationId.of(from) : null,
     to: StationId.of(to),
   });
 

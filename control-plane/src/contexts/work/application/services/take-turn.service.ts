@@ -55,14 +55,14 @@ export class TakeTurn {
     const task =
       subject?.kind === 'task' ? await this.tasks.find(subject.taskId) : null;
 
-    if (subject?.kind !== 'task' || !task?.hasCurrentRun(runId)) {
+    if (subject?.kind !== 'task' || task?.hasCurrentRun(runId) !== true) {
       await this.runs.finish(runId, attempt);
       return;
     }
 
     const awaited = AwaitedTurn.of(runId, attempt);
 
-    if (task.awaitedTurn?.equals(awaited)) {
+    if (task.awaitedTurn?.equals(awaited) === true) {
       await this.runs.keep(runId, attempt);
       return;
     }

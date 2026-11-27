@@ -9,6 +9,7 @@ import type {
   PullRequestReactionsPort,
   ReactedTo,
 } from '@github/application/ports/pull-request-reactions.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -52,37 +53,41 @@ const signalling = (
 ) => {
   const reactions: string[] = [];
   const locked: string[] = [];
-  const recording =
-    (what: string) => async (on: ReactedTo, reaction: string) => {
-      const done = `${what} ${reaction} on ${on.pullRequest.value}`;
-      reactions.push(done);
-      over.reacting?.(done);
-    };
+  const recording = (what: string) => (on: ReactedTo, reaction: string) => {
+    const done = `${what} ${reaction} on ${on.pullRequest.value}`;
+    reactions.push(done);
+    over.reacting?.(done);
+    return Promise.resolve();
+  };
 
   const signal = new SignalReviewing(
-    {
-      task: async () =>
-        over.task === null
-          ? null
-          : {
-              id: TASK,
-              workspaceId: WorkspaceId.of('ws_1'),
-              teamId: null,
-              pullRequests: [],
-              openPullRequests: [],
-              reviewedPullRequest: PULL,
-              reviewing: true,
-              currentRunId: RUN,
-              ...over.task,
-            },
-      run: async (runId: RunId) =>
-        runFor(
-          runId,
-          over.working?.() ?? true,
-          over.runTask === undefined ? TASK : over.runTask,
+    partial<WorkPort>({
+      task: () =>
+        Promise.resolve(
+          over.task === null
+            ? null
+            : {
+                id: TASK,
+                workspaceId: WorkspaceId.of('ws_1'),
+                teamId: null,
+                pullRequests: [],
+                openPullRequests: [],
+                reviewedPullRequest: PULL,
+                reviewing: true,
+                currentRunId: RUN,
+                ...over.task,
+              },
         ),
-    } as unknown as WorkPort,
-    { isConnected: async () => over.connected ?? true },
+      run: (runId: RunId) =>
+        Promise.resolve(
+          runFor(
+            runId,
+            over.working?.() ?? true,
+            over.runTask === undefined ? TASK : over.runTask,
+          ),
+        ),
+    }),
+    { isConnected: () => Promise.resolve(over.connected ?? true) },
     {
       react: recording('react'),
       remove: recording('remove'),

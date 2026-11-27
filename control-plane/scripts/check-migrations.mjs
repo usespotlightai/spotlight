@@ -17,6 +17,7 @@ const after = entriesOf(readFileSync(JOURNAL, 'utf8'));
 const problems = [];
 
 before.forEach((applied, index) => {
+  /** @type {{ tag: string, when: number } | undefined} */
   const now = after[index];
 
   if (!now || now.tag !== applied.tag || now.when !== applied.when) {

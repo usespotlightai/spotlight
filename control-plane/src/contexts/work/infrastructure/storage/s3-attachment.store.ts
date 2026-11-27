@@ -39,7 +39,9 @@ const encoded = (name: string): string => encodeURIComponent(name);
 
 const decoded = (name: string | undefined, fallback: string): string => {
   try {
-    return name ? decodeURIComponent(name) : fallback;
+    return name !== undefined && name !== ''
+      ? decodeURIComponent(name)
+      : fallback;
   } catch {
     return fallback;
   }

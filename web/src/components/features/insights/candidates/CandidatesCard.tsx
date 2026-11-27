@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { CandidatesTable } from '@/components/features/insights/candidates/CandidatesTable';
 import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
@@ -12,7 +12,10 @@ type CandidatesCardProps = {
   names: StationNames;
 };
 
-export function CandidatesCard({ stations, names }: CandidatesCardProps) {
+export function CandidatesCard({
+  stations,
+  names,
+}: CandidatesCardProps): ReactElement {
   const [chartStatus, setCharted] = useState(false);
   const shown = { stations, names };
 

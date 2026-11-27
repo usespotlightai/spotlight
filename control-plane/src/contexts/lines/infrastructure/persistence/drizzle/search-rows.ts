@@ -43,8 +43,8 @@ export const stationSearchOf = (
     agent: row.agent
       ? SearchAgent.of({
           harness: HarnessId.of(row.agent.harness),
-          model: row.agent.model ? HarnessModel.of(row.agent.model) : null,
-          effort: row.agent.effort ? Effort.of(row.agent.effort) : null,
+          model: row.agent.model !== null && row.agent.model !== '' ? HarnessModel.of(row.agent.model) : null,
+          effort: row.agent.effort !== null && row.agent.effort !== '' ? Effort.of(row.agent.effort) : null,
         })
       : null,
   });

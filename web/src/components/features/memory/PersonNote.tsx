@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 export const NOTE_BOX = 'rounded-lg bg-card px-2 py-1';
 
@@ -9,7 +9,12 @@ type PersonNoteProps = {
   children: ReactNode;
 };
 
-export function PersonNote({ avatar, name, about, children }: PersonNoteProps) {
+export function PersonNote({
+  avatar,
+  name,
+  about,
+  children,
+}: PersonNoteProps): ReactElement {
   return (
     <div className="flex gap-2.5">
       {avatar}

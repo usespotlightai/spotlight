@@ -138,7 +138,9 @@ describe('one run history across the mock', () => {
 
     expect(runs.length).toBeGreaterThan(500);
     expect(answers.every((each) => each.response?.status === 200)).toBe(true);
-    expect(answers.every((each) => each.data?.taskId)).toBe(true);
+    expect(answers.every((each) => (each.data?.taskId ?? '') !== '')).toBe(
+      true,
+    );
   }, 20_000);
 
   it('opens a past run like a core one: memories, changes, scores, review, trace, journal and runs', async () => {
@@ -175,7 +177,7 @@ describe('one run history across the mock', () => {
 
   it('briefs a run only with memories approved before it started', async () => {
     const runs = (await teamRuns()).filter(
-      (run, at) => run.id.match(/^run_[a-z]+_\d$/) || at % 60 === 0,
+      (run, at) => /^run_[a-z]+_\d$/.test(run.id) || at % 60 === 0,
     );
 
     for (const run of runs) {
@@ -198,7 +200,7 @@ describe('one run history across the mock', () => {
       throwOnError: true,
     });
     const tasks = data.pullRequests.flatMap((each) =>
-      each.taskId ? [each.taskId] : [],
+      each.taskId !== null && each.taskId !== '' ? [each.taskId] : [],
     );
     const answers = await Promise.all(
       tasks.map((taskId) => listTaskRuns({ path: { teamId, taskId } })),
@@ -269,7 +271,7 @@ describe('the Postgres upgrade reads the same everywhere', () => {
 
       expect(decision.paths.every((each) => changed.has(each))).toBe(true);
       expect(
-        decision.journalSteps.every((index) => steps[index] !== undefined),
+        decision.journalSteps.every((index) => Object.hasOwn(steps, index)),
       ).toBe(true);
     }
   });
@@ -320,7 +322,7 @@ describe('the task journal and the run conversations tell one story', () => {
 
     expect(
       inboxNotes.filter(
-        (note) => note.runId === 'run_retries_2' || !note.runId,
+        (note) => note.runId === 'run_retries_2' || (note.runId ?? '') === '',
       ),
     ).toEqual(
       expect.arrayContaining(

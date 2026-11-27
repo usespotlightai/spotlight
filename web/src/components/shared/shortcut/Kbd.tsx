@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -8,7 +8,11 @@ type KbdProps = {
   children: ReactNode;
 };
 
-export function Kbd({ plain = false, size = 'md', children }: KbdProps) {
+export function Kbd({
+  plain = false,
+  size = 'md',
+  children,
+}: KbdProps): ReactElement {
   return (
     <kbd
       data-slot="kbd"

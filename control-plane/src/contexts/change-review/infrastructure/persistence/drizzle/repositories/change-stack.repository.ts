@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { ChangeStackVersionConflictError } from '@change-review/domain/exceptions/change-stack-version-conflict.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
@@ -66,11 +67,11 @@ const baseOf = (raw: string): CommitSha => {
 };
 
 const originOf = (row: Row): StackOrigin => {
-  if (row.runId) {
+  if (row.runId !== null && row.runId !== '') {
     return StackOrigin.run(RunId.of(row.runId));
   }
 
-  const head = row.pushedHead ? CommitSha.parsed(row.pushedHead) : null;
+  const head = row.pushedHead !== null && row.pushedHead !== '' ? CommitSha.parsed(row.pushedHead) : null;
 
   if (!head) {
     throw new InconsistentStateError(
@@ -86,13 +87,13 @@ const toChangeStack = (row: Row): ChangeStack =>
   ChangeStack.rehydrate({
     id: ChangeStackId.of(row.id),
     origin: originOf(row),
-    taskId: row.taskId ? TaskId.of(row.taskId) : null,
-    teamId: row.teamId ? TeamId.of(row.teamId) : null,
+    taskId: row.taskId !== null && row.taskId !== '' ? TaskId.of(row.taskId) : null,
+    teamId: row.teamId !== null && row.teamId !== '' ? TeamId.of(row.teamId) : null,
     trial: row.trial,
     workspaceId: WorkspaceId.of(row.workspaceId),
     owner: row.repositoryOwner,
-    repository: row.repository ? RepositoryName.of(row.repository) : null,
-    base: row.baseCommit ? baseOf(row.baseCommit) : null,
+    repository: row.repository !== null && row.repository !== '' ? RepositoryName.of(row.repository) : null,
+    base: row.baseCommit !== null && row.baseCommit !== '' ? baseOf(row.baseCommit) : null,
     diff: diffOf(row.files),
     facts: factsOf(row.facts),
     cohorts: cohortsOf(row.cohorts),
@@ -102,13 +103,13 @@ const toChangeStack = (row: Row): ChangeStack =>
       nextAttemptAt: row.jobDueAt,
       waitingSince: row.waitingSince,
     }),
-    request: row.checkCommand
+    request: row.checkCommand !== null && row.checkCommand !== ''
       ? CheckRequest.of(
           row.checkCommand,
           row.checkSetup,
           RunnerPlacement.ofLabelGroups(
             row.checkPlacement,
-            row.checkPlacementImage
+            row.checkPlacementImage !== null && row.checkPlacementImage !== ''
               ? RunnerImage.of(row.checkPlacementImage)
               : null,
           ),
@@ -116,7 +117,7 @@ const toChangeStack = (row: Row): ChangeStack =>
       : null,
     redrafting: row.redrafting,
     usage: ModelUsage.rehydrate(row.usage),
-    previous: row.previousStackId
+    previous: row.previousStackId !== null && row.previousStackId !== ''
       ? ChangeStackId.of(row.previousStackId)
       : null,
     removed: removedOf(row.removedLayers),
@@ -221,11 +222,11 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
   }
 
   async find(id: ChangeStackId): Promise<ChangeStack | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(changeStack)
       .where(eq(changeStack.id, id.value))
-      .limit(1);
+      .limit(1));
 
     return row ? toChangeStack(row) : null;
   }
@@ -241,7 +242,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
   }
 
   async nextDueJob(now: Date): Promise<ChangeStack | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(changeStack)
       .where(
@@ -252,7 +253,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       )
       .orderBy(asc(changeStack.startedAt))
       .limit(1)
-      .for('update', { skipLocked: true });
+      .for('update', { skipLocked: true }));
 
     return row ? toChangeStack(row) : null;
   }

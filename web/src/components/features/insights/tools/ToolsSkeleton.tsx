@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
 import {
@@ -8,7 +10,7 @@ import {
   skillHeadings,
 } from '@/lib/insights-tools';
 
-export function ToolsSkeleton() {
+export function ToolsSkeleton(): ReactElement {
   return (
     <div role="status" aria-label="Loading the tools" className="contents">
       <InsightsSection title="Skills" tooltip={SKILLS_NOTE}>

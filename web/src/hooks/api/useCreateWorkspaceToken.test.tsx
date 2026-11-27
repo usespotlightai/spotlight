@@ -69,9 +69,10 @@ describe('useCreateWorkspaceToken', () => {
         token: 'token_secret',
       }),
     );
+    const anyKey: unknown = expect.any(String);
     expect(createWorkspaceToken).toHaveBeenCalledWith({
       path: { workspaceId: 'workspace_acme' },
-      headers: { 'Idempotency-Key': expect.any(String) as string },
+      headers: { 'Idempotency-Key': anyKey },
       body: SPEC,
     });
     expect(invalidated).toHaveBeenCalledWith({

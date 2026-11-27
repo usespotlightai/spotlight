@@ -50,7 +50,7 @@ export class RunTokens implements RunTokensPort {
   async revoke(workspaceId: WorkspaceId, tokenId: string): Promise<void> {
     const token = await this.tokens.find(WorkspaceTokenId.of(tokenId));
 
-    if (token?.isRunTokenIn(workspaceId)) {
+    if (token?.isRunTokenIn(workspaceId) === true) {
       await this.revoked(token);
     }
   }

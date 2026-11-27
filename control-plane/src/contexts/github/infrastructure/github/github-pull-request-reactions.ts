@@ -6,12 +6,15 @@ import type {
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
+import { z } from 'zod';
 
 const API = 'https://api.github.com';
 
 const GONE = 404;
 
-type Fetch = typeof globalThis.fetch;
+type Fetch = (url: string, init: RequestInit) => Promise<Response>;
+
+const REACTION = z.object({ id: z.number() });
 
 export class GitHubPullRequestReactions implements PullRequestReactionsPort {
   constructor(
@@ -67,7 +70,7 @@ export class GitHubPullRequestReactions implements PullRequestReactionsPort {
       );
     }
 
-    const { id } = (await response.json()) as { readonly id: number };
+    const { id } = REACTION.parse(await response.json());
 
     return { reactions, token, id };
   }

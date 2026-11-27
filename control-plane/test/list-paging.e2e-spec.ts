@@ -1,12 +1,18 @@
 import { randomUUID } from 'node:crypto';
 
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { InvalidPageCursorError } from '@shared-kernel/application/errors/invalid-page-cursor.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { PageRequest } from '@work/application/dto/page.dto';
-import type { InboxItemSummary } from '@work/application/ports/inbox-reader.port';
+import type {
+  InboxEntrySummary,
+  InboxItemSummary,
+} from '@work/application/ports/inbox-reader.port';
 import { conversationsOf } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
@@ -21,6 +27,10 @@ import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
+const taskOf = (
+  entry: InboxEntrySummary | undefined,
+): InboxItemSummary | undefined => (entry?.kind === 'task' ? entry : undefined);
+
 let database: TestDatabase;
 let db: DrizzleDatabase;
 
@@ -30,7 +40,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const at = (minute: number) => new Date(Date.UTC(2026, 9, 20, 9, minute, 0, 0));
@@ -93,7 +103,7 @@ const aLine = async () => {
       rank: input.rank ?? 'i',
       assigneeId: viewer,
       finishedAt: input.finishedAt ?? null,
-      currentRunId: input.running ? randomUUID() : null,
+      currentRunId: input.running === true ? randomUUID() : null,
     });
 
     return taskId;
@@ -121,7 +131,7 @@ const aLine = async () => {
         unreadAsk: anyUnread(
           kinds.map((each) => ({
             kind: each.kind,
-            readAt: each.unseen ? null : each.at,
+            readAt: each.unseen === true ? null : each.at,
           })),
         ),
       })
@@ -139,7 +149,7 @@ const aLine = async () => {
           (each.kind === 'asked' ? ('station' as const) : ('person' as const)),
         kind: each.kind,
         form: each.form ?? ('words' as const),
-        readAt: each.unseen ? null : each.at,
+        readAt: each.unseen === true ? null : each.at,
         closesConversation: closing.has(position),
       })),
     );
@@ -181,7 +191,7 @@ const aLine = async () => {
 const inboxOf = (workspaceId: string, teamId: string) => {
   const reader = new DrizzleInboxReader(
     db,
-    { findMany: async () => new Map() } as never,
+    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
     runFactsOver(db),
   );
   const scope = (viewer: UserId) => ({
@@ -208,7 +218,7 @@ const inboxOf = (workspaceId: string, teamId: string) => {
 const boardOf = (_workspaceId: string) => {
   const reader = new DrizzleTaskReader(
     db,
-    { findMany: async () => new Map() } as never,
+    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
     runFactsOver(db),
   );
 
@@ -241,12 +251,10 @@ describe('the inbox, open and resolved', () => {
     const inbox = inboxOf(line.workspaceId, line.teamId);
     const viewer = UserId.of(line.viewer);
 
-    const open = (await inbox.openForWorkspaceMember('acme', viewer)) ?? [];
+    const open = await inbox.openForWorkspaceMember('acme', viewer);
 
     expect(open.map((each) => each.id)).toEqual([`${first}:2`]);
-    expect((open[0] as InboxItemSummary | undefined)?.lastNote?.body).toBe(
-      'answered 3',
-    );
+    expect(taskOf(firstOf(open))?.lastNote?.body).toBe('answered 3');
 
     const one = await inbox.resolvedForWorkspaceMember(
       'acme',
@@ -256,19 +264,17 @@ describe('the inbox, open and resolved', () => {
     const two = await inbox.resolvedForWorkspaceMember(
       'acme',
       viewer,
-      pageAfter(one?.next ?? null, 1),
+      pageAfter(one.next ?? null, 1),
     );
     const three = await inbox.resolvedForWorkspaceMember(
       'acme',
       viewer,
-      pageAfter(two?.next ?? null, 1),
+      pageAfter(two.next ?? null, 1),
     );
 
-    expect(one?.items.map((each) => each.id)).toEqual([`${second}:0`]);
-    expect(two?.items.map((each) => each.id)).toEqual([`${first}:0`]);
-    expect(
-      (two?.items[0] as InboxItemSummary | undefined)?.lastNote?.body,
-    ).toBe('passed 1');
+    expect(one.items.map((each) => each.id)).toEqual([`${second}:0`]);
+    expect(two.items.map((each) => each.id)).toEqual([`${first}:0`]);
+    expect(taskOf(firstOf(two.items))?.lastNote?.body).toBe('passed 1');
     expect(three).toEqual({ items: [], next: null });
   });
 
@@ -283,11 +289,10 @@ describe('the inbox, open and resolved', () => {
     ]);
     await line.addNotes(arrivedLast, [{ kind: 'asked', at: at(10) }]);
 
-    const open =
-      (await inboxOf(line.workspaceId, line.teamId).openForWorkspaceMember(
-        'acme',
-        UserId.of(line.viewer),
-      )) ?? [];
+    const open = await inboxOf(
+      line.workspaceId,
+      line.teamId,
+    ).openForWorkspaceMember('acme', UserId.of(line.viewer));
 
     expect(open.map((each) => each.id)).toEqual([
       `${arrivedLast}:0`,
@@ -321,10 +326,10 @@ describe('the inbox, open and resolved', () => {
 
   const openIds = async (line: Awaited<ReturnType<typeof aLine>>) =>
     (
-      (await inboxOf(line.workspaceId, line.teamId).openForWorkspaceMember(
+      await inboxOf(line.workspaceId, line.teamId).openForWorkspaceMember(
         'acme',
         UserId.of(line.viewer),
-      )) ?? []
+      )
     ).map((each) => each.id);
 
   it('lists running tasks by their newest note, so an agent note or a world message moves one to the top', async () => {
@@ -399,9 +404,9 @@ describe('the inbox, open and resolved', () => {
           pageAfter(before, 2),
         );
 
-      seen.push(...(page?.items.map((each) => each.id) ?? []));
-      before = page?.next ?? null;
-    } while (before);
+      seen.push(...page.items.map((each) => each.id));
+      before = page.next ?? null;
+    } while (before !== null && before !== '');
 
     expect([...seen].sort()).toEqual([...requests].sort());
     expect(new Set(seen).size).toBe(requests.length);
@@ -448,11 +453,10 @@ describe('the inbox, open and resolved', () => {
       { kind: 'passed', at: at(4) },
     ]);
 
-    const open =
-      (await inboxOf(line.workspaceId, line.teamId).openForWorkspaceMember(
-        'acme',
-        UserId.of(line.viewer),
-      )) ?? [];
+    const open = await inboxOf(
+      line.workspaceId,
+      line.teamId,
+    ).openForWorkspaceMember('acme', UserId.of(line.viewer));
 
     expect(open.map((each) => each.id)).toEqual([`${finished}:0`]);
     expect(open[0]).toMatchObject({
@@ -460,9 +464,7 @@ describe('the inbox, open and resolved', () => {
       unread: true,
       section: 'open',
     });
-    expect((open[0] as InboxItemSummary | undefined)?.lastNote?.body).toBe(
-      'passed 2',
-    );
+    expect(taskOf(firstOf(open))?.lastNote?.body).toBe('passed 2');
   });
 
   it('reads past station passes that close no conversation, and counts only the last close of a reopened one', async () => {
@@ -493,11 +495,9 @@ describe('the inbox, open and resolved', () => {
       pageAfter(null, 1),
     );
 
-    expect(resolved?.items.map((each) => each.id)).toEqual([`${asked}:0`]);
-    expect(
-      (resolved?.items[0] as InboxItemSummary | undefined)?.lastNote?.body,
-    ).toBe('passed 3');
-    expect(resolved?.next).toBeNull();
+    expect(resolved.items.map((each) => each.id)).toEqual([`${asked}:0`]);
+    expect(taskOf(firstOf(resolved.items))?.lastNote?.body).toBe('passed 3');
+    expect(resolved.next).toBeNull();
   });
 
   it('lets a person reopen only the last conversation, where a person resolved it', async () => {
@@ -525,7 +525,7 @@ describe('the inbox, open and resolved', () => {
     );
 
     expect(
-      page?.items.map((each) => ({
+      page.items.map((each) => ({
         id: each.id,
         section: each.section,
         reopenable: each.reopenable,
@@ -621,14 +621,14 @@ describe('the board, open and completed', () => {
     const second = await board.listForTeamMember(team, viewer, {
       state: 'completed-station',
       lineId: null,
-      page: pageAfter(first?.next ?? null, 2),
+      page: pageAfter(first.next ?? null, 2),
     });
 
-    expect(open?.items.map((each) => each.id)).toEqual([working]);
-    expect(open?.items[0]?.note?.body).toBe('answered 1');
-    expect(first?.items.map((each) => each.id)).toEqual(done.slice(0, 2));
-    expect(second?.items.map((each) => each.id)).toEqual(done.slice(2));
-    expect(second?.next).toBeNull();
+    expect(open.items.map((each) => each.id)).toEqual([working]);
+    expect(open.items[0]?.note?.body).toBe('answered 1');
+    expect(first.items.map((each) => each.id)).toEqual(done.slice(0, 2));
+    expect(second.items.map((each) => each.id)).toEqual(done.slice(2));
+    expect(second.next).toBeNull();
   });
 });
 
@@ -672,7 +672,7 @@ describe('the runs of a team', () => {
     const facts = runFactsOver(db);
     const runs = new DrizzleRunReader(
       db,
-      { findMany: async () => new Map() } as never,
+      partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
       facts,
       facts,
     );

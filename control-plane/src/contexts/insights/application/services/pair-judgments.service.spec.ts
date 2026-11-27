@@ -51,17 +51,19 @@ const judging = async (
   const requests: SideBySideJudgeRequest[] = [];
   const judgments = new PairJudgments(
     {
-      hasTask: async () => true,
-      of: async (runId) => evidence[runId.value] ?? null,
+      hasTask: () => Promise.resolve(true),
+      of: (runId) => Promise.resolve(evidence[runId.value] ?? null),
     },
     {
-      judgePair: async (request) => {
+      judgePair: (request) => {
         requests.push(request);
         const verdict = answer(request);
 
-        return 'status' in verdict
-          ? verdict
-          : { status: 'judged', model: 'some/model', verdict };
+        return Promise.resolve(
+          'status' in verdict
+            ? verdict
+            : { status: 'judged', model: 'some/model', verdict },
+        );
       },
       roundOf: () => ROUND,
     },
@@ -76,13 +78,27 @@ const judging = async (
     orders: ORDERS,
   });
 
-  return { requests, answered: judgment, judgment: judgment as PairJudgment };
+  return {
+    requests,
+    answered: judgment,
+    get judgment() {
+      return settled(judgment);
+    },
+  };
 };
 
 const fastSide = (request: SideBySideJudgeRequest): 'A' | 'B' =>
   request.a.hunks.some((each) => each.lines.includes('+drainFast()'))
     ? 'A'
     : 'B';
+
+const settled = (answer: PairJudgment | SessionWaiting): PairJudgment => {
+  if ('status' in answer) {
+    throw new Error('expected a settled judgment');
+  }
+
+  return answer;
+};
 
 describe('PairJudgments', () => {
   it('shows the judge both changes labelled A and B beside the accepted one, in the orders asked, and names the winner by its run', async () => {

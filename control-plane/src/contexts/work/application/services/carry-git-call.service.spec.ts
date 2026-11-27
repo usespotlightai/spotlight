@@ -1,6 +1,8 @@
 import type { GitCall } from '@github/application/ports/repository-git.port';
 import type { LeasedWork } from '@runners/application/ports/runners.port';
 import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -44,6 +46,7 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import { RefUpdate } from '@work/domain/value-objects/ref-update.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
@@ -80,26 +83,30 @@ const pushing = (...refs: readonly string[]): ReceivePackPort => {
   );
 
   return {
-    read: vi.fn(async (): Promise<PushRead> => ({
-      kind: 'read',
-      push: {
-        updates,
-        call: forwarded,
-        reported: (answer, accepted) => ({
-          ...answer,
-          body: {
-            async *[Symbol.asyncIterator]() {
-              yield new Uint8Array();
-              await accepted(updates);
+    read: vi.fn((): Promise<PushRead> =>
+      Promise.resolve({
+        kind: 'read',
+        push: {
+          updates,
+          call: forwarded,
+          reported: (answer, accepted) => ({
+            ...answer,
+            body: {
+              async *[Symbol.asyncIterator]() {
+                yield new Uint8Array();
+                await accepted(updates);
+              },
             },
-          },
-        }),
-        refused: vi.fn(async (reason: string) => ({
-          ...REFUSED,
-          headers: { reason },
-        })),
-      },
-    })),
+          }),
+          refused: vi.fn((reason: string) =>
+            Promise.resolve({
+              ...REFUSED,
+              headers: { reason },
+            }),
+          ),
+        },
+      }),
+    ),
   };
 };
 
@@ -160,7 +167,9 @@ const chat = () =>
 const lineWorking = (repositories: readonly string[]): LineMap => {
   const repos = repositories.map((each) => Repository.of(each));
 
-  return { repositories: { all: repos } } as unknown as LineMap;
+  return partial<LineMap>({
+    repositories: partial<LineRepositories>({ all: repos }),
+  });
 };
 
 interface Claimed {
@@ -258,25 +267,29 @@ const carrying = (
   receivePack: ReceivePackPort = pushing('refs/heads/fix/icons'),
 ) => {
   const git = {
-    call: vi.fn(async () => ({ status: 200, headers: {}, body: null })),
+    call: vi.fn(() =>
+      Promise.resolve({ status: 200, headers: {}, body: null }),
+    ),
   };
-  const checks = { leasedWork: vi.fn(async () => checking) };
-  const leases = { leaseOf: vi.fn(async () => held) };
+  const checks = { leasedWork: vi.fn(() => Promise.resolve(checking)) };
+  const leases = { leaseOf: vi.fn(() => Promise.resolve(held)) };
   const tasks = {
-    find: vi.fn(async () => existing),
-    startingFrom: vi.fn(async () => []),
-    onBranch: vi.fn(async () => null),
-    save: vi.fn(async () => {}),
+    find: vi.fn(() => Promise.resolve(existing)),
+    startingFrom: vi.fn(() => Promise.resolve([])),
+    onBranch: vi.fn(() => Promise.resolve(null)),
+    save: vi.fn((_task: Task) => Promise.resolve()),
   };
 
   const service = new CarryGitCall(
     runWorksOver(
       runLeasesOver(() => claimed?.run ?? null),
-      tasks as unknown as TaskRepository,
-      { find: vi.fn(async () => chat()) } as unknown as ChatRepository,
-      {
-        findByStation: vi.fn(async () => lineWorking(repositories)),
-      } as unknown as LineMapsPort,
+      partial<TaskRepository>(tasks),
+      partial<ChatRepository>({
+        find: vi.fn(() => Promise.resolve(chat())),
+      }),
+      partial<LineMapsPort>({
+        findByStation: vi.fn(() => Promise.resolve(lineWorking(repositories))),
+      }),
       dispatchesOf(
         ...[claimed && dispatchOf(claimed.requested)].filter(
           (each): each is Dispatch => Boolean(each),
@@ -285,7 +298,7 @@ const carrying = (
       { now: () => new Date(), sleep: async () => {} },
     ),
     {
-      isConnected: vi.fn(async () => true),
+      isConnected: vi.fn(() => Promise.resolve(true)),
     },
     git,
     checks,
@@ -401,7 +414,9 @@ describe('CarryGitCall', () => {
       undefined,
       null,
       null,
-      { read: async () => ({ kind: 'unreadable', answer: unreadable }) },
+      {
+        read: () => Promise.resolve({ kind: 'unreadable', answer: unreadable }),
+      },
     );
 
     await expect(
@@ -459,7 +474,12 @@ describe('CarryGitCall', () => {
     for await (const _ of answer?.body ?? []) {
       continue;
     }
-    const [saved] = tasks.save.mock.calls[0] as unknown as [Task];
+    const saved = firstOf(tasks.save.mock.calls)?.[0];
+
+    if (!saved) {
+      throw new Error('expected a saved task');
+    }
+
     expect(
       saved.pushedHeads.map((each) => [
         each.repository.value,

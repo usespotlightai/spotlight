@@ -17,7 +17,7 @@ export class SandboxLeases {
   async runEnded(runId: RunId): Promise<void> {
     const run = await this.runs.findById(runId);
 
-    return run?.sandboxIsRejoinable
+    return run?.sandboxIsRejoinable === true
       ? this.sandboxes.releaseRun(runId.value, this.clock.now())
       : this.sandboxes.retireRun(runId.value, this.clock.now());
   }

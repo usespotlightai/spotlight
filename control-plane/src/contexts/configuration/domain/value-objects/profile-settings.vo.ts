@@ -1,4 +1,8 @@
 import { InvalidHarnessProfileError } from '@configuration/domain/exceptions/invalid-harness-profile.error';
+import {
+  isJsonObject,
+  type JsonObject,
+} from '@configuration/domain/value-objects/json-object';
 import { McpServer } from '@configuration/domain/value-objects/mcp-server.vo';
 import {
   PERMISSION_DECISIONS,
@@ -42,8 +46,18 @@ const secretAt = (raw: string, at: number): SecretName => {
   }
 };
 
+const copiedJson = (native: JsonObject): JsonObject => {
+  const copied: unknown = JSON.parse(JSON.stringify(native));
+
+  if (!isJsonObject(copied)) {
+    throw new InvalidHarnessProfileError(['native'], 'must be a JSON object');
+  }
+
+  return copied;
+};
+
 export class ProfileSettings {
-  private readonly kind = 'profile-settings';
+  private readonly kind: string = 'profile-settings';
 
   private constructor(
     readonly rules: readonly PermissionRule[],
@@ -129,9 +143,7 @@ export class ProfileSettings {
     return new ProfileSettings(
       Object.freeze([...input.rules]),
       Object.freeze([...input.mcpServers]),
-      deepFrozen(
-        JSON.parse(JSON.stringify(input.native)) as Record<string, unknown>,
-      ),
+      deepFrozen(copiedJson(input.native)),
       Object.freeze([...input.secrets]),
       Object.freeze([...input.sandboxEnv]),
     );

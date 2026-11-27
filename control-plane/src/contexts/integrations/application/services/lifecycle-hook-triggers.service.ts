@@ -36,9 +36,10 @@ export class LifecycleHookTriggers {
     }
 
     const run = RunId.of(event.runId);
-    const task = event.taskId
-      ? await this.tasks.of(TaskId.of(event.taskId), run)
-      : null;
+    const task =
+      event.taskId !== null && event.taskId !== ''
+        ? await this.tasks.of(TaskId.of(event.taskId), run)
+        : null;
 
     if (task) {
       await this.firings.queue(

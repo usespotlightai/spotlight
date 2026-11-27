@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -18,7 +20,7 @@ export function AgentModelMenu({
   models,
   model,
   onModel,
-}: AgentModelMenuProps) {
+}: AgentModelMenuProps): ReactElement {
   const modelName = models.find((each) => each.id === model)?.name;
 
   return (

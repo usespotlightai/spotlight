@@ -172,13 +172,13 @@ beforeAll(async () => {
     return (
       facts.filter((each) => each.memories.briefed.length > 0).length === 2 &&
       facts.some((each) => each.memories.recalled.length > 0) &&
-      facts.some((each) => (each.memories.read ?? []).length > 0)
+      facts.some((each) => each.memories.read.length > 0)
     );
   });
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('the team’s memory on Insights (e2e)', () => {

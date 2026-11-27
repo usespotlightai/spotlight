@@ -28,7 +28,11 @@ export class Money {
     amount: number | null | undefined,
     currency: string | null | undefined,
   ): Money | null {
-    return amount === null || amount === undefined || !currency
+    return amount === null ||
+      amount === undefined ||
+      currency === null ||
+      currency === undefined ||
+      currency === ''
       ? null
       : Money.of(amount, currency);
   }

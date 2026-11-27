@@ -12,9 +12,14 @@ const asksForTab = (event: MouseEvent): boolean =>
 export function useTabLinks(
   slug: string | undefined,
   openAt: (path: string) => void,
-) {
+): void {
   const clicked = useEffectEvent((event: MouseEvent) => {
-    if (!slug || event.defaultPrevented || !asksForTab(event)) {
+    if (
+      slug === undefined ||
+      slug === '' ||
+      event.defaultPrevented ||
+      !asksForTab(event)
+    ) {
       return;
     }
 

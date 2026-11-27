@@ -1,18 +1,13 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {
-  type Location,
-  MemoryRouter,
-  Route,
-  Routes,
-  useLocation,
-} from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { failedAny } from '@/lib/insights';
 import { stationsOf } from '@/mocks/world/insights';
 import { PLATFORM_ID } from '@/mocks/world/platform';
 import { Station } from '@/routes/Station';
+import { htmlElement } from '@/test/elements';
 
 const SEARCH = {
   enabled: true,
@@ -143,7 +138,7 @@ const line = {
 };
 
 const lines = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useLines', () => ({
@@ -178,7 +173,7 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
 }));
 
 const outcomes = vi.fn<(...args: unknown[]) => unknown>();
-const outcomesFailing = vi.fn();
+const outcomesFailing = vi.fn<() => boolean>();
 const outcomesError = vi.fn<(...args: unknown[]) => unknown>();
 const refetchOutcomes = vi.fn();
 
@@ -194,7 +189,7 @@ vi.mock('@/hooks/api/useStationInsights', () => ({
 }));
 
 const judged = vi.fn<(...args: unknown[]) => unknown>();
-const judgeFailing = vi.fn();
+const judgeFailing = vi.fn<() => boolean>();
 
 const worthImproving = vi.fn<(...args: unknown[]) => unknown>();
 
@@ -317,15 +312,19 @@ const CALIBRATION = {
 
 const INSIGHTS = '/w/acme/team/team_1/insights';
 function HandedOver() {
-  const { state } = useLocation() as Location<{
-    targetStation?: unknown;
-    prompt?: string;
-  } | null>;
+  const state: unknown = useLocation().state;
+  const handed = typeof state === 'object' && state !== null ? state : {};
+  const targetStation =
+    'targetStation' in handed ? handed.targetStation : undefined;
+  const prompt =
+    'prompt' in handed && typeof handed.prompt === 'string'
+      ? handed.prompt
+      : '';
 
   return (
     <>
-      <pre data-slot="handed-over">{JSON.stringify(state?.targetStation)}</pre>
-      <pre data-slot="handed-prompt">{state?.prompt ?? ''}</pre>
+      <pre data-slot="handed-over">{JSON.stringify(targetStation)}</pre>
+      <pre data-slot="handed-prompt">{prompt}</pre>
     </>
   );
 }
@@ -347,10 +346,8 @@ const renderAt = (stationId: string, tab = 'activity') =>
     </MemoryRouter>,
   );
 
-const sectionTitled = (title: string) =>
-  screen
-    .getByRole('heading', { name: title })
-    .closest('section') as HTMLElement;
+const sectionTitled = (title: string): HTMLElement =>
+  htmlElement(screen.getByRole('heading', { name: title }).closest('section'));
 
 beforeEach(() => {
   lines.mockReturnValue([line]);
@@ -860,9 +857,9 @@ describe('Station', () => {
       const user = userEvent.setup();
       renderAt('station_2', 'config');
 
-      const live = document.querySelector(
-        '[data-slot="live-config"]',
-      ) as HTMLElement;
+      const live = htmlElement(
+        document.querySelector('[data-slot="live-config"]'),
+      );
 
       expect(live).toHaveTextContent('SinceOct 28');
 
@@ -1079,17 +1076,20 @@ describe('Station', () => {
       const user = userEvent.setup();
       renderAt('station_2', 'config');
 
-      const improvement = document.querySelector(
-        '[data-slot="search-policy"]',
-      ) as HTMLElement;
+      const improvement = htmlElement(
+        document.querySelector('[data-slot="search-policy"]'),
+      );
 
       expect(improvement).toHaveTextContent(
         'SearchesEvery 7 daysBudgetUp to $10 a search',
       );
 
       await user.hover(
-        sectionTitled('Automatic improvement').querySelector('svg.lucide-info')
-          ?.parentElement as Element,
+        htmlElement(
+          sectionTitled('Automatic improvement').querySelector(
+            'svg.lucide-info',
+          )?.parentElement,
+        ),
       );
 
       expect(await screen.findByText('Cooldown')).toBeInTheDocument();

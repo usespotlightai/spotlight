@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { AlertLegendMark } from '@/components/features/inbox/alerts/AlertLegendMark';
 import {
   ALERT_LEVEL,
@@ -8,7 +10,11 @@ import {
   thresholdLine,
 } from '@/lib/station-alert';
 
-export function AlertChartLegend({ alert }: { alert: StationAlertFiring }) {
+export function AlertChartLegend({
+  alert,
+}: {
+  alert: StationAlertFiring;
+}): ReactElement {
   const level = thresholdLine(alert);
   const shown = (value: number) =>
     formatMeasureValue(alert.rule.measure, value, alert.currency);

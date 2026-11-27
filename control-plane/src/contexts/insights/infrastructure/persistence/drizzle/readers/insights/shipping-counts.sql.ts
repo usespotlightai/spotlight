@@ -45,6 +45,7 @@ import {
   textArray,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { type SQL, sql } from 'drizzle-orm';
 
 interface MergesRow extends Record<string, unknown> {
@@ -215,7 +216,7 @@ const mergesIn = async (
         ) as weeks
       ) as depth
   `);
-  const [row] = result.rows;
+  const row = firstOf(result.rows);
 
   if (!row) {
     throw new Error('The shipping merges query returned no row');
@@ -285,7 +286,7 @@ const reviewDaysIn = async (
     join human_reviews on human_reviews.at = days.at
   `);
 
-  const [row] = result.rows;
+  const row = firstOf(result.rows);
 
   if (!row) {
     throw new Error('The shipping review days query returned no row');

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { SPOTLIGHT_SHARE_SERIES } from '@/components/features/insights/chart-series';
 import { StackedRows } from '@/components/features/insights/StackedRows';
 import { formatShare } from '@/lib/insights';
@@ -8,7 +10,7 @@ export function SpotlightShareChart({
   weeks,
 }: {
   weeks: readonly WeekShare[];
-}) {
+}): ReactElement {
   const most = Math.max(1, ...weeks.map((week) => week.merged));
 
   return (

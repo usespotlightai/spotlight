@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { InboxStep } from '@/components/features/inbox/conversation/InboxStep';
 import { COLLAPSE_MS, Collapsible } from '@/components/shared/Collapsible';
@@ -23,7 +23,7 @@ export function StepsDisclosure({
   steps,
   live = false,
   children,
-}: StepsDisclosureProps) {
+}: StepsDisclosureProps): ReactElement {
   const anchors = useStepAnchors();
   const hasFocus = steps.some(
     (step) =>

@@ -1,9 +1,13 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { MemoryHead } from '@/components/features/memory/MemoryHead';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-export function TeamMemoryTable({ children }: { children: ReactNode }) {
+export function TeamMemoryTable({
+  children,
+}: {
+  children: ReactNode;
+}): ReactElement {
   return (
     <ScrollArea
       className="min-h-0 flex-1"

@@ -6,7 +6,10 @@ import {
   DeleteWorkspaceTokenCommand,
   UpdateWorkspaceTokenCommand,
 } from '@identity/application/commands/workspace-token.commands';
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type {
+  WorkspaceAccessPort,
+  WorkspacePermissions,
+} from '@identity/application/ports/workspace-access.port';
 import { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import type { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
@@ -25,6 +28,7 @@ import {
   transaction,
 } from '@identity/testing/identity.resources.fake-spec';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
@@ -81,10 +85,10 @@ const tokens = () => {
 
   return {
     save,
-    repository: {
-      find: vi.fn(async () => issued()),
+    repository: partial<WorkspaceTokenRepository>({
+      find: vi.fn(() => Promise.resolve(issued())),
       save,
-    } as unknown as WorkspaceTokenRepository,
+    }),
   };
 };
 
@@ -139,16 +143,20 @@ describe('DeleteOidcTrustHandler', () => {
   const deleting = (scopes: string[]) => {
     const save = vi.fn<(trust: OidcTrust) => Promise<void>>(async () => {});
     const handler = new DeleteOidcTrustHandler(
-      {
-        permissionsIn: vi.fn(async () => ({
-          workspaceId: WorkspaceId.of('ws_1'),
-          scopes: new Set(['trusts'] as const),
-        })),
-      } as unknown as WorkspaceAccessPort,
-      {
-        find: vi.fn(async () => trust()),
+      partial<WorkspaceAccessPort>({
+        permissionsIn: vi.fn(() =>
+          Promise.resolve(
+            partial<WorkspacePermissions>({
+              workspaceId: WorkspaceId.of('ws_1'),
+              scopes: new Set(['trusts'] as const),
+            }),
+          ),
+        ),
+      }),
+      partial<OidcTrustRepository>({
+        find: vi.fn(() => Promise.resolve(trust())),
         save,
-      } as unknown as OidcTrustRepository,
+      }),
       transaction,
     );
     const by = Actor.of(

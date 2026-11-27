@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { InboxEmpty } from '@/components/features/inbox/InboxEmpty';
@@ -6,11 +7,11 @@ import { PageNotice } from '@/components/shared/PageNotice';
 import { useInbox } from '@/hooks/api/useInbox';
 import { failed } from '@/lib/query';
 
-export function InboxIndex() {
+export function InboxIndex(): ReactElement | null {
   const { slug } = useParams();
   const inbox = useInbox(slug);
 
-  if (!slug) {
+  if (slug === undefined || slug === '') {
     return null;
   }
 

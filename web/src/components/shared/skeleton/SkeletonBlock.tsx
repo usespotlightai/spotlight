@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,7 @@ export function SkeletonBlock({
   label,
   className,
   children,
-}: SkeletonBlockProps) {
+}: SkeletonBlockProps): ReactElement {
   const classes = cn('relative flex min-w-0 flex-col', className);
   const block = (
     <>
@@ -24,7 +24,7 @@ export function SkeletonBlock({
     </>
   );
 
-  return label ? (
+  return label !== undefined && label !== '' ? (
     <div role="status" aria-label={label} className={classes}>
       {block}
     </div>

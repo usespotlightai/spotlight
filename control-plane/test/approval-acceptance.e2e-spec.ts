@@ -37,7 +37,17 @@ const TOOL = CalledTool.of({ server: 'linear', tool: 'create_issue' });
 
 type Acted = readonly [ActionKind, number];
 
-const RUNS = {
+const RUN_NAMES = [
+  'approvedThenClosed',
+  'approvedThenSentBack',
+  'onlyApproved',
+  'closedReceivedBeforeTheDismissalBeforeIt',
+  'sentBackReceivedAfterTheCloseAfterIt',
+] as const;
+
+type RunName = (typeof RUN_NAMES)[number];
+
+const RUNS: Readonly<Record<RunName, readonly Acted[]>> = {
   approvedThenClosed: [
     ['approved', 100],
     ['accepted', 90],
@@ -55,9 +65,7 @@ const RUNS = {
     ['accepted', 80],
     ['sent-back', 85],
   ],
-} satisfies Record<string, readonly Acted[]>;
-
-type RunName = keyof typeof RUNS;
+};
 
 let app: INestApplication;
 let team: Awaited<ReturnType<typeof createTeam>>;
@@ -98,20 +106,18 @@ beforeAll(async () => {
   const records = app.get(DrizzleRunRecordRepository);
 
   const delivered = async (
-    events: readonly unknown[],
+    events: readonly DomainEvent[],
     check: () => Promise<unknown>,
   ) => {
-    await app.get(EventOutbox).record(events as DomainEvent[]);
+    await app.get(EventOutbox).record([...events]);
     await eventually(async () => {
       await app.get(EventDelivery).drain(2_000);
       return check();
     }, 60_000);
   };
 
-  for (const [name, acts] of Object.entries(RUNS) as [
-    RunName,
-    readonly Acted[],
-  ][]) {
+  for (const name of RUN_NAMES) {
+    const acts = RUNS[name];
     const runId = RunId.of(randomUUID());
     const taskId = TaskId.of(randomUUID());
     runIds.set(name, runId);
@@ -186,7 +192,7 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('a run a person answered a tool approval for (e2e)', () => {

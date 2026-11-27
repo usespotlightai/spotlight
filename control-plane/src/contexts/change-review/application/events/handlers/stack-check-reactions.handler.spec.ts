@@ -15,6 +15,7 @@ import type { ProposedCohort } from '@change-review/domain/value-objects/stack-c
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -92,27 +93,30 @@ const reacting = (stack: ChangeStack | null, check: StackCheck | null) => {
   const saved: StackCheck[] = [];
   const savedStacks: ChangeStack[] = [];
 
-  const stacks = {
-    find: async () => stack,
-    save: async (each: ChangeStack) => {
+  const stacks = partial<ChangeStackRepository>({
+    find: () => Promise.resolve(stack),
+    save: (each: ChangeStack) => {
       savedStacks.push(each);
+      return Promise.resolve();
     },
-  } as unknown as ChangeStackRepository;
+  });
 
-  const checks = {
-    find: async () => check,
-    add: async (each: StackCheck) => {
+  const checks = partial<StackCheckRepository>({
+    find: () => Promise.resolve(check),
+    add: (each: StackCheck) => {
       added.push(each);
+      return Promise.resolve();
     },
-    save: async (each: StackCheck) => {
+    save: (each: StackCheck) => {
       saved.push(each);
+      return Promise.resolve();
     },
-  } as unknown as StackCheckRepository;
+  });
 
   return {
     reactions: new StackCheckReactions(checks, stacks, {
       now: () => LATER,
-      sleep: async () => undefined,
+      sleep: () => Promise.resolve(),
     }),
     added,
     saved,

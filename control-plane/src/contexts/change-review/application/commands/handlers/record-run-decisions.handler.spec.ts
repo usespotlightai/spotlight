@@ -11,7 +11,11 @@ import type {
 import type { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import { DecisionSetVersionConflictError } from '@change-review/domain/exceptions/decision-set-version-conflict.error';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
-import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
+import type {
+  LeasedRunFacts,
+  RunLeasesPort,
+} from '@runs/application/ports/run-leases.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -42,57 +46,63 @@ const recording = (
   let next = 0;
 
   const work = {
-    run: async (): Promise<RunForReview> => ({
-      id: RunId.of(RUN),
-      workspaceId: WorkspaceId.of('ws_1'),
-      taskId: TASK,
-      checking: null,
-      working: true,
-      attempt: 1,
-      orderedAt: null,
-      decisions: true,
-      trial: false,
-      isolated: false,
-      checkouts: 1,
-      placement: RunnerPlacement.anywhere(),
-      ...over.run,
-    }),
-    teamOfRun: async () => null,
-    task: async (): Promise<ReviewedTask> => ({
-      id: TASK,
-      workspaceId: WorkspaceId.of('ws_1'),
-      teamId: null,
-      pullRequests: [],
-      openPullRequests: [],
-      reviewedPullRequest: null,
-      reviewing: false,
-      currentRunId: RunId.of(RUN),
-      ...over.task,
-    }),
-    taskWithPullRequest: async () => null,
-    repositoriesOfRun: async () => [],
+    run: (): Promise<RunForReview> =>
+      Promise.resolve({
+        id: RunId.of(RUN),
+        workspaceId: WorkspaceId.of('ws_1'),
+        taskId: TASK,
+        checking: null,
+        working: true,
+        attempt: 1,
+        orderedAt: null,
+        decisions: true,
+        trial: false,
+        isolated: false,
+        checkouts: 1,
+        placement: RunnerPlacement.anywhere(),
+        ...over.run,
+      }),
+    teamOfRun: () => Promise.resolve(null),
+    task: (): Promise<ReviewedTask> =>
+      Promise.resolve({
+        id: TASK,
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: null,
+        pullRequests: [],
+        openPullRequests: [],
+        reviewedPullRequest: null,
+        reviewing: false,
+        currentRunId: RunId.of(RUN),
+        ...over.task,
+      }),
+    taskWithPullRequest: () => Promise.resolve(null),
+    repositoriesOfRun: () => Promise.resolve([]),
   } satisfies WorkPort;
 
-  const write = async (set: DecisionSet) => {
+  const write = (set: DecisionSet) => {
     if (conflicts > 0) {
       conflicts -= 1;
-      throw new DecisionSetVersionConflictError(set.id.value);
+      return Promise.reject(new DecisionSetVersionConflictError(set.id.value));
     }
     stored = set;
+    return Promise.resolve();
   };
   const sets = {
-    forTask: async () => stored,
+    forTask: () => Promise.resolve(stored),
     add: write,
     save: write,
-    remove: async () => undefined,
+    remove: () => Promise.resolve(),
   } satisfies DecisionSetRepository;
 
   return {
     handler: new RecordRunDecisionsHandler(
       work,
-      {
-        leasedBy: async () => (over.leased === false ? null : {}),
-      } as unknown as RunLeasesPort,
+      partial<RunLeasesPort>({
+        leasedBy: () =>
+          Promise.resolve(
+            over.leased === false ? null : partial<LeasedRunFacts>({}),
+          ),
+      }),
       sets,
       { inTransaction: (work) => work() },
       { generate: () => `id_${(next += 1)}` },

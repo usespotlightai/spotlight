@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -17,7 +18,6 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
-import type { Station } from '@work/domain/value-objects/station.vo';
 import { describe, expect, it } from 'vitest';
 
 const BUILD = StationId.of('station_build');
@@ -98,15 +98,21 @@ const trialToolsOf = async (
   onAnyMark: readonly string[],
 ): Promise<readonly string[] | undefined> => {
   const line = lineWith(stationTools);
-  const candidates = {
-    live: async () => ({ line, station: line.stationAt(BUILD) as Station }),
-    configOf: async () => configWith(stationTools),
-  } as unknown as CandidateLines;
+  const station = line.stationAt(BUILD);
+
+  if (!station) {
+    throw new Error('expected the build station');
+  }
+
+  const candidates = partial<CandidateLines>({
+    live: () => Promise.resolve({ line, station }),
+    configOf: () => Promise.resolve(configWith(stationTools)),
+  });
   const integrations = new TeamIntegrations({
-    provided: async (_team, tools) =>
-      DECLARED.filter((each) => tools.includes(each.tool)),
-    toolsOnMarks: async () => [],
-    toolsOnAnyMark: async () => onAnyMark,
+    provided: (_team, tools) =>
+      Promise.resolve(DECLARED.filter((each) => tools.includes(each.tool))),
+    toolsOnMarks: () => Promise.resolve([]),
+    toolsOnAnyMark: () => Promise.resolve(onAnyMark),
   });
 
   return (

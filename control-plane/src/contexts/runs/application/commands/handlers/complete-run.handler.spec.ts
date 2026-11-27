@@ -16,6 +16,7 @@ import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -48,21 +49,25 @@ const attaching = (owner = 'requester') => {
     owner,
     asked,
     taken,
-    uploadedBy: async (
+    uploadedBy: (
       run: RunId,
       workspaceId: WorkspaceId,
       ids: readonly string[],
     ) => {
       asked.push([`${run.value}@${workspaceId.value}`, ids]);
-      return ids.map((id) => ({
-        id,
-        name: `${id.replace('file_', '')}.png`,
-        contentType: 'image/png',
-        size: 3,
-      }));
+      return Promise.resolve(
+        ids.map((id) => ({
+          id,
+          name: `${id.replace('file_', '')}.png`,
+          contentType: 'image/png',
+          size: 3,
+        })),
+      );
     },
-    take: async (workspaceId: WorkspaceId, files: readonly RunFileFacts[]) =>
-      void taken.push([workspaceId.value, files.map((each) => each.id)]),
+    take: (workspaceId: WorkspaceId, files: readonly RunFileFacts[]) =>
+      Promise.resolve(
+        void taken.push([workspaceId.value, files.map((each) => each.id)]),
+      ),
   } as RunFileSource & {
     asked: [string, readonly string[]][];
     taken: [string, readonly string[]][];
@@ -74,13 +79,13 @@ const completing = (
   stored: { run?: () => Run; files?: RunFileSource } = {},
 ) =>
   new CompleteRunHandler(
-    {
-      findById: async () => (stored.run ? stored.run() : leased()),
+    partial<RunRepository>({
+      findById: () => Promise.resolve(stored.run ? stored.run() : leased()),
       save,
-    } as unknown as RunRepository,
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
+    }),
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
     { now: () => NOW, sleep: async () => {} },
     stored.files ? runFilesFrom(stored.files) : runFilesFrom(),
   );
@@ -118,25 +123,26 @@ describe('CompleteRunHandler', () => {
     const saved: Run[] = [];
     const files = attaching();
 
-    await completing(async (run) => void saved.push(run), { files }).execute(
-      reviewing,
-    );
+    await completing((run) => Promise.resolve(void saved.push(run)), {
+      files,
+    }).execute(reviewing);
 
-    const [run] = saved;
-    expect(run?.state).toBe('suspended');
-    expect(run?.claimedBy).toBeNull();
-    expect(run?.turnAt(FIRST)?.state).toBe('pending');
-    expect(run?.turnAt(FIRST)?.report.session?.value).toBe('session_1');
+    expect(saved).toHaveLength(1);
+    const run = saved[0];
+    expect(run.state).toBe('suspended');
+    expect(run.claimedBy).toBeNull();
+    expect(run.turnAt(FIRST)?.state).toBe('pending');
+    expect(run.turnAt(FIRST)?.report.session?.value).toBe('session_1');
     expect(
-      run?.turnAt(FIRST)?.report.handover?.attachments.map((each) => each.id),
+      run.turnAt(FIRST)?.report.handover?.attachments.map((each) => each.id),
     ).toEqual(['file_light']);
-    expect(run?.spec.value.resume).toEqual({
+    expect(run.spec.value.resume).toEqual({
       sessionId: 'session_1',
       resumeSession: true,
     });
     expect(files.asked).toEqual([['run_1@ws_1', ['file_light']]]);
     expect(files.taken).toEqual([]);
-    expect(run?.pullEvents().some((each) => each instanceof RunSuspended)).toBe(
+    expect(run.pullEvents().some((each) => each instanceof RunSuspended)).toBe(
       true,
     );
   });
@@ -144,7 +150,7 @@ describe('CompleteRunHandler', () => {
   it('keeps the run’s suggestion to close the task with its turn', async () => {
     const saved: Run[] = [];
 
-    await completing(async (run) => void saved.push(run)).execute(
+    await completing((run) => Promise.resolve(void saved.push(run))).execute(
       new CompleteRunCommand('run_1', 'runner_1', 0, false, undefined, {
         next: 'review',
         note: 'The retry already exists.',
@@ -158,7 +164,9 @@ describe('CompleteRunHandler', () => {
   it('suggests nothing where the run named no suggestion', async () => {
     const saved: Run[] = [];
 
-    await completing(async (run) => void saved.push(run)).execute(reviewing);
+    await completing((run) => Promise.resolve(void saved.push(run))).execute(
+      reviewing,
+    );
 
     expect(saved[0]?.turnAt(FIRST)?.report.handover?.suggest).toBe('');
   });
@@ -177,9 +185,9 @@ describe('CompleteRunHandler', () => {
     const saved: Run[] = [];
     const files = attaching('replays');
 
-    await completing(async (run) => void saved.push(run), { files }).execute(
-      reviewing,
-    );
+    await completing((run) => Promise.resolve(void saved.push(run)), {
+      files,
+    }).execute(reviewing);
 
     expect(files.asked).toEqual([]);
     expect(
@@ -193,7 +201,9 @@ describe('CompleteRunHandler', () => {
     const saved: Run[] = [];
     const files = attaching();
 
-    await completing(async (run) => void saved.push(run), { files }).execute(
+    await completing((run) => Promise.resolve(void saved.push(run)), {
+      files,
+    }).execute(
       new CompleteRunCommand('run_1', 'runner_1', 1, true, 'boom', {
         next: 'review',
         attachments: ['file_light'],
@@ -215,7 +225,7 @@ describe('CompleteRunHandler', () => {
       );
 
     await expect(
-      completing(async (run) => void saved.push(run), {
+      completing((run) => Promise.resolve(void saved.push(run)), {
         run: suspended,
       }).execute(reviewing),
     ).rejects.toThrow('Cannot hand over run run_1');
@@ -225,7 +235,7 @@ describe('CompleteRunHandler', () => {
   it('keeps whether the run was stopped on what it ended with', async () => {
     const saved: Run[] = [];
 
-    await completing(async (run) => void saved.push(run)).execute(
+    await completing((run) => Promise.resolve(void saved.push(run))).execute(
       new CompleteRunCommand(
         'run_1',
         'runner_1',
@@ -265,7 +275,9 @@ describe('CompleteRunHandler', () => {
     it('goes back on the queue, as a run whose lease expired does', async () => {
       const saved: Run[] = [];
 
-      await completing(async (run) => void saved.push(run)).execute(timedOut);
+      await completing((run) => Promise.resolve(void saved.push(run))).execute(
+        timedOut,
+      );
 
       expect(saved[0]?.state).toBe('queued');
     });
@@ -273,7 +285,7 @@ describe('CompleteRunHandler', () => {
     it('is exhausted as timed out at its last attempt', async () => {
       const saved: Run[] = [];
 
-      await completing(async (run) => void saved.push(run), {
+      await completing((run) => Promise.resolve(void saved.push(run)), {
         run: lastAttempt,
       }).execute(timedOut);
 
@@ -284,12 +296,13 @@ describe('CompleteRunHandler', () => {
       const saved: Run[] = [];
       let tries = 0;
 
-      await completing(async (run) => {
+      await completing((run) => {
         tries += 1;
         if (tries === 1) {
-          throw new RunVersionConflictError(run.id.value);
+          return Promise.reject(new RunVersionConflictError(run.id.value));
         }
         saved.push(run);
+        return Promise.resolve();
       }).execute(timedOut);
 
       expect(tries).toBe(2);
@@ -299,8 +312,8 @@ describe('CompleteRunHandler', () => {
 
   it('reports a run that changed while it was completing as a conflict', async () => {
     await expect(
-      completing(async (run) => {
-        throw new RunVersionConflictError(run.id.value);
+      completing((run) => {
+        return Promise.reject(new RunVersionConflictError(run.id.value));
       }).execute(new CompleteRunCommand('run_1', 'runner_1', 0, false)),
     ).rejects.toMatchObject({ kind: 'conflict' });
   });

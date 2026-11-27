@@ -3,6 +3,7 @@ import type {
   JudgeClaimsDisagreementRun,
   JudgeClaimsProposal,
 } from '@replays/domain/value-objects/judge-claims-proposal';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 export interface JudgeClaimsPullRequestFacts extends JudgeClaimsProposal {
   readonly lineKey: string;
@@ -70,7 +71,7 @@ const runLineOf = (
       ? 'The judge failed the run and people passed it.'
       : 'The judge passed the run and people failed it.';
   const wrong = run.claimsWrong
-    .map((claim) => claimsBefore[claim])
+    .map((claim) => itemAt(claimsBefore, claim))
     .filter((each): each is string => each !== undefined)
     .map((each) => `"${quoted(each)}"`);
 

@@ -55,8 +55,8 @@ export const activeCommands = (entries: readonly Registered[]): Registered[] =>
   );
 
 export class CommandRegistry {
-  #entries = new Map<symbol, Registered>();
-  #listeners = new Set<() => void>();
+  readonly #entries = new Map<symbol, Registered>();
+  readonly #listeners = new Set<() => void>();
   #snapshot: readonly Registered[] = [];
   #order = 0;
 
@@ -85,8 +85,8 @@ export class CommandRegistry {
       const shortcut = shortcutOf(command.id);
 
       return (
-        !shortcut.focused &&
-        (!typing || shortcut.typing) &&
+        shortcut.focused !== true &&
+        (!typing || shortcut.typing === true) &&
         startsWith(shortcut.keys, pressed)
       );
     });

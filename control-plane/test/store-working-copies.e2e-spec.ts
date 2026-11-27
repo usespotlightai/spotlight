@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { eq, inArray, ne } from 'drizzle-orm';
 import {
   afterAll,
@@ -15,6 +16,7 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { deleteRunnersOf, deleteRunsOf } from './support/runners';
 import { requestedByTask } from './support/runs';
 import * as schema from './support/schema';
@@ -110,13 +112,13 @@ describe('working copies kept by the hosts of a pool in a store of their hook (e
       })
       .expect(200);
 
-    const assignment = (
+    const assignment = bodyOf<{ token: string; work: { run: { id: string } } }>(
       await http()
         .post('/api/hosts/claim')
         .set('Authorization', `Bearer ${token}`)
         .send({ host: HOST, image: IMAGE })
-        .expect(200)
-    ).body as { token: string; work: { run: { id: string } } };
+        .expect(200),
+    );
 
     expect(assignment.work.run.id).toBe(runId);
 
@@ -146,15 +148,13 @@ describe('working copies kept by the hosts of a pool in a store of their hook (e
     unseat = seat.unseat;
     token = tokenOf('p');
 
-    poolId = (
-      (
-        await createPool({
-          key: 'hosts',
-          labels: ['linux'],
-          token,
-          workingCopies: WORKING_COPIES,
-        }).expect(201)
-      ).body as { id: string }
+    poolId = bodyOf<{ id: string }>(
+      await createPool({
+        key: 'hosts',
+        labels: ['linux'],
+        token,
+        workingCopies: WORKING_COPIES,
+      }).expect(201),
     ).id;
   });
 
@@ -232,13 +232,17 @@ describe('working copies kept by the hosts of a pool in a store of their hook (e
     const first = await queue(taskId);
     const firstToken = await claimed(first);
 
-    const granted = (
+    const granted = bodyOf<{
+      id: string;
+      url: string | null;
+      snapshot: { name: string };
+    }>(
       await runner(firstToken)
         .post(`/api/runs/${first}/working-copy-archive`, {
           snapshot: { base: 'base-v1' },
         })
-        .expect(201)
-    ).body as { id: string; url: string | null; snapshot: { name: string } };
+        .expect(201),
+    );
     await runner(firstToken)
       .post(`/api/runs/${first}/working-copy-archive/${granted.id}/complete`)
       .expect(204);
@@ -266,10 +270,12 @@ describe('working copies kept by the hosts of a pool in a store of their hook (e
         rebase: false,
       },
     });
-    const [row] = await db
-      .select()
-      .from(schema.workingCopyArchive)
-      .where(eq(schema.workingCopyArchive.id, granted.id));
+    const row = firstOf(
+      await db
+        .select()
+        .from(schema.workingCopyArchive)
+        .where(eq(schema.workingCopyArchive.id, granted.id)),
+    );
     expect(row).toMatchObject({
       snapshotStore: STORE,
       size: null,
@@ -283,13 +289,13 @@ describe('working copies kept by the hosts of a pool in a store of their hook (e
     const taskId = randomUUID();
     const first = await queue(taskId);
     const firstToken = await claimed(first);
-    const granted = (
+    const granted = bodyOf<{ id: string }>(
       await runner(firstToken)
         .post(`/api/runs/${first}/working-copy-archive`, {
           snapshot: { base: 'base-v1' },
         })
-        .expect(201)
-    ).body as { id: string };
+        .expect(201),
+    );
     await runner(firstToken)
       .post(`/api/runs/${first}/working-copy-archive/${granted.id}/complete`)
       .expect(204);
@@ -304,13 +310,13 @@ describe('working copies kept by the hosts of a pool in a store of their hook (e
     const onNewBase = await runner(freshToken)
       .get(`/api/runs/${fresh}/working-copy-archive`)
       .expect(200);
-    const rebased = (
+    const rebased = bodyOf<{ id: string }>(
       await runner(freshToken)
         .post(`/api/runs/${fresh}/working-copy-archive`, {
           snapshot: { base: 'base-v2' },
         })
-        .expect(201)
-    ).body as { id: string };
+        .expect(201),
+    );
     await runner(freshToken)
       .post(`/api/runs/${fresh}/working-copy-archive/${rebased.id}/complete`)
       .expect(204);

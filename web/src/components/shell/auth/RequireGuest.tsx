@@ -1,8 +1,22 @@
+import type { ReactElement } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 
 import { useSession } from '@/hooks/api/useSession';
 
-export function RequireGuest() {
+const cameFrom = (state: unknown): string | undefined => {
+  if (typeof state !== 'object' || state === null || !('from' in state)) {
+    return undefined;
+  }
+
+  const { from } = state;
+  if (typeof from !== 'object' || from === null || !('pathname' in from)) {
+    return undefined;
+  }
+
+  return typeof from.pathname === 'string' ? from.pathname : undefined;
+};
+
+export function RequireGuest(): ReactElement | null {
   const { data: session, isPending } = useSession();
   const location = useLocation();
 
@@ -11,9 +25,7 @@ export function RequireGuest() {
   }
 
   if (session?.user) {
-    const from = (location.state as { from?: { pathname?: string } } | null)
-      ?.from?.pathname;
-    return <Navigate to={from ?? '/'} replace />;
+    return <Navigate to={cameFrom(location.state) ?? '/'} replace />;
   }
 
   return <Outlet />;

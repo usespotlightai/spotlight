@@ -3,6 +3,7 @@ import type { OAuth2IR } from '@integrations/infrastructure/integrations/integra
 import { OAuth2Discovery } from '@integrations/infrastructure/integrations/oauth2-discovery';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const SERVER = 'https://mcp.tracker.example/mcp';
@@ -33,41 +34,49 @@ const answering = (
     issuer?: string;
   } = {},
 ) =>
-  vi.fn(async (url: string | URL | Request) => {
+  vi.fn((url: string | URL | Request) => {
     const requested = urlOf(url);
 
     if (requested === SERVER) {
-      return new Response(null, {
-        status: 401,
-        headers: {
-          'www-authenticate': `Bearer resource_metadata="${METADATA}"`,
-        },
-      });
+      return Promise.resolve(
+        new Response(null, {
+          status: 401,
+          headers: {
+            'www-authenticate': `Bearer resource_metadata="${METADATA}"`,
+          },
+        }),
+      );
     }
 
     if (requested === METADATA) {
-      return json({
-        resource: over.resource ?? SERVER,
-        authorization_servers: [ISSUER],
-        scopes_supported: ['read', 'write'],
-      });
+      return Promise.resolve(
+        json({
+          resource: over.resource ?? SERVER,
+          authorization_servers: [ISSUER],
+          scopes_supported: ['read', 'write'],
+        }),
+      );
     }
 
     if (requested === `${ISSUER}/.well-known/oauth-authorization-server`) {
-      return json({
-        issuer: over.issuer ?? ISSUER,
-        authorization_endpoint: `${ISSUER}/authorize`,
-        token_endpoint: `${ISSUER}/token`,
-        registration_endpoint: `${ISSUER}/register`,
-        response_types_supported: ['code'],
-        code_challenge_methods_supported: over.methods ?? ['S256'],
-      });
+      return Promise.resolve(
+        json({
+          issuer: over.issuer ?? ISSUER,
+          authorization_endpoint: `${ISSUER}/authorize`,
+          token_endpoint: `${ISSUER}/token`,
+          registration_endpoint: `${ISSUER}/register`,
+          response_types_supported: ['code'],
+          code_challenge_methods_supported: over.methods ?? ['S256'],
+        }),
+      );
     }
 
-    return new Response(null, { status: 404 });
+    return Promise.resolve(new Response(null, { status: 404 }));
   });
 
-const clock = { now: () => new Date('2026-10-05T10:00:00.000Z') } as ClockPort;
+const clock = partial<ClockPort>({
+  now: () => new Date('2026-10-05T10:00:00.000Z'),
+});
 
 const discovery = (
   fetch: ReturnType<typeof answering>,

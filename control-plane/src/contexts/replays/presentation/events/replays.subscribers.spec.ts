@@ -2,11 +2,12 @@ import {
   type ReplaysReactions,
   replaysSubscribers,
 } from '@replays/presentation/events/replays.subscribers';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 describe('replaysSubscribers', () => {
   it('commits the stop of each superseded replay on its own, outside the delivery transaction', () => {
-    const stopping = replaysSubscribers({} as ReplaysReactions).find(
+    const stopping = replaysSubscribers(partial<ReplaysReactions>({})).find(
       (each) => each.name === 'replays.stop-superseded-checks',
     );
 

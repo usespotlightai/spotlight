@@ -29,9 +29,10 @@ import {
   threadText,
   workedOn,
 } from '@/lib/inbox';
+import { partial } from '@/test/partial';
 
 const note = (position: number, runId: string | null) =>
-  ({ position, runId }) as Note;
+  partial<Note>({ position, runId });
 
 const notes = [note(11, 'run_1'), note(12, null), note(13, 'run_2')];
 
@@ -93,11 +94,11 @@ describe('spentIn', () => {
 
 describe('previewOf', () => {
   const item = (lastNote: Partial<Note> | null) =>
-    ({
+    partial<InboxItem>({
       station: 'Planning',
       description: 'A few quick steps will get everything ready.',
-      lastNote,
-    }) as InboxItem;
+      lastNote: lastNote === null ? null : partial<Note>(lastNote),
+    });
 
   it('shows the last note', () => {
     expect(previewOf(item({ form: 'words', body: 'Which queue?' }))).toBe(
@@ -148,16 +149,19 @@ describe('threadText', () => {
     voice: Note['voice'],
     over: Partial<Note> = {},
   ) =>
-    ({
+    partial<Note>({
       body,
       voice,
       station: 'Implementation',
       author: null,
       ...over,
-    }) as Note;
+    });
 
-  const journal = (...steps: { kind: string; text: string }[]) =>
-    ({ runId: 'run_1', steps }) as unknown as RunJournal;
+  const journal = (...steps: Partial<JournalStep>[]) =>
+    partial<RunJournal>({
+      runId: 'run_1',
+      steps: steps.map((step) => partial<JournalStep>(step)),
+    });
 
   it('copies the briefing and every note, in order, naming the author of each', () => {
     expect(
@@ -213,10 +217,12 @@ describe('threadText', () => {
 });
 
 describe('lastNoteAt', () => {
-  const noteAt = (body: string, at: string) => ({ body, at }) as Note;
-  const journal = (
-    ...steps: { kind: string; text: string; startedAt: string }[]
-  ) => ({ runId: 'run_1', steps }) as unknown as RunJournal;
+  const noteAt = (body: string, at: string) => partial<Note>({ body, at });
+  const journal = (...steps: Partial<JournalStep>[]) =>
+    partial<RunJournal>({
+      runId: 'run_1',
+      steps: steps.map((step) => partial<JournalStep>(step)),
+    });
 
   it('dates the last note in the conversation', () => {
     expect(
@@ -260,26 +266,28 @@ describe('workedOn', () => {
     new Date(Date.UTC(2026, 8, 29, 9, minute)).toISOString();
 
   const step = (text: string, minute: number) =>
-    ({ text, startedAt: at(minute), ms: 30_000 }) as JournalStep;
+    partial<JournalStep>({ text, startedAt: at(minute), ms: 30_000 });
 
   const journal = (
     attempt: number,
     steps: JournalStep[],
     began: number | null = null,
   ) =>
-    ({
+    partial<RunJournal>({
       runId: 'run_1',
       attempt,
       steps,
       ms: 600_000,
-      marks: { startedAt: began === null ? null : at(began) },
-    }) as RunJournal;
+      marks: partial<RunJournal['marks']>({
+        startedAt: began === null ? null : at(began),
+      }),
+    });
 
   const noteOf = (
     voice: Note['voice'],
     minute: number,
     runId: string | null = voice === 'person' ? null : 'run_1',
-  ) => ({ voice, runId, at: at(minute) }) as Note;
+  ) => partial<Note>({ voice, runId, at: at(minute) });
 
   const texts = (journals: RunJournal[]) =>
     journals.flatMap((each) => each.steps.map((one) => one.text));
@@ -318,12 +326,12 @@ describe('workedOn', () => {
     const worked = [journal(1, [step('before', 1), step('after', 20)])];
     const notes = [
       noteOf('station', 5),
-      {
+      partial<Note>({
         voice: 'world',
         kind: 'answered',
         runId: null,
         at: at(10),
-      } as Note,
+      }),
     ];
 
     expect(texts(workedOn(worked, notes, 'run_1', at(5)))).toEqual(['before']);
@@ -417,7 +425,7 @@ describe('notices', () => {
   it('tells a notice from a conversation sharing its id', () => {
     const entries: InboxEntry[] = [
       notice({ id: 'same' }),
-      { kind: 'task', id: 'same' } as InboxItem,
+      partial<InboxItem>({ kind: 'task', id: 'same' }),
     ];
 
     expect(new Set(entries.map(entryKey)).size).toBe(2);
@@ -512,14 +520,14 @@ describe('chatPreviewOf', () => {
 
 describe('resolvable', () => {
   const conversation = (over: Partial<InboxItem>) =>
-    ({
+    partial<InboxItem>({
       kind: 'task',
       id: 'task_1:3',
       resolved: false,
       standing: 'assignee',
       resolvable: true,
       ...over,
-    }) as InboxItem;
+    });
 
   it('follows the server for a conversation', () => {
     expect(resolvable(conversation({}))).toBe(true);

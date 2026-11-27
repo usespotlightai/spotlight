@@ -91,7 +91,10 @@ export const memorySubscribers = (
         {
           id: RunId.of(event.runId),
           workspaceId: WorkspaceId.of(event.workspaceId),
-          taskId: event.taskId ? TaskId.of(event.taskId) : null,
+          taskId:
+            event.taskId !== null && event.taskId !== ''
+              ? TaskId.of(event.taskId)
+              : null,
         },
         event.memories,
         event.driver === 'person',
@@ -136,7 +139,10 @@ export const memorySubscribers = (
         {
           id: RunId.of(event.runId),
           workspaceId: WorkspaceId.of(event.workspaceId),
-          taskId: event.taskId ? TaskId.of(event.taskId) : null,
+          taskId:
+            event.taskId !== null && event.taskId !== ''
+              ? TaskId.of(event.taskId)
+              : null,
         },
         event.driver === 'person',
       ),

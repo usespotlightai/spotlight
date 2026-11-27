@@ -43,8 +43,14 @@ const approved = (
     body: MemoryBody.of(body),
     scope: MemoryScope.of({
       teamId: scope.teamId ?? TEAM,
-      lineId: scope.lineId ? LineId.of(scope.lineId) : null,
-      stationId: scope.stationId ? StationId.of(scope.stationId) : null,
+      lineId:
+        scope.lineId !== undefined && scope.lineId !== ''
+          ? LineId.of(scope.lineId)
+          : null,
+      stationId:
+        scope.stationId !== undefined && scope.stationId !== ''
+          ? StationId.of(scope.stationId)
+          : null,
       repository: scope.repository ?? null,
       paths: (scope.paths ?? []).map(MemoryPath.of),
     }),

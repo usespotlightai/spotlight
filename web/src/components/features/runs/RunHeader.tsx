@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { OpenInEditor } from '@/components/features/editor/OpenInEditor';
 import { RunHold } from '@/components/features/hold/RunHold';
 import {
@@ -14,12 +16,18 @@ type RunHeaderProps = {
   trail: readonly BreadcrumbSegment[];
 };
 
-export function RunHeader({ slug, teamId, run, trail }: RunHeaderProps) {
+export function RunHeader({
+  slug,
+  teamId,
+  run,
+  trail,
+}: RunHeaderProps): ReactElement {
   return (
     <PageHeader
       title={<Breadcrumbs segments={trail} />}
       actions={
-        run.taskId && (
+        run.taskId !== null &&
+        run.taskId !== '' && (
           <>
             <RunHold
               slug={slug}

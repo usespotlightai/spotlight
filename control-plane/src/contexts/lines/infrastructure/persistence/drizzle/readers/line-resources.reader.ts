@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   LineRecord,
   LineResourcesPort,
@@ -29,15 +30,15 @@ export class DrizzleLineResources implements LineResourcesPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async withId(id: LineId): Promise<LineRecord | null> {
-    const [found] = await this.recordsWhere(eq(line.id, id.value));
+    const found = firstOf(await this.recordsWhere(eq(line.id, id.value)));
 
     return found ?? null;
   }
 
   async at(teamId: TeamId, key: LineKey): Promise<LineRecord | null> {
-    const [found] = await this.recordsWhere(
+    const found = firstOf(await this.recordsWhere(
       and(eq(line.teamId, teamId.value), eq(line.key, key.value)),
-    );
+    ));
 
     return found ?? null;
   }

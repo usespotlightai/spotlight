@@ -1,4 +1,10 @@
-import { type ReactNode, useMemo, useRef, useState } from 'react';
+import {
+  type ReactElement,
+  type ReactNode,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { BeforeAfterPanel } from '@/components/features/insights/changes/BeforeAfterPanel';
 import { PaneScroller } from '@/components/shared/PaneScroller';
@@ -45,7 +51,7 @@ export function BeforeAfterHost({
   period,
   names,
   children,
-}: BeforeAfterHostProps) {
+}: BeforeAfterHostProps): ReactElement {
   const [shown, setShown] = useState<ChangeAt | null>(null);
   const displayed = useDelayedValue(shown, LEAVING);
   const opener = useRef<HTMLElement | null>(null);
@@ -62,7 +68,7 @@ export function BeforeAfterHost({
       close: () => {
         const back = opener.current;
         opener.current = null;
-        if (back?.isConnected && focusLostOnClose()) {
+        if (back?.isConnected === true && focusLostOnClose()) {
           back.focus();
         }
         setShown(null);

@@ -35,7 +35,8 @@ export const UNTRIALABLE: Readonly<
 
 const replayabilityOf = (each: Trialability): RunReplayability => ({
   runId: RunId.of(each.runId),
-  taskId: each.taskId ? TaskId.of(each.taskId) : null,
+  taskId:
+    each.taskId !== null && each.taskId !== '' ? TaskId.of(each.taskId) : null,
   stationId: each.stationId === null ? null : StationId.of(each.stationId),
   unreplayableReason:
     each.untrialableReason && UNTRIALABLE[each.untrialableReason],

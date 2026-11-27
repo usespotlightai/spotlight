@@ -1,4 +1,4 @@
-import { type SubmitEvent, useId, useState } from 'react';
+import { type ReactElement, type SubmitEvent, useId, useState } from 'react';
 
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ export function CreatePoolForm({
   creating,
   onCreate,
   onEdit,
-}: CreatePoolFormProps) {
+}: CreatePoolFormProps): ReactElement {
   const nameId = useId();
   const [name, setName] = useState(defaultName);
   const named = slugify(name);

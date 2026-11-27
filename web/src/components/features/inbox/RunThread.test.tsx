@@ -3,7 +3,13 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RunThread } from '@/components/features/inbox/RunThread';
+import type {
+  LatestRunResponseDto,
+  NoteResponseDto,
+  RunStationResponseDto,
+} from '@/lib/api';
 import type { RunNotes } from '@/lib/run-notes';
+import { partial } from '@/test/partial';
 
 const inFlight = vi.fn((): unknown[] => []);
 
@@ -16,13 +22,23 @@ vi.mock('@/hooks/api/useSendMessage', () => ({
 
 vi.mock('@/hooks/api/useRunNotes', () => ({
   useRunNotes: () => ({
-    data: {
+    data: partial<RunNotes>({
       runId: 'run_1',
-      station: { name: 'Implementation', color: '#5c66d9', position: 2 },
+      station: partial<RunStationResponseDto>({
+        name: 'Implementation',
+        color: '#5c66d9',
+        position: 2,
+      }),
       progress: null,
-      latestRun: null,
-      notes: [{ position: 0, runId: 'run_1', body: 'Which queue?' }],
-    } as unknown as RunNotes,
+      latestRun: partial<LatestRunResponseDto>({ id: 'run_1' }),
+      notes: [
+        partial<NoteResponseDto>({
+          position: 0,
+          runId: 'run_1',
+          body: 'Which queue?',
+        }),
+      ],
+    }),
     isPending: false,
     isError: false,
   }),

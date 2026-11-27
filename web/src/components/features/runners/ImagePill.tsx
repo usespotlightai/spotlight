@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { COMPACT_PILL } from '@/components/features/runners/columns';
 import { Pill } from '@/components/shared/Pill';
 import { imageShortName } from '@/lib/runner';
@@ -7,7 +9,7 @@ type ImagePillProps = {
   title: string;
 };
 
-export function ImagePill({ image, title }: ImagePillProps) {
+export function ImagePill({ image, title }: ImagePillProps): ReactElement {
   return (
     <Pill
       title={title}

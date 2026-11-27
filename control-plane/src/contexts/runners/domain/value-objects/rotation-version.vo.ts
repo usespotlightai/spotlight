@@ -1,7 +1,7 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class RotationVersion {
-  private readonly kind = 'rotation-version';
+  private readonly kind: string = 'rotation-version';
 
   private constructor(readonly value: number | null) {}
 

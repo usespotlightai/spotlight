@@ -87,10 +87,10 @@ export class ReplayCheck extends EventRecorder {
     const state: State = {
       ...rest,
       replayId:
-        rest.judge?.fails() || rest.reused?.coversAll(setRuns)
+        rest.judge?.fails() === true || rest.reused?.coversAll(setRuns) === true
           ? null
           : replayId,
-      baseline: rest.judge?.fails() ? 'unavailable' : 'awaiting',
+      baseline: rest.judge?.fails() === true ? 'unavailable' : 'awaiting',
       version: 0,
     };
 
@@ -346,7 +346,7 @@ export class ReplayCheck extends EventRecorder {
     judge: JudgeCalibration | null,
   ): boolean {
     return (
-      !this.state.judge?.fails() &&
+      this.state.judge?.fails() !== true &&
       (this.state.judge?.state ?? null) === (judge?.state ?? null) &&
       (reused === null || (this.state.reused?.equals(reused) ?? false)) &&
       change.equals(this.change) &&

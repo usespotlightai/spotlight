@@ -1,4 +1,4 @@
-import { use } from 'react';
+import { type ReactElement, use } from 'react';
 
 import { DisputedClaimCard } from '@/components/features/inbox/disagreements/DisputedClaimCard';
 import { JudgeDisagreementCard } from '@/components/features/inbox/disagreements/JudgeDisagreementCard';
@@ -29,7 +29,7 @@ export function JudgeDisagreementItem({
   teamId,
   disagreement,
   claim,
-}: JudgeDisagreementItemProps) {
+}: JudgeDisagreementItemProps): ReactElement {
   const scores = useRunScores(teamId, disagreement.runId);
   const me = useMe();
   const members = useMembers(teamId).data;

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -14,7 +14,7 @@ export function FilterRow({
   htmlFor,
   compact = false,
   children,
-}: FilterRowProps) {
+}: FilterRowProps): ReactElement {
   const shown = cn('text-muted-foreground', compact ? 'text-xs' : 'text-sm');
 
   return (
@@ -24,7 +24,7 @@ export function FilterRow({
         compact ? 'min-h-7' : 'min-h-8',
       )}
     >
-      {htmlFor ? (
+      {htmlFor !== undefined && htmlFor !== '' ? (
         <label htmlFor={htmlFor} className={shown}>
           {label}
         </label>

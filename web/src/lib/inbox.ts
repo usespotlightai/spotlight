@@ -112,10 +112,10 @@ const answersTo = (notes: readonly Note[], runId: string): number[] => {
 };
 
 const spanOf = (steps: readonly JournalStep[]): number => {
-  const first = steps[0];
-  const last = steps[steps.length - 1];
+  const first = steps.at(0);
+  const last = steps.at(-1);
 
-  return first && last
+  return first !== undefined && last !== undefined
     ? Date.parse(last.startedAt) + last.ms - Date.parse(first.startedAt)
     : 0;
 };
@@ -149,18 +149,20 @@ export const threadText = ({
   agent,
 }: ThreadInput): string => {
   const noteEntries = notes
-    .filter((note) => note.body.trim())
+    .filter((note) => note.body.trim() !== '')
     .map((note) => entryOf(authorOf(note), note.body));
   const messageEntries =
     noteEntries.length > 0
       ? []
       : ran
           .flatMap((journal) => journal.steps)
-          .filter((step) => step.kind === 'message' && step.text.trim())
+          .filter((step) => step.kind === 'message' && step.text.trim() !== '')
           .map((step) => entryOf(agent, step.text));
 
   return [
-    ...(briefing?.trim() ? [entryOf('Briefing', briefing)] : []),
+    ...(briefing !== null && briefing.trim() !== ''
+      ? [entryOf('Briefing', briefing)]
+      : []),
     ...noteEntries,
     ...messageEntries,
   ].join('\n\n');
@@ -170,10 +172,10 @@ export const lastNoteAt = (
   notes: readonly Note[],
   ran: readonly RunJournal[],
 ): string | null =>
-  notes.findLast((note) => note.body.trim())?.at ??
+  notes.findLast((note) => note.body.trim() !== '')?.at ??
   ran
     .flatMap((journal) => journal.steps)
-    .findLast((step) => step.kind === 'message' && step.text.trim())
+    .findLast((step) => step.kind === 'message' && step.text.trim() !== '')
     ?.startedAt ??
   null;
 
@@ -184,7 +186,7 @@ export const workedOn = (
   at: string | null = null,
 ): RunJournal[] => {
   const ran = worked.filter((each) => each.runId === runId);
-  const answers = runId ? answersTo(notes, runId) : [];
+  const answers = runId !== null && runId !== '' ? answersTo(notes, runId) : [];
 
   if (answers.length === 0) {
     return ran;
@@ -202,7 +204,9 @@ export const workedOn = (
       const began = journal.marks.startedAt;
 
       return (
-        began ? inside(Date.parse(began)) : until === Number.POSITIVE_INFINITY
+        began !== null && began !== ''
+          ? inside(Date.parse(began))
+          : until === Number.POSITIVE_INFINITY
       )
         ? [journal]
         : [];
@@ -305,17 +309,31 @@ export const ARRIVING =
 export const STICKY_AT_TOP =
   'sticky top-0 z-10 -mx-3 bg-surface pt-2 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-6 after:bg-gradient-to-b after:from-surface after:to-transparent @max-xl/pane:static @max-xl/pane:after:hidden [@media(max-height:520px)]:static [@media(max-height:520px)]:after:hidden';
 
-export const inboxPath = (slug: string) => `/w/${slug}/inbox`;
+export const inboxPath = (slug: string): string => `/w/${slug}/inbox`;
 
-export const inboxItemPath = (slug: string, id: string, runId?: string) =>
+export const inboxItemPath = (
+  slug: string,
+  id: string,
+  runId?: string,
+): string =>
   `${inboxPath(slug)}/${encodeURIComponent(id)}${
-    runId ? `?run=${encodeURIComponent(runId)}` : ''
+    runId !== undefined && runId !== ''
+      ? `?run=${encodeURIComponent(runId)}`
+      : ''
   }`;
 
-export const inboxRunPath = (slug: string, teamId: string, runId: string) =>
+export const inboxRunPath = (
+  slug: string,
+  teamId: string,
+  runId: string,
+): string =>
   `${inboxPath(slug)}/teams/${encodeURIComponent(teamId)}/runs/${encodeURIComponent(runId)}`;
 
-export const inboxChatPath = (slug: string, teamId: string, chatId: string) =>
+export const inboxChatPath = (
+  slug: string,
+  teamId: string,
+  chatId: string,
+): string =>
   `${inboxPath(slug)}/teams/${encodeURIComponent(teamId)}/chats/${encodeURIComponent(chatId)}`;
 
 type LiveSession = Pick<RunJournal, 'activity' | 'background'>;
@@ -347,10 +365,10 @@ export const workingWordsOf = (
     : 'Stopping…';
 };
 
-export const noticePath = (slug: string, id: string) =>
+export const noticePath = (slug: string, id: string): string =>
   `${inboxPath(slug)}/notices/${encodeURIComponent(id)}`;
 
-export const noticeLinkPath = (slug: string, notice: InboxNotice) =>
+export const noticeLinkPath = (slug: string, notice: InboxNotice): string =>
   `${teamPath(slug, notice.teamId)}/${notice.link.replace(/^\/+/, '')}`;
 
 export const followed = (entry: InboxEntry): boolean =>
@@ -392,7 +410,8 @@ export const shownAt = (
   notes: readonly Note[],
   runId: string | null,
 ): number | null =>
-  notes.find((note) => runId && note.runId === runId)?.position ?? null;
+  notes.find((note) => runId !== null && runId !== '' && note.runId === runId)
+    ?.position ?? null;
 
 export const previewOf = (item: InboxItem): string => {
   if (item.inboxRequest?.form === 'memories') {

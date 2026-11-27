@@ -7,6 +7,7 @@ import {
 } from '@insights/domain/value-objects/person-action.vo';
 import { ownedRecordOf } from '@insights/insights.fake-spec';
 import { endedRecord, factsWith } from '@insights/runs.fake-spec';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -35,9 +36,11 @@ const labelled = (change: {
   taskPullRequest?: PullRequestRecord | null;
 }) => {
   const { record, laterRuns = [], taskPullRequest } = change;
-  const [fact] = factsWith(
-    [record ?? endedRecord('run_1'), ...laterRuns],
-    taskPullRequest ? [taskPullRequest] : [],
+  const fact = firstOf(
+    factsWith(
+      [record ?? endedRecord('run_1'), ...laterRuns],
+      taskPullRequest ? [taskPullRequest] : [],
+    ),
   );
 
   return fact?.humanLabel ?? null;

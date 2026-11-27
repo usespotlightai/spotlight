@@ -6,7 +6,9 @@ import type { TooltipNote } from '@/lib/tooltip-note';
 export type OidcTrust = OidcTrustSummaryResponseDto;
 
 export const describeIssued = (lastIssuedAt: string | null): string =>
-  lastIssuedAt ? `Issued ${since(lastIssuedAt)}` : 'Never issued a token';
+  lastIssuedAt !== null && lastIssuedAt !== ''
+    ? `Issued ${since(lastIssuedAt)}`
+    : 'Never issued a token';
 
 const exactly = (at: string): string =>
   formatDate(new Date(at), {
@@ -21,15 +23,17 @@ const minutes = (count: number): string =>
   count === 1 ? '1 minute' : `${count} minutes`;
 
 export const trustNote = (trust: OidcTrust): TooltipNote => ({
-  title: trust.createdBy.name
-    ? `Created by ${trust.createdBy.name}`
-    : 'Created by a deleted account',
-  body: trust.createdBy.name
-    ? 'Its tokens act for this person.'
-    : 'Its tokens act for that account.',
+  title:
+    trust.createdBy.name !== null && trust.createdBy.name !== ''
+      ? `Created by ${trust.createdBy.name}`
+      : 'Created by a deleted account',
+  body:
+    trust.createdBy.name !== null && trust.createdBy.name !== ''
+      ? 'Its tokens act for this person.'
+      : 'Its tokens act for that account.',
   rows: [
     ['Created', exactly(trust.createdAt)],
-    ...(trust.lastIssuedAt
+    ...(trust.lastIssuedAt !== null && trust.lastIssuedAt !== ''
       ? [['Last issued', exactly(trust.lastIssuedAt)] as const]
       : []),
     ['Issuer', trust.issuer],

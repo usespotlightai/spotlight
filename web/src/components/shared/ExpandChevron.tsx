@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -7,7 +8,10 @@ type ExpandChevronProps = {
   className?: string;
 };
 
-export function ExpandChevron({ open, className }: ExpandChevronProps) {
+export function ExpandChevron({
+  open,
+  className,
+}: ExpandChevronProps): ReactElement {
   return (
     <ChevronRight
       aria-hidden

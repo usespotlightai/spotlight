@@ -1,6 +1,7 @@
 import type { EditorSandboxesPort } from '@runners/application/ports/editor-sandboxes.port';
 import type { SandboxTunnelsPort } from '@runners/application/ports/sandbox-tunnels.port';
 import { SandboxEditors } from '@runners/application/services/sandbox-editors.service';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-10-30T10:00:00.000Z');
@@ -8,16 +9,20 @@ const NOW = new Date('2026-10-30T10:00:00.000Z');
 const setUp = (input: { held?: boolean[] } = {}) => {
   const held = [...(input.held ?? [true])];
   const sandboxes = {
-    open: vi.fn(async () => ({ id: 'sandbox_1', state: 'starting' as const })),
-    holdForEditor: vi.fn(async () =>
-      (held.shift() ?? true) ? { open: true, ready: false } : null,
+    open: vi.fn(() =>
+      Promise.resolve({ id: 'sandbox_1', state: 'starting' as const }),
     ),
-    heldByAnEditor: vi.fn(async () => true),
+    holdForEditor: vi.fn(() =>
+      Promise.resolve(
+        (held.shift() ?? true) ? { open: true, ready: false } : null,
+      ),
+    ),
+    heldByAnEditor: vi.fn(() => Promise.resolve(true)),
   };
   let next = 0;
   const editors = new SandboxEditors(
-    sandboxes as unknown as EditorSandboxesPort,
-    {} as SandboxTunnelsPort,
+    partial<EditorSandboxesPort>(sandboxes),
+    partial<SandboxTunnelsPort>({}),
     { generate: () => `conn_${++next}` },
     { now: () => NOW, sleep: async () => {} },
   );

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 import { Navigate, useParams } from 'react-router';
 
 import { OidcTrustsSection } from '@/components/features/oidc-trusts/OidcTrustsSection';
@@ -19,7 +19,7 @@ import { isAdmin } from '@/lib/role';
 import type { WorkspaceToken } from '@/lib/token';
 import { workspacePath } from '@/lib/workspace';
 
-export function ApiAccess() {
+export function ApiAccess(): ReactElement | null {
   const { slug } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const admin = workspace ? isAdmin(workspace.role) : false;
@@ -29,7 +29,7 @@ export function ApiAccess() {
   const [created, setCreated] = useState<CreatedWorkspaceToken | null>(null);
   const [revoking, setRevoking] = useState<WorkspaceToken | null>(null);
 
-  if (!slug) {
+  if (slug === undefined || slug === '') {
     return null;
   }
 
@@ -58,7 +58,7 @@ export function ApiAccess() {
           action={
             <SectionButton
               onClick={() => setCreating(true)}
-              disabled={!workspaceId}
+              disabled={workspaceId === undefined || workspaceId === ''}
             >
               Create token
             </SectionButton>

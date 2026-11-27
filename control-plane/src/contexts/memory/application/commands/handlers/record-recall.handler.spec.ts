@@ -12,6 +12,7 @@ import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo'
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -58,19 +59,24 @@ const handler = (run: LeasedRun) => {
     stored('memory_2', TeamId.of('team_2')),
   ];
   const recording = new RecordRecallHandler(
-    new RunnerMemoryLoader({
-      leasedBy: async () => run,
-    } as unknown as WorkPort),
-    {
-      findAll: async (ids: readonly MemoryId[]) =>
-        memories.filter((each) => ids.some((id) => id.equals(each.id))),
-    } as unknown as MemoryRepository,
+    new RunnerMemoryLoader(
+      partial<WorkPort>({
+        leasedBy: () => Promise.resolve(run),
+      }),
+    ),
+    partial<MemoryRepository>({
+      findAll: (ids: readonly MemoryId[]) =>
+        Promise.resolve(
+          memories.filter((each) => ids.some((id) => id.equals(each.id))),
+        ),
+    }),
     new RecordMemoryUses(
-      {
-        record: async (uses: MemoryUses) => {
+      partial<MemoryUsesPort>({
+        record: (uses: MemoryUses) => {
           recorded.push(uses.memories.map((each) => each.value));
+          return Promise.resolve();
         },
-      } as unknown as MemoryUsesPort,
+      }),
       { inTransaction: (work) => work() },
       { now: () => NOW, sleep: async () => {} },
     ),

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsTableSkeleton } from '@/components/features/insights/InsightsTableSkeleton';
 
 const HEADERS = [
@@ -15,7 +17,7 @@ const HEADERS = [
   'Cost',
 ];
 
-export function PullRequestListSkeleton() {
+export function PullRequestListSkeleton(): ReactElement {
   return (
     <InsightsTableSkeleton
       label="Loading the pull request list"

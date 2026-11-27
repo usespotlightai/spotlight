@@ -576,7 +576,10 @@ const outcomeOf = (evaluate: () => unknown): Outcome => {
   } catch (error) {
     return {
       failed: error instanceof Error ? error.name : 'unknown',
-      code: (error as { code?: unknown } | null)?.code,
+      code:
+        typeof error === 'object' && error !== null && 'code' in error
+          ? error.code
+          : undefined,
     };
   }
 };

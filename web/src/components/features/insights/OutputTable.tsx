@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
   type InsightsColumn,
@@ -29,7 +31,7 @@ export function OutputTable({
   days,
   currency,
   names,
-}: OutputTableProps) {
+}: OutputTableProps): ReactElement {
   const columns: InsightsColumn<DayOutput>[] = [
     {
       id: 'day',
@@ -54,7 +56,9 @@ export function OutputTable({
       header: 'Spend',
       numeric: true,
       cell: (day) =>
-        day.spend && currency ? spentIn(day.spend.amount, currency) : '–',
+        day.spend && currency !== null && currency !== ''
+          ? spentIn(day.spend.amount, currency)
+          : '–',
     },
     {
       id: 'merged',

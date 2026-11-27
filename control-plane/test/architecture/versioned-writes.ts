@@ -1,3 +1,4 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
 import ts from 'typescript';
 
 import {
@@ -178,11 +179,11 @@ const builderWrites = (file: SourceFile): Violation[] => {
   const declarations = descendants(file.tree, isNamedDeclaration);
 
   return descendants(file.tree, ts.isCallExpression).flatMap((call) => {
-    const argument = call.arguments[0];
+    const argument = itemAt(call.arguments, 0);
     const chain = chainOf(call);
     const write = writeOf(call, chain);
 
-    if (!write || !argument || !isTableReference(argument)) {
+    if (!write || argument === undefined || !isTableReference(argument)) {
       return [];
     }
 
@@ -248,14 +249,16 @@ const namedRawWrites = (
   ...[...text.matchAll(RAW_WRITE)].flatMap(([, keyword, name]) => {
     const table = tableNamed(name);
 
-    return table?.versioned
+    return table?.versioned === true
       ? [violation(file, node, rawWriteOf(keyword), table)]
       : [];
   }),
   ...[...text.matchAll(RAW_UPSERT)].flatMap(([, name]) => {
     const table = tableNamed(name);
 
-    return table?.versioned ? [violation(file, node, 'upsert', table)] : [];
+    return table?.versioned === true
+      ? [violation(file, node, 'upsert', table)]
+      : [];
   }),
 ];
 
@@ -275,7 +278,7 @@ const interpolatedRawWrites = (
       ? tables.get(span.expression.getText())
       : undefined;
 
-    return keyword && table?.versioned
+    return keyword !== undefined && keyword !== '' && table?.versioned === true
       ? [violation(file, template, rawWriteOf(keyword), table)]
       : [];
   });
@@ -307,9 +310,9 @@ const rawWrites = (file: SourceFile): Violation[] => [
   ...descendants(file.tree, ts.isCallExpression)
     .filter(isSqlRaw)
     .flatMap((call) => {
-      const argument = call.arguments[0];
+      const argument = itemAt(call.arguments, 0);
 
-      return argument && ts.isStringLiteralLike(argument)
+      return argument !== undefined && ts.isStringLiteralLike(argument)
         ? namedRawWrites(file, call, argument.text)
         : [];
     }),

@@ -3,7 +3,7 @@ import { ProblemException } from '@platform/http/resources/problem.exception';
 import { describe, expect, it } from 'vitest';
 
 const input = (data: unknown) =>
-  avatarImageInput({ contentType: 'image/png', data } as never);
+  avatarImageInput({ contentType: 'image/png', data });
 
 describe('avatarImageInput', () => {
   it('decodes base64', () => {
@@ -23,8 +23,10 @@ describe('avatarImageInput', () => {
         }
       })();
 
-      expect(refused).toBeInstanceOf(ProblemException);
-      expect((refused as ProblemException).getStatus()).toBe(422);
+      if (!(refused instanceof ProblemException)) {
+        throw new Error('expected a ProblemException');
+      }
+      expect(refused.getStatus()).toBe(422);
     },
   );
 });

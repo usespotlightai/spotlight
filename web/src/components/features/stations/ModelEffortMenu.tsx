@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { AgentEffortMenu } from '@/components/features/stations/AgentEffortMenu';
 import { AgentModelMenu } from '@/components/features/stations/AgentModelMenu';
 import { DropdownMenuContent } from '@/components/ui/dropdown-menu';
@@ -19,7 +21,7 @@ export function ModelEffortMenu({
   efforts,
   effort,
   onEffort,
-}: ModelEffortMenuProps) {
+}: ModelEffortMenuProps): ReactElement {
   return (
     <DropdownMenuContent align="start" sideOffset={6} className="min-w-56">
       <AgentEffortMenu efforts={efforts} effort={effort} onEffort={onEffort} />

@@ -11,8 +11,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 let created: NoticeOf[];
 
 const work = () => ({
-  create: async (notice: NoticeOf) => {
+  create: (notice: NoticeOf) => {
     created.push(notice);
+    return Promise.resolve();
   },
   resolve: async () => {},
   allowsExternalLink: (url: string) => url.startsWith('https://github.com/'),

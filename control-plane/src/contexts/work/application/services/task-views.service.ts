@@ -33,9 +33,10 @@ export class TaskViews implements TaskViewsPort {
       return null;
     }
 
-    const subject = runId
-      ? (await this.dispatches.find(RunId.of(runId)))?.subject
-      : null;
+    const subject =
+      runId !== null && runId !== ''
+        ? (await this.dispatches.find(RunId.of(runId)))?.subject
+        : null;
 
     return this.viewOf(
       task,
@@ -79,9 +80,10 @@ export class TaskViews implements TaskViewsPort {
 
     return {
       ...(await this.views.seen(task, line, stationId)),
-      url: slug
-        ? this.links.taskPage(slug, line.teamId.value, task.id.value)
-        : '',
+      url:
+        slug !== null && slug !== ''
+          ? this.links.taskPage(slug, line.teamId.value, task.id.value)
+          : '',
       repositories: repositoriesForTask(task, line).map((each) => each.value),
       runId,
     };

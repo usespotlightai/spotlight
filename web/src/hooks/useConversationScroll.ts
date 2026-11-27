@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, type RefObject } from 'react';
 
 import { changesInPlace } from '@/lib/disclosure';
 
@@ -69,11 +69,17 @@ const put = (
   return box.scrollTop !== was;
 };
 
+type ConversationScrollResult = {
+  scroller: RefObject<HTMLDivElement | null>;
+  content: RefObject<HTMLDivElement | null>;
+  watched: () => void;
+};
+
 export function useConversationScroll(
   itemId: string,
   openAt: number | null,
   setup: boolean,
-) {
+): ConversationScrollResult {
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const following = useRef(true);

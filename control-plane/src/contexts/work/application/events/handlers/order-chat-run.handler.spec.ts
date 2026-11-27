@@ -1,4 +1,5 @@
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -7,6 +8,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
 import type { DispatchChat } from '@work/application/services/dispatch-chat.service';
+import type { OrderedRun } from '@work/application/services/ordered-run';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
@@ -78,19 +80,24 @@ const briefingStored = async (
   const added: Dispatch[] = [];
 
   await new OrderChatRun(
-    { find: async () => chat } as unknown as ChatRepository,
-    {
-      find: async () => null,
-      add: async (each: Dispatch) => {
+    partial<ChatRepository>({ find: () => Promise.resolve(chat) }),
+    partial<DispatchRepository>({
+      find: () => Promise.resolve(null),
+      add: (each: Dispatch) => {
         added.push(each);
+
+        return Promise.resolve();
       },
-    } as unknown as DispatchRepository,
-    {
-      ordered: async () => ({
-        order: order(resume),
-        briefedMemories: BriefedMemories.none(),
-      }),
-    } as unknown as DispatchChat,
+    }),
+    partial<DispatchChat>({
+      ordered: () =>
+        Promise.resolve(
+          partial<OrderedRun>({
+            order: order(resume),
+            briefedMemories: BriefedMemories.none(),
+          }),
+        ),
+    }),
     { now: () => NOW, sleep: async () => {} },
   ).on(new ChatRunAssigned(chat.id, chat.workspaceId, chat.startedBy, RUN, []));
 

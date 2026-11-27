@@ -3,6 +3,7 @@ import type { OAuth2ClientSecretsPort } from '@integrations/application/ports/oa
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -14,21 +15,23 @@ export class OAuth2ClientSecrets implements OAuth2ClientSecretsPort {
     secret: SecretName,
     url: string,
   ): Promise<string> {
-    const [injected] = (
-      await this.injection
-        .forSpotlight({
-          workspaceId: workspaceId.value,
-          secrets: [secret.value],
-          url,
-        })
-        .catch((error: unknown) => {
-          if (error instanceof DomainError && error.isRefusal()) {
-            throw new OAuth2ClientSecretRefusedError(secret.value, error);
-          }
+    const injected = firstOf(
+      (
+        await this.injection
+          .forSpotlight({
+            workspaceId: workspaceId.value,
+            secrets: [secret.value],
+            url,
+          })
+          .catch((error: unknown) => {
+            if (error instanceof DomainError && error.isRefusal()) {
+              throw new OAuth2ClientSecretRefusedError(secret.value, error);
+            }
 
-          throw error;
-        })
-    ).injected;
+            throw error;
+          })
+      ).injected,
+    );
 
     if (!injected) {
       throw new InconsistentStateError(

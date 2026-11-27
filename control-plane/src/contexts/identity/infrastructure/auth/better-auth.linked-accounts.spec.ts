@@ -1,5 +1,7 @@
-import type { AppAuth } from '@identity/infrastructure/auth/auth';
-import { BetterAuthLinkedAccounts } from '@identity/infrastructure/auth/better-auth.linked-accounts';
+import {
+  BetterAuthLinkedAccounts,
+  type LinkedAccountsAuth,
+} from '@identity/infrastructure/auth/better-auth.linked-accounts';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -10,12 +12,12 @@ const linking = (
   getAccessToken: () => Promise<{ accessToken?: string }>,
 ) => {
   const getToken = vi.fn(getAccessToken);
-  const auth = {
+  const auth: LinkedAccountsAuth = {
     $context: Promise.resolve({
-      internalAdapter: { findAccounts: vi.fn(async () => accounts) },
+      internalAdapter: { findAccounts: vi.fn(() => Promise.resolve(accounts)) },
     }),
     api: { getAccessToken: getToken },
-  } as unknown as AppAuth;
+  };
 
   const logger = {
     debug: vi.fn(),
@@ -38,7 +40,7 @@ describe('BetterAuthLinkedAccounts', () => {
         { id: 'acc_other', providerId: 'google' },
         { id: 'acc_gh', providerId: 'github' },
       ],
-      async () => ({ accessToken: 'gho_live' }),
+      () => Promise.resolve({ accessToken: 'gho_live' }),
     );
 
     expect(await linked.tokenFor(LEON, 'github')).toBe('gho_live');
@@ -48,9 +50,11 @@ describe('BetterAuthLinkedAccounts', () => {
   });
 
   it('has nothing for somebody who never linked that provider', async () => {
-    const { linked, getToken } = linking([], async () => ({
-      accessToken: 'x',
-    }));
+    const { linked, getToken } = linking([], () =>
+      Promise.resolve({
+        accessToken: 'x',
+      }),
+    );
 
     expect(await linked.tokenFor(LEON, 'github')).toBeNull();
     expect(getToken).not.toHaveBeenCalled();

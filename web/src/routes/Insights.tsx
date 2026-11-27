@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 
 import { InsightsPeriodPicker } from '@/components/features/insights/InsightsPeriodPicker';
@@ -6,12 +7,17 @@ import { TracesFilters } from '@/components/features/insights/TracesFilters';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
 import { insightsCrumbs, viewOf } from '@/lib/insights';
 
-export function Insights() {
+export function Insights(): ReactElement | null {
   const { slug, teamId } = useParams();
   const [params] = useSearchParams();
   const view = viewOf(params);
 
-  if (!slug || !teamId) {
+  if (
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === ''
+  ) {
     return null;
   }
 

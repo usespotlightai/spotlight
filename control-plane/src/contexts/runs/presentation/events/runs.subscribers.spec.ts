@@ -1,5 +1,7 @@
 import type { RunTokensPort } from '@identity/application/ports/run-tokens.port';
 import { RunCredentials } from '@runs/application/services/run-credentials.service';
+import type { RunnerLeases } from '@runs/application/services/runner-leases.service';
+import type { SandboxLeases } from '@runs/application/services/sandbox-leases.service';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunCancelled } from '@runs/domain/events/run-cancelled.event';
 import { RunLeaseExpired } from '@runs/domain/events/run-lease-expired.event';
@@ -9,6 +11,7 @@ import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { runsSubscribers } from '@runs/presentation/events/runs.subscribers';
 import type { RunGrantsPort } from '@secrets/application/ports/run-grants.port';
 import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-subscriber.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -16,15 +19,15 @@ import { describe, expect, it, vi } from 'vitest';
 
 describe('runsSubscribers', () => {
   it('tells Secrets to end what a run was granted once the run ends', async () => {
-    const endedFor = vi.fn(async () => undefined);
-    const ending = runsSubscribers({
-      credentials: new RunCredentials(
-        { endedFor } as unknown as RunGrantsPort,
-        {} as RunTokensPort,
-      ),
-    } as unknown as Parameters<typeof runsSubscribers>[0]).find(
-      (each) => each.name === 'runs.end-secret-grants-of-ended-run',
-    );
+    const endedFor = vi.fn(() => Promise.resolve());
+    const ending = runsSubscribers(
+      partial<Parameters<typeof runsSubscribers>[0]>({
+        credentials: new RunCredentials(
+          partial<RunGrantsPort>({ endedFor }),
+          partial<RunTokensPort>({}),
+        ),
+      }),
+    ).find((each) => each.name === 'runs.end-secret-grants-of-ended-run');
 
     await ending?.handle(
       new RunCancelled(
@@ -52,15 +55,15 @@ describe('runsSubscribers', () => {
   });
 
   it('tells Secrets that the lease of an attempt is lost when it expires', async () => {
-    const leaseLost = vi.fn(async () => undefined);
-    const losing = runsSubscribers({
-      credentials: new RunCredentials(
-        { leaseLost } as unknown as RunGrantsPort,
-        {} as RunTokensPort,
-      ),
-    } as unknown as Parameters<typeof runsSubscribers>[0]).find(
-      (each) => each.name === 'runs.lose-secret-lease-of-ended-attempt',
-    );
+    const leaseLost = vi.fn(() => Promise.resolve());
+    const losing = runsSubscribers(
+      partial<Parameters<typeof runsSubscribers>[0]>({
+        credentials: new RunCredentials(
+          partial<RunGrantsPort>({ leaseLost }),
+          partial<RunTokensPort>({}),
+        ),
+      }),
+    ).find((each) => each.name === 'runs.lose-secret-lease-of-ended-attempt');
     const run = RunId.of('run_1');
     const workspace = WorkspaceId.of('ws_1');
 
@@ -95,13 +98,15 @@ describe('runsSubscribers', () => {
   });
 
   it('revokes every token issued for a run once it ends, and an attempt’s once its lease expires or the run is suspended', async () => {
-    const revokeFor = vi.fn(async () => undefined);
-    const subscribers = runsSubscribers({
-      credentials: new RunCredentials(
-        {} as RunGrantsPort,
-        { revokeFor } as unknown as RunTokensPort,
-      ),
-    } as unknown as Parameters<typeof runsSubscribers>[0]);
+    const revokeFor = vi.fn(() => Promise.resolve());
+    const subscribers = runsSubscribers(
+      partial<Parameters<typeof runsSubscribers>[0]>({
+        credentials: new RunCredentials(
+          partial<RunGrantsPort>({}),
+          partial<RunTokensPort>({ revokeFor }),
+        ),
+      }),
+    );
     const named = (name: string) =>
       subscribers.find((each) => each.name === name);
     const run = RunId.of('run_1');
@@ -153,9 +158,11 @@ describe('runsSubscribers', () => {
       runLeft: vi.fn(async () => {}),
       reservationDropped: vi.fn(async () => {}),
     };
-    const subscribers = runsSubscribers({
-      runners,
-    } as unknown as Parameters<typeof runsSubscribers>[0]);
+    const subscribers = runsSubscribers(
+      partial<Parameters<typeof runsSubscribers>[0]>({
+        runners: partial<RunnerLeases>(runners),
+      }),
+    );
     const named = (name: string) =>
       subscribers.find((each) => each.name === name);
     const run = RunId.of('run_1');
@@ -193,9 +200,11 @@ describe('runsSubscribers', () => {
       runLeft: vi.fn(async () => {}),
       runEnded: vi.fn(async () => {}),
     };
-    const subscribers = runsSubscribers({
-      sandboxes,
-    } as unknown as Parameters<typeof runsSubscribers>[0]);
+    const subscribers = runsSubscribers(
+      partial<Parameters<typeof runsSubscribers>[0]>({
+        sandboxes: partial<SandboxLeases>(sandboxes),
+      }),
+    );
     const named = (name: string) =>
       subscribers.find((each) => each.name === name);
     const ended = named('runs.release-sandbox-of-ended-run');

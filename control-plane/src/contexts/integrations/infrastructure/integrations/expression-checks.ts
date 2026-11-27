@@ -62,6 +62,8 @@ type Found =
   | { readonly outcome: 'found'; readonly place: Place }
   | Exclude<CheckedExpression, { outcome: 'checked' }>;
 
+const stringified = (raw: unknown): string | undefined => JSON.stringify(raw);
+
 export class ExpressionChecks implements ExpressionChecksPort {
   private readonly remembered = new Map<string, Compiled>();
 
@@ -129,7 +131,7 @@ export class ExpressionChecks implements ExpressionChecksPort {
   }
 
   private compiled(raw: unknown): Compiled {
-    const key = JSON.stringify(raw) ?? '';
+    const key = stringified(raw) ?? '';
     const known = this.remembered.get(key);
 
     if (known) {

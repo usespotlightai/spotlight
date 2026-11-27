@@ -1,5 +1,5 @@
 import { ArrivalLedger } from '@notifications/domain/aggregates/arrival-ledger.aggregate';
-import type { ItemArrived } from '@notifications/domain/events/item-arrived.event';
+import { ItemArrived } from '@notifications/domain/events/item-arrived.event';
 import type { InboxSighting } from '@notifications/domain/value-objects/inbox-sighting.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -45,9 +45,13 @@ const read = (
   });
 
 const arrivedIn = (ledger: ArrivalLedger) =>
-  (ledger.pullEvents() as ItemArrived[]).map(
-    (each) => `${each.person.value} ${each.itemId}`,
-  );
+  ledger.pullEvents().map((each) => {
+    if (!(each instanceof ItemArrived)) {
+      throw new Error(`expected only arrivals, got ${each.kind}`);
+    }
+
+    return `${each.person.value} ${each.itemId}`;
+  });
 
 const watched = () => {
   const ledger = read(ArrivalLedger.start(WorkspaceId.of('ws_1')), at(0), []);

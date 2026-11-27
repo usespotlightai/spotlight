@@ -22,6 +22,7 @@ import {
   turnsOf,
 } from '@/lib/chat';
 import type { JournalledRun, JournalStep, RunJournal } from '@/lib/inbox';
+import { partial } from '@/test/partial';
 
 const message = (over: Partial<ChatMessage>): ChatMessage => ({
   position: 0,
@@ -57,12 +58,12 @@ const journal = (
   steps: JournalStep[],
   startedAt: string | null = null,
 ): RunJournal =>
-  ({
+  partial<RunJournal>({
     runId: 'run_1',
     attempt: 1,
     steps,
-    marks: { startedAt },
-  }) as unknown as RunJournal;
+    marks: partial<RunJournal['marks']>({ startedAt }),
+  });
 
 describe('momentsOf', () => {
   it('tells the chat in the order it happened', () => {
@@ -215,7 +216,7 @@ describe('momentsOf', () => {
   });
 
   it('keeps a proposal as a proposal, not as a message', () => {
-    const [moment] = momentsOf(
+    const moment = momentsOf(
       [
         message({
           kind: 'proposed',
@@ -237,7 +238,7 @@ describe('momentsOf', () => {
       ],
       [],
       [],
-    );
+    ).at(0);
 
     expect(moment?.kind).toBe('proposed');
   });
@@ -511,7 +512,7 @@ describe('a run whose journal has not loaded', () => {
 
 describe('sentTo', () => {
   const chat = (over: Partial<Chat> = {}): Chat =>
-    ({ progress: null, messages: [message({})], ...over }) as unknown as Chat;
+    partial<Chat>({ progress: null, messages: [message({})], ...over });
   const sent = {
     body: 'Split it up.',
     author: { id: 'user_1', name: 'Sam Rivera', image: null },
@@ -553,10 +554,12 @@ describe('decidedIn', () => {
     const proposed = message({
       position: 1,
       kind: 'proposed',
-      proposal: { state: 'open' } as ChatMessage['proposal'],
+      proposal: partial<NonNullable<ChatMessage['proposal']>>({
+        state: 'open',
+      }),
       pullRequest: null,
     });
-    const chat = { messages: [message({}), proposed] } as unknown as Chat;
+    const chat = partial<Chat>({ messages: [message({}), proposed] });
 
     const after = decidedIn(chat, 1, 'dismissed');
 
@@ -568,7 +571,7 @@ describe('decidedIn', () => {
 describe('proposalStatusOf', () => {
   it('waits while the proposal is open and works while the task is created', () => {
     const of = (state: Proposal['state']) =>
-      proposalStatusOf({ state } as Proposal);
+      proposalStatusOf(partial<Proposal>({ state }));
 
     expect(of('open')).toBe('pending');
     expect(of('accepted')).toBe('working');

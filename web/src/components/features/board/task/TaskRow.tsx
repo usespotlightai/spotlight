@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
@@ -39,7 +39,7 @@ export function TaskRow({
   mergeTop,
   mergeBottom,
   onSelectedChange,
-}: TaskRowProps) {
+}: TaskRowProps): ReactElement {
   const {
     attributes,
     listeners,

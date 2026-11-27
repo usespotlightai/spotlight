@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import type { Ref } from 'react';
+import type { ReactElement, Ref } from 'react';
 
 import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
 import { RunNetwork } from '@/components/features/runs/network/RunNetwork';
@@ -46,7 +46,7 @@ export function SpanDetail({
   onClose: () => void;
   duration?: number;
   ref?: Ref<HTMLElement>;
-}) {
+}): ReactElement {
   const { step } = node;
   const runId = runIdOf(node);
 
@@ -85,8 +85,12 @@ export function SpanDetail({
           }
         />
 
-        {runId && <RunJudgeScore teamId={teamId} runId={runId} />}
-        {runId && <RunNetwork teamId={teamId} runId={runId} />}
+        {runId !== null && runId !== '' && (
+          <RunJudgeScore teamId={teamId} runId={runId} />
+        )}
+        {runId !== null && runId !== '' && (
+          <RunNetwork teamId={teamId} runId={runId} />
+        )}
 
         {cause && <DetailDescription description={cause} />}
         {input && <DetailDescription description={input} />}
@@ -95,7 +99,7 @@ export function SpanDetail({
         {step?.change && (
           <DetailSection title="Diff" copy={step.change.after}>
             <p className="flex gap-2 text-muted-foreground text-xs">
-              {step.change.path && (
+              {step.change.path !== null && step.change.path !== '' && (
                 <span className="truncate">{step.change.path}</span>
               )}
               {step.locations.length > 0 && (

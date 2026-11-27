@@ -23,7 +23,9 @@ export class ReviewedPullRequest {
     const repository = this.url.repository;
     const ref = this.url.headRef;
 
-    return repository && ref ? { repository, ref } : null;
+    return repository && ref !== null && ref !== ''
+      ? { repository, ref }
+      : null;
   }
 
   equals(other: ReviewedPullRequest): boolean {

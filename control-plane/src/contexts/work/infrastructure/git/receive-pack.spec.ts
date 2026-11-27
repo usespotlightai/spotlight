@@ -26,12 +26,22 @@ const request = (capabilities: string, ...refs: readonly string[]): string =>
   ].join('');
 
 const chunked = (text: string, size: number): AsyncIterable<Uint8Array> => ({
-  async *[Symbol.asyncIterator]() {
+  [Symbol.asyncIterator]: () => {
     const bytes = encoder.encode(text);
+    let at = 0;
 
-    for (let at = 0; at < bytes.length; at += size) {
-      yield bytes.subarray(at, at + size);
-    }
+    return {
+      next: (): Promise<IteratorResult<Uint8Array>> => {
+        if (at >= bytes.length) {
+          return Promise.resolve({ done: true, value: undefined });
+        }
+
+        const chunk = bytes.subarray(at, at + size);
+        at += size;
+
+        return Promise.resolve({ done: false, value: chunk });
+      },
+    };
   },
 });
 
@@ -285,8 +295,10 @@ describe('GitReceivePack, reading what GitHub took from a push', () => {
     const taken: string[] = [];
     const answer = push.reported(
       { status: 200, headers: {}, body: chunked(report, 5) },
-      async (updates) => {
+      (updates) => {
         taken.push(...updates.map((each) => each.ref));
+
+        return Promise.resolve();
       },
     );
 

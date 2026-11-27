@@ -5,10 +5,10 @@ import {
   candidateOf,
   endOf,
   FINGERPRINT,
+  JUDGE,
   later,
   measuresOf,
   NOW,
-  JUDGE,
   ranToEnd,
   replayedAs,
   replayFor,
@@ -27,6 +27,7 @@ import {
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -381,9 +382,7 @@ describe('results with repeats', () => {
     const once = withRepeats('replay_once', 1, ['original_0#1']);
     const totals = totalsOf(once.outcome());
 
-    expect(totals.successRate).toBe(
-      (totals.succeeded as number) / totals.scored,
-    );
+    expect(totals.successRate).toBe(present(totals.succeeded) / totals.scored);
     expect(totals.successRate).toBe(0.75);
     expect(totals.tasks).toBe(4);
     expect(totals.tasksScored).toBe(4);
@@ -454,7 +453,7 @@ describe('results with repeats', () => {
         (built, entry) =>
           ranToEnd(
             built,
-            entry.run as RunId,
+            present(entry.run),
             entry.original.value === 'original_0' ? 'failed' : 'completed',
             1,
           ),
@@ -475,7 +474,7 @@ describe('results with repeats', () => {
         (built, entry) =>
           ranToEnd(
             built,
-            entry.run as RunId,
+            present(entry.run),
             entry.original.value === 'original_0' ? 'failed' : 'completed',
             1,
           ),
@@ -527,7 +526,7 @@ describe('results with repeats', () => {
       replay.entries.reduce(
         (built, entry) =>
           built.recordVerdict(
-            entry.run as RunId,
+            present(entry.run),
             scoredAs(scoreOf(entry.original.value, entry.repeat)),
             later(90_000),
           ),

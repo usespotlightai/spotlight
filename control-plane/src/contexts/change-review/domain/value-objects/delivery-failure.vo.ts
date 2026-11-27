@@ -1,3 +1,5 @@
+import { nonEmpty } from '@change-review/domain/services/non-empty';
+import { isOneOf } from '@change-review/domain/services/one-of';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export const DELIVERY_FAILURE_CODES = [
@@ -46,19 +48,19 @@ export class DeliveryFailure {
   ): DeliveryFailure {
     return new DeliveryFailure(
       code,
-      detail?.trim().slice(0, MAX_DETAIL) || null,
+      nonEmpty(detail?.trim().slice(0, MAX_DETAIL)),
     );
   }
 
   static rehydrate(code: string, detail: string | null): DeliveryFailure {
-    if (!(DELIVERY_FAILURE_CODES as readonly string[]).includes(code)) {
+    if (!isOneOf(DELIVERY_FAILURE_CODES, code)) {
       throw new InconsistentStateError(
         'review delivery',
         `failed for ${code}, which is not a known reason`,
       );
     }
 
-    return DeliveryFailure.of(code as DeliveryFailureCode, detail);
+    return DeliveryFailure.of(code, detail);
   }
 
   get recovery(): DeliveryRecovery {

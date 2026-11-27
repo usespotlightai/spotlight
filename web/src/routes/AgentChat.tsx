@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 import { useParams } from 'react-router';
 
 import { AgentChatSkeleton } from '@/components/features/agent/AgentChatSkeleton';
@@ -64,7 +64,7 @@ function ChatNotLoaded({
   );
 }
 
-export function AgentChat() {
+export function AgentChat(): ReactElement | null {
   const { slug, teamId, chatId } = useParams();
   const thread = useChat(teamId, chatId);
   const chat = thread.data;
@@ -84,7 +84,12 @@ export function AgentChat() {
 
   useTabTitle(chat ? undefined : 'Chat');
 
-  if (!slug || !teamId) {
+  if (
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === ''
+  ) {
     return null;
   }
 

@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 
 import { TIMELINE } from '@/components/features/trace/view/TraceBar';
 import { TraceGrid } from '@/components/features/trace/view/TraceGrid';
@@ -29,8 +29,11 @@ const WATERFALL: readonly TraceRowShape[] = [
   { depth: 1, hasChildren: false, name: 'w-14', left: 85, width: 1 },
 ];
 
-export function TraceViewSkeleton() {
+export function TraceViewSkeleton(): ReactElement {
   const names = usePaneWidth<HTMLDivElement>(NAMES_PANE);
+  const namesWanted: CSSProperties & Record<`--${string}`, string> = {
+    '--names-wanted': `${names.width}px`,
+  };
 
   return (
     <div
@@ -39,10 +42,7 @@ export function TraceViewSkeleton() {
       className="flex min-h-0 flex-1 flex-col"
     >
       <div className="@container/trace relative min-h-0 min-w-0 flex-1">
-        <div
-          className={cn('h-full', TIMELINE)}
-          style={{ '--names-wanted': `${names.width}px` } as CSSProperties}
-        >
+        <div className={cn('h-full', TIMELINE)} style={namesWanted}>
           <ScrollArea
             orientation="both"
             className="h-full"

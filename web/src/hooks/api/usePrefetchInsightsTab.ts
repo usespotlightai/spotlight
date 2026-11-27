@@ -53,12 +53,12 @@ const queryOf = (
 export function usePrefetchInsightsTab(
   teamId: string | undefined,
   period: InsightsPeriod,
-) {
+): (tab: InsightsTab) => void {
   const client = useContext(QueryClientContext);
 
   return useCallback(
     (tab: InsightsTab) => {
-      if (!client || !teamId) {
+      if (!client || teamId === undefined || teamId === '') {
         return;
       }
 

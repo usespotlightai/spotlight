@@ -1,5 +1,6 @@
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
 import type { RunChanges } from '@runs/application/contracts/run-journal.contract';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -9,6 +10,7 @@ import { cannedJournalReadings as runJournalReadings } from '@work/application/p
 import { TouchedFiles } from '@work/application/services/touched-files';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const API = Repository.of('acme/api');
@@ -33,12 +35,12 @@ const touching = (input: {
 }) => {
   const warn = vi.fn();
   const files = new TouchedFiles(
-    {
-      changesOfTask: async () => input.changes,
-    } as unknown as RunJournalReaderPort,
-    {
-      changedIn: input.changedIn ?? (async () => []),
-    } as unknown as PullRequestPort,
+    partial<RunJournalReaderPort>({
+      changesOfTask: () => Promise.resolve(input.changes),
+    }),
+    partial<PullRequestPort>({
+      changedIn: input.changedIn ?? (() => Promise.resolve([])),
+    }),
     { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() },
     {
       now: () => new Date(),
@@ -46,13 +48,15 @@ const touching = (input: {
     },
     runJournalReadings({ workingCopyPathsIn: (changed) => changed.paths }),
   );
-  const task = {
+  const task = partial<Task>({
     id: TaskId.of('task_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     reviewedHead: null,
     pullRequests: input.pullRequests ?? [],
-  } as unknown as Task;
-  const line = { repositories: { all: [API, WEB] } } as unknown as LineMap;
+  });
+  const line = partial<LineMap>({
+    repositories: partial<LineRepositories>({ all: [API, WEB] }),
+  });
 
   return { warn, onTask: () => files.onTask(task, line) };
 };
@@ -93,7 +97,7 @@ describe('TouchedFiles', () => {
     const { onTask } = touching({
       changes: [],
       pullRequests: [PULL],
-      changedIn: async () => ['docs/retries.md'],
+      changedIn: () => Promise.resolve(['docs/retries.md']),
     });
 
     expect(listed(await onTask())).toEqual(['acme/api:docs/retries.md']);
@@ -106,8 +110,10 @@ describe('TouchedFiles', () => {
         PULL,
         PullRequestUrl.of('https://github.com/acme/web/pull/2'),
       ],
-      changedIn: async (_workspaceId, repository) =>
-        repository.equals(API) ? ['src/retry.ts'] : ['src/Retry.tsx'],
+      changedIn: (_workspaceId, repository) =>
+        Promise.resolve(
+          repository.equals(API) ? ['src/retry.ts'] : ['src/Retry.tsx'],
+        ),
     });
 
     expect(listed(await onTask())).toEqual([
@@ -121,7 +127,7 @@ describe('TouchedFiles', () => {
     const { onTask } = touching({
       changes: [],
       pullRequests: [PULL],
-      changedIn: async () => ['docs/retries.md'],
+      changedIn: () => Promise.resolve(['docs/retries.md']),
       sleep: (_ms, cancelled) => {
         waiting = cancelled;
         return new Promise(() => {});
@@ -137,8 +143,8 @@ describe('TouchedFiles', () => {
     const { onTask, warn } = touching({
       changes: [changes('run_1', ['api/src/uploads.ts'])],
       pullRequests: [PULL],
-      changedIn: async () => {
-        throw new Error('GitHub is down');
+      changedIn: () => {
+        return Promise.reject(new Error('GitHub is down'));
       },
     });
 

@@ -48,7 +48,8 @@ export const navigationOf = (url: string, origin: string): Navigation => {
 
   if (
     target.protocol === 'https:' &&
-    signIn?.some(
+    signIn !== undefined &&
+    signIn.some(
       (path) =>
         target.pathname === path.replace(/\/$/, '') ||
         target.pathname.startsWith(path.endsWith('/') ? path : `${path}/`),

@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { chatKeys } from '@/hooks/api/useChats';
 import { inboxKeys } from '@/hooks/api/useInbox';
@@ -7,7 +11,7 @@ import { refreshAfterWrite } from '@/lib/live-writes';
 
 type StopChatInput = { teamId: string; chatId: string };
 
-export function useStopChat() {
+export function useStopChat(): UseMutationResult<void, Error, StopChatInput> {
   const queryClient = useQueryClient();
 
   return useMutation({

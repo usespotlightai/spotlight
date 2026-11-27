@@ -12,7 +12,7 @@ const invalid = (): never => {
 };
 
 export class IntegrationAddress {
-  private readonly kind = 'integration-address';
+  private readonly kind: string = 'integration-address';
 
   private constructor(
     readonly teamKey: string,

@@ -6,7 +6,7 @@ import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
 import { runScoresOf } from '@/test/fixtures/run-scores';
 
 const scores = vi.fn<(...args: unknown[]) => unknown>();
-const scoresFailing = vi.fn();
+const scoresFailing = vi.fn<() => boolean>();
 const scoresError = vi.fn<(...args: unknown[]) => unknown>();
 const refetch = vi.fn();
 

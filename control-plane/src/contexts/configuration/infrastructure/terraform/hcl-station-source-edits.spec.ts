@@ -119,9 +119,10 @@ describe('HclStationSourceEdits', () => {
   });
 
   it('rejects a block value it cannot write as a failed edit', async () => {
-    const answer = await edited({
-      description: { nested: true } as unknown as string,
-    });
+    const unwritable: Partial<LineDefinitionStation> = {};
+    Reflect.set(unwritable, 'description', { nested: true });
+
+    const answer = await edited(unwritable);
 
     expect(!answer.ok && answer.failure.code).toBe('edit-failed');
   });

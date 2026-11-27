@@ -1,5 +1,5 @@
 export class BriefingAbout {
-  private readonly kind = 'briefing-about';
+  private readonly kind: string = 'briefing-about';
 
   private constructor(readonly value: string) {}
 

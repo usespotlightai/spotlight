@@ -1,7 +1,7 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class Recipient {
-  private readonly kind = 'recipient';
+  private readonly kind: string = 'recipient';
 
   private constructor(readonly key: string) {}
 

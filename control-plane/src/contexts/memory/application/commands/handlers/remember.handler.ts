@@ -47,7 +47,7 @@ export class RememberHandler implements CommandHandlerPort<
     teamId: TeamId,
     raw: string | null,
   ): Promise<MemoryPredecessor | null> {
-    if (!raw?.trim()) {
+    if (raw === null || raw.trim() === '') {
       return null;
     }
 

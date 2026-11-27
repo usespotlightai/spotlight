@@ -3,16 +3,17 @@ import {
   RedisOutboundLimits,
 } from '@integrations/infrastructure/outbound/outbound-limits';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import RedisMock from 'ioredis-mock';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 const quiet = () =>
-  ({
+  partial<LoggerPort>({
     info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
     debug: vi.fn(),
-  }) as unknown as LoggerPort;
+  });
 
 const clock = (waitMs = 5_000) => {
   let now = 0;
@@ -22,9 +23,11 @@ const clock = (waitMs = 5_000) => {
     slept,
     waits: {
       now: () => now,
-      sleep: async (ms: number) => {
+      sleep: (ms: number) => {
         slept.push(ms);
         now += ms;
+
+        return Promise.resolve();
       },
       waitMs,
     },
@@ -73,7 +76,7 @@ describe('InMemoryOutboundLimits', () => {
 describe('RedisOutboundLimits', () => {
   it('waits as long as the store says, then sends', async () => {
     const answers = [250, -1];
-    const store = { eval: vi.fn(async () => answers.shift()) };
+    const store = { eval: vi.fn(() => Promise.resolve(answers.shift())) };
     const { waits, slept } = clock();
 
     expect(
@@ -93,8 +96,8 @@ describe('RedisOutboundLimits', () => {
     const { waits } = clock(0);
     const limits = new RedisOutboundLimits(
       {
-        eval: async () => {
-          throw new Error('Command timed out');
+        eval: () => {
+          return Promise.reject(new Error('Command timed out'));
         },
       },
       1,

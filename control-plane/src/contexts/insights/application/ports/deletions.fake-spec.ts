@@ -23,23 +23,27 @@ export const deletionsInMemory = (): DeletionsPort & {
   return {
     locks,
     deleted: (scope) => setOf(scope).has(keyOf(scope)),
-    markDeleted: async (scope) => {
+    markDeleted: (scope) => {
       setOf(scope).add(keyOf(scope));
+
+      return Promise.resolve();
     },
-    tombstonesOf: async (owner: FactOwner) => {
+    tombstonesOf: (owner: FactOwner) => {
       locks.push(
         [owner.workspaceId.value, owner.teamId?.value, owner.taskId?.value]
           .filter((each) => each !== undefined)
           .join(' '),
       );
 
-      return Tombstones.of({
-        workspace: workspaces.has(owner.workspaceId.value),
-        team:
-          owner.teamId !== null &&
-          teams.has(`${owner.workspaceId.value} ${owner.teamId.value}`),
-        task: owner.taskId !== null && tasks.has(owner.taskId.value),
-      });
+      return Promise.resolve(
+        Tombstones.of({
+          workspace: workspaces.has(owner.workspaceId.value),
+          team:
+            owner.teamId !== null &&
+            teams.has(`${owner.workspaceId.value} ${owner.teamId.value}`),
+          task: owner.taskId !== null && tasks.has(owner.taskId.value),
+        }),
+      );
     },
   };
 };

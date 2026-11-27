@@ -110,8 +110,8 @@ beforeAll(async () => {
   runs = app.get(DrizzleRunRepository);
   team = await createTeam(db, tasks, `mention-${randomUUID().slice(0, 8)}`);
 
-  const opening = BUILT_IN_LINES.find((each) =>
-    each.role?.equals(LineRole.DELIVERY),
+  const opening = BUILT_IN_LINES.find(
+    (each) => each.role?.equals(LineRole.DELIVERY) === true,
   );
 
   if (!opening) {
@@ -136,7 +136,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 describe('a mention in the thread of a finished task (e2e)', () => {
@@ -151,11 +151,11 @@ describe('a mention in the thread of a finished task (e2e)', () => {
 
     expect(after.finished).toBe(false);
     expect(after.stationId).toEqual(stationKeyed('code-review').id);
-    expect(last?.body.value).toContain('Match the theme switch');
-    expect(last?.voice.author).toEqual(team.owner);
+    expect(last.body.value).toContain('Match the theme switch');
+    expect(last.voice.author).toEqual(team.owner);
     const runId = after.currentRunId;
     expect(runId).not.toBeNull();
-    expect(runId && (await eventually(() => runs.findById(runId)))?.state).toBe(
+    expect(runId && (await eventually(() => runs.findById(runId))).state).toBe(
       'queued',
     );
   });

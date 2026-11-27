@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { Env } from "@platform/config/env.schema";
 import {
   createPool,
@@ -7,15 +8,15 @@ import { Pool } from "pg";
 import type { LoggerPort } from "@shared-kernel/application/ports/logger.port";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const env = {
+const env = partial<Env>({
   DATABASE_URL: "postgres://localhost/main",
   DATABASE_READ_URL: "postgres://localhost/read",
   DATABASE_POOL_MAX: 7,
   DATABASE_CONNECTION_TIMEOUT_MS: 1_234,
   DATABASE_IDLE_TIMEOUT_MS: 5_678,
-} as Env;
+});
 
-const logger = { error: vi.fn() } as unknown as LoggerPort;
+const logger = partial<LoggerPort>({ error: vi.fn() });
 
 const pools: Pool[] = [];
 

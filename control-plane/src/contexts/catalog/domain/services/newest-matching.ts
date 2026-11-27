@@ -4,6 +4,7 @@ import type {
 } from '@catalog/domain/entities/catalog-item.entity';
 import type { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
 import type { VersionConstraint } from '@catalog/domain/value-objects/version-constraint.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 export type VersionMatch =
   | { readonly found: true; readonly item: CatalogItem }
@@ -15,9 +16,11 @@ export const newestMatching = (
   versions: readonly CatalogItem[],
   constraint: VersionConstraint,
 ): VersionMatch => {
-  const [newest] = versions
-    .filter((each) => constraint.matches(each.metadata.version))
-    .sort((a, b) => b.metadata.version.compare(a.metadata.version));
+  const newest = firstOf(
+    versions
+      .filter((each) => constraint.matches(each.metadata.version))
+      .sort((a, b) => b.metadata.version.compare(a.metadata.version)),
+  );
 
   if (newest) {
     return { found: true, item: newest };

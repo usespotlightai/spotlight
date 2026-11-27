@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -7,7 +7,7 @@ type SkeletonProps = {
   style?: CSSProperties;
 };
 
-export function Skeleton({ className, style }: SkeletonProps) {
+export function Skeleton({ className, style }: SkeletonProps): ReactElement {
   return (
     <span
       aria-hidden

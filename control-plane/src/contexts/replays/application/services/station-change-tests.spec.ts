@@ -29,8 +29,8 @@ import {
   LIVE_FINGERPRINT,
   LIVE_HASHES,
   NOW,
-  STATION,
   searchRunIds,
+  STATION,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
@@ -45,6 +45,7 @@ import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -204,20 +205,21 @@ beforeEach(async () => {
   policy = policyOf();
   scoring = CHECKED;
   liveBlock = { key: 'build', name: 'Build', kind: 'work' };
-  suppliers.configs.live = async () => ({
-    lineKey: 'delivery',
-    block: StationBlock.of(liveBlock),
-    fingerprint: LIVE_FINGERPRINT,
-    scoring,
-    hashes: LIVE_HASHES,
-    threshold: null,
-    search: policy,
-    agent: SearchAgent.of({
-      harness: 'claude-code',
-      model: null,
-      effort: null,
-    }),
-  });
+  suppliers.configs.live = () =>
+    Promise.resolve({
+      lineKey: 'delivery',
+      block: StationBlock.of(liveBlock),
+      fingerprint: LIVE_FINGERPRINT,
+      scoring,
+      hashes: LIVE_HASHES,
+      threshold: null,
+      search: policy,
+      agent: SearchAgent.of({
+        harness: 'claude-code',
+        model: null,
+        effort: null,
+      }),
+    });
 
   const set = aSet(10);
 
@@ -242,10 +244,10 @@ describe('StationChangeTests', () => {
 
     const [search] = searches();
 
-    expect(search?.trigger).toBe('request');
-    expect(search?.agent).toBeNull();
-    expect(search?.budget.agentRuns).toBe(false);
-    expect(search?.requests.map((each) => each.requestedBy.value)).toEqual([
+    expect(search.trigger).toBe('request');
+    expect(search.agent).toBeNull();
+    expect(search.budget.agentRuns).toBe(false);
+    expect(search.requests.map((each) => each.requestedBy.value)).toEqual([
       'user_asking',
     ]);
   });
@@ -410,7 +412,7 @@ describe('StationChangeTests', () => {
     const schedule = memory.schedules.get(STATION.stationId.value);
 
     await memory.scheduleRepository.save(
-      (schedule as StationSearchSchedule)
+      present(schedule)
         .requested(joinOf('a'))
         .requested(joinOf('b'))
         .requested(joinOf('c')),
@@ -426,7 +428,7 @@ describe('StationChangeTests', () => {
     const schedule = memory.schedules.get(STATION.stationId.value);
 
     await memory.scheduleRepository.save(
-      (schedule as StationSearchSchedule).started({
+      present(schedule).started({
         searched: [],
         inSet: [],
         at: now,

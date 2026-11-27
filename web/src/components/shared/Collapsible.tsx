@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { useDelayedValue } from '@/hooks/useDelayedValue';
 import { cn } from '@/lib/utils';
@@ -19,7 +19,7 @@ export function Collapsible({
   lazy = false,
   className,
   children,
-}: CollapsibleProps) {
+}: CollapsibleProps): ReactElement {
   const mounted = useDelayedValue(open || null, COLLAPSE_MS) !== null;
 
   return (

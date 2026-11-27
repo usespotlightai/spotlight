@@ -7,6 +7,7 @@ import { HarnessProfileProblems } from '@configuration/application/rendering/har
 import { awaitingSecrets } from '@configuration/domain/services/awaiting-secrets';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import { distinct } from '@shared-kernel/domain/distinct';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -32,9 +33,9 @@ export class HarnessProfileViews {
       return null;
     }
 
-    const [viewed] = await this.inWorkspace(team.workspaceId, [
-      { record, teamKey: team.key },
-    ]);
+    const viewed = firstOf(
+      await this.inWorkspace(team.workspaceId, [{ record, teamKey: team.key }]),
+    );
 
     return viewed ?? null;
   }

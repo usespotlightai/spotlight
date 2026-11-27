@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -8,7 +8,7 @@ export function MessageCard({
 }: {
   className?: string;
   children: ReactNode;
-}) {
+}): ReactElement {
   return (
     <div
       className={cn(

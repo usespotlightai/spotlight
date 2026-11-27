@@ -5,7 +5,7 @@ const PLATFORM = 'spotlight';
 export class EgressReference {
   static readonly PLATFORM = PLATFORM;
 
-  private readonly kind = 'egress-reference';
+  private readonly kind: string = 'egress-reference';
 
   private constructor(readonly egressId: EgressId | null) {}
 

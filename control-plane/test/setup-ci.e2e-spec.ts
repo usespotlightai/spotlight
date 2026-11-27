@@ -8,6 +8,7 @@ import {
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { ACCESSIBLE_REPOSITORIES } from '@work/application/ports/accessible-repositories.port';
 import { and, eq } from 'drizzle-orm';
 import {
@@ -38,19 +39,20 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
   const written: Record<string, string>[] = [];
 
   const settings: RepositorySettingsPort = {
-    defaultBranchOf: async () => ({
-      name: 'main',
-      protected: protectedBranch,
-      repositoryId: '101',
-      ownerId: '7',
-    }),
-    defaultBranchNameOf: async () => 'main',
-    oidcSubjectPrefixOf: async (_, repository) =>
-      subjectPrefix ?? `repo:${repository.value}`,
-    visibilityOf: async () => 'public',
-    putVariables: async (_, __, put) => {
+    defaultBranchOf: () =>
+      Promise.resolve({
+        name: 'main',
+        protected: protectedBranch,
+        repositoryId: '101',
+        ownerId: '7',
+      }),
+    defaultBranchNameOf: () => Promise.resolve('main'),
+    oidcSubjectPrefixOf: (_, repository) =>
+      Promise.resolve(subjectPrefix ?? `repo:${repository.value}`),
+    visibilityOf: () => Promise.resolve('public'),
+    putVariables: (_, __, put) => {
       written.push({ ...put });
-      return variables;
+      return Promise.resolve(variables);
     },
   };
 
@@ -84,7 +86,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
         .overrideProvider(REPOSITORY_SETTINGS)
         .useValue(settings)
         .overrideProvider(ACCESSIBLE_REPOSITORIES)
-        .useValue({ isAccessible: async () => true }),
+        .useValue({ isAccessible: () => Promise.resolve(true) }),
     );
     db = app.get<DrizzleDatabase>(DRIZZLE);
   });
@@ -128,7 +130,8 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
     await startingAs(owner).expect(201);
 
     const kept = await trusts();
-    const byKey = Object.fromEntries(kept.map((each) => [each.key, each]));
+    const byKey: Partial<Record<string, (typeof kept)[number]>> =
+      Object.fromEntries(kept.map((each) => [each.key, each]));
 
     expect(byKey['github-pull-requests']).toMatchObject({
       issuer: 'https://token.actions.githubusercontent.com',
@@ -206,15 +209,17 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
 
     await startingAs(owner, 'acme/platform-config').expect(201);
 
-    const [apply] = await db
-      .select()
-      .from(schema.oidcTrust)
-      .where(
-        and(
-          eq(schema.oidcTrust.workspaceId, workspaceId),
-          eq(schema.oidcTrust.key, 'github-apply'),
+    const apply = firstOf(
+      await db
+        .select()
+        .from(schema.oidcTrust)
+        .where(
+          and(
+            eq(schema.oidcTrust.workspaceId, workspaceId),
+            eq(schema.oidcTrust.key, 'github-apply'),
+          ),
         ),
-      );
+    );
     expect(apply?.subject).toBe(
       'repo:acme/platform-config:ref:refs/heads/main',
     );

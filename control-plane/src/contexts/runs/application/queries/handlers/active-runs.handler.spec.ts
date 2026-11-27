@@ -16,6 +16,7 @@ import {
 } from '@runs/application/queries/handlers/active-runs.handler';
 import type { EgressSecretFetches } from '@runs/application/services/egress-secret-fetches.service';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const checker = (
@@ -25,12 +26,14 @@ const checker = (
 ) =>
   new ActiveRunsHandler(
     sharedEgress(authorized),
-    leasing(leased) as unknown as EgressSecretFetches,
-    {
-      isLeasedBy: async (lease: ReviewWorkLease) =>
-        checksLeased.includes(`${lease.kind}:${lease.id.value}`),
-    } as unknown as ReviewWorkPort,
-    { now: () => NOW } as ClockPort,
+    partial<EgressSecretFetches>(leasing(leased)),
+    partial<ReviewWorkPort>({
+      isLeasedBy: (lease: ReviewWorkLease) =>
+        Promise.resolve(
+          checksLeased.includes(`${lease.kind}:${lease.id.value}`),
+        ),
+    }),
+    partial<ClockPort>({ now: () => NOW }),
   );
 
 describe('ActiveRunsHandler', () => {

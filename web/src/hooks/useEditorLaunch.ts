@@ -61,7 +61,18 @@ function useConnectionWatch(target: SandboxTarget, slug: string) {
   };
 }
 
-export function useEditorLaunch(slug: string, target: SandboxTarget) {
+type EditorLaunchResult = {
+  preferred: 'vscode' | 'cursor';
+  linkTo: (app: EditorApp) => string;
+  followed: (app: EditorApp) => void;
+  open: (app: EditorApp) => void;
+  setup: EditorSetupState;
+};
+
+export function useEditorLaunch(
+  slug: string,
+  target: SandboxTarget,
+): EditorLaunchResult {
   const [stored, store] = useStoredState(EDITOR_KEY, 'vscode');
   const { missed, launched, dismiss } = useLaunchCheck();
   const watch = useConnectionWatch(target, slug);

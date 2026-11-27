@@ -22,12 +22,14 @@ describe('RUNNERS_PAYLOAD_TYPES', () => {
       for (const file of readdirSync(within).filter(
         (each) => each.endsWith('.ts') && !each.endsWith('.spec.ts'),
       )) {
-        const loaded = (await import(join(within, file))) as Record<
-          string,
-          unknown
-        >;
+        const loaded: unknown = await import(join(within, file));
+        if (typeof loaded !== 'object' || loaded === null) {
+          throw new Error(`expected ${file} to load as a module`);
+        }
 
-        for (const [name, value] of Object.entries(loaded)) {
+        const exported: [string, unknown][] = Object.entries(loaded);
+
+        for (const [name, value] of exported) {
           if (
             typeof value === 'function' &&
             /^class\s/.test(value.toString()) &&

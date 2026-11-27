@@ -1,13 +1,21 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { MemoryUpkeepReview } from '@/components/features/memory/upkeep/MemoryUpkeepReview';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-export function MemoryUpkeep() {
+export function MemoryUpkeep(): ReactElement | null {
   const { slug, teamId, upkeepId } = useParams();
 
-  if (!slug || !teamId || !upkeepId) {
+  if (
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === '' ||
+    upkeepId === undefined ||
+    upkeepId === ''
+  ) {
     return null;
   }
 

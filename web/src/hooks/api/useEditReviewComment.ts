@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { reviewKeys } from '@/hooks/api/useTaskReview';
 import { editReviewComment } from '@/lib/api';
@@ -10,7 +14,11 @@ type EditReviewCommentInput = {
   body: string;
 };
 
-export function useEditReviewComment() {
+export function useEditReviewComment(): UseMutationResult<
+  void,
+  Error,
+  EditReviewCommentInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

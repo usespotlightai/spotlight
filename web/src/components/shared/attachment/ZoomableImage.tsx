@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, type ReactElement } from 'react';
 
 import { ImageGallery } from '@/components/shared/attachment/ImageGallery';
 import { useImageGallery } from '@/components/shared/attachment/imageGalleryContext';
@@ -42,7 +42,7 @@ function Tile({ src, name, className, loading, onError }: ZoomableImageProps) {
   );
 }
 
-export function ZoomableImage(props: ZoomableImageProps) {
+export function ZoomableImage(props: ZoomableImageProps): ReactElement {
   return useImageGallery() ? (
     <Tile {...props} />
   ) : (

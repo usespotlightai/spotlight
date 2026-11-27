@@ -1,4 +1,5 @@
 import { Bot, HatGlasses, User } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { ThreadEntry } from '@/components/features/review/ThreadEntry';
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
@@ -33,7 +34,7 @@ type MemoryProvenanceListProps = {
 
 export function MemoryProvenanceList({
   provenance,
-}: MemoryProvenanceListProps) {
+}: MemoryProvenanceListProps): ReactElement {
   const { data: harnesses } = useHarnesses();
   const agent = harnesses?.find((each) => each.id === provenance.harness)?.name;
   const entries = [
@@ -48,7 +49,7 @@ export function MemoryProvenanceList({
       name: agent ?? 'The agent',
       avatar: (
         <IconAvatar>
-          {provenance.harness ? (
+          {provenance.harness !== null && provenance.harness !== '' ? (
             <HarnessLogo harness={provenance.harness} />
           ) : (
             <Bot aria-hidden />

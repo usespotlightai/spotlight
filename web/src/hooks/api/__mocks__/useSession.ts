@@ -12,5 +12,5 @@ export const useSession = fn(() => ({
   isPending: false,
   isRefetching: false,
   error: null,
-  refetch: async () => undefined,
+  refetch: () => Promise.resolve(undefined),
 })).mockName('useSession');

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -12,7 +12,10 @@ type FactRowProps = {
   children: ReactNode;
 };
 
-export function FactRow({ wide = false, children }: FactRowProps) {
+export function FactRow({
+  wide = false,
+  children,
+}: FactRowProps): ReactElement {
   return (
     <div
       className={cn(

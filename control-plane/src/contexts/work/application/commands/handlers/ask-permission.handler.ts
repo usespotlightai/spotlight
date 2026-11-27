@@ -46,7 +46,7 @@ export class AskPermissionHandler implements CommandHandlerPort<
           input: command.asked.input,
           tool: this.calledTool(command.asked.title, command.asked.kind),
         }),
-        command.asked.sessionId
+        command.asked.sessionId !== null && command.asked.sessionId !== ''
           ? HarnessSession.of(command.asked.sessionId)
           : null,
       );

@@ -5,6 +5,7 @@ import type {
 } from '@configuration/application/ports/skill-folders.port';
 import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
 import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
+import { isJsonObject } from '@configuration/domain/value-objects/json-object';
 import { SKILL_MAIN_FILE } from '@configuration/domain/value-objects/skill-files.vo';
 import {
   Skill,
@@ -92,10 +93,9 @@ const readSkill = (
     );
   }
 
-  const { name, description, secrets, tools } = (front ?? {}) as Record<
-    string,
-    unknown
-  >;
+  const { name, description, secrets, tools } = isJsonObject(front)
+    ? front
+    : {};
 
   const input = {
     key,

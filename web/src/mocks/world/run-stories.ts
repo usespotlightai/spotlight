@@ -7,6 +7,7 @@ import type {
   RunJournalResponseDto,
   TaskRunResponseDto,
 } from '@/lib/api';
+import { entryOf } from '@/mocks/entry';
 import { perWorld, world } from '@/mocks/world';
 import type { HistoryRun } from '@/mocks/world/insights-history';
 import { MINUTE_MS } from '@/mocks/world/insights-measures';
@@ -50,7 +51,7 @@ export const PREPARE_MS = 20 * SECOND;
 export const PUBLISH_MS = 10 * SECOND;
 const CONTEXT_SIZE = 200_000;
 
-export const finished = (run: TaskRunResponseDto) =>
+export const finished = (run: TaskRunResponseDto): boolean =>
   run.state === 'completed' ||
   run.state === 'failed' ||
   run.state === 'cancelled' ||
@@ -185,7 +186,7 @@ const pullLabel = (url: string): string => {
 };
 
 const opened = (context: Context): string =>
-  context.pullRequest
+  context.pullRequest !== null && context.pullRequest !== ''
     ? `[${pullLabel(context.pullRequest)}](${context.pullRequest})`
     : 'the pull request';
 
@@ -332,8 +333,10 @@ const EDITS: Record<string, (noun: string) => readonly [string, string]> = {
 const editsOf = (context: Context): StepScript[] => {
   const type = historyTaskOf(context.run.taskId)?.pullRequest?.type ?? 'fix';
   const noun = nounOf(context.path);
-  const [before, after] = (EDITS[type] ?? EDITS.fix)?.(noun) ?? ['', ''];
-  const [, test] = EDITS.tests?.(noun) ?? ['', ''];
+  const [before, after] = (entryOf(EDITS, type) ?? entryOf(EDITS, 'fix'))?.(
+    noun,
+  ) ?? ['', ''];
+  const [, test] = entryOf(EDITS, 'tests')?.(noun) ?? ['', ''];
 
   return type === 'tests'
     ? [edit(testPathOf(context.path), '', after)]
@@ -390,7 +393,7 @@ const buildStory = (context: Context): Omit<RunStory, 'spend'> => {
             ),
           ]
         : []),
-      ...(delivers && context.pullRequest
+      ...(delivers && context.pullRequest !== null && context.pullRequest !== ''
         ? [
             execute(
               `gh pr create --title "${context.title}"`,
@@ -441,7 +444,7 @@ const reviewStory = (context: Context): Omit<RunStory, 'spend'> => {
       'Approved, merging.',
       'Send it back: it needs a test for the empty case.',
     ),
-    output: `Reviewed ${context.pullRequest ? pullLabel(context.pullRequest) : 'the change'}.`,
+    output: `Reviewed ${context.pullRequest !== null && context.pullRequest !== '' ? pullLabel(context.pullRequest) : 'the change'}.`,
   };
 };
 
@@ -578,7 +581,7 @@ const pastStoryOf = (run: HistoryRun): RunStory => {
       : null,
     answerAfter: run.humanAction
       ? Math.round(
-          (Date.parse(run.humanAction.at) - Date.parse(run.endedAt ?? '')) /
+          (Date.parse(run.humanAction.at) - Date.parse(run.endedAt)) /
             MINUTE_MS,
         )
       : 0,
@@ -605,7 +608,7 @@ const pastStoryOf = (run: HistoryRun): RunStory => {
 const NO_STORY: RunStory = { spend: null, steps: [], notes: [] };
 
 export const storyOf = (runId: string): RunStory => {
-  const core = RUN_STORIES[runId];
+  const core = entryOf(RUN_STORIES, runId);
   if (core) {
     return withDiffStat(runId, core);
   }
@@ -698,11 +701,12 @@ export const answerStackQuestion = (
   questionId: string,
   reply: string | null,
 ): QuestionAnswerResponseDto => {
+  const trimmed = reply?.trim() ?? '';
   const answer: QuestionAnswerResponseDto = {
     questionId,
-    reply: reply?.trim() || null,
-    grading: reply?.trim() ? 'pending' : 'graded',
-    verdict: reply?.trim() ? null : 'missed',
+    reply: trimmed === '' ? null : trimmed,
+    grading: trimmed === '' ? 'graded' : 'pending',
+    verdict: trimmed === '' ? 'missed' : null,
     feedback: null,
     expected: EXPECTED[questionId] ?? 'The answer that the hunks show.',
     outdated: false,
@@ -740,7 +744,7 @@ const withAnswers = (
       layers: cohort.layers.map((layer) => ({
         ...layer,
         questions: layer.questions.map((question) => {
-          const stored = stackAnswers()[`${stack.id}/${question.id}`];
+          const stored = entryOf(stackAnswers(), `${stack.id}/${question.id}`);
 
           return {
             ...question,
@@ -752,7 +756,7 @@ const withAnswers = (
   }));
 
 export const changeStacksOf = (runId: string): ChangeStackResponseDto[] => {
-  const core = RUN_CHANGE_STACKS[runId];
+  const core = entryOf(RUN_CHANGE_STACKS, runId);
   if (core) {
     return withAnswers(core);
   }

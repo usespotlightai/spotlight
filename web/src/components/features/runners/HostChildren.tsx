@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { RunnerRow } from '@/components/features/runners/RunnerRow';
 import { SandboxRow } from '@/components/features/runners/SandboxRow';
 import { type Host, hostChildren, type NamedHarness } from '@/lib/runner';
@@ -8,7 +10,11 @@ type HostChildrenProps = {
   harnesses: readonly NamedHarness[] | undefined;
 };
 
-export function HostChildren({ slug, host, harnesses }: HostChildrenProps) {
+export function HostChildren({
+  slug,
+  host,
+  harnesses,
+}: HostChildrenProps): ReactElement | null {
   const rows = hostChildren(host);
 
   if (rows.length === 0) {

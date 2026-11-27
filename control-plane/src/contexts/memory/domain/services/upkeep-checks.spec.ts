@@ -11,6 +11,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { UpkeepProposalId } from '@memory/domain/value-objects/upkeep-proposal-id.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -82,9 +83,11 @@ const newId = () => {
 
 describe('upkeep checks', () => {
   it('proposes to retire a memory about paths that no longer exist on the default branch', () => {
-    const [proposal] = checkedForUpkeep(
-      evidence([memory(1, { repository: API, paths: ['src/uploads'] })]),
-      newId,
+    const proposal = firstOf(
+      checkedForUpkeep(
+        evidence([memory(1, { repository: API, paths: ['src/uploads'] })]),
+        newId,
+      ),
     );
 
     expect(proposal?.change).toBe('retire');
@@ -121,9 +124,11 @@ describe('upkeep checks', () => {
   });
 
   it('proposes to retire a memory about a repository none of the team’s lines works in', () => {
-    const [proposal] = checkedForUpkeep(
-      evidence([memory(1, { repository: Repository.of('acme/old') })]),
-      newId,
+    const proposal = firstOf(
+      checkedForUpkeep(
+        evidence([memory(1, { repository: Repository.of('acme/old') })]),
+        newId,
+      ),
     );
 
     expect(proposal?.finding).toBe('repository-gone');

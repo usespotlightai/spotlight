@@ -39,9 +39,10 @@ export class LiveCandidates {
     }
 
     const teamKey = await this.people.teamKey(set.teamId);
-    const address = teamKey
-      ? StationPath.of(teamKey, config.lineKey, config.block.key)
-      : null;
+    const address =
+      teamKey !== null && teamKey !== ''
+        ? StationPath.of(teamKey, config.lineKey, config.block.key)
+        : null;
 
     if (!address) {
       throw new UnknownStationError(stationId.value);

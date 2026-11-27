@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { CopyIconAction } from '@/components/shared/CopyIconAction';
 import {
   EDITOR_NAMES,
@@ -12,7 +14,11 @@ type EditorSetupProps = {
   origin: string;
 };
 
-export function EditorSetup({ app, reason, origin }: EditorSetupProps) {
+export function EditorSetup({
+  app,
+  reason,
+  origin,
+}: EditorSetupProps): ReactElement {
   const name = EDITOR_NAMES[app];
 
   return (
@@ -52,7 +58,7 @@ export function EditorSetup({ app, reason, origin }: EditorSetupProps) {
               <span className="select-text overflow-x-auto whitespace-pre text-foreground text-sm">
                 {step.command}
               </span>
-              {step.note && (
+              {step.note !== undefined && step.note !== '' && (
                 <span className="text-muted-foreground text-xs leading-5">
                   {step.note}
                 </span>

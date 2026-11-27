@@ -1,5 +1,5 @@
 import { LoaderCircle, Pencil } from 'lucide-react';
-import { type ReactNode, useRef } from 'react';
+import { type ReactElement, type ReactNode, useRef } from 'react';
 
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
@@ -53,7 +53,7 @@ export function AvatarSetting({
   avatarUrl,
   editable,
   change,
-}: AvatarSettingProps) {
+}: AvatarSettingProps): ReactElement {
   const picker = useRef<HTMLInputElement>(null);
 
   const send = (next: AvatarChange) => {
@@ -79,7 +79,7 @@ export function AvatarSetting({
     >
       {editable ? (
         <>
-          {avatarUrl ? (
+          {avatarUrl !== null && avatarUrl !== '' ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 aria-label={label}
@@ -121,10 +121,10 @@ export function AvatarSetting({
             hidden
             aria-label={`Avatar image for ${name}`}
             onChange={(event) => {
-              const [file] = Array.from(event.target.files ?? []);
+              const file: File | undefined = event.target.files?.[0];
               event.target.value = '';
 
-              if (file) {
+              if (file !== undefined) {
                 send(file);
               }
             }}

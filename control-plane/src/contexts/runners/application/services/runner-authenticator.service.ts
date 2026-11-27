@@ -49,11 +49,13 @@ export class RunnerAuthenticator implements RunnerAuthenticatorPort {
   ): Promise<RunnerPool | RunnerTrust | null> {
     const { bearer, trust } = credential;
 
-    if (!bearer) {
+    if (bearer === undefined || bearer === '') {
       return null;
     }
 
-    return trust?.trim() ? this.trusted(trust, bearer) : this.pooled(bearer);
+    return trust !== undefined && trust.trim() !== ''
+      ? this.trusted(trust, bearer)
+      : this.pooled(bearer);
   }
 
   private async pooled(token: string): Promise<RunnerPool | null> {
@@ -61,7 +63,7 @@ export class RunnerAuthenticator implements RunnerAuthenticatorPort {
       TokenHash.of(this.tokens.hash(token)),
     );
 
-    return pool?.acceptsPullToken &&
+    return pool?.acceptsPullToken === true &&
       (await this.workspaces.isOpen(pool.workspaceId))
       ? pool
       : null;

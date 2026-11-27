@@ -19,11 +19,11 @@ const REPORT = {
   receivedAs: 'loop:firing_1',
 };
 
-const noticesFailingWith = (error: unknown) =>
+const noticesFailingWith = (error: Error) =>
   new HookTaskNotes({
     noted: vi.fn(),
-    failed: vi.fn(async () => {
-      throw error;
+    failed: vi.fn(() => {
+      return Promise.reject(error);
     }),
     movedOn: vi.fn(),
   } satisfies TaskNotesFromHooksPort);
@@ -32,7 +32,7 @@ describe('HookTaskNotes', () => {
   it('reports how Work took the notice', async () => {
     const notices = new HookTaskNotes({
       noted: vi.fn(),
-      failed: vi.fn(async () => 'superseded' as const),
+      failed: vi.fn(() => Promise.resolve('superseded' as const)),
       movedOn: vi.fn(),
     });
 

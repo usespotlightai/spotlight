@@ -17,6 +17,7 @@ import {
 import type { LinkedAccountsPort } from '@identity/application/ports/linked-accounts.port';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 interface Posted {
   readonly id: number;
@@ -217,7 +218,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
                 each.line === null ||
                 each.line === comment.line),
           );
-          const [match] = at >= 0 ? unmatched.splice(at, 1) : [];
+          const match = firstOf(at >= 0 ? unmatched.splice(at, 1) : []);
 
           return match ? { id: match.id, url: match.html_url } : null;
         }),
@@ -353,7 +354,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
         ? await this.accounts.tokenFor(on.by.userId, 'github')
         : null;
 
-    if (userToken) {
+    if (userToken !== null && userToken !== '') {
       try {
         return await work({ token: userToken, viaUserToken: true });
       } catch (error) {

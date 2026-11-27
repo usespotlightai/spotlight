@@ -65,7 +65,10 @@ export class StartingPoint {
   static rehydrate(parts: StartingPointParts): StartingPoint {
     try {
       return StartingPoint.of({
-        archive: parts.archive ? WorkingCopyArchiveId.of(parts.archive) : null,
+        archive:
+          parts.archive !== null && parts.archive !== ''
+            ? WorkingCopyArchiveId.of(parts.archive)
+            : null,
         checkouts: parts.checkouts.map(CheckoutHead.of),
         attempt: parts.attempt,
         at: parts.at,

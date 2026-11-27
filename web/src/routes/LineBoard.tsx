@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 import { useParams } from 'react-router';
 
 import { Board } from '@/components/features/board/Board';
@@ -29,7 +29,7 @@ const listLoading = (
   completed: Loadable,
 ): boolean => loading(tasks) || (view === 'completed' && loading(completed));
 
-export function LineBoard() {
+export function LineBoard(): ReactElement | null {
   const { slug, teamId, lineId } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const lines = useLines(teamId);
@@ -43,11 +43,18 @@ export function LineBoard() {
   useCreateTaskKey(line, setAdding);
 
   const { trail, forward } = useTrail([
-    ...(team && slug ? [teamCrumb(slug, team)] : []),
+    ...(team && slug !== undefined && slug !== ''
+      ? [teamCrumb(slug, team)]
+      : []),
     { label: line?.name ?? '' },
   ]);
 
-  if (!slug || !teamId) {
+  if (
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === ''
+  ) {
     return null;
   }
 

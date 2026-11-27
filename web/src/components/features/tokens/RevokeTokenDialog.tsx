@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -24,7 +26,7 @@ export function RevokeTokenDialog({
   workspaceId,
   token,
   onClose,
-}: RevokeTokenDialogProps) {
+}: RevokeTokenDialogProps): ReactElement {
   const revoke = useRevokeWorkspaceToken(workspaceId);
   const shown = useDelayedValue(token, CLOSING_MS);
   const revoking = revoke.isPending || revoke.isSuccess;

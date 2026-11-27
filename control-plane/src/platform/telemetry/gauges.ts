@@ -30,9 +30,11 @@ export function observeGauges<Name extends string>(
   reporting: () => boolean = () => true,
 ): () => void {
   const meter = metrics.getMeter(SCOPE);
-  const names = Object.keys(specs) as Name[];
-  const gauges = new Map<Name, ObservableGauge>(
-    names.map((name) => [name, meter.createObservableGauge(name, specs[name])]),
+  const gauges = new Map<string, ObservableGauge>(
+    Object.entries<GaugeSpec>(specs).map(([name, spec]) => [
+      name,
+      meter.createObservableGauge(name, spec),
+    ]),
   );
   const observables = [...gauges.values()];
 
@@ -53,10 +55,16 @@ export function observeGauges<Name extends string>(
       return;
     }
 
-    for (const name of names) {
-      const gauge = gauges.get(name) as ObservableGauge;
+    for (const [name, observations] of Object.entries<readonly Observation[]>(
+      observed,
+    )) {
+      const gauge = gauges.get(name);
 
-      for (const { value, attributes } of observed[name]) {
+      if (gauge === undefined) {
+        continue;
+      }
+
+      for (const { value, attributes } of observations) {
         result.observe(gauge, value, attributes);
       }
     }

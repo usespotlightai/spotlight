@@ -172,7 +172,9 @@ export class Runners implements RunnersPort {
     const hostId = HostId.of(host);
     const known = await this.hosts.find(hostId);
 
-    if (!known?.hasSource(CredentialSource.of(source.kind, source.id))) {
+    if (
+      known?.hasSource(CredentialSource.of(source.kind, source.id)) !== true
+    ) {
       this.refused(source, host, 'host-unreported');
       return { outcome: 'host-unreported' };
     }
@@ -196,9 +198,10 @@ export class Runners implements RunnersPort {
     const runnerId = RunnerId.of(this.ids.generate());
     const issued = this.tokens.issue();
     const egress = this.tokens.issue();
-    const entering: Entering | null = into
-      ? { sandbox: SandboxId.of(into), host: hostId }
-      : null;
+    const entering: Entering | null =
+      into !== null && into !== ''
+        ? { sandbox: SandboxId.of(into), host: hostId }
+        : null;
     const starting: Starting = (through) =>
       Runner.start({
         id: runnerId,

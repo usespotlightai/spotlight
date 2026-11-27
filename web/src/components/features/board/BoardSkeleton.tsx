@@ -1,8 +1,10 @@
+import type { ReactElement } from 'react';
+
 import { StationSectionSkeleton } from '@/components/features/board/column/StationSectionSkeleton';
 import { TaskRowSkeleton } from '@/components/features/board/task/TaskRowSkeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-export function BoardSkeleton() {
+export function BoardSkeleton(): ReactElement {
   return (
     <ScrollArea
       className="min-h-0 flex-1"

@@ -8,7 +8,7 @@ export class DiffSide {
   private constructor(readonly value: DiffSideName) {}
 
   static fromInput(raw: string | null): DiffSide {
-    const named = raw?.trim() || 'new';
+    const named = (raw?.trim() ?? '') || 'new';
     const side = DIFF_SIDES.find((each) => each === named);
 
     if (!side) {

@@ -1,6 +1,8 @@
+import type { ReactElement } from 'react';
+
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 
-export function StationIconSkeleton() {
+export function StationIconSkeleton(): ReactElement {
   return (
     <span
       aria-hidden

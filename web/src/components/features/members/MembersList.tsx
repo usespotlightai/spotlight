@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { MemberRow } from '@/components/features/members/MemberRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
@@ -15,7 +15,12 @@ type MembersListProps = {
   action?: ReactNode;
 };
 
-export function MembersList({ slug, members, show, action }: MembersListProps) {
+export function MembersList({
+  slug,
+  members,
+  show,
+  action,
+}: MembersListProps): ReactElement {
   const shown = visibleMembers(members.data ?? [], show);
   const named = MEMBER_SHOWS.find((each) => each.value === show)?.label;
 

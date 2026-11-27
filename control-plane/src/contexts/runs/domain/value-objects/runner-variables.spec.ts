@@ -14,13 +14,30 @@ const SHARED = join(
   '../../../../../../data-plane/protocol/testdata/sandbox-env.json',
 );
 
+interface SharedVariables {
+  readonly variables: readonly string[];
+  readonly prefix: string;
+  readonly namePattern: string;
+}
+
+const isSharedVariables = (value: unknown): value is SharedVariables =>
+  typeof value === 'object' &&
+  value !== null &&
+  'variables' in value &&
+  Array.isArray(value.variables) &&
+  value.variables.every((each) => typeof each === 'string') &&
+  'prefix' in value &&
+  typeof value.prefix === 'string' &&
+  'namePattern' in value &&
+  typeof value.namePattern === 'string';
+
 describe('the variables the runner sets', () => {
   it('are the ones the runner lists, named by the rule the runner checks', () => {
-    const shared = JSON.parse(readFileSync(SHARED, 'utf8')) as {
-      variables: string[];
-      prefix: string;
-      namePattern: string;
-    };
+    const shared: unknown = JSON.parse(readFileSync(SHARED, 'utf8'));
+
+    if (!isSharedVariables(shared)) {
+      throw new Error(`${SHARED} does not list the variables`);
+    }
 
     expect(RUNNER_VARIABLES).toEqual(shared.variables);
     expect(RUNNER_VARIABLE_PREFIX).toBe(shared.prefix);

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { useRunScores } from '@/hooks/api/useRunScores';
 import {
@@ -13,7 +15,10 @@ type TraceRunVerdictProps = {
   runId: string;
 };
 
-export function TraceRunVerdict({ teamId, runId }: TraceRunVerdictProps) {
+export function TraceRunVerdict({
+  teamId,
+  runId,
+}: TraceRunVerdictProps): ReactElement | null {
   const scores = useRunScores(teamId, runId).data;
 
   if (!scores?.judge) {

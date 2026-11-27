@@ -1,4 +1,6 @@
 import { DeleteTeamMemories } from '@memory/application/services/delete-team-memories.service';
+import type { MemoryUpkeepSchedule } from '@memory/domain/aggregates/memory-upkeep-schedule.aggregate';
+import type { MemoryUpkeep } from '@memory/domain/aggregates/memory-upkeep.aggregate';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryVersionConflictError } from '@memory/domain/exceptions/memory-version-conflict.error';
 import type {
@@ -11,6 +13,8 @@ import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo'
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { MemoryUpkeepId } from '@memory/domain/value-objects/memory-upkeep-id.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -45,33 +49,42 @@ const deleting = (
   const removed: string[] = [];
   const upkeepsLeft = ['upkeep_1', 'upkeep_2'];
   let scheduleLeft = true;
-  const upkeeps = {
-    ofTeam: async () => upkeepsLeft.map((id) => ({ id })),
-    remove: async (upkeep: { id: string }) => {
-      removed.push(upkeep.id);
-      upkeepsLeft.splice(upkeepsLeft.indexOf(upkeep.id), 1);
+  const upkeeps = partial<MemoryUpkeepRepository>({
+    ofTeam: () =>
+      Promise.resolve(
+        upkeepsLeft.map((id) =>
+          partial<MemoryUpkeep>({ id: MemoryUpkeepId.of(id) }),
+        ),
+      ),
+    remove: (upkeep: MemoryUpkeep) => {
+      removed.push(upkeep.id.value);
+      upkeepsLeft.splice(upkeepsLeft.indexOf(upkeep.id.value), 1);
+      return Promise.resolve();
     },
-  } as unknown as MemoryUpkeepRepository;
-  const schedules = {
-    ofTeam: async () => (scheduleLeft ? { id: 'schedule' } : null),
-    remove: async (schedule: { id: string }) => {
-      removed.push(schedule.id);
+  });
+  const schedules = partial<MemoryUpkeepScheduleRepository>({
+    ofTeam: () =>
+      Promise.resolve(scheduleLeft ? partial<MemoryUpkeepSchedule>({}) : null),
+    remove: () => {
+      removed.push('schedule');
       scheduleLeft = false;
+      return Promise.resolve();
     },
-  } as unknown as MemoryUpkeepScheduleRepository;
-  const memories = {
-    ofTeam: async () => [...stored.values()],
-    save: async (memory: Memory) => {
+  });
+  const memories = partial<MemoryRepository>({
+    ofTeam: () => Promise.resolve([...stored.values()]),
+    save: (memory: Memory) => {
       if (!memory.isDeleted || changedMeanwhile.has(memory.id.value)) {
-        throw new MemoryVersionConflictError(memory.id.value);
+        return Promise.reject(new MemoryVersionConflictError(memory.id.value));
       }
       stored.delete(memory.id.value);
       if (toAdd) {
         stored.set(toAdd.id.value, toAdd);
         toAdd = null;
       }
+      return Promise.resolve();
     },
-  } as unknown as MemoryRepository;
+  });
   const service = new DeleteTeamMemories(
     memories,
     {

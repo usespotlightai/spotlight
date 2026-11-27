@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ImagePreview } from '@/components/shared/attachment/ImagePreview';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { htmlElement } from '@/test/elements';
 
 const shot = () => new File(['png'], 'shot.png', { type: 'image/png' });
 
@@ -71,9 +72,11 @@ describe('ImagePreview', () => {
     render(<ImagePreview source={{ url: '/gone.png' }} name="shot.png" />);
 
     fireEvent.error(
-      screen
-        .getByRole('button', { name: 'View shot.png' })
-        .querySelector('img') as HTMLImageElement,
+      htmlElement(
+        screen
+          .getByRole('button', { name: 'View shot.png' })
+          .querySelector('img'),
+      ),
     );
 
     expect(

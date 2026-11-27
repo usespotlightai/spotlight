@@ -506,7 +506,8 @@ const reservationDropsAnnounced = ({
   return (
     drops.length <= 1 &&
     drops.every(
-      (drop) => reservation?.isFor(drop.runner) && after.reservation === null,
+      (drop) =>
+        reservation?.isFor(drop.runner) === true && after.reservation === null,
     ) &&
     (reservation === null ||
       after.reservation !== null ||

@@ -69,7 +69,7 @@ export class RunBeforeHooks {
     const budget = HookDecision.budgetFrom(instance.at, until);
 
     for (const hook of await this.runtime.listening(task.teamId, on)) {
-      if (hook.broken || !hook.written) {
+      if ((hook.broken !== null && hook.broken !== '') || !hook.written) {
         this.logger.warn(
           { hook: hook.key.value, reason: hook.broken },
           'A hook no longer reads as it was written',

@@ -82,9 +82,9 @@ export class WorkspaceSummaryController {
       Page<WorkspaceSummaryDto>
     >(
       new ListWorkspaceSummariesQuery(
-        after || null,
+        after !== undefined && after !== '' ? after : null,
         pageLimitOf(limit),
-        since ? isoTimeOf('since', since) : null,
+        since !== undefined && since !== '' ? isoTimeOf('since', since) : null,
       ),
     );
 

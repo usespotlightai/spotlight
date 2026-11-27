@@ -20,6 +20,7 @@ import {
   usageOf,
   WORKSPACE,
 } from '@insights/runs.fake-spec';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -62,7 +63,7 @@ describe('RunRecord', () => {
       'run-record.outcome-changed',
     ]);
     expect(events[0]).toBeInstanceOf(RunRecordEnded);
-    expect((events[0] as RunRecordEnded).location.stationId.value).toBe(
+    expect(instanceOf(RunRecordEnded, events[0]).location.stationId.value).toBe(
       'station_1',
     );
     expect(ended.pullEvents()).toEqual([]);
@@ -94,9 +95,9 @@ describe('RunRecord', () => {
       'run-record.outcome-changed',
     ]);
     expect(events[1]).toBeInstanceOf(RunOutcomeChanged);
-    expect((events[1] as RunOutcomeChanged).location.stationId.value).toBe(
-      'station_1',
-    );
+    expect(
+      instanceOf(RunOutcomeChanged, events[1]).location.stationId.value,
+    ).toBe('station_1');
   });
 
   it('keeps the first end it receives', () => {

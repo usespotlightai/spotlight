@@ -7,7 +7,7 @@ export function useFrameStrip(
   frames: number,
   frameMs: number,
   moving: boolean,
-) {
+): void {
   useEffect(() => {
     if (!moving || !canAnimate(strip.current)) {
       return;

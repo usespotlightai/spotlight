@@ -3,7 +3,7 @@ import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 const SEPARATOR = '/';
 
 export class StationPath {
-  private readonly kind = 'station-path';
+  private readonly kind: string = 'station-path';
 
   private constructor(
     readonly teamKey: string,

@@ -40,19 +40,33 @@ export const turnEnded = (usage: Record<string, number>): HarnessEvent => ({
   data: { turn: 1, stop: 'ended', usage },
 });
 
-export const entryOf = <At>(seq: number, at: At, event: HarnessEvent) => ({
+export interface HarnessEntry<At> {
+  readonly seq: number;
+  readonly type: string;
+  readonly at: At;
+  readonly data: string;
+}
+
+export const entryOf = <At>(
+  seq: number,
+  at: At,
+  event: HarnessEvent,
+): HarnessEntry<At> => ({
   seq,
   type: event.type,
   at,
   data: Buffer.from(JSON.stringify(event.data)).toString('base64'),
 });
 
-export const posted = (...events: HarnessEvent[]) =>
+export const posted = (...events: HarnessEvent[]): HarnessEntry<string>[] =>
   [connected(), ...events].map((each, index) =>
     entryOf(index + 1, new Date().toISOString(), each),
   );
 
-export const changing = (message: string, line: string) => {
+export const changing = (
+  message: string,
+  line: string,
+): HarnessEntry<string>[] => {
   const edit = { id: 'call_1', title: 'Edit', input: { file: 'queue.js' } };
 
   return posted(

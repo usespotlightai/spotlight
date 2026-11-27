@@ -88,7 +88,7 @@ export class NotifyChannel {
       return this.links.task(notice.workspaceId, notice.teamId, notice.taskId);
     }
 
-    return notice.chatId
+    return notice.chatId !== null && notice.chatId !== ''
       ? this.links.chat(notice.workspaceId, notice.teamId, notice.chatId)
       : null;
   }

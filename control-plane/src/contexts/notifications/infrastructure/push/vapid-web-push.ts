@@ -60,7 +60,7 @@ export class VapidWebPush implements WebPushPort {
     const response = await this.guard.fetch(request.endpoint, {
       method: request.method,
       headers: request.headers as Record<string, string>,
-      body: request.body ? new Uint8Array(request.body) : undefined,
+      body: new Uint8Array(request.body),
       redirect: 'error',
     });
 

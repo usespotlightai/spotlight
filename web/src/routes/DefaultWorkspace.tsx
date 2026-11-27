@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Navigate } from 'react-router';
 
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -5,7 +6,7 @@ import { useWorkspaces } from '@/hooks/api/useWorkspaces';
 import { failed, loading } from '@/lib/query';
 import { workspacePath } from '@/lib/workspace';
 
-export function DefaultWorkspace() {
+export function DefaultWorkspace(): ReactElement | null {
   const workspaces = useWorkspaces();
 
   if (failed(workspaces)) {
@@ -24,7 +25,7 @@ export function DefaultWorkspace() {
     return null;
   }
 
-  const [first] = workspaces.data ?? [];
+  const first = workspaces.data?.at(0);
 
   return first ? (
     <Navigate to={workspacePath(first.slug)} replace />

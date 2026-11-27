@@ -1,4 +1,5 @@
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
+import { isOneOf } from '@change-review/domain/services/one-of';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 
@@ -46,7 +47,7 @@ export class ReviewAnchor {
         ? null
         : input.startLine;
 
-    if (!(REVIEW_SIDES as readonly string[]).includes(input.side)) {
+    if (!isOneOf(REVIEW_SIDES, input.side)) {
       throw new InvalidReviewError(
         'comment must be on the new or old side of a change',
       );
@@ -64,7 +65,7 @@ export class ReviewAnchor {
     }
 
     return new ReviewAnchor(input.repository ?? null, path, {
-      side: input.side as ReviewSide,
+      side: input.side,
       line: input.line,
       startLine,
     });

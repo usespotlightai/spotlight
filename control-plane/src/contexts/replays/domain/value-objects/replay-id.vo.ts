@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class ReplayId {
-  private readonly kind = 'replay';
+  private readonly kind: string = 'replay';
 
   private constructor(readonly value: string) {}
 

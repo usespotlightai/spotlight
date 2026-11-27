@@ -1,4 +1,5 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { AckMessagesCommand } from '@work/application/commands/ack-messages.command';
@@ -15,19 +16,22 @@ const leases = runLeasesOver(() => leasedRunFor(RunId.of('run_1'), 'dev'));
 
 const acknowledging = () => {
   const acknowledged: number[] = [];
-  const work = {
-    acknowledgeUpTo: async (position: number) =>
-      void acknowledged.push(position),
-  } as unknown as RunWork;
-  const works = {
+  const work = partial<RunWork>({
+    acknowledgeUpTo: (position: number) =>
+      Promise.resolve(void acknowledged.push(position)),
+  });
+  const works = partial<RunWorks>({
     leasedBy: async (runId: string, runnerId: string) => ({
       run: await leases.leaseOf(RunId.of(runId), RunnerId.of(runnerId)),
       work,
     }),
-  } as unknown as RunWorks;
+  });
 
   return {
-    handler: new AckMessagesHandler(works, { now: () => NOW } as ClockPort),
+    handler: new AckMessagesHandler(
+      works,
+      partial<ClockPort>({ now: () => NOW }),
+    ),
     acknowledged,
   };
 };

@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { UserEmail } from '@identity/domain/aggregates/user-email.aggregate';
 import { EmailAlreadyAddedError } from '@identity/domain/exceptions/email-already-added.error';
 import { EmailInUseError } from '@identity/domain/exceptions/email-in-use.error';
@@ -96,10 +97,10 @@ export class DrizzleUserEmailRepository implements UserEmailRepository {
   }
 
   async countOfUser(userId: UserId): Promise<number> {
-    const [counted] = await this.context.db
+    const counted = firstOf(await this.context.db
       .select({ count: count() })
       .from(userEmail)
-      .where(eq(userEmail.userId, userId.value));
+      .where(eq(userEmail.userId, userId.value)));
 
     return counted?.count ?? 0;
   }
@@ -127,11 +128,11 @@ export class DrizzleUserEmailRepository implements UserEmailRepository {
   }
 
   private async first(condition: SQL | undefined): Promise<UserEmail | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(userEmail)
       .where(condition)
-      .limit(1);
+      .limit(1));
 
     return found ? this.rehydrated(found) : null;
   }

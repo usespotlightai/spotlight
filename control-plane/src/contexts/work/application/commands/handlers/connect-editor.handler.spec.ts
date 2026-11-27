@@ -1,5 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { EditorLeasesPort } from '@runners/application/ports/editor-leases.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -40,41 +41,46 @@ const setUp = () => {
     now: NOW,
     newId: () => 'chat_1',
   });
-  const workspaces = {
-    mayView: vi.fn(
-      async (viewer: UserId, workspaceId: WorkspaceId) =>
+  const workspaces = partial<WorkspaceAccessPort>({
+    mayView: vi.fn((viewer: UserId, workspaceId: WorkspaceId) =>
+      Promise.resolve(
         viewer.value !== OUTSIDER && workspaceId.equals(WORKSPACE),
+      ),
     ),
-    inWorkspace: vi.fn(async (slug: string, viewer: UserId) =>
-      slug === 'acme' && viewer.value !== OUTSIDER
-        ? { workspaceId: WORKSPACE, slug, viewer, isAdmin: false }
-        : slug === 'other'
-          ? {
-              workspaceId: WorkspaceId.of('ws_2'),
-              slug,
-              viewer,
-              isAdmin: false,
-            }
-          : null,
+    inWorkspace: vi.fn((slug: string, viewer: UserId) =>
+      Promise.resolve(
+        slug === 'acme' && viewer.value !== OUTSIDER
+          ? { workspaceId: WORKSPACE, slug, viewer, isAdmin: false }
+          : slug === 'other'
+            ? {
+                workspaceId: WorkspaceId.of('ws_2'),
+                slug,
+                viewer,
+                isAdmin: false,
+              }
+            : null,
+      ),
     ),
-  } as unknown as WorkspaceAccessPort;
+  });
   const tasks = {
-    workspaceOf: vi.fn(async (taskId: { value: string }) =>
-      taskId.value === 'task_1' ? WORKSPACE : null,
+    workspaceOf: vi.fn((taskId: { value: string }) =>
+      Promise.resolve(taskId.value === 'task_1' ? WORKSPACE : null),
     ),
-    teamOf: vi.fn(async (taskId: { value: string }) =>
-      taskId.value === 'task_1' ? TeamId.of('team_1') : null,
+    teamOf: vi.fn((taskId: { value: string }) =>
+      Promise.resolve(taskId.value === 'task_1' ? TeamId.of('team_1') : null),
     ),
   };
-  const chats = {
-    find: vi.fn(async (id: { value: string }) =>
-      id.value === 'chat_1' ? chat : null,
+  const chats = partial<ChatRepository>({
+    find: vi.fn((id: { value: string }) =>
+      Promise.resolve(id.value === 'chat_1' ? chat : null),
     ),
-  } as unknown as ChatRepository;
+  });
   const leases = {
-    hold: vi.fn(async () => ({ sandboxId: 'sandbox_1', holder: 'conn_1' })),
+    hold: vi.fn(() =>
+      Promise.resolve({ sandboxId: 'sandbox_1', holder: 'conn_1' }),
+    ),
   } satisfies Pick<EditorLeasesPort, 'hold'>;
-  const access = {
+  const access = partial<WorkAccess>({
     ...workAccessSeeing((_, viewer) => viewer.value !== OUTSIDER, {
       onTeam: (_, viewer) => viewer.value !== CAL,
     }),
@@ -82,10 +88,10 @@ const setUp = () => {
       workspaces.mayView(viewer, workspaceId),
     memberWorkspaceAt: async (slug: string, viewer: UserId) =>
       (await workspaces.inWorkspace(slug, viewer))?.workspaceId ?? null,
-  } as unknown as WorkAccess;
+  });
   const handler = new ConnectEditorHandler(
     new EditorTargets(tasks, chats, access),
-    leases as unknown as EditorLeasesPort,
+    partial<EditorLeasesPort>(leases),
   );
 
   return {

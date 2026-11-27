@@ -43,7 +43,9 @@ export class DrizzleWorkingCopyImages implements WorkingCopyImagesPort {
           rows.filter((each) => each.workingCopyKey === key),
         )?.ranIn;
 
-        return ranIn ? [[key, ranIn] as const] : [];
+        return ranIn !== undefined && ranIn !== null && ranIn !== ''
+          ? [[key, ranIn] as const]
+          : [];
       }),
     );
   }

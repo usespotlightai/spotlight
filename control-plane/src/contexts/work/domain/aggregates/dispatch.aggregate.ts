@@ -75,7 +75,7 @@ const problemOf = (state: DispatchState): string | null => {
   if (
     state.toolsOnMarks.some(
       (each, at) =>
-        state.configuredAs?.lists(each) ||
+        state.configuredAs?.lists(each) === true ||
         state.toolsOnMarks.findIndex((other) => other.equals(each)) !== at,
     )
   ) {
@@ -86,7 +86,10 @@ const problemOf = (state: DispatchState): string | null => {
     return 'tries a station without the station config it tries';
   }
 
-  if (state.briefedTask && !station?.equals(state.briefedTask.stationId)) {
+  if (
+    state.briefedTask &&
+    station?.equals(state.briefedTask.stationId) !== true
+  ) {
     return 'records a task briefed at another station';
   }
 
@@ -94,7 +97,10 @@ const problemOf = (state: DispatchState): string | null => {
     return 'is superseded though no task holds it';
   }
 
-  if (state.superseded && !(state.detachedAt && state.ending?.failed)) {
+  if (
+    state.superseded &&
+    !(state.detachedAt && state.ending?.failed === true)
+  ) {
     return 'is superseded though its task held it or it did not fail';
   }
 
@@ -197,7 +203,7 @@ export class Dispatch extends EventRecorder {
     };
     const problem = problemOf(state);
 
-    if (problem) {
+    if (problem !== null && problem !== '') {
       throw new InvalidDispatchTransitionError(
         `Run ${input.id.value} ${problem}.`,
       );
@@ -209,7 +215,7 @@ export class Dispatch extends EventRecorder {
   static rehydrate(state: DispatchState): Dispatch {
     const problem = problemOf(state);
 
-    if (problem) {
+    if (problem !== null && problem !== '') {
       throw new InconsistentStateError('dispatch', problem);
     }
 
@@ -369,7 +375,7 @@ export class Dispatch extends EventRecorder {
 
     const before = this.state.toolsOnMarks;
     const now = distinct(onMarks).filter(
-      (each) => !this.state.configuredAs?.lists(each),
+      (each) => this.state.configuredAs?.lists(each) !== true,
     );
     const added = now.filter(
       (each) => !before.some((tool) => tool.equals(each)),
@@ -426,7 +432,7 @@ export class Dispatch extends EventRecorder {
       this.state.refused ||
       subject.kind !== 'task' ||
       !this.state.detachedAt ||
-      !this.state.ending?.failed
+      this.state.ending?.failed !== true
     ) {
       return this;
     }

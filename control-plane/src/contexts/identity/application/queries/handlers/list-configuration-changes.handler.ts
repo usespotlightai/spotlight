@@ -23,7 +23,7 @@ export class ListConfigurationChangesHandler implements QueryHandlerPort<
         WorkspaceSlug.of(query.slug),
       );
 
-      if (!workspace?.permissionsFor(query.principal).isAdmin) {
+      if (workspace?.permissionsFor(query.principal).isAdmin !== true) {
         return null;
       }
 

@@ -11,9 +11,8 @@ import {
 export function useBoardView(): [BoardView, (next: BoardView) => void] {
   const [params, setParams] = useSearchParams();
   const inUrl = params.get('view');
-  const view: BoardView = BOARD_VIEWS.some((each) => each.id === inUrl)
-    ? (inUrl as BoardView)
-    : storedBoardView();
+  const view: BoardView =
+    BOARD_VIEWS.find((each) => each.id === inUrl)?.id ?? storedBoardView();
 
   useEffect(() => {
     storeBoardView(view);

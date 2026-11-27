@@ -142,7 +142,12 @@ const teamPullRequestsWhere = async (
             pullRequest: row.pullRequest,
             seen,
             ownerTaskId:
-              row.ownerTaskId && row.ownerTeamId ? row.ownerTaskId : null,
+              row.ownerTaskId !== null &&
+              row.ownerTaskId !== '' &&
+              row.ownerTeamId !== null &&
+              row.ownerTeamId !== ''
+                ? row.ownerTaskId
+                : null,
             reviewTaskIds: row.reviewTaskIds,
             by: row.madeBy,
             type: row.type,

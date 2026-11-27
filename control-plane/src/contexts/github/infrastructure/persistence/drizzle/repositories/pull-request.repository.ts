@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { PullRequest } from '@github/domain/aggregates/pull-request.aggregate';
 import { PullRequestVersionConflictError } from '@github/domain/exceptions/pull-request-version-conflict.error';
 import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
@@ -50,7 +51,7 @@ const toPullRequest = (row: PullRequestRow): PullRequest =>
     draftPeriods: row.draftPeriods.map((each) =>
       DraftPeriod.of({
         from: new Date(each.from),
-        to: each.to ? new Date(each.to) : null,
+        to: each.to !== null && each.to !== '' ? new Date(each.to) : null,
       }),
     ),
     state: row.state,
@@ -60,7 +61,7 @@ const toPullRequest = (row: PullRequestRow): PullRequest =>
     reviews: row.reviews.map((each) =>
       PullRequestReview.of({
         ...each,
-        at: each.at ? new Date(each.at) : null,
+        at: each.at !== null && each.at !== '' ? new Date(each.at) : null,
       }),
     ),
     dismissedReviews: row.dismissedReviews,
@@ -68,7 +69,7 @@ const toPullRequest = (row: PullRequestRow): PullRequest =>
     deletedComments: row.deletedComments,
     botComments: row.botComments.map((each) => BotComment.of(each)),
     threads: row.threads.map((each) => PullRequestThread.of(each)),
-    revertedBy: row.revertedBy ? PullRequestUrl.of(row.revertedBy) : null,
+    revertedBy: row.revertedBy !== null && row.revertedBy !== '' ? PullRequestUrl.of(row.revertedBy) : null,
     version: row.version,
   });
 
@@ -159,7 +160,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
     repository: Repository,
     number: number,
   ): Promise<PullRequest | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(githubPullRequest)
       .where(
@@ -169,7 +170,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
           eq(githubPullRequest.number, number),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return row ? toPullRequest(row) : null;
   }
@@ -250,12 +251,12 @@ export class DrizzlePullRequests implements PullRequestRepository {
     workspaceId: WorkspaceId,
     url: PullRequestUrl,
   ): Promise<PullRequest | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(githubPullRequest)
       .where(at(workspaceId, url))
       .limit(1)
-      .for('update');
+      .for('update'));
 
     return row ? toPullRequest(row) : null;
   }
@@ -264,12 +265,12 @@ export class DrizzlePullRequests implements PullRequestRepository {
     workspaceId: WorkspaceId,
     url: PullRequestUrl,
   ): Promise<PullRequest | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(githubPullRequest)
       .where(at(workspaceId, url))
       .limit(1)
-      .for('update', { skipLocked: true });
+      .for('update', { skipLocked: true }));
 
     return row ? toPullRequest(row) : null;
   }

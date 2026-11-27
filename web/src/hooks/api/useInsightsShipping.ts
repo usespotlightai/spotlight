@@ -1,4 +1,8 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import {
+  queryOptions,
+  useQuery,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 import {
   type InsightsShippingResponseDto,
@@ -6,6 +10,7 @@ import {
 } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 import { keepTeamPeriod } from '@/lib/query';
+import { required } from '@/lib/required';
 
 const insightsShippingKeys = {
   forTeam: (teamId: string | undefined, period: InsightsPeriod) =>
@@ -21,7 +26,7 @@ const insightsShippingQuery = (
     enabled: Boolean(teamId),
     queryFn: async (): Promise<InsightsShippingResponseDto> => {
       const { data } = await readInsightsShipping({
-        path: { teamId: teamId as string },
+        path: { teamId: required(teamId) },
         query: { period },
         throwOnError: true,
       });
@@ -32,7 +37,7 @@ const insightsShippingQuery = (
 export function useInsightsShipping(
   teamId: string | undefined,
   period: InsightsPeriod,
-) {
+): UseQueryResult<InsightsShippingResponseDto> {
   return useQuery({
     ...insightsShippingQuery(teamId, period),
     placeholderData: keepTeamPeriod(teamId),

@@ -1,5 +1,6 @@
 import {
   type ChangeEvent,
+  type ReactElement,
   type SubmitEvent,
   useId,
   useRef,
@@ -28,7 +29,7 @@ const PREVIOUS: Record<Exclude<Step, 'workspace'>, Step> = {
   about: 'team',
 };
 
-export function CreateWorkspace() {
+export function CreateWorkspace(): ReactElement {
   const nameId = useId();
   const slugId = useId();
   const prefixId = useId();
@@ -115,7 +116,7 @@ export function CreateWorkspace() {
         <p className="text-right text-sm leading-5">
           <span className="block text-muted-foreground">Logged in as:</span>
           <span className="font-[450] text-foreground">
-            {session?.user?.email}
+            {session?.user.email}
           </span>
         </p>
       </header>

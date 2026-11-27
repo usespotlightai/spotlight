@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -384,9 +385,10 @@ describe('a task awaiting the turn its run handed over', () => {
 
   it('says which turn an answer was to, and awaits it no more (R7)', () => {
     const answered = answer(awaiting());
-    const said = answered
-      .pullEvents()
-      .find((each) => each instanceof TaskAnswered) as TaskAnswered;
+    const said = instanceOf(
+      TaskAnswered,
+      answered.pullEvents().find((each) => each instanceof TaskAnswered),
+    );
 
     expect(said.awaitedTurn?.equals(TURN)).toBe(true);
     expect(answered.awaitedTurn).toBeNull();
@@ -394,9 +396,12 @@ describe('a task awaiting the turn its run handed over', () => {
   });
 
   it('says an answer to an approval was to no turn (R7b)', () => {
-    const said = answer(paused())
-      .pullEvents()
-      .find((each) => each instanceof TaskAnswered) as TaskAnswered;
+    const said = instanceOf(
+      TaskAnswered,
+      answer(paused())
+        .pullEvents()
+        .find((each) => each instanceof TaskAnswered),
+    );
 
     expect(said.awaitedTurn).toBeNull();
   });

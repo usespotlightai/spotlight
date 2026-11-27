@@ -60,15 +60,17 @@ export class DispatchChat implements ChatDispatching {
     private readonly extensions: ChatToolExtensions,
   ) {}
 
-  async takenUp(chat: Chat): Promise<Chat> {
+  takenUp(chat: Chat): Promise<Chat> {
     const command = this.launch.commandFor(chat.harness, {
       model: chat.model,
       effort: chat.effort,
     });
 
-    return command
-      ? chat.assignRun(RunId.of(this.ids.generate()), this.clock.now())
-      : chat;
+    return Promise.resolve(
+      command
+        ? chat.assignRun(RunId.of(this.ids.generate()), this.clock.now())
+        : chat,
+    );
   }
 
   async ordered(
@@ -105,7 +107,7 @@ export class DispatchChat implements ChatDispatching {
           stationId: null,
           repositories: chat.repositories,
           about: chatWords(chat),
-          touched: async () => [],
+          touched: () => Promise.resolve([]),
         }),
       )
       .catch((error: unknown) => {

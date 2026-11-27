@@ -108,7 +108,10 @@ export const prefillSignature = (prefill: {
 }): string => {
   const { text, references, repositories = [], setup } = prefill;
 
-  return text || references.length > 0 || repositories.length > 0 || setup
+  return (text !== undefined && text !== null && text !== '') ||
+    references.length > 0 ||
+    repositories.length > 0 ||
+    Boolean(setup)
     ? JSON.stringify([text ?? '', references, repositories, setup ?? null])
     : '';
 };
@@ -136,7 +139,10 @@ export const withoutContent = (draft: ChatDraft): ChatDraft => ({
 export const expiredUploads = (
   attachments: readonly DraftAttachment[],
   now: number,
-) => {
+): {
+  kept: DraftAttachment[];
+  expired: DraftAttachment[];
+} => {
   const fresh = (each: DraftAttachment) =>
     now - each.uploadedAt <= UPLOAD_MAX_AGE_MS;
 
@@ -150,17 +156,19 @@ export const validSettings = (
   saved: DraftSettings,
   harnesses: readonly HarnessResponseDto[],
   fallbackHarness: string,
-) => {
+): { harness: string; model: string; effort: string } => {
   const harness = harnesses.some((each) => each.id === saved.harness)
     ? (saved.harness ?? fallbackHarness)
     : fallbackHarness;
   const offered = harnesses.find((each) => each.id === harness);
-  const model = offered?.models.some((each) => each.id === saved.model)
-    ? (saved.model ?? '')
-    : '';
-  const effort = offered?.efforts.includes(saved.effort ?? '')
-    ? (saved.effort ?? '')
-    : '';
+  const model =
+    offered?.models.some((each) => each.id === saved.model) === true
+      ? (saved.model ?? '')
+      : '';
+  const effort =
+    offered?.efforts.includes(saved.effort ?? '') === true
+      ? (saved.effort ?? '')
+      : '';
 
   return { harness, model, effort };
 };

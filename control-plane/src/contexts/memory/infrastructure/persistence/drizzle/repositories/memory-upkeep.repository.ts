@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { MemoryUpkeep } from '@memory/domain/aggregates/memory-upkeep.aggregate';
 import { MemoryUpkeepSchedule } from '@memory/domain/aggregates/memory-upkeep-schedule.aggregate';
 import { UpkeepProposal } from '@memory/domain/entities/upkeep-proposal.entity';
@@ -43,7 +44,7 @@ const decisionOf = (row: ProposalRow): MemoryDecision | null => {
     );
   }
 
-  return row.decidedById && row.decidedAt
+  return row.decidedById !== null && row.decidedById !== '' && row.decidedAt
     ? MemoryDecision.of({ by: UserId.of(row.decidedById), at: row.decidedAt })
     : null;
 };
@@ -146,10 +147,10 @@ export class DrizzleMemoryUpkeepRepository implements MemoryUpkeepRepository {
   }
 
   async find(id: MemoryUpkeepId): Promise<MemoryUpkeep | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(memoryUpkeep)
-      .where(eq(memoryUpkeep.id, id.value));
+      .where(eq(memoryUpkeep.id, id.value)));
 
     return row ? this.withProposals(row) : null;
   }
@@ -249,26 +250,26 @@ export class DrizzleMemoryUpkeepScheduleRepository
   constructor(private readonly context: DrizzleContext) {}
 
   async ofTeam(teamId: TeamId): Promise<MemoryUpkeepSchedule | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(memoryUpkeepSchedule)
-      .where(eq(memoryUpkeepSchedule.teamId, teamId.value));
+      .where(eq(memoryUpkeepSchedule.teamId, teamId.value)));
 
     return row ? scheduleOf(row) : null;
   }
 
   async ofTeamLocked(teamId: TeamId): Promise<MemoryUpkeepSchedule | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(memoryUpkeepSchedule)
       .where(eq(memoryUpkeepSchedule.teamId, teamId.value))
-      .for('share');
+      .for('share'));
 
     return row ? scheduleOf(row) : null;
   }
 
   async add(added: MemoryUpkeepSchedule): Promise<void> {
-    const [inserted] = await this.context.db
+    const inserted = firstOf(await this.context.db
       .insert(memoryUpkeepSchedule)
       .values({
         teamId: added.teamId.value,
@@ -276,7 +277,7 @@ export class DrizzleMemoryUpkeepScheduleRepository
         ...scheduleColumns(added),
       })
       .onConflictDoNothing({ target: memoryUpkeepSchedule.teamId })
-      .returning({ teamId: memoryUpkeepSchedule.teamId });
+      .returning({ teamId: memoryUpkeepSchedule.teamId }));
 
     if (!inserted) {
       throw new MemoryUpkeepScheduleVersionConflictError(added.teamId.value);
@@ -317,7 +318,7 @@ export class DrizzleMemoryUpkeepScheduleRepository
   }
 
   async nextDue(now: Date): Promise<MemoryUpkeepSchedule | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(memoryUpkeepSchedule)
       .where(
@@ -331,7 +332,7 @@ export class DrizzleMemoryUpkeepScheduleRepository
       )
       .orderBy(asc(memoryUpkeepSchedule.dueAt))
       .limit(1)
-      .for('update', { skipLocked: true });
+      .for('update', { skipLocked: true }));
 
     return row ? scheduleOf(row) : null;
   }

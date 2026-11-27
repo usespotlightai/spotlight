@@ -36,6 +36,18 @@ import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { z } from 'zod';
+
+const WORKFLOW = z.object({
+  jobs: z.record(
+    z.string(),
+    z.object({
+      steps: z.array(
+        z.object({ name: z.string().optional(), run: z.string().optional() }),
+      ),
+    }),
+  ),
+});
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
 const LEON = UserId.of('user_1');
@@ -521,17 +533,17 @@ describe('ChatBriefing', () => {
     it('signs both jobs in to the state, with a workflow GitHub can read', () => {
       const briefing = brief(withCi());
       const workflow = /```yaml\n([\s\S]*?)\n```/.exec(briefing)?.[1] ?? '';
-      const parsed = parse(workflow) as {
-        jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
-      };
+      const jobs = new Map(
+        Object.entries(WORKFLOW.parse(parse(workflow)).jobs),
+      );
 
       for (const job of ['plan', 'apply']) {
-        const steps = parsed.jobs[job]?.steps ?? [];
+        const steps = jobs.get(job)?.steps ?? [];
         const signIn = steps.findIndex(
           (step) => step.name === 'Sign in to the state',
         );
-        const init = steps.findIndex((step) =>
-          step.run?.startsWith('terraform init'),
+        const init = steps.findIndex(
+          (step) => step.run?.startsWith('terraform init') === true,
         );
 
         expect(signIn).toBeGreaterThan(0);

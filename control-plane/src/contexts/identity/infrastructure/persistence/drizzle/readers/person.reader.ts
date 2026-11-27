@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   PersonReaderPort,
   PersonSummary,
@@ -14,11 +15,11 @@ export class DrizzlePersonReader implements PersonReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
   async find(id: UserId): Promise<PersonSummary | null> {
-    const [found] = await this.db
+    const found = firstOf(await this.db
       .select({ id: user.id, name: user.name, image: user.image })
       .from(user)
       .where(eq(user.id, id.value))
-      .limit(1);
+      .limit(1));
 
     return found ? { ...found, id: UserId.of(found.id) } : null;
   }

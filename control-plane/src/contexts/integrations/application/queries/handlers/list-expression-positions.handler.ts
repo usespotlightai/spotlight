@@ -9,7 +9,7 @@ export class ListExpressionPositionsHandler implements QueryHandlerPort<
 > {
   constructor(private readonly checks: ExpressionChecksPort) {}
 
-  async execute(): Promise<readonly ExpressionPositionDto[]> {
-    return this.checks.positions();
+  execute(): Promise<readonly ExpressionPositionDto[]> {
+    return Promise.resolve(this.checks.positions());
   }
 }

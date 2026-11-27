@@ -1,9 +1,11 @@
+import type { ReactElement } from 'react';
+
 import { TabSection } from '@/components/features/stations/TabSection';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
 import { SectionLinkSkeleton } from '@/components/shared/skeleton/SectionLinkSkeleton';
 import { RECENT_RUN_HEADINGS, RECENT_RUNS_TITLE } from '@/lib/station-insights';
 
-export function RecentRunsSkeleton() {
+export function RecentRunsSkeleton(): ReactElement {
   return (
     <TabSection
       title={RECENT_RUNS_TITLE}

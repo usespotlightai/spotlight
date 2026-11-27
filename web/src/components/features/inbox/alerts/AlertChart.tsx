@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import {
   Line,
   LineChart,
@@ -57,7 +58,7 @@ const TipContent = ({
 }) => {
   const point = payload?.[0]?.payload;
 
-  if (!active || !point) {
+  if (active !== true || !point) {
     return null;
   }
 
@@ -80,7 +81,11 @@ const TipContent = ({
   );
 };
 
-export function AlertChart({ alert }: { alert: StationAlertFiring }) {
+export function AlertChart({
+  alert,
+}: {
+  alert: StationAlertFiring;
+}): ReactElement {
   const cursor = useCursorTooltip();
   const level = thresholdLine(alert);
   const width = ticksWidth(alert);

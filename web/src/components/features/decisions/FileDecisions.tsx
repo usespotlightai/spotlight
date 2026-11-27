@@ -1,7 +1,9 @@
+import type { ReactElement } from 'react';
+
 import { DecisionThread } from '@/components/features/decisions/DecisionThread';
 import { useDeciding } from '@/lib/decisions-context';
 
-export function FileDecisions({ path }: { path: string }) {
+export function FileDecisions({ path }: { path: string }): ReactElement | null {
   const deciding = useDeciding();
   const decisions =
     deciding?.found.decisions.filter((each) => each.paths.includes(path)) ?? [];

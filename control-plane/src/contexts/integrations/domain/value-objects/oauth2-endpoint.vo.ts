@@ -12,7 +12,7 @@ const isWebAddress = (raw: string): boolean => {
 };
 
 export class OAuth2Endpoint {
-  private readonly kind = 'oauth2-endpoint';
+  private readonly kind: string = 'oauth2-endpoint';
 
   private constructor(readonly value: string) {}
 

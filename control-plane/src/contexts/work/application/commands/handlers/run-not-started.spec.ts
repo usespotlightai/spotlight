@@ -1,6 +1,7 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -108,27 +109,32 @@ const world = (task: Task, at: LineMap = line) => {
       members: [OWNER, BOB],
     },
   );
-  const tasks = {
-    find: vi.fn(async () => task),
-    save: vi.fn(async (each: Task) => {
+  const tasks = partial<TaskRepository>({
+    find: vi.fn(() => Promise.resolve(task)),
+    save: vi.fn((each: Task) => {
       saved = each;
+
+      return Promise.resolve();
     }),
-  } as unknown as TaskRepository;
-  const lines = {
-    findByStation: vi.fn(async () => at),
-  } as unknown as LineMapsPort;
-  const dispatch: TaskDispatching = { runIdFor: async () => starts };
+  });
+  const lines = partial<LineMapsPort>({
+    findByStation: vi.fn(() => Promise.resolve(at)),
+  });
+  const dispatch: TaskDispatching = { runIdFor: () => Promise.resolve(starts) };
   const transaction = {
     inTransaction: (work) => work(),
   } satisfies TransactionPort;
-  const files = {
-    handedOver: async () => [],
-    takenIn: async () => undefined,
-  } as unknown as FilesLoader;
+  const files = partial<FilesLoader>({
+    handedOver: () => Promise.resolve([]),
+    takenIn: () => Promise.resolve(undefined),
+  });
   const drafts = new DraftSending(
     access,
-    { writers: async () => [], sent: async () => undefined },
-    { warn: () => undefined } as unknown as LoggerPort,
+    {
+      writers: () => Promise.resolve([]),
+      sent: () => Promise.resolve(undefined),
+    },
+    partial<LoggerPort>({ warn: () => undefined }),
   );
   const loader = new LineLoader(access, lines);
 
@@ -144,11 +150,11 @@ const world = (task: Task, at: LineMap = line) => {
           tasks,
           lines,
           dispatch,
-          { now: () => NOW } as ClockPort,
+          partial<ClockPort>({ now: () => NOW }),
           files,
           access,
           drafts,
-          { of: async () => [] },
+          { of: () => Promise.resolve([]) },
           { generate: () => 'hold_1' },
         ),
       ).execute(new SendTaskMessageCommand('team_1', 'task_1', sentBy, body)),

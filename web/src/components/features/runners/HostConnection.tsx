@@ -1,4 +1,5 @@
 import { LoaderCircle } from 'lucide-react';
+import type { ReactElement } from 'react';
 import { Navigate } from 'react-router';
 
 import { useRunners } from '@/hooks/api/useRunners';
@@ -9,7 +10,10 @@ type HostConnectionProps = {
   pool: string;
 };
 
-export function HostConnection({ slug, pool }: HostConnectionProps) {
+export function HostConnection({
+  slug,
+  pool,
+}: HostConnectionProps): ReactElement {
   const { data: fleet } = useRunners(slug);
 
   if (connectedIn(fleet, pool)) {

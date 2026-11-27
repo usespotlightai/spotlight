@@ -26,6 +26,7 @@ import {
 import IORedis from 'ioredis';
 import { WebSocketServer } from 'ws';
 import { type Doc, encodeStateAsUpdate } from 'yjs';
+import { z } from 'zod';
 
 const COLLAB_PATH = `/${API_PREFIX}/${COLLAB}`;
 
@@ -40,6 +41,13 @@ const SHUTDOWN_MS = 5_000;
 const RECHECK_MS = 60_000;
 
 type Admitted = { readonly headers: RequestHeaders };
+
+const admittedSchema = z.object({
+  headers: z.record(
+    z.string(),
+    z.union([z.string(), z.array(z.string())]).optional(),
+  ),
+});
 
 class RefusedError extends Error {}
 
@@ -80,14 +88,15 @@ export class CollabServer
     @Inject(ENV) env: Env,
     @Inject(LOGGER) private readonly logger: LoggerPort,
   ) {
-    const extensions: Extension[] = env.REDIS_URL
-      ? [
-          new Redis({
-            createClient: () => new IORedis(env.REDIS_URL ?? ''),
-            prefix: 'spotlight-collab',
-          }),
-        ]
-      : [];
+    const extensions: Extension[] =
+      env.REDIS_URL !== undefined && env.REDIS_URL !== ''
+        ? [
+            new Redis({
+              createClient: () => new IORedis(env.REDIS_URL ?? ''),
+              prefix: 'spotlight-collab',
+            }),
+          ]
+        : [];
 
     this.hocuspocus = new Hocuspocus<Admitted>({
       quiet: true,
@@ -138,11 +147,16 @@ export class CollabServer
     const connection = await this.hocuspocus.openDirectConnection(name);
 
     try {
-      let found: T | undefined;
+      const found: T[] = [];
       await connection.transact((doc) => {
-        found = read(doc);
+        found.push(read(doc));
       });
-      return found as T;
+
+      if (found.length === 0) {
+        throw new Error('The document was not read');
+      }
+
+      return found[0];
     } finally {
       await connection.disconnect();
     }
@@ -231,7 +245,7 @@ export class CollabServer
           if (
             !(await documents.admit(
               id,
-              (connection.context as Admitted).headers,
+              admittedSchema.parse(connection.context).headers,
             ))
           ) {
             connection.close();

@@ -13,6 +13,7 @@ import type {
   TaskOpeningFact,
 } from '@insights/domain/value-objects/run-fact.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
@@ -128,7 +129,7 @@ export class ProjectRunFacts implements RunFactsMaintenance {
         after,
         AT_ONCE,
       );
-      const last = runIds[runIds.length - 1];
+      const last = itemAt(runIds, runIds.length - 1);
 
       if (last === undefined) {
         break;
@@ -155,7 +156,7 @@ export class ProjectRunFacts implements RunFactsMaintenance {
 
     for (;;) {
       const records = await this.records.endedSince(since, after, AT_ONCE);
-      const last = records[records.length - 1];
+      const last = itemAt(records, records.length - 1);
 
       if (last === undefined) {
         break;

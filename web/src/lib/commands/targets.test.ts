@@ -38,9 +38,9 @@ describe('lineTargets', () => {
     const [line] = lines;
 
     expect(lineTargets('acme', team, lines)[0]).toMatchObject({
-      label: line?.name,
+      label: line.name,
       context: 'Platform',
-      to: `/w/acme/team/${PLATFORM_ID}/lines/${line?.id}`,
+      to: `/w/acme/team/${PLATFORM_ID}/lines/${line.id}`,
     });
   });
 });
@@ -50,13 +50,13 @@ describe('stationTargets', () => {
     const stations = lines.flatMap((line) => line.stations);
     const targets = stationTargets('acme', team, lines);
     const [line] = lines;
-    const [station] = line?.stations ?? [];
+    const [station] = line.stations;
 
     expect(targets).toHaveLength(stations.length);
     expect(targets[0]).toMatchObject({
-      label: station?.name,
-      context: line?.name,
-      to: `/w/acme/team/${PLATFORM_ID}/lines/${line?.id}/stations/${station?.id}`,
+      label: station.name,
+      context: line.name,
+      to: `/w/acme/team/${PLATFORM_ID}/lines/${line.id}/stations/${station.id}`,
     });
   });
 });

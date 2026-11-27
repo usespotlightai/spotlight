@@ -24,6 +24,7 @@ import {
 } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { definitionOf } from './support/line-definition';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
@@ -178,7 +179,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
     expect(answered.status).toBe(200);
 
-    return (answered.body as Exported).files;
+    return bodyOf<Exported>(answered).files;
   };
 
   const fileOf = (files: readonly Written[], path: string): string =>
@@ -255,7 +256,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
         throw new Error(`${kind}: ${JSON.stringify(created.body)}`);
       }
 
-      made[kind] = (created.body as Created).id;
+      made[kind] = bodyOf<Created>(created).id;
     }
   });
 
@@ -448,10 +449,10 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
     const main = moduleOf(await exported());
 
-    for (const id of [made.secret, (unversioned.body as Created).id]) {
-      const answered = (
-        await as(seat.owner).get(`/api/v1/resources/secrets/${id}`)
-      ).body as { name: string; valueWoVersion: number | null };
+    for (const id of [made.secret, bodyOf<Created>(unversioned).id]) {
+      const answered = bodyOf<{ name: string; valueWoVersion: number | null }>(
+        await as(seat.owner).get(`/api/v1/resources/secrets/${id}`),
+      );
       const block = blockOf(
         main,
         `resource "spotlight_secret" "${answered.name.toLowerCase()}"`,
@@ -496,14 +497,12 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ['skills', made.skill],
       ['integrations', made.integration],
     ]) {
-      const read = (
-        await as(seat.owner).get(`/api/v1/resources/${collection}/${id}`)
-      ).body as {
+      const read = bodyOf<{
         key: string;
         files: object;
         definition: object;
         version: number;
-      };
+      }>(await as(seat.owner).get(`/api/v1/resources/${collection}/${id}`));
       const body =
         collection === 'skills'
           ? { key: read.key, files: read.files }
@@ -533,7 +532,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       );
 
     expect(answered.status).toBe(200);
-    expect((answered.body as Exported).files).toEqual(await exported());
+    expect(bodyOf<Exported>(answered).files).toEqual(await exported());
   });
 
   it('answers each kind of resource as HCL, after the import block that adopts it', async () => {
@@ -563,7 +562,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       );
 
       expect(answered.status, `${collection} as HCL`).toBe(200);
-      expect((answered.body as { hcl: string }).hcl).toMatch(
+      expect(bodyOf<{ hcl: string }>(answered).hcl).toMatch(
         new RegExp(
           `import {\\n  to = ${type}\\.[^\\n]+\\n[\\s\\S]*\\nresource "${type}" `,
         ),
@@ -576,7 +575,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       `/api/v1/resources/skills/${made.skill}/hcl`,
     );
 
-    expect((answered.body as Exported).files.map((each) => each.path)).toEqual([
+    expect(bodyOf<Exported>(answered).files.map((each) => each.path)).toEqual([
       'skills/team/grafana/SKILL.md',
       'skills/team/grafana/queries/latency.promql',
     ]);
@@ -623,7 +622,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
   );
 });
 
-const bodyOf = (
+const resourceBodyOf = (
   resource: ExportableResourceDto,
   egresses: ReadonlyMap<string, string> = new Map(),
 ): object => {
@@ -675,7 +674,8 @@ const bodyOf = (
                 url: resource.provision.url,
                 secret: PROVISION_SECRET,
                 secretVersion: resource.provision.secretVersion,
-                ...(resource.provision.egress
+                ...(resource.provision.egress !== null &&
+                resource.provision.egress !== ''
                   ? {
                       egress:
                         egresses.get(resource.provision.egress) ??
@@ -836,7 +836,7 @@ describe('the configuration the export spec renders (e2e)', () => {
         .post(`/api/v1/resources/${owner}/${COLLECTIONS[each.kind]}`)
         .set(TEST_USER_HEADER, seat.owner)
         .set('Idempotency-Key', randomUUID())
-        .send(bodyOf(each, egresses));
+        .send(resourceBodyOf(each, egresses));
 
       expect(
         created.status,
@@ -844,11 +844,11 @@ describe('the configuration the export spec renders (e2e)', () => {
       ).toBe(201);
 
       if (each.kind === 'team') {
-        teams.set(each.key, (created.body as Created).id);
+        teams.set(each.key, bodyOf<Created>(created).id);
       }
 
       if (each.kind === 'egress') {
-        egresses.set(each.id, (created.body as Created).id);
+        egresses.set(each.id, bodyOf<Created>(created).id);
       }
     }
 
@@ -856,7 +856,7 @@ describe('the configuration the export spec renders (e2e)', () => {
       .get(`/api/v1/resources/workspaces/${workspaceId}/export`)
       .set(TEST_USER_HEADER, seat.owner);
 
-    expect((exported.body as Exported).files).toEqual(
+    expect(bodyOf<Exported>(exported).files).toEqual(
       workspaceTerraform({
         workspaceId,
         workspaceSlug: workspaceId,

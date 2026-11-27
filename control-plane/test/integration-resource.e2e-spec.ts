@@ -7,6 +7,7 @@ import {
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import {
   TEAM_INTEGRATIONS,
@@ -110,12 +111,12 @@ describe('an integration, created through the resource API (e2e)', () => {
   let teamId: string;
 
   const as = () => ({
-    put: (id: string, version: number, body: unknown) =>
+    put: (id: string, version: number, body: object) =>
       served(app)
         .put(fixture.item(id))
         .set(TEST_USER_HEADER, fixture.admin)
         .set('If-Match', `"${version}"`)
-        .send(body as object),
+        .send(body),
     delete: (id: string, version: number) =>
       served(app)
         .delete(fixture.item(id))
@@ -125,10 +126,9 @@ describe('an integration, created through the resource API (e2e)', () => {
 
   const enableOnAStation = async (tool: string) => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
-    const [team] = await db
-      .select()
-      .from(schema.team)
-      .where(eq(schema.team.id, teamId));
+    const team = firstOf(
+      await db.select().from(schema.team).where(eq(schema.team.id, teamId)),
+    );
     const lineId = randomUUID();
     const stationId = randomUUID();
 
@@ -152,12 +152,12 @@ describe('an integration, created through the resource API (e2e)', () => {
       .values({ stationId, tool, position: 0 });
   };
 
-  const create = async (body: unknown): Promise<Answer<Made>> =>
+  const create = async (body: object): Promise<Answer<Made>> =>
     served(app)
       .post(fixture.collection)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('Idempotency-Key', randomUUID())
-      .send(body as object);
+      .send(body);
 
   beforeAll(async () => {
     app = await openApp();

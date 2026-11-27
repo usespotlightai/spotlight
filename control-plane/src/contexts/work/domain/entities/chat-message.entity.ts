@@ -263,7 +263,7 @@ export class ChatMessage {
   }
 
   withProposal(proposal: TaskProposal): ChatMessage {
-    if (!this.proposal?.equals(proposal)) {
+    if (this.proposal?.equals(proposal) !== true) {
       throw new InconsistentStateError(
         'chat message',
         'cannot take a proposal it did not make',

@@ -77,7 +77,10 @@ export class NotifyChannel implements RunEndingReactions {
             null,
           )
         : null;
-    const body = ChannelReplies.answered(lastWords?.trim() || null, proposals);
+    const body = ChannelReplies.answered(
+      (lastWords?.trim() ?? '') || null,
+      proposals,
+    );
 
     if (body) {
       await this.post(chat, 'chat.replied', body, null, proposals);
@@ -134,7 +137,7 @@ export class NotifyChannel implements RunEndingReactions {
   private async fromChannel(chatId: ChatId | null): Promise<Chat | null> {
     const chat = chatId ? await this.chats.find(chatId) : null;
 
-    return chat?.fromChannel ? chat : null;
+    return chat?.fromChannel === true ? chat : null;
   }
 
   private async listed(

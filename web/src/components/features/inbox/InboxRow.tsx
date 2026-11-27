@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { FailureCount } from '@/components/features/inbox/FailureCount';
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
@@ -12,7 +14,7 @@ type InboxRowProps = {
   item: InboxItem;
 };
 
-export function InboxRow({ slug, item }: InboxRowProps) {
+export function InboxRow({ slug, item }: InboxRowProps): ReactElement {
   const resolve = useResolveAction(slug, item);
   const prefetch = usePrefetchTaskJournal(slug);
   return (

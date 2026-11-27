@@ -16,6 +16,7 @@ import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -61,9 +62,9 @@ const slotsOn = (input: {
   const { hosts } = storedHosts(
     aHost({ id: HOST, at: NOW, sandboxes: [...input.warm] }),
   );
-  const runners = {
-    aliveInWorkspace: vi.fn(async () => input.alive),
-  } as unknown as RunnerRepository;
+  const runners = partial<RunnerRepository>({
+    aliveInWorkspace: vi.fn(() => Promise.resolve(input.alive)),
+  });
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const held: string[] = [];
   const locks: HostSlotLocksPort = {
@@ -77,16 +78,16 @@ const slotsOn = (input: {
     hosts,
     runners,
     locks,
-    logger as unknown as LoggerPort,
+    partial<LoggerPort>(logger),
   );
 
   return { slots, stored, logger, held };
 };
 
 const started = (slots: HostWarmSlots, host: string) =>
-  slots.startWarmIfRoomOn(host, NOW, async () => 'started');
+  slots.startWarmIfRoomOn(host, NOW, () => Promise.resolve('started'));
 
-const aRunWaits = async () => true;
+const aRunWaits = () => Promise.resolve(true);
 
 describe('HostWarmSlots', () => {
   it('has room for a warm sandbox while another slot of the host stays free', async () => {
@@ -187,7 +188,7 @@ describe('HostWarmSlots', () => {
       warm: ['sandbox_w1', 'sandbox_w2'],
       alive: [running('running_1')],
     });
-    const runWaits = vi.fn(async () => false);
+    const runWaits = vi.fn(() => Promise.resolve(false));
 
     await free.slots.drainWarmOn(HOST.value, NOW, runWaits);
 

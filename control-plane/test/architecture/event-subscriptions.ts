@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { INTEGRATION_EVENT_KIND } from '@shared-kernel/application/integration-events/integration-event';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import ts from 'typescript';
 
 import { reachableFrom } from './context-dependencies';
@@ -121,9 +122,11 @@ const at = (file: SourceFile, node: ts.Node): string =>
   `${file.path}:${file.tree.getLineAndCharacterOfPosition(node.getStart()).line + 1}`;
 
 const nameOf = (call: ts.CallExpression): string => {
-  const name = call.arguments[0];
+  const name = itemAt(call.arguments, 0);
 
-  return name && ts.isStringLiteralLike(name) ? name.text : call.getText();
+  return name !== undefined && ts.isStringLiteralLike(name)
+    ? name.text
+    : call.getText();
 };
 
 const literalKindsIn = (node: ts.Node): string[] =>
@@ -161,14 +164,14 @@ const registrationViolations = (
 ): Violation[] => {
   const context = contextOf(file.path);
 
-  if (!context) {
+  if (context === null || context === '') {
     return [];
   }
 
   return callsOf(file, callee).flatMap((call) => {
-    const heard = call.arguments[1];
+    const heard = itemAt(call.arguments, 1);
 
-    if (!heard) {
+    if (heard === undefined) {
       return [];
     }
 

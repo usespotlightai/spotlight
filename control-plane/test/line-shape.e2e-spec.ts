@@ -10,6 +10,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { ResourceCreated } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import {
   actorFor,
   changeActorIn,
@@ -93,7 +94,7 @@ describe('a line, created and read back (e2e)', () => {
       throw new Error(JSON.stringify(result));
     }
 
-    const read = (await lines.find(LineId.of(result.id))) as Line;
+    const read = present(await lines.find(LineId.of(result.id)));
     let next = 0;
     const created = Line.create({
       by: changeActorIn(),

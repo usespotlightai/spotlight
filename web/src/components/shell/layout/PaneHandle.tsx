@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -12,7 +12,7 @@ export function PaneHandle({
   resizing,
   className,
   ...rest
-}: PaneHandleProps) {
+}: PaneHandleProps): ReactElement {
   return (
     <div
       {...rest}

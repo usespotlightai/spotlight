@@ -41,8 +41,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunsOf(db, WORKSPACE);
-  await seated?.unseat();
-  await app?.close();
+  await seated.unseat();
+  await app.close();
 });
 
 describe('a run ordered with a raw spec (e2e)', () => {

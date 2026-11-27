@@ -80,7 +80,7 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
   ): Promise<WorkspaceRunnersView | null> {
     const slug = await this.workspaces.slugOf(declared.workspaceId);
 
-    return slug
+    return slug !== null && slug !== ''
       ? RunnerResourceMapper.configuredWorkspaceRunners(declared, slug)
       : null;
   }

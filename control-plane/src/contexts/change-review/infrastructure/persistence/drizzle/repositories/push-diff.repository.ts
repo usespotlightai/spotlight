@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { PushDiff } from '@change-review/domain/aggregates/push-diff.aggregate';
 import { PushAlreadyWaitingError } from '@change-review/domain/exceptions/push-already-waiting.error';
 import { PushDiffVersionConflictError } from '@change-review/domain/exceptions/push-diff-version-conflict.error';
@@ -60,18 +61,20 @@ const toPushDiff = (row: Row): PushDiff =>
     },
     placement: RunnerPlacement.ofLabelGroups(
       row.placement,
-      row.placementImage ? RunnerImage.of(row.placementImage) : null,
+      row.placementImage !== null && row.placementImage !== '' ? RunnerImage.of(row.placementImage) : null,
     ),
     status: row.status,
     failure: row.failure,
     claim: RunnerClaim.rehydrate({
-      claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
+      claimedBy: row.claimedBy !== null && row.claimedBy !== '' ? RunnerId.of(row.claimedBy) : null,
       attempts: row.attempts,
       leaseExpiresAt: row.leaseExpiresAt,
       claimedAt: row.claimedAt,
     }),
     reservation:
-      row.reservedFor && row.reservedPool && row.reservedUntil
+      row.reservedFor !== null &&
+      row.reservedFor !== '' &&
+      row.reservedPool !== null && row.reservedPool !== '' && row.reservedUntil
         ? RunnerReservation.of(
             RunnerId.of(row.reservedFor),
             PoolId.of(row.reservedPool),
@@ -159,11 +162,11 @@ export class DrizzlePushDiffRepository implements PushDiffRepository {
   }
 
   async find(id: PushDiffId): Promise<PushDiff | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(pushDiff)
       .where(eq(pushDiff.id, id.value))
-      .limit(1);
+      .limit(1));
 
     return row ? toPushDiff(row) : null;
   }

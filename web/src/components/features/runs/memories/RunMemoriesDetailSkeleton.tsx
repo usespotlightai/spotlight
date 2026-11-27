@@ -1,6 +1,8 @@
+import type { ReactElement } from 'react';
+
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
-export function RunMemoriesDetailSkeleton() {
+export function RunMemoriesDetailSkeleton(): ReactElement {
   return (
     <div
       role="status"

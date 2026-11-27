@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   InvitePreview,
   InviteReaderPort,
@@ -57,7 +58,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
       role: invitable(row.role),
       teams: teams.get(row.id) ?? [],
       invitedBy:
-        row.inviterId && row.inviterName
+        row.inviterId !== null && row.inviterId !== '' && row.inviterName !== null && row.inviterName !== ''
           ? {
               id: row.inviterId,
               name: row.inviterName,
@@ -70,7 +71,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
   }
 
   async withToken(hash: TokenHash, now: Date): Promise<InvitePreview | null> {
-    const [found] = await this.db
+    const found = firstOf(await this.db
       .select({
         id: workspaceInvite.id,
         email: workspaceInvite.email,
@@ -85,7 +86,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
       .innerJoin(workspace, eq(workspace.id, workspaceInvite.workspaceId))
       .leftJoin(user, eq(user.id, workspaceInvite.invitedById))
       .where(eq(workspaceInvite.tokenHash, hash.value))
-      .limit(1);
+      .limit(1));
 
     if (!found) {
       return null;

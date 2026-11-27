@@ -42,7 +42,9 @@ export class ClaimsSources {
 
     for (const station of event.stations) {
       const rubricVersion =
-        station.claimsChanged && station.rubricVersion
+        station.claimsChanged &&
+        station.rubricVersion !== null &&
+        station.rubricVersion !== ''
           ? RubricVersion.readable(station.rubricVersion)
           : null;
 

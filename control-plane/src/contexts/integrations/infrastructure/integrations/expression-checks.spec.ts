@@ -10,6 +10,8 @@ import {
 } from '@integrations/infrastructure/integrations/integration.schema';
 import { PIECE } from '@integrations/infrastructure/integrations/templating';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -100,7 +102,7 @@ const placesOf = (definition: unknown) => {
 };
 
 const answer = (position: string, expression: string, definition: unknown) =>
-  checks.check(FieldPath.parsed(position) as FieldPath, expression, definition);
+  checks.check(present(FieldPath.parsed(position)), expression, definition);
 
 const checked = (
   position: string,
@@ -242,9 +244,7 @@ describe('checking an expression where a definition contains it', () => {
     ).toEqual([
       {
         position: positionAt(
-          FieldPath.parsed(
-            'webhook.events[1].lookup.capture.body',
-          ) as FieldPath,
+          present(FieldPath.parsed('webhook.events[1].lookup.capture.body')),
         ),
         message: 'shadows the built-in body',
       },
@@ -327,21 +327,25 @@ describe('a position that names no expression', () => {
 
 describe('the check and the compiler', () => {
   const doubted = (message: string, suggestion: string | null) =>
-    suggestion
+    suggestion !== null && suggestion !== ''
       ? `does not check: ${message}. Did you mean ${suggestion}?`
       : `does not check: ${message}`;
 
   const valueAt = (raw: unknown, field: FieldPath): unknown =>
     field.segments.reduce<unknown>(
       (within, segment) =>
-        (within as Record<string | number, unknown> | undefined)?.[segment],
+        within === undefined || within === null
+          ? undefined
+          : Reflect.get(Object(within), segment),
       raw,
     );
 
   const piecesOf = (value: string): string[] =>
     isExpression(value)
       ? [written(value)]
-      : [...value.matchAll(PIECE)].map((found) => (found[1] ?? '').trim());
+      : [...value.matchAll(PIECE)].map((found) =>
+          (itemAt(found, 1) ?? '').trim(),
+        );
 
   it.each([
     ['a plain definition', LINEAR],
@@ -353,7 +357,11 @@ describe('the check and the compiler', () => {
     const shadowed = new Set<string>();
 
     for (const place of compiled.places.values()) {
-      const value = valueAt(definition, place.field) as string;
+      const value = valueAt(definition, place.field);
+
+      if (typeof value !== 'string') {
+        throw new Error('expected text at a compiled place');
+      }
 
       for (const piece of piecesOf(value)) {
         const check = checked(
@@ -487,7 +495,7 @@ describe('the positions an expression is written at', () => {
   });
 
   it('builds a position’s scope once, however often it is checked', () => {
-    const [position] = EXPRESSION_POSITIONS;
+    const position = firstOf(EXPRESSION_POSITIONS);
 
     expect(position?.seenByAll({})).toBe(position?.scope);
   });
@@ -497,8 +505,8 @@ describe('the positions an expression is written at', () => {
       (each) =>
         each.position.rendered === 'integration.actions[*].request.body',
     );
-    const [first] = posted?.seen({ calls: ['notice'] }) ?? [];
-    const [again] = posted?.seen({ calls: ['notice'] }) ?? [];
+    const first = firstOf(posted?.seen({ calls: ['notice'] }) ?? []);
+    const again = firstOf(posted?.seen({ calls: ['notice'] }) ?? []);
 
     expect(first?.scope.names).toEqual([
       'connection',

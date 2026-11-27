@@ -3,7 +3,7 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 const MAX_PATH = 500;
 
 export class MemoryPath {
-  private readonly kind = 'memory-path';
+  private readonly kind: string = 'memory-path';
 
   private constructor(readonly value: string) {}
 

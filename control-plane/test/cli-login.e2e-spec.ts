@@ -12,6 +12,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served } from './support/app';
+import { bodyOf } from './support/body';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -68,14 +69,12 @@ describe('signing in from the command line (e2e)', () => {
   };
 
   const signIn = async (userId: string) => {
-    const code = (await requestCode().expect(200)).body as DeviceCode;
+    const code = bodyOf<DeviceCode>(await requestCode().expect(200));
     await approve(code.user_code, userId);
 
-    return (
-      (await pollFor(code.device_code).expect(200)).body as {
-        readonly access_token: string;
-      }
-    ).access_token;
+    return bodyOf<{
+      readonly access_token: string;
+    }>(await pollFor(code.device_code).expect(200)).access_token;
   };
 
   beforeAll(async () => {
@@ -98,7 +97,7 @@ describe('signing in from the command line (e2e)', () => {
   });
 
   it('hands out a code that leads the person to the web app to approve it', async () => {
-    const body = (await requestCode().expect(200)).body as DeviceCode;
+    const body = bodyOf<DeviceCode>(await requestCode().expect(200));
 
     expect(body.verification_uri).toMatch(/\/device$/);
     expect(body.verification_uri_complete).toContain(
@@ -108,40 +107,41 @@ describe('signing in from the command line (e2e)', () => {
   });
 
   it('does not hand out a code to a client other than the Spotlight CLI', async () => {
-    const body = (
+    const body = bodyOf<OAuthError>(
       await served(app)
         .post('/api/auth/device/code')
         .send({ client_id: 'someone-else' })
-        .expect(400)
-    ).body as OAuthError;
+        .expect(400),
+    );
 
     expect(body.error).toBe('invalid_client');
   });
 
   it('does not let the client bind the code to a person or ask for a scope', async () => {
     for (const extra of [{ user_id: owner }, { scope: 'admin' }]) {
-      const body = (
+      const body = bodyOf<OAuthError>(
         await served(app)
           .post('/api/auth/device/code')
           .send({ client_id: CLI_CLIENT_ID, ...extra })
-          .expect(400)
-      ).body as OAuthError;
+          .expect(400),
+      );
 
       expect(body.error).toBe('invalid_request');
     }
   });
 
   it('keeps the CLI waiting until the person approves', async () => {
-    const code = (await requestCode().expect(200)).body as DeviceCode;
+    const code = bodyOf<DeviceCode>(await requestCode().expect(200));
 
-    const body = (await pollFor(code.device_code).expect(400))
-      .body as OAuthError;
+    const body = bodyOf<OAuthError>(
+      await pollFor(code.device_code).expect(400),
+    );
 
     expect(body.error).toBe('authorization_pending');
   });
 
   it('tells the CLI when the person denies the code', async () => {
-    const code = (await requestCode().expect(200)).body as DeviceCode;
+    const code = bodyOf<DeviceCode>(await requestCode().expect(200));
     const session = await webSessionOf(owner);
     await served(app)
       .get(`/api/auth/device?user_code=${code.user_code}`)
@@ -153,8 +153,9 @@ describe('signing in from the command line (e2e)', () => {
       .send({ userCode: code.user_code })
       .expect(200);
 
-    const body = (await pollFor(code.device_code).expect(400))
-      .body as OAuthError;
+    const body = bodyOf<OAuthError>(
+      await pollFor(code.device_code).expect(400),
+    );
 
     expect(body.error).toBe('access_denied');
   });
@@ -174,7 +175,7 @@ describe('signing in from the command line (e2e)', () => {
       });
 
     expect(created.status).toBe(201);
-    expect((created.body as { readonly createdBy: string }).createdBy).toBe(
+    expect(bodyOf<{ readonly createdBy: string }>(created).createdBy).toBe(
       owner,
     );
   });
@@ -182,12 +183,12 @@ describe('signing in from the command line (e2e)', () => {
   it('lets the login act as the person on a route only people may call', async () => {
     const login = await signIn(owner);
 
-    const body = (
+    const body = bodyOf<{ readonly user: { readonly id: string } }>(
       await served(app)
         .get('/api/auth/get-session')
         .set('Authorization', `Bearer ${login}`)
-        .expect(200)
-    ).body as { readonly user: { readonly id: string } };
+        .expect(200),
+    );
 
     expect(body.user.id).toBe(owner);
   });
@@ -200,12 +201,15 @@ describe('signing in from the command line (e2e)', () => {
       .set('Authorization', `Bearer ${login}`)
       .expect(200);
 
-    const body = (
+    const body = bodyOf<{
+      readonly detail?: string;
+      readonly message?: string;
+    }>(
       await served(app)
         .get(`/api/v1/resources/workspaces/${workspaceId}`)
         .set('Authorization', `Bearer ${login}`)
-        .expect(401)
-    ).body as { readonly detail?: string; readonly message?: string };
+        .expect(401),
+    );
 
     expect(body.detail ?? body.message).toBe(
       'The token is unknown, expired or revoked.',

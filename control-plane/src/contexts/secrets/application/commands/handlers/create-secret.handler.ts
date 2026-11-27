@@ -26,13 +26,13 @@ import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const withoutValue = (definition: unknown): unknown => {
-  if (!definition || typeof definition !== 'object') {
+  if (typeof definition !== 'object' || definition === null) {
     return definition;
   }
 
-  const { valueWo: _valueWo, ...rest } = definition as Record<string, unknown>;
-
-  return rest;
+  return Object.fromEntries(
+    Object.entries(definition).filter(([key]) => key !== 'valueWo'),
+  );
 };
 
 export class CreateSecretHandler implements CommandHandlerPort<

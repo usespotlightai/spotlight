@@ -1,4 +1,4 @@
-import { type ReactNode, useId } from 'react';
+import { type ReactElement, type ReactNode, useId } from 'react';
 
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { TooltipText } from '@/lib/tooltip-note';
@@ -22,7 +22,7 @@ export function TabSection({
   level = 2,
   action,
   children,
-}: TabSectionProps) {
+}: TabSectionProps): ReactElement {
   const Heading = level === 3 ? 'h3' : 'h2';
   const titleId = useId();
 
@@ -44,8 +44,10 @@ export function TabSection({
           >
             {title}
           </Heading>
-          {description && <InfoTooltip tooltip={description} />}
-          {scope && (
+          {description !== undefined && description !== '' && (
+            <InfoTooltip tooltip={description} />
+          )}
+          {scope !== undefined && scope !== '' && (
             <span className="pl-1 text-muted-foreground text-sm">{scope}</span>
           )}
         </span>

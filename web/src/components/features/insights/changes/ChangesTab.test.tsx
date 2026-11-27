@@ -11,6 +11,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BeforeAfterHost } from '@/components/features/insights/changes/BeforeAfterHost';
 import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
+import type {
+  ChangeMarkerResponseDto,
+  InsightsPeriodResponseDto,
+  LineResponseDto,
+  MeasureVerdictResponseDto,
+  RunTallyResponseDto,
+  StationJudgeCalibrationResponseDto,
+  StationResponseDto,
+} from '@/lib/api';
 import { useBeforeAfterActions } from '@/lib/before-after-panel';
 import { configPlan } from '@/lib/config-plan';
 import { stationNamesOf } from '@/lib/insights';
@@ -18,7 +27,9 @@ import type {
   InsightsAgentConfigs,
   InsightsChanges,
 } from '@/lib/insights-changes';
+import { htmlElement } from '@/test/elements';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
+import { partial } from '@/test/partial';
 
 type Queried = {
   data: unknown;
@@ -115,29 +126,28 @@ vi.mock('@/hooks/api/useLines', () => ({
   }),
 }));
 
-const tally = (over: Record<string, unknown> = {}) => ({
-  runs: 10,
-  cancelled: 0,
-  failed: 0,
-  stopped: 0,
-  checksPassed: 0,
-  checksFailed: 0,
-  accepted: 4,
-  sentBack: 2,
-  passed: 0,
-  merged: 0,
-  cost: null,
-  unpriced: 0,
-  mixedCurrencies: false,
-  medianMs: null,
-  p90Ms: null,
-  ...over,
-});
+const tally = (over: Partial<RunTallyResponseDto> = {}): RunTallyResponseDto =>
+  partial<RunTallyResponseDto>({
+    runs: 10,
+    cancelled: 0,
+    failed: 0,
+    stopped: 0,
+    checksPassed: 0,
+    checksFailed: 0,
+    passed: 0,
+    merged: 0,
+    cost: null,
+    unpriced: 0,
+    mixedCurrencies: false,
+    medianMs: null,
+    p90Ms: null,
+    ...over,
+  });
 
-const CHANGES = {
-  period: { name: '30d' },
+const CHANGES = partial<InsightsChanges>({
+  period: partial<InsightsPeriodResponseDto>({ name: '30d' }),
   markers: [
-    {
+    partial<ChangeMarkerResponseDto>({
       lineId: 'line_1',
       stationId: 'station_impl',
       fingerprint: 'b'.repeat(64),
@@ -145,9 +155,9 @@ const CHANGES = {
       firstRunAt: '2026-09-20T10:00:00.000Z',
       runId: 'run_1',
       before: tally(),
-      after: tally({ accepted: 8, sentBack: 1 }),
+      after: tally(),
       verdicts: [
-        {
+        partial<MeasureVerdictResponseDto>({
           measure: 'accepted_rate',
           before: 0.4,
           after: 0.8,
@@ -155,7 +165,7 @@ const CHANGES = {
           measuredAfter: 10,
           currency: null,
           verdict: 'better',
-        },
+        }),
       ],
       judgeBefore: { mean: 0.5, judged: 4 },
       judgeAfter: { mean: 0.75, judged: 4 },
@@ -168,10 +178,10 @@ const CHANGES = {
           now: 'opus',
         },
       ],
-    },
+    }),
   ],
   judges: [
-    {
+    partial<StationJudgeCalibrationResponseDto>({
       lineId: 'line_1',
       stationId: 'station_impl',
       qualified: true,
@@ -179,12 +189,12 @@ const CHANGES = {
       pairs: 20,
       minAgreement: 0.6,
       hiddenReason: null,
-    },
+    }),
   ],
-} as unknown as InsightsChanges;
+});
 
-const AGENT_CONFIGS = {
-  period: { name: '30d' },
+const AGENT_CONFIGS = partial<InsightsAgentConfigs>({
+  period: partial<InsightsPeriodResponseDto>({ name: '30d' }),
   stationId: 'station_impl',
   size: null,
   sizes: [
@@ -238,7 +248,7 @@ const AGENT_CONFIGS = {
   ],
   judgeOmitted: null,
   judges: CHANGES.judges,
-} as unknown as InsightsAgentConfigs;
+});
 
 const REPLAYED = {
   ...CANDIDATES,
@@ -263,24 +273,24 @@ const narrowingTo = async (station: string) => {
 };
 
 const NAMES = stationNamesOf([
-  {
+  partial<LineResponseDto>({
     id: 'line_1',
     key: 'delivery',
     name: 'Delivery',
     repositories: [],
     reactions: [],
     stations: [
-      {
+      partial<StationResponseDto>({
         id: 'station_impl',
         key: 'implementation',
         name: 'Implementation',
         kind: 'work',
         color: '#000',
         position: 0,
-      },
+      }),
     ],
-  },
-] as unknown as Parameters<typeof stationNamesOf>[0]);
+  }),
+]);
 
 const showing = () =>
   render(
@@ -340,9 +350,11 @@ describe('the Changes tab', () => {
     showing();
 
     const changes = screen.getByRole('list', { name: 'Config changes' });
-    const row = within(changes)
-      .getByRole('link', { name: 'Implementation' })
-      .closest('[data-slot="change-marker"]') as HTMLElement;
+    const row = htmlElement(
+      within(changes)
+        .getByRole('link', { name: 'Implementation' })
+        .closest('[data-slot="change-marker"]'),
+    );
 
     expect(row).toHaveTextContent('Runs before10');
     expect(row).toHaveTextContent('Runs after10');
@@ -387,9 +399,11 @@ describe('the Changes tab', () => {
   it('opens a change from its row, marks it, and closes it with Esc', async () => {
     showing();
 
-    const row = within(screen.getByRole('list', { name: 'Config changes' }))
-      .getByRole('link', { name: 'Implementation' })
-      .closest('[data-slot="change-marker"]') as HTMLElement;
+    const row = htmlElement(
+      within(screen.getByRole('list', { name: 'Config changes' }))
+        .getByRole('link', { name: 'Implementation' })
+        .closest('[data-slot="change-marker"]'),
+    );
     const opener = within(row).getByRole('button', {
       name: /^Impact of the Implementation change, first run /,
     });
@@ -453,9 +467,11 @@ describe('the Changes tab', () => {
 
     showing();
 
-    const row = within(screen.getByRole('list', { name: 'Config changes' }))
-      .getByRole('link', { name: 'Implementation' })
-      .closest('[data-slot="change-marker"]') as HTMLElement;
+    const row = htmlElement(
+      within(screen.getByRole('list', { name: 'Config changes' }))
+        .getByRole('link', { name: 'Implementation' })
+        .closest('[data-slot="change-marker"]'),
+    );
     await userEvent.click(
       within(row).getByRole('button', { name: /^Impact of the / }),
     );
@@ -482,17 +498,19 @@ describe('the Changes tab', () => {
     expect(
       within(table).getByRole('button', { name: 'Collapse Claude Code' }),
     ).toBeInTheDocument();
-    const opus = within(table)
-      .getByText('opus, high effort')
-      .closest('[data-slot="agent-config-row"]') as HTMLElement;
+    const opus = htmlElement(
+      within(table)
+        .getByText('opus, high effort')
+        .closest('[data-slot="agent-config-row"]'),
+    );
 
     expect(
       within(opus).getByLabelText('Best for the cost'),
     ).toBeInTheDocument();
     expect(opus).toHaveTextContent('Judge pass rate75%');
-    const calibrations = document.querySelector(
-      '[data-slot="judge-calibrations"]',
-    ) as HTMLElement;
+    const calibrations = htmlElement(
+      document.querySelector('[data-slot="judge-calibrations"]'),
+    );
     expect(
       within(calibrations).getByRole('link', { name: 'Implementation' }),
     ).toHaveAttribute(
@@ -695,8 +713,8 @@ describe('the Changes tab', () => {
     showing();
 
     const rows = [
-      ...document.querySelectorAll('[data-slot="change-marker"]'),
-    ] as HTMLElement[];
+      ...document.querySelectorAll<HTMLElement>('[data-slot="change-marker"]'),
+    ];
     const newest = rows[0];
     await userEvent.click(
       within(newest).getByRole('button', { name: /^Impact of the / }),
@@ -719,9 +737,11 @@ describe('the Changes tab', () => {
   it('names the line each config change was on, leading to it', () => {
     showing();
 
-    const row = within(screen.getByRole('list', { name: 'Config changes' }))
-      .getByRole('link', { name: 'Implementation' })
-      .closest('[data-slot="change-marker"]') as HTMLElement;
+    const row = htmlElement(
+      within(screen.getByRole('list', { name: 'Config changes' }))
+        .getByRole('link', { name: 'Implementation' })
+        .closest('[data-slot="change-marker"]'),
+    );
 
     expect(within(row).getByRole('link', { name: 'Delivery' })).toHaveAttribute(
       'href',
@@ -751,7 +771,7 @@ describe('the Changes tab', () => {
   });
 });
 
-const MANY = {
+const MANY = partial<InsightsChanges>({
   ...CHANGES,
   markers: ['a', 'b', 'c'].map((each, index) => ({
     ...CHANGES.markers[0],
@@ -767,7 +787,7 @@ const MANY = {
       },
     ],
   })),
-} as unknown as InsightsChanges;
+});
 
 const rendersOf = (rows: readonly unknown[]) =>
   rows.map((entries) => planned.entries.filter((e) => e === entries).length);
@@ -830,7 +850,7 @@ describe('the Changes tab render cost', () => {
 });
 
 describe('the panel actions', () => {
-  it('keep their identity while the shown change changes', async () => {
+  it('keep their identity while the shown change changes', () => {
     const { result, rerender } = renderHook(() => useBeforeAfterActions(), {
       wrapper: ({ children }) => (
         <BeforeAfterHost slug="acme" teamId="team_1" period="30d" names={NAMES}>

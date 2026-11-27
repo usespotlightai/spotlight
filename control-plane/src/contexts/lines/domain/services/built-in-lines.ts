@@ -81,11 +81,15 @@ const opening = (input: {
     key: StationKey.of(input.key),
     name: StationName.of(input.name),
     color: StationColor.of(input.color),
-    description: input.description
-      ? StationDescription.of(input.description)
-      : null,
+    description:
+      input.description !== undefined && input.description !== ''
+        ? StationDescription.of(input.description)
+        : null,
     kind,
-    agentPrompt: input.prompt ? AgentPrompt.of(input.prompt) : null,
+    agentPrompt:
+      input.prompt !== undefined && input.prompt !== ''
+        ? AgentPrompt.of(input.prompt)
+        : null,
     passesTo: (input.passesTo ?? []).map((each) => StationKey.of(each)),
     tools: input.tools ?? [],
     ...agentFeaturesOf(kind, input),

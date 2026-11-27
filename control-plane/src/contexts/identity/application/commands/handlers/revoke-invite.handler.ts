@@ -31,7 +31,7 @@ export class RevokeInviteHandler implements CommandHandlerPort<
 
       const invite = await this.invites.find(InviteId.of(command.inviteId));
 
-      if (!invite?.workspaceId.equals(administered.workspace.id)) {
+      if (invite?.workspaceId.equals(administered.workspace.id) !== true) {
         return false;
       }
 

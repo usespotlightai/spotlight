@@ -10,7 +10,7 @@ export const inactiveOf = (
   ids.flatMap((id) => {
     const memory = found.find((each) => each.id.equals(id));
 
-    return memory?.activeOn(teamId, null)
+    return memory?.activeOn(teamId, null) === true
       ? []
       : [memory?.handle.value ?? id.value];
   });
@@ -23,7 +23,7 @@ export const whyMergeNoLongerApplies = (
   const changed = replaced.flatMap((id) => {
     const memory = found.find((each) => each.id.equals(id));
 
-    return memory?.retirement?.supersededBy?.equals(merged)
+    return memory?.retirement?.supersededBy?.equals(merged) === true
       ? []
       : [memory?.handle.value ?? id.value];
   });

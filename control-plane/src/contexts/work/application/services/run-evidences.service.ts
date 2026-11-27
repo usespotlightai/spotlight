@@ -4,6 +4,7 @@ import type {
   RunFactsPort,
 } from '@runs/application/ports/run-facts.port';
 import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
   EvidencedRun,
@@ -82,7 +83,7 @@ export class RunEvidences implements RunEvidencePort {
   }
 
   private async found(runId: RunId): Promise<RunFacts | null> {
-    const [run] = await this.runs.of([runId]);
+    const run = firstOf(await this.runs.of([runId]));
 
     return run ?? null;
   }

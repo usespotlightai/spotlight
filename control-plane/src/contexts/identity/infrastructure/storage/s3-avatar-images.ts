@@ -119,7 +119,7 @@ export class S3AvatarImages implements AvatarImagesPort {
         }),
       );
       const keys = (listed.Contents ?? []).flatMap(({ Key }) =>
-        Key ? [{ Key }] : [],
+        Key !== undefined && Key !== '' ? [{ Key }] : [],
       );
 
       if (keys.length > 0) {
@@ -131,7 +131,8 @@ export class S3AvatarImages implements AvatarImagesPort {
         );
       }
 
-      token = listed.IsTruncated ? listed.NextContinuationToken : undefined;
-    } while (token);
+      token =
+        listed.IsTruncated === true ? listed.NextContinuationToken : undefined;
+    } while (token !== undefined && token !== '');
   }
 }

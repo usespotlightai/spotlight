@@ -20,6 +20,7 @@ import { LineCompiler } from '@lines/infrastructure/lines/line.compile';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import {
   actorFor,
   changeActorIn,
@@ -72,14 +73,16 @@ const lineAt = (version: number): Line => {
 const access = (isAdmin = true) => teamAccess(TEAM, isAdmin);
 
 const teams = {
-  find: vi.fn(async () => ({
-    id: TEAM,
-    workspaceId: WorkspaceId.of('ws_1'),
-    key: 'core',
-    name: 'Core',
-    members: [],
-  })),
-  inWorkspace: vi.fn(async () => []),
+  find: vi.fn(() =>
+    Promise.resolve({
+      id: TEAM,
+      workspaceId: WorkspaceId.of('ws_1'),
+      key: 'core',
+      name: 'Core',
+      members: [],
+    }),
+  ),
+  inWorkspace: vi.fn(() => Promise.resolve([])),
 } satisfies TeamDirectoryPort;
 
 const transaction: TransactionPort = { inTransaction: (work) => work() };
@@ -89,19 +92,20 @@ const KNOWN = ['catalog.web-search@1.1.0', 'catalog.research@1.0.0'];
 const UNKNOWN = (id: string) => `Catalog has no item ${id}.`;
 
 const catalog = new CatalogDenials({
-  resolve: async (named) => ({
-    tools: [],
-    skills: [],
-    denied: [...named.tools, ...named.skills]
-      .filter((each) => !KNOWN.includes(each))
-      .map((id) => ({
-        id,
-        reason: 'unknown' as const,
-        because: UNKNOWN(id),
-      })),
-  }),
-  call: async () => {
-    throw new Error('not called here');
+  resolve: (named) =>
+    Promise.resolve({
+      tools: [],
+      skills: [],
+      denied: [...named.tools, ...named.skills]
+        .filter((each) => !KNOWN.includes(each))
+        .map((id) => ({
+          id,
+          reason: 'unknown' as const,
+          because: UNKNOWN(id),
+        })),
+    }),
+  call: () => {
+    return Promise.reject(new Error('not called here'));
   },
 });
 
@@ -114,41 +118,37 @@ const enabling = (tools: string[], skills: string[] = []) => ({
 
 const creates = () =>
   ({
-    reserve: vi.fn(async () => ({ kind: 'new' as const })),
+    reserve: vi.fn(() => Promise.resolve({ kind: 'new' as const })),
     recordCreated: vi.fn(async () => {}),
   }) satisfies IdempotentCreatesPort;
 
 const lines = (existing: Line | null, thenAt: Line | null = existing) => {
-  const find = vi.fn(async () => existing);
+  const find = vi.fn(() => Promise.resolve(existing));
+  const save = vi.fn((saved: Line) => {
+    if (saved.isDeleted && !thenAt) {
+      return Promise.resolve();
+    }
+    find.mockResolvedValue(thenAt);
+    return Promise.resolve();
+  });
 
-  return {
-    find,
-    save: vi.fn(async (saved: Line) => {
-      if (saved.isDeleted && !thenAt) {
-        return;
-      }
-      find.mockResolvedValue(thenAt);
-    }),
-  } as unknown as LineRepository & {
-    find: typeof find;
-    save: ReturnType<typeof vi.fn>;
-  };
+  return { ...partial<LineRepository>({ find, save }), find, save };
 };
 
 describe('CreateLineHandler', () => {
   const creating = (over: { isAdmin?: boolean; throwing?: Error } = {}) => {
-    const apply = vi.fn(async () => {
+    const apply = vi.fn(() => {
       if (over.throwing) {
-        throw over.throwing;
+        return Promise.reject(over.throwing);
       }
 
-      return lineAt(0);
+      return Promise.resolve(lineAt(0));
     });
     const handler = new CreateLineHandler(
       access(over.isAdmin),
       teams,
       new LineCompiler(),
-      { create: apply } as unknown as ApplyLines,
+      partial<ApplyLines>({ create: apply }),
       creates(),
       transaction,
       catalog,
@@ -271,19 +271,19 @@ describe('UpdateLineHandler', () => {
     over: { isAdmin?: boolean; throwing?: Error; thenAt?: Line } = {},
   ) => {
     const stored = lines(lineAt(3));
-    const reconcile = vi.fn(async (line: Line) => {
+    const reconcile = vi.fn((line: Line) => {
       if (over.throwing) {
         stored.find.mockResolvedValue(over.thenAt ?? line);
-        throw over.throwing;
+        return Promise.reject(over.throwing);
       }
 
-      return line;
+      return Promise.resolve(line);
     });
     const handler = new UpdateLineHandler(
       access(over.isAdmin),
       new LineCompiler(),
       stored,
-      { reconcile } as unknown as ApplyLines,
+      partial<ApplyLines>({ reconcile }),
       transaction,
       catalog,
     );
@@ -367,11 +367,13 @@ describe('DeleteLineHandler', () => {
     const stored = lines(existing, null);
     const guard = {
       release: vi.fn(async () => {}),
-      lockedTaskCountsAt: vi.fn(async () =>
-        existing.stations.map((each) => ({
-          stationId: each.id,
-          tasks: tasks[each.key.value] ?? 0,
-        })),
+      lockedTaskCountsAt: vi.fn(() =>
+        Promise.resolve(
+          existing.stations.map((each) => ({
+            stationId: each.id,
+            tasks: tasks[each.key.value] ?? 0,
+          })),
+        ),
       ),
     } satisfies StationDeletionGuardPort;
     const handler = new DeleteLineHandler(
@@ -395,13 +397,13 @@ describe('DeleteLineHandler', () => {
     const { remove, stored } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((stored.save.mock.calls[0] as [Line])[0].isDeleted).toBe(true);
+    expect(stored.save.mock.calls[0][0].isDeleted).toBe(true);
   });
 
   it('will not delete a line while a task is on it', async () => {
     const { remove, stored, existing } = deleting();
     const [, working] = existing.stations;
-    const busy = deleting({ [working?.key.value ?? '']: 1 });
+    const busy = deleting({ [working.key.value]: 1 });
 
     expect(await busy.remove()).toMatchObject({ outcome: 'in-use' });
     expect(busy.stored.save).not.toHaveBeenCalled();

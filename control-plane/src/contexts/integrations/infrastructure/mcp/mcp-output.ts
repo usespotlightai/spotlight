@@ -1,17 +1,20 @@
 import type { ToolOutput } from '@integrations/application/ports/integration-runtime.port';
-import { asJson } from '@integrations/infrastructure/integrations/templating';
+import {
+  asJson,
+  plainJson,
+} from '@integrations/infrastructure/integrations/templating';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 const MAX_OUTPUT_CHARS = 500;
 
-const plainJson = (output: unknown): ToolOutput =>
-  JSON.parse(asJson(output ?? null)) as ToolOutput;
-
 const textOf = (result: CallToolResult): string | null => {
-  const [only, ...rest] = result.content;
+  const only = firstOf(result.content);
 
-  return only?.type === 'text' && rest.length === 0 ? only.text : null;
+  return only?.type === 'text' && result.content.length === 1
+    ? only.text
+    : null;
 };
 
 const parsedOr = (text: string): ToolOutput => {
@@ -26,7 +29,7 @@ const outputOf = (result: CallToolResult): string =>
   (textOf(result) ?? asJson(result.content)).slice(0, MAX_OUTPUT_CHARS);
 
 export const mcpOutput = (result: CallToolResult, tool: string): ToolOutput => {
-  if (result.isError) {
+  if (result.isError === true) {
     throw new UpstreamError(
       `using ${tool}`,
       `the MCP server answered with an error: ${outputOf(result)}`,

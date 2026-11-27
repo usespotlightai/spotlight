@@ -52,7 +52,11 @@ export class PostDecisionsComment {
 
     const slug = await this.workspaces.slugOf(task.workspaceId);
 
-    if (!slug || !(await this.connections.isConnected(task.workspaceId))) {
+    if (
+      slug === null ||
+      slug === '' ||
+      !(await this.connections.isConnected(task.workspaceId))
+    ) {
       return;
     }
 

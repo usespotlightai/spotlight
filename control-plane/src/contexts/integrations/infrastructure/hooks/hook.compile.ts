@@ -43,6 +43,7 @@ import type {
 } from '@platform/expressions/expression-engine.port';
 import { ExpressionError } from '@platform/expressions/expression.errors';
 import type { Scope } from '@platform/expressions/scope';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -109,9 +110,14 @@ export type CompiledHook =
     };
 
 const addressOf = (raw: unknown): string => {
-  const key = (raw as { key?: unknown } | null)?.key;
+  const key =
+    typeof raw === 'object' && raw !== null && 'key' in raw
+      ? raw.key
+      : undefined;
 
-  return typeof key === 'string' && key.trim() ? hookAt(key.trim()) : HOOKS;
+  return typeof key === 'string' && key.trim() !== ''
+    ? hookAt(key.trim())
+    : HOOKS;
 };
 
 const staticUrl = (raw: string): URL | null => {
@@ -213,7 +219,7 @@ class HookCompiler {
     let from = 0;
 
     for (const found of raw.matchAll(PIECE)) {
-      const start = found.index ?? 0;
+      const start = found.index;
 
       if (start > from) {
         parts.push(raw.slice(from, start));
@@ -282,7 +288,14 @@ class HookCompiler {
       };
     }
 
-    const request = step.request as NonNullable<HookStepFile['request']>;
+    const request = step.request;
+
+    if (request === undefined) {
+      throw new InconsistentStateError(
+        'hook step',
+        `${step.name} neither calls a tool nor makes a request`,
+      );
+    }
     const place = at.to('request');
 
     return {
@@ -387,7 +400,7 @@ export const compileHook = (
   }
 
   const file = read.data;
-  const on = file.on as HookEventName;
+  const on = file.on;
   const event = HookEvent.of(on);
   const compiler = new HookCompiler(expressions, path);
   let hook: Hook | null = null;

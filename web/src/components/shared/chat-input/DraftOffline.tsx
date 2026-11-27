@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   Tooltip,
   TooltipContent,
@@ -5,7 +7,11 @@ import {
 } from '@/components/ui/tooltip';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
 
-export function DraftOffline({ shared }: { shared: SharedDraft }) {
+export function DraftOffline({
+  shared,
+}: {
+  shared: SharedDraft;
+}): ReactElement | null {
   if (shared.online) {
     return null;
   }

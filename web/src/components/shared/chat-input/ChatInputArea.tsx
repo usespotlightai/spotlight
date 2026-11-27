@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 type ChatInputAreaProps = {
   disabled: boolean;
@@ -12,11 +12,11 @@ export function ChatInputArea({
   area,
   className,
   children,
-}: ChatInputAreaProps) {
+}: ChatInputAreaProps): ReactElement {
   return (
     <div
       inert={disabled}
-      style={area ? { gridArea: area } : undefined}
+      style={area !== undefined && area !== '' ? { gridArea: area } : undefined}
       className={className}
     >
       {children}

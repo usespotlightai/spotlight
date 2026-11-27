@@ -18,20 +18,26 @@ const memoryStorage = (now: () => number) => {
       items.set(key, structuredClone(value));
       savedAt.set(key, now());
     },
-    removeItem: async (key) => {
+    removeItem: (key) => {
       items.delete(key);
       savedAt.delete(key);
+      return Promise.resolve();
     },
-    savedBefore: async (time) =>
-      [...savedAt].filter(([, at]) => at < time).map(([key]) => key),
-    newest: async (count) =>
-      [...savedAt]
-        .toSorted(([, a], [, b]) => b - a)
-        .slice(0, count)
-        .flatMap(([key]) => items.get(key) ?? []),
-    clear: async () => {
+    savedBefore: (time) =>
+      Promise.resolve(
+        [...savedAt].filter(([, at]) => at < time).map(([key]) => key),
+      ),
+    newest: (count) =>
+      Promise.resolve(
+        [...savedAt]
+          .toSorted(([, a], [, b]) => b - a)
+          .slice(0, count)
+          .flatMap(([key]) => items.get(key) ?? []),
+      ),
+    clear: () => {
       items.clear();
       savedAt.clear();
+      return Promise.resolve();
     },
   };
 
@@ -77,13 +83,13 @@ describe('stored journals', () => {
       now,
     });
 
-    await readJournal(new QueryClient(), stored.persister, async () => [
-      'step',
-    ]);
+    await readJournal(new QueryClient(), stored.persister, () =>
+      Promise.resolve(['step']),
+    );
     await settle();
     time = HOUR;
 
-    const journal = vi.fn(async () => ['fresh step']);
+    const journal = vi.fn(() => Promise.resolve(['fresh step']));
     const data = await readJournal(
       new QueryClient(),
       stored.persister,
@@ -100,19 +106,17 @@ describe('stored journals', () => {
       buster: 'api_1',
       maxAge: 24 * HOUR,
     });
-    await readJournal(new QueryClient(), before.persister, async () => [
-      'step',
-    ]);
+    await readJournal(new QueryClient(), before.persister, () =>
+      Promise.resolve(['step']),
+    );
     await settle();
 
     const after = createStoredJournals(storage, {
       buster: 'api_2',
       maxAge: 24 * HOUR,
     });
-    const data = await readJournal(
-      new QueryClient(),
-      after.persister,
-      async () => ['fresh step'],
+    const data = await readJournal(new QueryClient(), after.persister, () =>
+      Promise.resolve(['fresh step']),
     );
 
     expect(data).toEqual(['fresh step']);
@@ -127,9 +131,9 @@ describe('stored journals', () => {
       maxAge: 24 * HOUR,
       now,
     });
-    await readJournal(new QueryClient(), stored.persister, async () => [
-      'step',
-    ]);
+    await readJournal(new QueryClient(), stored.persister, () =>
+      Promise.resolve(['step']),
+    );
     await settle();
 
     time = 23 * HOUR;
@@ -147,9 +151,9 @@ describe('stored journals', () => {
       buster: 'api_1',
       maxAge: 24 * HOUR,
     });
-    await readJournal(new QueryClient(), stored.persister, async () => [
-      'step',
-    ]);
+    await readJournal(new QueryClient(), stored.persister, () =>
+      Promise.resolve(['step']),
+    );
     await settle();
 
     await stored.forget();
@@ -163,10 +167,8 @@ describe('stored journals', () => {
       maxAge: 24 * HOUR,
     });
 
-    const data = await readJournal(
-      new QueryClient(),
-      stored.persister,
-      async () => ['step'],
+    const data = await readJournal(new QueryClient(), stored.persister, () =>
+      Promise.resolve(['step']),
     );
     await settle();
 
@@ -191,7 +193,7 @@ describe('stored journals', () => {
       await readJournal(
         new QueryClient(),
         stored.persister,
-        async () => [runId],
+        () => Promise.resolve([runId]),
         runId,
       );
       await settle();
@@ -214,9 +216,9 @@ describe('stored journals', () => {
       maxAge: 24 * HOUR,
       now,
     });
-    await readJournal(new QueryClient(), before.persister, async () => [
-      'step',
-    ]);
+    await readJournal(new QueryClient(), before.persister, () =>
+      Promise.resolve(['step']),
+    );
     await settle();
 
     const otherApi = createStoredJournals(storage, {

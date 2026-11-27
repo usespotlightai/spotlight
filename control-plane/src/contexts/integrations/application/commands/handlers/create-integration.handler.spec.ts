@@ -52,19 +52,23 @@ const creating = (
 
   const noted = (name: string) => within.push(open ? name : `${name} outside`);
 
-  keys.reserve.mockImplementation(async () => {
+  keys.reserve.mockImplementation(() => {
     noted('reserve');
-    return over.reservation ?? { kind: 'new' };
+    return Promise.resolve(over.reservation ?? { kind: 'new' });
   });
-  repository.save.mockImplementation(async () => {
+  repository.save.mockImplementation(() => {
     noted('save');
 
     if (over.failing) {
-      throw over.failing;
+      return Promise.reject(over.failing);
     }
+
+    return Promise.resolve();
   });
-  keys.recordCreated.mockImplementation(async () => {
+  keys.recordCreated.mockImplementation(() => {
     noted('recordCreated');
+
+    return Promise.resolve();
   });
 
   return {

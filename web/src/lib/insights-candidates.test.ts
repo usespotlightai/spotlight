@@ -13,6 +13,7 @@ import {
   stationReplayedPoints,
 } from '@/lib/insights-candidates';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
+import { partial } from '@/test/partial';
 
 const implementation = CANDIDATES.stations[0]?.sets[0];
 const review = CANDIDATES.stations[1]?.sets[0];
@@ -182,15 +183,22 @@ describe('costBasisNote', () => {
 const stationWith = (
   gains: readonly ({ low: number; high: number } | null)[],
 ): CandidatesStation =>
-  ({
+  partial<CandidatesStation>({
     sets: [
-      {
-        candidates: gains.map((gain) => ({
-          gainOverLive: gain && { ...gain, gain: (gain.low + gain.high) / 2 },
-        })),
-      },
+      partial<CandidatesStation['sets'][number]>({
+        candidates: gains.map((gain) =>
+          partial<SetCandidate>({
+            gainOverLive:
+              gain &&
+              partial<NonNullable<SetCandidate['gainOverLive']>>({
+                ...gain,
+                gain: (gain.low + gain.high) / 2,
+              }),
+          }),
+        ),
+      }),
     ],
-  }) as unknown as CandidatesStation;
+  });
 
 describe('gainExtentOf', () => {
   it('reaches the widest likely range on either side, up to the next 10 points', () => {

@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { InvalidReplayCheckError } from '@replays/domain/exceptions/invalid-replay-check.error';
 import {
   JudgeCalibration,
@@ -143,7 +144,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
   ) {}
 
   async find(id: ReplayCheckId): Promise<ReplayCheck | null> {
-    const [found] = await this.where(eq(replayCheck.id, id.value));
+    const found = firstOf(await this.where(eq(replayCheck.id, id.value)));
 
     return found ?? null;
   }
@@ -156,7 +157,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
       and(
         eq(replayCheck.stationId, stationId.value),
         eq(replayCheck.change, change.value),
-      ) as SQL,
+      ),
     );
   }
 
@@ -168,7 +169,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
       and(
         eq(replayCheck.stationId, stationId.value),
         eq(replayCheck.referencePullRequest, pullRequest),
-      ) as SQL,
+      ),
     );
   }
 
@@ -181,7 +182,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
       and(
         eq(replayCheck.setId, setId.value),
         eq(replayCheck.baseline, 'awaiting'),
-      ) as SQL,
+      ),
     );
   }
 
@@ -268,7 +269,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
     });
   }
 
-  private async where(where: SQL): Promise<readonly ReplayCheck[]> {
+  private async where(where: SQL | undefined): Promise<readonly ReplayCheck[]> {
     return (
       await this.context.db
         .select()

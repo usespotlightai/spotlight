@@ -8,6 +8,7 @@ import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo'
 import { DrizzleWorkspaceInviteRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace-invite.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -57,7 +58,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     );
 
   const readBack = async (invite: WorkspaceInvite) =>
-    (await invites.find(invite.id)) as WorkspaceInvite;
+    present(await invites.find(invite.id));
 
   beforeAll(async () => {
     database = await openDatabase('workspace_invites');
@@ -90,8 +91,10 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     invites = new DrizzleWorkspaceInviteRepository(
       new DrizzleContext(database.db),
       {
-        dispatch: async (events) => {
+        dispatch: (events) => {
           recorded.push(...events);
+
+          return Promise.resolve();
         },
       },
     );

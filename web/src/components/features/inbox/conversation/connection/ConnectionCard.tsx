@@ -1,4 +1,4 @@
-import { use } from 'react';
+import { type ReactElement, use } from 'react';
 import { useLocation } from 'react-router';
 
 import { DecisionButton } from '@/components/shared/DecisionButton';
@@ -43,7 +43,7 @@ export function ConnectionCard({
   teamId,
   viewer,
   outdated = false,
-}: ConnectionCardProps) {
+}: ConnectionCardProps): ReactElement {
   const { pathname } = useLocation();
   const connect = useConnectIntegration(teamId);
   const theirs = viewer === connection.personId;
@@ -51,7 +51,11 @@ export function ConnectionCard({
   const docked = use(DockedContext) !== null;
   const Action = docked ? DecisionButton : PillButton;
   const action =
-    !connection.met && !outdated && theirs && teamId ? (
+    !connection.met &&
+    !outdated &&
+    theirs &&
+    teamId !== undefined &&
+    teamId !== '' ? (
       <Action
         variant="default"
         disabled={connect.isPending}

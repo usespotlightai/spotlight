@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { type PillSize, type PillVariant, pillClass } from '@/lib/pill';
@@ -17,7 +17,7 @@ export function PillButton({
   size = 'small',
   className,
   ...props
-}: PillButtonProps) {
+}: PillButtonProps): ReactElement {
   return (
     <Button
       size="sm"

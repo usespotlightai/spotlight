@@ -7,21 +7,24 @@ import { followed, type InboxItemView } from '@/lib/inbox';
 export function useMarkReadOnView(
   slug: string | undefined,
   item: InboxItemView | undefined,
-) {
+): void {
   const { mutate: markItemRead } = useMarkInboxItemRead();
   const { mutate: markRequestRead } = useMarkInboxRequestRead();
   const seen = useRef<string | null>(null);
 
   useEffect(() => {
-    const at = item && `${item.id}:${item.notes.length}`;
-
     if (
-      !slug ||
-      !item?.unread ||
-      followed(item) ||
-      !at ||
-      seen.current === at
+      slug === undefined ||
+      slug === '' ||
+      item?.unread !== true ||
+      followed(item)
     ) {
+      return;
+    }
+
+    const at = `${item.id}:${item.notes.length}`;
+
+    if (seen.current === at) {
       return;
     }
 

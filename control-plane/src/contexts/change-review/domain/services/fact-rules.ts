@@ -8,6 +8,7 @@ import { groupedBy } from '@change-review/domain/services/grouped-by';
 import { placementsOf } from '@change-review/domain/services/hunk-placements';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackProblem } from '@change-review/domain/value-objects/stack-problem.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 interface Assignment {
   readonly cohort: number;
@@ -19,7 +20,7 @@ const assignmentsOf = (
 ): Map<string, Assignment> =>
   new Map(
     [...placementsOf(cohorts)].flatMap(([hunk, placements]) => {
-      const last = placements[placements.length - 1];
+      const last = itemAt(placements, placements.length - 1);
       return last ? [[hunk, { cohort: last.cohort, layer: last.layer }]] : [];
     }),
   );
@@ -151,7 +152,10 @@ const unconnectedProblems = (
   );
 
   return cohorts.flatMap((cohort, c): StackProblem[] => {
-    if (cohort.kind !== 'change' || cohort.joinedBecause?.trim()) {
+    if (
+      cohort.kind !== 'change' ||
+      (cohort.joinedBecause?.trim() ?? '') !== ''
+    ) {
       return [];
     }
 

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { type ReactElement, useMemo } from 'react';
 import { Bar, ComposedChart, Line, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { ConfigMarkers } from '@/components/features/insights/ConfigMarkers';
@@ -37,10 +37,10 @@ export const TipContent = ({
   active?: boolean;
   payload?: { payload: DayOutput }[];
   currency: string | null;
-}) => {
+}): ReactElement | null => {
   const day = payload?.[0]?.payload;
 
-  if (!active || !day) {
+  if (active !== true || !day) {
     return null;
   }
 
@@ -52,7 +52,9 @@ export const TipContent = ({
         rows: [
           [
             'Spent',
-            day.spend && currency ? spentIn(day.spend.amount, currency) : '–',
+            day.spend && currency !== null && currency !== ''
+              ? spentIn(day.spend.amount, currency)
+              : '–',
           ],
           ['Runs', `${day.runs}`],
           ['PRs merged', `${day.merged}`],
@@ -78,13 +80,15 @@ export function OutputAgainstCost({
   currency,
   noSpend,
   names,
-}: OutputAgainstCostProps) {
+}: OutputAgainstCostProps): ReactElement {
   const cursor = useCursorTooltip();
   const priced = currency !== null;
   const data = useMemo(() => [...days], [days]);
   const spendTick = useMemo(
     () => (spend: number) =>
-      currency ? costTick(spend, currency) : String(spend),
+      currency !== null && currency !== ''
+        ? costTick(spend, currency)
+        : String(spend),
     [currency],
   );
 

@@ -90,7 +90,7 @@ const oneOf = <T extends string>(
 
   const found = values.find((each) => each === query);
 
-  if (!found) {
+  if (found === undefined || found === '') {
     throw new InvalidRunFilterError(
       `${what} must be one of ${values.join(', ')}, not ${query}`,
     );

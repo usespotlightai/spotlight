@@ -12,6 +12,7 @@ import type {
   ProposedQuestion,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const NO_FACTS: DiffFacts = { hunks: [], links: [], imports: [] };
@@ -96,7 +97,7 @@ const problemsOf = (cohorts: ProposedCohort[]) => {
 
 describe('StackProposal', () => {
   it('keeps one note per file a layer touches', () => {
-    const [cohort] = validated(proposal(NOTED));
+    const [cohort] = optionalItems(validated(proposal(NOTED)));
 
     expect(cohort?.layers[0]?.hunks).toEqual([
       { hunk: HunkId.of('h1') },
@@ -165,7 +166,9 @@ describe('StackProposal', () => {
   });
 
   it('numbers the questions of a layer and keeps each cited hunk once', () => {
-    const [cohort] = validated(proposal(NOTED, 'change', [ASKED]));
+    const [cohort] = optionalItems(
+      validated(proposal(NOTED, 'change', [ASKED])),
+    );
 
     expect(cohort?.layers[0]?.questions).toEqual([
       {
@@ -191,12 +194,14 @@ describe('StackProposal', () => {
   });
 
   it('drops a question without an answer, or with hunks it cannot cite, and keeps the stack', () => {
-    const [cohort] = validated(
-      proposal(NOTED, 'change', [
-        { question: 'Why?', answer: ' ', hunks: [] },
-        { ...ASKED, hunks: [HunkId.of('h9')] },
-        ASKED,
-      ]),
+    const [cohort] = optionalItems(
+      validated(
+        proposal(NOTED, 'change', [
+          { question: 'Why?', answer: ' ', hunks: [] },
+          { ...ASKED, hunks: [HunkId.of('h9')] },
+          ASKED,
+        ]),
+      ),
     );
 
     expect(cohort?.layers[0]?.questions.map((each) => each.id)).toEqual([

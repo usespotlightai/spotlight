@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   SetupAbout,
   type SetupAboutProps,
@@ -11,7 +13,9 @@ type SetupStepsSkeletonProps = {
   about: SetupAboutProps | undefined;
 };
 
-export function SetupStepsSkeleton({ about }: SetupStepsSkeletonProps) {
+export function SetupStepsSkeleton({
+  about,
+}: SetupStepsSkeletonProps): ReactElement {
   return (
     <div
       role="status"

@@ -11,17 +11,21 @@ export const chatsInMemory = (): ChatsPort & {
 
   return {
     stored,
-    note: async (chat) => {
+    note: (chat) => {
       if (!stored.has(chat.chatId)) {
         stored.set(chat.chatId, chat);
       }
+
+      return Promise.resolve();
     },
-    removeIn: async (scope) => {
+    removeIn: (scope) => {
       for (const [id, each] of stored) {
         if (ownedIn(scope, each)) {
           stored.delete(id);
         }
       }
+
+      return Promise.resolve();
     },
   };
 };

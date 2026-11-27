@@ -23,9 +23,11 @@ describe('RunRequesterLabels', () => {
     const labels = new RunRequesterLabels();
     labels.register({
       owner: 'work',
-      labelsOf: async (requesters) => {
+      labelsOf: (requesters) => {
         asked.push(...requesters.map(requesterRefOf));
-        return new Map([[requesterRefOf(task), { title: 'Fix the queue' }]]);
+        return Promise.resolve(
+          new Map([[requesterRefOf(task), { title: 'Fix the queue' }]]),
+        );
       },
     });
 

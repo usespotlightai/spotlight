@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
 import { LineBoard } from '@/routes/LineBoard';
+import { htmlElement } from '@/test/elements';
 
 const line = {
   id: 'line_1',
@@ -23,7 +24,7 @@ vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [] }),
 }));
 const lined = vi.fn<(...args: unknown[]) => unknown>();
-const linesFailing = vi.fn();
+const linesFailing = vi.fn<() => boolean>();
 const refetchLines = vi.fn();
 
 vi.mock('@/hooks/api/useLines', () => ({
@@ -88,7 +89,7 @@ const tasks = [
 const added = vi.fn();
 const moved = vi.fn();
 const listed = vi.fn<(...args: unknown[]) => unknown>();
-const tasksFailing = vi.fn();
+const tasksFailing = vi.fn<() => boolean>();
 const refetchTasks = vi.fn();
 
 vi.mock('@/hooks/api/useTasks', () => ({
@@ -298,7 +299,8 @@ describe('LineBoard', () => {
   it('puts each task at the station it belongs to', () => {
     renderAt('line_1');
 
-    const [triage, spec] = sections();
+    const triage = sections().at(0);
+    const spec = sections().at(1);
 
     expect(triage?.textContent).toContain('Fix the queue');
     expect(spec?.textContent).not.toContain('Fix the queue');
@@ -459,9 +461,11 @@ describe('LineBoard', () => {
       screen.getByRole('checkbox', { name: 'Select Drain the backlog' }),
     );
 
-    const [first, second] = Array.from(
+    const rows = Array.from(
       document.querySelectorAll('[data-slot="task-row"]'),
     );
+    const first = rows.at(0);
+    const second = rows.at(1);
 
     expect(first?.className).toContain('rounded-b-none');
     expect(first?.className).not.toContain('rounded-t-none');
@@ -477,9 +481,9 @@ describe('LineBoard', () => {
       screen.getByRole('checkbox', { name: 'Select Fix the queue' }),
     );
 
-    const [first] = Array.from(
+    const first = Array.from(
       document.querySelectorAll('[data-slot="task-row"]'),
-    );
+    ).at(0);
 
     expect(first?.className).not.toContain('rounded-t-none');
     expect(first?.className).not.toContain('rounded-b-none');
@@ -554,7 +558,7 @@ describe('LineBoard', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Triage' }));
 
-    const triage = sections()[0] as HTMLElement;
+    const triage = htmlElement(sections().at(0));
 
     expect(within(triage).getByText(/2 selected/)).toBeInTheDocument();
   });
@@ -567,7 +571,7 @@ describe('LineBoard', () => {
       screen.getByRole('checkbox', { name: 'Select Fix the queue' }),
     );
 
-    const triage = sections()[0] as HTMLElement;
+    const triage = htmlElement(sections().at(0));
 
     expect(within(triage).queryByText(/1 selected/)).not.toBeInTheDocument();
   });
@@ -742,7 +746,7 @@ describe('LineBoard', () => {
 
       press('j');
       const rows = document.querySelectorAll('[data-slot="task-row"]');
-      const hovered = rows[rows.length - 1] as HTMLElement;
+      const hovered = htmlElement(rows.item(rows.length - 1));
       fireEvent.pointerEnter(hovered);
       press('a');
 

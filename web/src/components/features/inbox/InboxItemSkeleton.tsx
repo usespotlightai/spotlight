@@ -1,8 +1,10 @@
+import type { ReactElement } from 'react';
+
 import { ConversationSkeleton } from '@/components/features/inbox/conversation/ConversationSkeleton';
 import { InboxHeaderSkeleton } from '@/components/features/inbox/InboxHeaderSkeleton';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 
-export function InboxItemSkeleton() {
+export function InboxItemSkeleton(): ReactElement {
   return (
     <div
       role="status"

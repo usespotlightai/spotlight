@@ -67,13 +67,14 @@ const typeOfTitle = (title: string): PullRequestType | null => {
   const conventional = CONVENTIONAL.exec(title)?.[1]?.toLowerCase();
 
   return (
-    (conventional ? CONVENTIONAL_TYPES.get(conventional) : undefined) ??
-    firstMatch(title, LEADING_WORDS)
+    (conventional !== undefined && conventional !== ''
+      ? CONVENTIONAL_TYPES.get(conventional)
+      : undefined) ?? firstMatch(title, LEADING_WORDS)
   );
 };
 
 const typeOfBranch = (branch: string | null): PullRequestType | null =>
-  branch ? firstMatch(branch, BRANCH_PREFIXES) : null;
+  branch !== null && branch !== '' ? firstMatch(branch, BRANCH_PREFIXES) : null;
 
 const mostOf = (types: readonly PullRequestType[]): PullRequestType | null => {
   const counts = new Map<PullRequestType, number>();

@@ -1,4 +1,5 @@
 import { Activity } from 'lucide-react';
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { TraceView } from '@/components/features/trace/view/TraceView';
@@ -23,7 +24,7 @@ import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
 import { cn } from '@/lib/utils';
 
-export function TaskTrace() {
+export function TaskTrace(): ReactElement | null {
   const { slug, teamId, taskId } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const found = useTask(teamId, taskId);
@@ -33,7 +34,7 @@ export function TaskTrace() {
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
 
   const base: BreadcrumbSegment[] =
-    slug && teamId
+    slug !== undefined && slug !== '' && teamId !== undefined && teamId !== ''
       ? [
           ...(team
             ? [
@@ -46,14 +47,24 @@ export function TaskTrace() {
             : []),
           {
             label: task?.title ?? 'Task',
-            to: taskId ? taskPath(slug, teamId, taskId) : undefined,
+            to:
+              taskId !== undefined && taskId !== ''
+                ? taskPath(slug, teamId, taskId)
+                : undefined,
           },
           { label: 'Trace' },
         ]
       : [];
   const { trail, forward } = useTrail(base, 2);
 
-  if (!slug || !teamId || !taskId) {
+  if (
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === '' ||
+    taskId === undefined ||
+    taskId === ''
+  ) {
     return null;
   }
 

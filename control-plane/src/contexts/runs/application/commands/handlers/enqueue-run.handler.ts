@@ -83,7 +83,10 @@ export class EnqueueRunHandler implements CommandHandlerPort<
           team: null,
         },
         policy: SPEC_POLICY,
-        workingCopy: ordered.key ? workingCopyOf(ordered.key) : null,
+        workingCopy:
+          ordered.key !== null && ordered.key !== ''
+            ? workingCopyOf(ordered.key)
+            : null,
         restore: null,
         extensions: {},
         apiGrant: null,

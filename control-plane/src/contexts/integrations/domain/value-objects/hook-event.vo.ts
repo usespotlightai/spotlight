@@ -68,16 +68,16 @@ const HOOK_EVENT_TRAITS = {
 
 export type HookEventName = keyof typeof HOOK_EVENT_TRAITS;
 
-export const HOOK_EVENTS = Object.keys(
+export const HOOK_EVENTS: readonly HookEventName[] = Object.keys(
   HOOK_EVENT_TRAITS,
-) as readonly HookEventName[];
+).filter((name): name is HookEventName => name in HOOK_EVENT_TRAITS);
 
 const NAMES: ReadonlySet<string> = new Set(HOOK_EVENTS);
 
 const isHookEvent = (name: string): name is HookEventName => NAMES.has(name);
 
 export class HookEvent {
-  private readonly kind = 'hook-event';
+  private readonly kind: string = 'hook-event';
 
   private constructor(readonly name: HookEventName) {}
 

@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import { FilesLoader } from '@work/application/services/files-loader.service';
@@ -10,18 +11,20 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const store = () =>
   ({
     grant: vi.fn(),
-    received: vi.fn(async (_at, ids: readonly AttachmentId[]) =>
-      ids.map((id) =>
-        Attachment.of({
-          id: id.value,
-          name: 'queue.png',
-          contentType: 'image/png',
-          size: 4096,
-        }),
+    received: vi.fn((_at, ids: readonly AttachmentId[]) =>
+      Promise.resolve(
+        ids.map((id) =>
+          Attachment.of({
+            id: id.value,
+            name: 'queue.png',
+            contentType: 'image/png',
+            size: 4096,
+          }),
+        ),
       ),
     ),
     save: vi.fn(),
-    stored: vi.fn(async () => true),
+    stored: vi.fn(() => Promise.resolve(true)),
     taken: vi.fn(),
     copy: vi.fn(),
     link: vi.fn(),
@@ -44,11 +47,8 @@ describe('FilesLoader', () => {
       }),
     ]);
 
-    const [, requested] = files.received.mock.calls[0] as unknown as [
-      unknown,
-      readonly AttachmentId[],
-    ];
-    expect(requested.map((each) => each.value)).toEqual(['file_1']);
+    const requested = firstOf(files.received.mock.calls)?.[1];
+    expect(requested?.map((each) => each.value)).toEqual(['file_1']);
   });
 
   it('rejects an id that names anywhere but a file', async () => {

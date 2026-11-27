@@ -1,4 +1,4 @@
-import { use, useState } from 'react';
+import { type ReactElement, use, useState } from 'react';
 
 import { ApprovalAction } from '@/components/features/inbox/conversation/approval/ApprovalAction';
 import { ApprovalControls } from '@/components/features/inbox/conversation/approval/ApprovalControls';
@@ -31,7 +31,7 @@ export function ApprovalCard({
   pending,
   outdated = false,
   onDecide,
-}: ApprovalCardProps) {
+}: ApprovalCardProps): ReactElement {
   const [mode, setMode] = useState<ApprovalMode>('viewing');
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [reason, setReason] = useState('');
@@ -79,7 +79,11 @@ export function ApprovalCard({
           approval={approval}
           pending={pending}
           acting={!deciding || mode === 'viewing'}
-          onEdit={deciding && !onlyFor ? () => setMode('editing') : undefined}
+          onEdit={
+            deciding && (onlyFor === null || onlyFor === '')
+              ? () => setMode('editing')
+              : undefined
+          }
         />
 
         {deciding && mode === 'editing' ? (

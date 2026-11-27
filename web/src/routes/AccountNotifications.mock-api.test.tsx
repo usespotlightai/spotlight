@@ -23,16 +23,19 @@ const browserWith = (permission: NotificationPermission) => {
       return ENDPOINT;
     },
     toJSON: () => ({ keys: { p256dh: 'p'.repeat(87), auth: 'a'.repeat(22) } }),
-    unsubscribe: async () => {
+    unsubscribe: () => {
       state.endpoint = null;
-      return true;
+      return Promise.resolve(true);
     },
   };
   const pushManager = {
-    getSubscription: async () => (state.endpoint ? subscription : null),
-    subscribe: vi.fn(async () => {
+    getSubscription: () =>
+      Promise.resolve(
+        state.endpoint !== null && state.endpoint !== '' ? subscription : null,
+      ),
+    subscribe: vi.fn(() => {
       state.endpoint = ENDPOINT;
-      return subscription;
+      return Promise.resolve(subscription);
     }),
   };
   const registration = { pushManager };
@@ -40,9 +43,9 @@ const browserWith = (permission: NotificationPermission) => {
   const notification = Object.defineProperties(vi.fn(), {
     permission: { get: () => state.permission },
     requestPermission: {
-      value: async () => {
+      value: () => {
         state.permission = 'granted';
-        return state.permission;
+        return Promise.resolve(state.permission);
       },
     },
   });
@@ -52,8 +55,8 @@ const browserWith = (permission: NotificationPermission) => {
   Object.defineProperty(navigator, 'serviceWorker', {
     configurable: true,
     value: {
-      register: async () => registration,
-      getRegistration: async () => registration,
+      register: () => Promise.resolve(registration),
+      getRegistration: () => Promise.resolve(registration),
     },
   });
 

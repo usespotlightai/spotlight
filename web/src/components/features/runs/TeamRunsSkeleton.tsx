@@ -1,11 +1,12 @@
 import { ChevronDown } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { RunRowSkeleton } from '@/components/features/runs/RunRowSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-export function TeamRunsSkeleton() {
+export function TeamRunsSkeleton(): ReactElement {
   return (
     <ScrollArea
       className="min-h-0 flex-1"

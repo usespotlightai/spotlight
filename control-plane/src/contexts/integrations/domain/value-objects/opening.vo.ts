@@ -12,7 +12,8 @@ export class Opening {
 
   static of(input: { lineRole: string; station?: string | null }): Opening {
     const lineRole = input.lineRole.trim();
-    const station = input.station?.trim() || null;
+    const written = input.station?.trim();
+    const station = written === undefined || written === '' ? null : written;
 
     if (!isSlug(lineRole)) {
       throw new InvalidIdentifierError(

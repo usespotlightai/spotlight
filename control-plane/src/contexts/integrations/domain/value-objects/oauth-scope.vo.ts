@@ -4,7 +4,7 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 const SCOPE_TOKEN = /^[\x21\x23-\x5B\x5D-\x7E]+$/;
 
 export class OAuthScope {
-  private readonly kind = 'oauth-scope';
+  private readonly kind: string = 'oauth-scope';
 
   private constructor(readonly value: string) {}
 

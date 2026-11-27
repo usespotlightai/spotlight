@@ -48,8 +48,10 @@ const stored = async (runId: string) => {
 beforeAll(async () => {
   database = await openDatabase('judge_disagreement_answers');
   const events: DomainEventDispatcher = {
-    dispatch: async (each: readonly DomainEvent[]) => {
+    dispatch: (each: readonly DomainEvent[]) => {
       dispatched.push(...each);
+
+      return Promise.resolve();
     },
   };
   disagreements = new DrizzleJudgeDisagreementRepository(
@@ -59,7 +61,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 describe('answers to a judge disagreement, one claim at a time', () => {

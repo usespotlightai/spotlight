@@ -3,7 +3,7 @@ import { InvalidWorkspaceNameError } from '@identity/domain/exceptions/invalid-w
 const MAX_LENGTH = 100;
 
 export class WorkspaceName {
-  private readonly kind = 'workspace-name' as const;
+  private readonly kind: string = 'workspace-name';
 
   private constructor(readonly value: string) {}
 

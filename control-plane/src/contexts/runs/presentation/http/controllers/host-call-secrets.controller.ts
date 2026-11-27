@@ -18,6 +18,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { InAudience } from '@platform/http/decorators/in-audience.decorator';
@@ -59,9 +60,10 @@ export class HostCallSecretsController {
   @ApiUnprocessableEntityResponse({
     description: 'The recipient is not an X25519 public key',
   })
+  @ApiBody({ type: RedeemCallSecretsRequestDto })
   async redeemSecrets(
     @Param('id') id: string,
-    @Body() body: RedeemCallSecretsRequestDto,
+    @Body() body: RedeemCallSecretsRequestDto | undefined,
   ): Promise<EgressSecretsResponseDto> {
     const redeemed = await this.commandBus.execute<
       RedeemCallSecretsCommand,

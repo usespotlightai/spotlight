@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -69,14 +70,16 @@ const taskAt = (id: string, markedAt: Date | null): Task => {
 const releasing = (holders: readonly Task[]) => {
   const stored = new Map(holders.map((each) => [each.id.value, each]));
   const saved: Task[] = [];
-  const tasks = {
-    holdingMark: vi.fn(async () => [...stored.values()]),
-    find: vi.fn(async (id: TaskId) => stored.get(id.value) ?? null),
-    save: vi.fn(async (each: Task) => {
+  const tasks = partial<TaskRepository>({
+    holdingMark: vi.fn(() => Promise.resolve([...stored.values()])),
+    find: vi.fn((id: TaskId) => Promise.resolve(stored.get(id.value) ?? null)),
+    save: vi.fn((each: Task) => {
       saved.push(each);
       stored.set(each.id.value, each);
+
+      return Promise.resolve();
     }),
-  } as unknown as TaskRepository;
+  });
 
   return {
     saved,

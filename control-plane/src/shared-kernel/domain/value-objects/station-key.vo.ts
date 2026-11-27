@@ -14,7 +14,7 @@ const RESERVED: ReadonlyMap<string, string> = new Map([
 ]);
 
 export class StationKey {
-  private readonly kind = 'station-key';
+  private readonly kind: string = 'station-key';
 
   private constructor(readonly value: string) {}
 
@@ -30,7 +30,7 @@ export class StationKey {
 
     const reserved = RESERVED.get(named);
 
-    if (reserved) {
+    if (reserved !== undefined && reserved !== '') {
       throw new InvalidIdentifierError(
         'station key',
         `cannot be ${named}. A run names ${named} in its handover to ${reserved}`,

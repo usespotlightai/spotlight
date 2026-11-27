@@ -1,4 +1,5 @@
 import { CircleDashed, Layers, TriangleAlert } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Notice } from '@/components/shared/Notice';
@@ -20,7 +21,7 @@ type ChangeStackNoticeProps = {
 export function ChangeStackNotice({
   stack,
   back: target,
-}: ChangeStackNoticeProps) {
+}: ChangeStackNoticeProps): ReactElement {
   const back = target && (
     <TrailLink
       to={target.to}

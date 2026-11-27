@@ -84,6 +84,7 @@ export class AdminEventWebhookController {
     description: 'This deployment sets no event webhook',
   })
   @ApiNotFoundResponse({ description: 'No admin token is set' })
+  @ApiBody({ type: RedeliverEventWebhookRequestDto })
   async redeliver(
     @Body() body: RedeliverEventWebhookRequestDto | undefined,
   ): Promise<RedeliverEventWebhookResponseDto> {

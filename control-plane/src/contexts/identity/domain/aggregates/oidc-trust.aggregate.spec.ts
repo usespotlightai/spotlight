@@ -107,8 +107,10 @@ describe('OidcTrust', () => {
   it('records the exchange as the issued token itself, naming the trust and the workload', () => {
     const [issued] = issuedToken().pullEvents();
 
-    expect(issued).toBeInstanceOf(WorkspaceTokenIssued);
-    expect((issued as WorkspaceTokenIssued).change.by.actor).toMatchObject({
+    if (!(issued instanceof WorkspaceTokenIssued)) {
+      throw new Error('expected a WorkspaceTokenIssued');
+    }
+    expect(issued.change.by.actor).toMatchObject({
       principal: {
         grant: {
           tokenId: WorkspaceTokenId.of('token_9'),
@@ -116,7 +118,7 @@ describe('OidcTrust', () => {
         },
       },
     });
-    expect((issued as WorkspaceTokenIssued).change.recordedDetail).toEqual({
+    expect(issued.change.recordedDetail).toEqual({
       trust: 'trust_1',
       subject: MAIN,
       scopes: ['configure', 'secrets'],

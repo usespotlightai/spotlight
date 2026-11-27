@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
 import { PersonToolPolicyVersionConflictError } from '@integrations/domain/exceptions/person-tool-policy-version-conflict.error';
 import type { PersonToolPolicyRepository } from '@integrations/domain/repositories/person-tool-policy.repository';
@@ -32,7 +33,7 @@ export class DrizzlePersonToolPolicies implements PersonToolPolicyRepository {
     personId: UserId,
     integration: IntegrationKey,
   ): Promise<PersonToolPolicy | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(personToolPolicy)
       .where(
@@ -42,7 +43,7 @@ export class DrizzlePersonToolPolicies implements PersonToolPolicyRepository {
           eq(personToolPolicy.integration, integration.value),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return found ? rehydrate(found) : null;
   }

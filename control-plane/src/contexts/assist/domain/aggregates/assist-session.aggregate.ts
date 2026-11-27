@@ -55,7 +55,7 @@ const isSettled = (progress: AssistProgress): boolean =>
   progress.status === 'submitted' || progress.status === 'failed';
 
 const modelOf = ({ harness, model }: AssistHarness): string =>
-  model ? `${harness}/${model}` : harness;
+  model !== null && model !== '' ? `${harness}/${model}` : harness;
 
 export class AssistSession extends EventRecorder {
   private constructor(private readonly fields: AssistSessionFields) {

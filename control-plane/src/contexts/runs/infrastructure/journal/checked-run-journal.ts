@@ -63,7 +63,12 @@ export class CheckedRunJournal implements RunJournalPort {
     await this.journal.append(attempt, entries);
 
     for (const entry of entries) {
-      if (entry.data && carriesJson(entry) && !readable(entry.data)) {
+      if (
+        entry.data !== undefined &&
+        entry.data !== '' &&
+        carriesJson(entry) &&
+        !readable(entry.data)
+      ) {
         this.unread(attempt, entry);
       }
     }

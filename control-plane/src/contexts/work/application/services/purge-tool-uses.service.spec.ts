@@ -11,9 +11,9 @@ describe('PurgeToolUses', () => {
     const purged = await new PurgeToolUses(
       {
         record: async () => {},
-        purgeBefore: async (before, max) => {
+        purgeBefore: (before, max) => {
           asked.push({ before, max });
-          return batches.shift() ?? 0;
+          return Promise.resolve(batches.shift() ?? 0);
         },
       },
       { now: () => NOW, sleep: async () => {} },

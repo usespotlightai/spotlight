@@ -49,7 +49,7 @@ export class RecordRunMemories {
   async used(event: RunMemoriesReceived): Promise<void> {
     const via = event.via;
 
-    if (!event.taskId || !isMemoryVia(via)) {
+    if (event.taskId === null || event.taskId === '' || !isMemoryVia(via)) {
       return;
     }
 

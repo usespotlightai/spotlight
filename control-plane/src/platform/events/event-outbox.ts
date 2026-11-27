@@ -143,7 +143,7 @@ export class EventOutbox implements DomainEventDispatcher {
       subscribers: hearing.length,
     });
 
-    if (!id) {
+    if (id === null || id === '') {
       return;
     }
 

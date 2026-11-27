@@ -8,10 +8,12 @@ import {
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
@@ -27,13 +29,17 @@ const keyOf = (...parts: Parameters<AvatarImagesPort['read']>) =>
   `${parts[0].toString()}/${parts[1].value}`;
 
 const images: AvatarImagesPort = {
-  put: async (owner, imageId, image) =>
-    void stored.set(keyOf(owner, imageId), {
-      bytes: image.bytes,
-      contentType: image.contentType,
-    }),
-  read: async (owner, imageId) => stored.get(keyOf(owner, imageId)) ?? null,
-  remove: async (owner, imageId) => void stored.delete(keyOf(owner, imageId)),
+  put: (owner, imageId, image) =>
+    Promise.resolve(
+      void stored.set(keyOf(owner, imageId), {
+        bytes: image.bytes,
+        contentType: image.contentType,
+      }),
+    ),
+  read: (owner, imageId) =>
+    Promise.resolve(stored.get(keyOf(owner, imageId)) ?? null),
+  remove: (owner, imageId) =>
+    Promise.resolve(void stored.delete(keyOf(owner, imageId))),
   removeAllOfTeam: async () => {},
   removeAllIn: async () => {},
 };
@@ -56,10 +62,10 @@ describe('avatars (e2e)', () => {
   });
 
   const workspaceOf = async (userId: string) =>
-    (await as(userId).get(`/api/workspaces/${id}`).expect(200)).body as {
+    bodyOf<{
       avatarUrl: string | null;
       teams: { id: string; avatarUrl: string | null }[];
-    };
+    }>(await as(userId).get(`/api/workspaces/${id}`).expect(200));
 
   beforeAll(async () => {
     app = await openApp((module) =>
@@ -92,14 +98,13 @@ describe('avatars (e2e)', () => {
       .expect(200);
     expect(image.headers['content-type']).toBe('image/png');
     expect(image.headers['cache-control']).toContain('immutable');
-    expect(Buffer.from(image.body as Buffer)).toEqual(PNG);
+    expect(Buffer.from(bodyOf<Buffer>(image))).toEqual(PNG);
   });
 
   it('keeps the Terraform version of a team when its avatar changes', async () => {
     const versionOfTeam = async () =>
-      (
-        (await as(seat.owner).get(`/api/v1/resources/teams/${id}`).expect(200))
-          .body as { version: number }
+      bodyOf<{ version: number }>(
+        await as(seat.owner).get(`/api/v1/resources/teams/${id}`).expect(200),
       ).version;
     const before = await versionOfTeam();
 
@@ -107,7 +112,7 @@ describe('avatars (e2e)', () => {
 
     expect(await versionOfTeam()).toBe(before);
 
-    const [team] = (await workspaceOf(seat.member)).teams;
+    const team = firstOf((await workspaceOf(seat.member)).teams);
     expect(team?.avatarUrl).toMatch(
       new RegExp(`^/api/teams/${id}/avatar/[0-9a-f]{64}$`),
     );
@@ -128,7 +133,7 @@ describe('avatars (e2e)', () => {
     await as(seat.owner)
       .get(second ?? '')
       .expect(200);
-    await eventually(async () => stored.size === 2);
+    await eventually(() => Promise.resolve(stored.size === 2));
   });
 
   it('writes nothing when the image is the one shown', async () => {
@@ -167,8 +172,8 @@ describe('avatars (e2e)', () => {
     await as(seat.owner).delete(`/api/teams/${id}/avatar`).expect(204);
     await as(seat.owner).delete(`/api/teams/${id}/avatar`).expect(204);
 
-    const [team] = (await workspaceOf(seat.owner)).teams;
+    const team = firstOf((await workspaceOf(seat.owner)).teams);
     expect(team?.avatarUrl).toBeNull();
-    await eventually(async () => stored.size === 1);
+    await eventually(() => Promise.resolve(stored.size === 1));
   });
 });

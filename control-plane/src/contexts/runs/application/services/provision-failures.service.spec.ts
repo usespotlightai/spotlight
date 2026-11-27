@@ -10,6 +10,7 @@ import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
@@ -43,20 +44,18 @@ const failing = (stored: Run, conflicts = 0) => {
   let current = stored;
   let clashes = conflicts;
   const written: number[] = [];
-  const append = vi.fn(
-    async (_: RunAttempt, entry: { type: string; at: Date }) => {
-      const seq = JournalSeq.firstControlPlane - written.length;
-      written.push(seq);
-      return { seq, type: entry.type, at: entry.at };
-    },
-  );
+  const append = vi.fn((_: RunAttempt, entry: { type: string; at: Date }) => {
+    const seq = JournalSeq.firstControlPlane - written.length;
+    written.push(seq);
+    return Promise.resolve({ seq, type: entry.type, at: entry.at });
+  });
   const publish = vi.fn();
   const marks = new ProvisionFailureMarks(
-    { appendControlPlaneEntry: append } as unknown as RunJournalPort,
-    { publish } as unknown as RunStreamPort,
+    partial<RunJournalPort>({ appendControlPlaneEntry: append }),
+    partial<RunStreamPort>({ publish }),
   );
   const runs = {
-    findById: vi.fn(async () => current),
+    findById: vi.fn(() => Promise.resolve(current)),
     save: vi.fn(async (run: Run) => {
       if (clashes > 0) {
         clashes -= 1;
@@ -76,7 +75,7 @@ const failing = (stored: Run, conflicts = 0) => {
     append,
     publish,
     current: () => current,
-    failures: new ProvisionFailures(runs as unknown as RunRepository),
+    failures: new ProvisionFailures(partial<RunRepository>(runs)),
   };
 };
 

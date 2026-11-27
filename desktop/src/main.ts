@@ -109,7 +109,7 @@ const opened = (url: string) => {
 const followLink = (link: string) => {
   const page = pageOf(link, origin);
 
-  if (!page) {
+  if (page === null) {
     return;
   }
 
@@ -154,14 +154,12 @@ const rememberPlaceOf = (window: BrowserWindow) => {
   window.on('resize', soon);
   window.on('move', soon);
 
-  for (const change of [
-    'maximize',
-    'unmaximize',
-    'enter-full-screen',
-    'leave-full-screen',
-  ] as const) {
-    window.on(change as 'maximize', () => remember(window));
-  }
+  const rememberNow = () => remember(window);
+
+  window.on('maximize', rememberNow);
+  window.on('unmaximize', rememberNow);
+  window.on('enter-full-screen', rememberNow);
+  window.on('leave-full-screen', rememberNow);
 
   window.on('closed', () => clearTimeout(pending));
 };
@@ -249,13 +247,13 @@ const createMain = () => {
   const window = spotlightWindow(saved?.bounds ?? DEFAULT_SIZE, false);
 
   window.once('ready-to-show', () => {
-    if (saved?.maximized) {
+    if (saved?.maximized === true) {
       window.maximize();
     }
 
     window.show();
 
-    if (saved?.fullScreen) {
+    if (saved?.fullScreen === true) {
       window.setFullScreen(true);
     }
   });
@@ -279,7 +277,9 @@ const createMain = () => {
 
   const link = pendingLink;
   pendingLink = null;
-  void window.loadURL((link && pageOf(link, origin)) ?? origin).catch(ignored);
+  void window
+    .loadURL((link === null ? null : pageOf(link, origin)) ?? origin)
+    .catch(ignored);
 };
 
 const openWindow = (page: string, from: BrowserWindow | null) => {
@@ -536,7 +536,7 @@ if (!app.requestSingleInstanceLock()) {
 
     const front = frontWindow();
 
-    if (link) {
+    if (link !== null) {
       followLink(link);
     } else if (front) {
       shown(front);
@@ -604,7 +604,7 @@ if (!app.requestSingleInstanceLock()) {
     const page =
       typeof path === 'string' ? workspacePageOf(path, origin) : null;
 
-    if (fromSpotlight(event.senderFrame) && page) {
+    if (fromSpotlight(event.senderFrame) && page !== null) {
       openWindow(page, BrowserWindow.fromWebContents(event.sender));
     }
   });
@@ -633,7 +633,7 @@ if (!app.requestSingleInstanceLock()) {
 
     const saved = typeof address === 'string' ? settings.save(address) : null;
 
-    if (!saved) {
+    if (saved === null) {
       return false;
     }
 

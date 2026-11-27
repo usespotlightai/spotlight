@@ -34,7 +34,7 @@ export class HarnessCommand {
       ({ id, value, optional }) => ({
         id: id.trim(),
         value: value.trim(),
-        ...(optional ? { optional: true } : {}),
+        ...(optional === true ? { optional: true } : {}),
       }),
     );
 

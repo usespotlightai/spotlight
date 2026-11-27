@@ -11,6 +11,7 @@ import {
   queueTimeout,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { ReviewWorkId } from '@shared-kernel/domain/value-objects/review-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -62,21 +63,22 @@ const checkOf = (
 const rechecking = (stored: StackCheck[]) => {
   const added: StackCheck[] = [];
   const all = () => [...stored, ...added];
-  const checks = {
-    ofRun: async () => all(),
-    find: async (id: StackCheckId) =>
-      all().find((each) => each.id.equals(id)) ?? null,
-    add: async (check: StackCheck) => {
+  const checks = partial<StackCheckRepository>({
+    ofRun: () => Promise.resolve(all()),
+    find: (id: StackCheckId) =>
+      Promise.resolve(all().find((each) => each.id.equals(id)) ?? null),
+    add: (check: StackCheck) => {
       added.push(check);
+      return Promise.resolve();
     },
-  } as unknown as StackCheckRepository;
+  });
 
   return {
     added,
     service: new RecheckTrialChanges(
       checks,
       { inTransaction: (work) => work() },
-      { now: () => NOW, sleep: async () => undefined },
+      { now: () => NOW, sleep: () => Promise.resolve() },
     ),
   };
 };

@@ -31,17 +31,17 @@ import {
   candidateOf,
   later,
   NOW,
-  STATION,
   searchRunIds,
+  STATION,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
-import type { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SEARCH_SKIP_REASONS } from '@replays/domain/value-objects/search-skip-reason';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -55,11 +55,13 @@ let noticed: SearchNotice[];
 let advised: StationNotice[];
 
 const notices = {
-  notify: async (notice: SearchNotice) => {
+  notify: (notice: SearchNotice) => {
     noticed.push(notice);
+    return Promise.resolve();
   },
-  advise: async (notice: StationNotice) => {
+  advise: (notice: StationNotice) => {
     advised.push(notice);
+    return Promise.resolve();
   },
 };
 
@@ -100,7 +102,7 @@ const picking = () =>
 const finishedWithNothing = (requestedBy?: string): Search =>
   aSearch({
     set: aSet(10),
-    ...(requestedBy ? { requestedBy } : {}),
+    ...(requestedBy !== undefined && requestedBy !== '' ? { requestedBy } : {}),
   }).recordReplayEndState(
     ReplayId.of('replay_seed'),
     'ceiling-reached',
@@ -211,7 +213,7 @@ describe('PickSearchCandidates', () => {
     const search = finishedWithNothing();
 
     await memory.searchRepository.add(search);
-    suppliers.lines.station = async () => null;
+    suppliers.lines.station = () => Promise.resolve(null);
     await picking().searchEnded(ended(search, 'finished'));
 
     expect(memory.searches.get(search.id.value)?.pick).toEqual({
@@ -418,7 +420,7 @@ describe('NoticeSearchResults', () => {
       new ConfigPullRequestFailed(
         failed.id,
         STATION.workspaceId,
-        failed.reason as ConfigPullRequestReason,
+        present(failed.reason),
       ),
     );
 
@@ -514,10 +516,7 @@ describe('SearchSchedules', () => {
         NOW,
       );
 
-    memory.schedules.set(
-      STATION.stationId.value,
-      rejected as StationSearchSchedule,
-    );
+    memory.schedules.set(STATION.stationId.value, present(rejected));
     await schedules().lineChanged(STATION.lineId);
 
     expect(memory.schedules.get(STATION.stationId.value)).toMatchObject({

@@ -14,6 +14,7 @@ import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -44,16 +45,18 @@ const permissions = (allowed: boolean): WorkspacePermissions => ({
 
 const kept = () => {
   const stored = new Map<string, OidcTrust>();
-  const trusts = {
-    add: async (trust: OidcTrust) => {
+  const trusts = partial<OidcTrustRepository>({
+    add: (trust: OidcTrust) => {
       stored.set(trust.key.value, trust);
+      return Promise.resolve();
     },
-    save: async (trust: OidcTrust) => {
+    save: (trust: OidcTrust) => {
       stored.set(trust.key.value, trust);
+      return Promise.resolve();
     },
-    findByKey: async (_: WorkspaceId, key: { value: string }) =>
-      stored.get(key.value) ?? null,
-  } as unknown as OidcTrustRepository;
+    findByKey: (_: WorkspaceId, key: { value: string }) =>
+      Promise.resolve(stored.get(key.value) ?? null),
+  });
 
   return { stored, trusts };
 };
@@ -62,15 +65,15 @@ const trusting = (admin = true) => {
   const { stored, trusts } = kept();
   let next = 0;
   const service = new GitHubActionsTrusts(
-    {
-      permissionsIn: async () => permissions(admin),
-    } as unknown as WorkspaceAccessPort,
+    partial<WorkspaceAccessPort>({
+      permissionsIn: () => Promise.resolve(permissions(admin)),
+    }),
     trusts,
     { generate: () => `trust_${++next}` },
     { inTransaction: (work) => work() },
     {
       now: () => new Date('2026-10-26T10:00:00Z'),
-      sleep: async () => undefined,
+      sleep: () => Promise.resolve(undefined),
     },
   );
 

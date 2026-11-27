@@ -15,7 +15,11 @@ type WithTooltipProps = {
   children: ReactElement<Record<string, unknown>>;
 };
 
-export function WithTooltip({ tooltip, named, children }: WithTooltipProps) {
+export function WithTooltip({
+  tooltip,
+  named,
+  children,
+}: WithTooltipProps): ReactElement {
   const tooltipId = useId();
   const [open, setOpen] = useState(false);
   const tapped = useRef(false);

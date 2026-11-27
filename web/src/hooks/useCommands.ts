@@ -8,7 +8,7 @@ const signatureOf = (commands: readonly Command[]) =>
     .map((each) => `${each.id}:${each.title ?? ''}:${each.to ?? ''}`)
     .join('|');
 
-export function useCommands(commands: readonly Command[]) {
+export function useCommands(commands: readonly Command[]): void {
   const registry = use(CommandsContext);
   const { active, depth } = use(CommandScopeContext);
   const latest = useRef(commands);

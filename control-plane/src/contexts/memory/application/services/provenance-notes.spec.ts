@@ -5,8 +5,8 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const people: PeoplePort = {
-  viewerOf: async () => null,
-  find: async () => ({ name: 'Maya Chen', image: 'https://a/1.png' }),
+  viewerOf: () => Promise.resolve(null),
+  find: () => Promise.resolve({ name: 'Maya Chen', image: 'https://a/1.png' }),
 };
 
 describe('provenanceNotes', () => {

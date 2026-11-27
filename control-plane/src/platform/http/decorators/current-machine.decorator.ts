@@ -10,7 +10,7 @@ export const CurrentMachine = createParamDecorator(
       REQUEST_MACHINE
     ];
 
-    if (!machineId) {
+    if (machineId === undefined || machineId === '') {
       throw new Error(
         'No machine on the request. Is the route @MachineOnly()?',
       );

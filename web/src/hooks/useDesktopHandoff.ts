@@ -14,12 +14,14 @@ const linkAtLoad = (): string | null =>
     ? null
     : desktopLinkOf(window.location);
 
-export function useDesktopHandoff() {
+type DesktopHandoffResult = { link: string | null; stayHere: () => void };
+
+export function useDesktopHandoff(): DesktopHandoffResult {
   const [link, setLink] = useState(linkAtLoad);
   const [atLoad] = useState(link);
 
   useEffect(() => {
-    if (atLoad) {
+    if (atLoad !== null && atLoad !== '') {
       handOffOnce(atLoad);
     }
   }, [atLoad]);

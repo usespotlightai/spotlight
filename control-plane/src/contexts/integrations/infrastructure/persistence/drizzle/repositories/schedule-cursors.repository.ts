@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { ScheduleCursor } from '@integrations/domain/aggregates/schedule-cursor.aggregate';
 import { ScheduleCursorVersionConflictError } from '@integrations/domain/exceptions/schedule-cursor-version-conflict.error';
 import type { ScheduleCursorRepository } from '@integrations/domain/repositories/schedule-cursor.repository';
@@ -17,7 +18,7 @@ export class DrizzleScheduleCursors implements ScheduleCursorRepository {
     teamId: TeamId,
     integration: IntegrationKey,
   ): Promise<ScheduleCursor> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(scheduleCursor)
       .where(
@@ -26,7 +27,7 @@ export class DrizzleScheduleCursors implements ScheduleCursorRepository {
           eq(scheduleCursor.integration, integration.value),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return found
       ? ScheduleCursor.rehydrate({

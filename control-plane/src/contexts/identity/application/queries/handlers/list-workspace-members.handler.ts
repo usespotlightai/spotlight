@@ -25,7 +25,7 @@ export class ListWorkspaceMembersHandler implements QueryHandlerPort<
         WorkspaceSlug.of(query.slug),
       );
 
-      if (!workspace?.hasMember(viewer)) {
+      if (workspace?.hasMember(viewer) !== true) {
         return null;
       }
 

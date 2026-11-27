@@ -1,4 +1,5 @@
 import { CirclePause, Inbox } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { PillLink } from '@/components/shared/PillLink';
 import { inboxItemPath, inboxPath } from '@/lib/inbox';
@@ -9,7 +10,7 @@ type RunWaitingProps = {
   run: Run;
 };
 
-export function RunWaiting({ slug, run }: RunWaitingProps) {
+export function RunWaiting({ slug, run }: RunWaitingProps): ReactElement {
   return (
     <div
       data-slot="run-waiting"

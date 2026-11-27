@@ -80,7 +80,7 @@ export class PendingSearchSteps implements PendingJobsPort {
       await this.transaction.inTransaction(async () => {
         const budget = await this.budgets.locked(lineId, monthStartOf(at));
 
-        if (budget?.admits(searchId)) {
+        if (budget?.admits(searchId) === true) {
           await this.budgets.save(budget.withdrawn(searchId));
         }
       });

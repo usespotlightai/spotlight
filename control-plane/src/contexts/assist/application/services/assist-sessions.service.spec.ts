@@ -44,24 +44,24 @@ class InMemorySessions implements AssistSessionRepository {
   conflicts = 0;
   raced: 'none' | 'lost' | 'vanished' = 'none';
 
-  async findOrdered(
+  findOrdered(
     workspaceId: WorkspaceId,
     purpose: AssistPurpose,
     key: AssistSessionKey,
   ) {
-    return (
+    return Promise.resolve(
       [...this.stored.values()].find(
         (each) =>
           each.workspaceId.equals(workspaceId) &&
           each.purpose.equals(purpose) &&
           each.key.equals(key),
-      ) ?? null
+      ) ?? null,
     );
   }
 
-  async findByRun(run: RunId) {
-    return (
-      [...this.stored.values()].find((each) => each.run.equals(run)) ?? null
+  findByRun(run: RunId) {
+    return Promise.resolve(
+      [...this.stored.values()].find((each) => each.run.equals(run)) ?? null,
     );
   }
 
@@ -86,23 +86,27 @@ class InMemorySessions implements AssistSessionRepository {
     return true;
   }
 
-  async save(session: AssistSession) {
+  save(session: AssistSession) {
     if (this.conflicts > 0) {
       this.conflicts -= 1;
-      throw new AssistSessionVersionConflictError();
+      return Promise.reject(new AssistSessionVersionConflictError());
     }
     this.stored.set(session.id.value, session);
     this.events.push(...session.pullEvents());
+    return Promise.resolve();
   }
 
-  async ofWorkspace(workspaceId: WorkspaceId) {
-    return [...this.stored.values()].filter((each) =>
-      each.workspaceId.equals(workspaceId),
+  ofWorkspace(workspaceId: WorkspaceId) {
+    return Promise.resolve(
+      [...this.stored.values()].filter((each) =>
+        each.workspaceId.equals(workspaceId),
+      ),
     );
   }
 
-  async remove(session: AssistSession) {
+  remove(session: AssistSession) {
     this.stored.delete(session.id.value);
+    return Promise.resolve();
   }
 }
 
@@ -119,11 +123,11 @@ const servicing = ({
   const sessions = new InMemorySessions();
   const enqueued: AssistRunOrder[] = [];
   const runs: RunsPort = {
-    enqueue: async (order) => {
+    enqueue: (order) => {
       enqueued.push(order);
-      return enqueueing;
+      return Promise.resolve(enqueueing);
     },
-    isLeasedBy: async () => leased,
+    isLeasedBy: () => Promise.resolve(leased),
   };
   let next = 0;
 
@@ -132,7 +136,7 @@ const servicing = ({
     runs,
     new JsonSchemaResultChecks(),
     { generate: () => `id_${(next += 1)}` },
-    { now: () => NOW, sleep: async () => undefined },
+    { now: () => NOW, sleep: () => Promise.resolve() },
   );
 
   /** Delivers the ordered events the way the outbox hands them to assist's own subscriber. */

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ChevronSpace } from '@/components/shared/nested-table/ExpandToggle';
 import {
   OUTER_DIVIDER,
@@ -18,7 +20,10 @@ type BaselineRowProps = {
   heldOut: boolean;
 };
 
-export function BaselineRow({ baseline, heldOut }: BaselineRowProps) {
+export function BaselineRow({
+  baseline,
+  heldOut,
+}: BaselineRowProps): ReactElement {
   return (
     <li
       data-slot="replayed-baseline"

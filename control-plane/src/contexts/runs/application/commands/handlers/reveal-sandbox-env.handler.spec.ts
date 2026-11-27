@@ -5,6 +5,7 @@ import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { Credential } from '@secrets/application/contracts/credential.contract';
 import type { SandboxEnvReveal } from '@secrets/application/contracts/sandbox-env.contract';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -23,9 +24,10 @@ const setUp = (
 ) => {
   const asked: SandboxEnvReveal[] = [];
   const stored = new Map<string, Run>([[run.id.value, run]]);
-  const runs = {
-    findById: async (id: { value: string }) => stored.get(id.value) ?? null,
-  } as unknown as RunRepository;
+  const runs = partial<RunRepository>({
+    findById: (id: { value: string }) =>
+      Promise.resolve(stored.get(id.value) ?? null),
+  });
 
   return {
     asked,
@@ -33,29 +35,31 @@ const setUp = (
     reveal: new RevealSandboxEnvHandler(
       runs,
       {
-        registeredClaimantOf: async () => null,
-        claimantOf: async () =>
-          over.claimant === false
-            ? null
-            : {
-                workspaceId: WorkspaceId.of('ws_1'),
-                harnesses: [],
-                offer: RunnerOffer.none(),
-                claims: 'nothing' as const,
-                source: null,
-              },
+        registeredClaimantOf: () => Promise.resolve(null),
+        claimantOf: () =>
+          Promise.resolve(
+            over.claimant === false
+              ? null
+              : {
+                  workspaceId: WorkspaceId.of('ws_1'),
+                  harnesses: [],
+                  offer: RunnerOffer.none(),
+                  claims: 'nothing' as const,
+                  source: null,
+                },
+          ),
       },
       {
-        reveal: async (request) => {
+        reveal: (request) => {
           asked.push(request);
           over.duringReveal?.(stored);
-          return {
+          return Promise.resolve({
             variables: request.sandboxEnv.map((each) => ({
               name: each.variable,
               value: Credential.of('key-value'),
             })),
             denied: [],
-          };
+          });
         },
       },
       { now: () => new Date(), sleep: async () => {} },

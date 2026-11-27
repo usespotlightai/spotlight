@@ -253,7 +253,7 @@ export class ReplayEntry {
   paired(other: RunId, verdict: PairVerdict): ReplayEntry {
     const pairing = this.state.pairing;
 
-    return pairing?.pending && pairing.isAgainst(other)
+    return pairing?.pending === true && pairing.isAgainst(other)
       ? this.with({ pairing: pairing.judged(verdict) })
       : this;
   }
@@ -261,7 +261,7 @@ export class ReplayEntry {
   pairingFailed(other: RunId, why: Unpaired): ReplayEntry {
     const pairing = this.state.pairing;
 
-    return pairing?.pending && pairing.isAgainst(other)
+    return pairing?.pending === true && pairing.isAgainst(other)
       ? this.with({ pairing: pairing.failed(why) })
       : this;
   }
@@ -310,19 +310,20 @@ export class ReplayEntry {
   }
 
   rejudged(verdict: JudgeVerdict): ReplayEntry {
-    return this.state.secondJudging?.pending
+    return this.state.secondJudging?.pending === true
       ? this.with({ secondJudging: EntryJudging.judged(verdict) })
       : this;
   }
 
   rejudgingFailed(why: Unjudged): ReplayEntry {
-    return this.state.secondJudging?.pending
+    return this.state.secondJudging?.pending === true
       ? this.with({ secondJudging: EntryJudging.failed(why) })
       : this;
   }
 
   rechecked(checks: ChangeChecks): ReplayEntry {
-    return this.state.recheck?.pending && !checks.equals(this.state.recheck)
+    return this.state.recheck?.pending === true &&
+      !checks.equals(this.state.recheck)
       ? this.with({ recheck: checks })
       : this;
   }
@@ -356,7 +357,7 @@ export class ReplayEntry {
   reviewed(checks: ChangeChecks, generation: ModelSpent | null): ReplayEntry {
     if (
       this.state.run === null ||
-      (this.state.checks?.equals(checks) &&
+      (this.state.checks?.equals(checks) === true &&
         sameSpend(this.state.generationSpent, generation))
     ) {
       return this;

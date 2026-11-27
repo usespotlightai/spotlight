@@ -4,6 +4,10 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
+interface Comparable {
+  equals(other: unknown): boolean;
+}
+
 describe('identifiers', () => {
   it('compare by value within one kind', () => {
     expect(WorkspaceId.of('a').equals(WorkspaceId.of('a'))).toBe(true);
@@ -11,10 +15,11 @@ describe('identifiers', () => {
   });
 
   it('never equate ids of different kinds that read alike', () => {
-    const userId = UserId.of('a') as unknown as WorkspaceId;
+    const workspaceId: Comparable = WorkspaceId.of('a');
+    const teamId: Comparable = TeamId.of('a');
 
-    expect(WorkspaceId.of('a').equals(userId)).toBe(false);
-    expect(TeamId.of('a').equals(userId as unknown as TeamId)).toBe(false);
+    expect(workspaceId.equals(UserId.of('a'))).toBe(false);
+    expect(teamId.equals(UserId.of('a'))).toBe(false);
   });
 
   it('reject an empty identifier', () => {

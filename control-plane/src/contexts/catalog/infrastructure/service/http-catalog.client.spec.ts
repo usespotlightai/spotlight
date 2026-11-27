@@ -26,12 +26,12 @@ const serving = (status: number, body: unknown) => {
   const service = new HttpCatalogClient(
     'https://catalog.example.com/v1',
     'catalog-token',
-    async (url, init) => {
+    (url, init) => {
       sent.push({
         url: url instanceof Request ? url.url : url.toString(),
         init: init ?? {},
       });
-      return new Response(JSON.stringify(body), { status });
+      return Promise.resolve(new Response(JSON.stringify(body), { status }));
     },
   );
 
@@ -53,7 +53,11 @@ describe('HttpCatalogClient', () => {
       'spotlight-workspace': 'ws_1',
       'spotlight-run': 'run_1',
     });
-    expect(JSON.parse(sent[0]?.init.body as string)).toEqual({
+    const body = sent[0]?.init.body;
+    if (typeof body !== 'string') {
+      throw new Error('expected a JSON body');
+    }
+    expect(JSON.parse(body)).toEqual({
       inputs: { query: 'queues' },
     });
   });

@@ -7,7 +7,7 @@ import {
 const PLATFORM = 'spotlight';
 
 export class PoolKey {
-  private readonly kind = 'pool-key';
+  private readonly kind: string = 'pool-key';
 
   private constructor(readonly value: string) {}
 

@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -136,7 +137,7 @@ export class DrizzleEgressRepository implements EgressRepository {
     lock: 'share' | 'update' | null = null,
   ): Promise<Egress | null> {
     const chosen = this.context.db.select().from(egress).where(where).limit(1);
-    const [found] = lock ? await chosen.for(lock) : await chosen;
+    const found = firstOf(lock ? await chosen.for(lock) : await chosen);
 
     return found ? toEgress(found) : null;
   }

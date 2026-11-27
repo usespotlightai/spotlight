@@ -1,11 +1,19 @@
 import type {
+  LineDefinition,
+  LineDefinitionStation,
+} from '@lines/application/contracts/line-definition.contract';
+import type {
   LineView,
   SearchPolicyView,
   StationView,
 } from '@lines/application/contracts/line-view.contract';
-import type { LineResourcesPort } from '@lines/application/ports/line-resources.port';
+import type {
+  LineRecord,
+  LineResourcesPort,
+} from '@lines/application/ports/line-resources.port';
 import type { LinesPort } from '@lines/application/ports/lines.port';
 import { Lines } from '@replays/infrastructure/acl/lines.adapter';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -29,7 +37,7 @@ const SEARCH: SearchPolicyView = {
 };
 
 const lineWith = (search: SearchPolicyView | null): LineView =>
-  ({
+  partial<LineView>({
     id: 'line_1',
     workspaceId: 'ws_1',
     teamId: 'team_1',
@@ -38,7 +46,7 @@ const lineWith = (search: SearchPolicyView | null): LineView =>
     replayCheck: null,
     source: null,
     stations: [
-      {
+      partial<StationView>({
         id: 'station_1',
         key: 'build',
         name: 'Build',
@@ -47,20 +55,29 @@ const lineWith = (search: SearchPolicyView | null): LineView =>
         model: null,
         effort: null,
         search,
-      } as unknown as StationView,
+      }),
     ],
-  }) as unknown as LineView;
+  });
 
 const settings = (search: SearchPolicyView | null) =>
   new Lines(
-    { find: async () => lineWith(search) } as unknown as LinesPort,
-    {
-      withId: async () => ({
-        definition: {
-          stations: [{ key: 'build', name: 'Build', kind: 'work' }],
-        },
-      }),
-    } as unknown as LineResourcesPort,
+    partial<LinesPort>({ find: () => Promise.resolve(lineWith(search)) }),
+    partial<LineResourcesPort>({
+      withId: () =>
+        Promise.resolve(
+          partial<LineRecord>({
+            definition: partial<LineDefinition>({
+              stations: [
+                partial<LineDefinitionStation>({
+                  key: 'build',
+                  name: 'Build',
+                  kind: 'work',
+                }),
+              ],
+            }),
+          }),
+        ),
+    }),
   ).stationSettings(LineId.of('line_1'), StationId.of('station_1'));
 
 describe('Lines.stationSettings', () => {

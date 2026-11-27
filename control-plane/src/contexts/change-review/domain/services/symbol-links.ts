@@ -145,7 +145,9 @@ export const indexedFacts = (
       each.status === 'deleted' ? [] : [[each.path, each.path] as const],
     ),
     ...diff.files.flatMap((each) =>
-      each.previousPath ? [[each.previousPath, each.path] as const] : [],
+      each.previousPath !== null && each.previousPath !== ''
+        ? [[each.previousPath, each.path] as const]
+        : [],
     ),
   ]);
   const containers = new Map<IndexedSymbol, string | null>();

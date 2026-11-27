@@ -1,7 +1,9 @@
 import { act, renderHook } from '@testing-library/react';
+import type { KeyboardEvent } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { usePaneWidth } from '@/hooks/usePaneWidth';
+import { partial } from '@/test/partial';
 
 const PANE = {
   storageKey: 'test.pane',
@@ -16,10 +18,13 @@ const press = (
   key: string,
 ) =>
   act(() => {
-    handle.onKeyDown({
-      key,
-      preventDefault: () => {},
-    } as never);
+    handle.onKeyDown(
+      partial<KeyboardEvent<HTMLElement>>({
+        key,
+        currentTarget: document.createElement('div'),
+        preventDefault: () => {},
+      }),
+    );
   });
 
 beforeEach(() => window.localStorage.clear());
@@ -97,11 +102,13 @@ describe('usePaneWidth', () => {
 
     for (let i = 0; i < 10; i += 1) {
       act(() => {
-        result.current.handleProps.onKeyDown({
-          key: 'ArrowRight',
-          currentTarget: handle,
-          preventDefault: () => {},
-        } as never);
+        result.current.handleProps.onKeyDown(
+          partial<KeyboardEvent<HTMLElement>>({
+            key: 'ArrowRight',
+            currentTarget: handle,
+            preventDefault: () => {},
+          }),
+        );
       });
     }
 

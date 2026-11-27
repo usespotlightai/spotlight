@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
 type PageTitleProps = {
   lead?: ReactNode;
   children: ReactNode;
 };
 
-export function PageTitle({ lead, children }: PageTitleProps) {
+export function PageTitle({ lead, children }: PageTitleProps): ReactElement {
   return (
     <h1 className="flex min-w-0 items-center gap-2.5 font-medium text-foreground text-xl leading-7">
       {lead}

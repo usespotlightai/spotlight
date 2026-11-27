@@ -191,7 +191,7 @@ export class SandboxEditorGateway
     );
 
     try {
-      return bearer
+      return bearer !== undefined && bearer !== ''
         ? await this.people.readBearer(bearer)
         : await this.people.read(request.headers);
     } catch (error) {

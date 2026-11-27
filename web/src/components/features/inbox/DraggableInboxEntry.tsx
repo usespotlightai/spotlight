@@ -1,4 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
+import type { ReactElement } from 'react';
 
 import { InboxEntryRow } from '@/components/features/inbox/InboxEntryRow';
 import { entryKey, type InboxEntry, reopenable, resolvable } from '@/lib/inbox';
@@ -9,7 +10,10 @@ type DraggableInboxEntryProps = {
   entry: InboxEntry;
 };
 
-export function DraggableInboxEntry({ slug, entry }: DraggableInboxEntryProps) {
+export function DraggableInboxEntry({
+  slug,
+  entry,
+}: DraggableInboxEntryProps): ReactElement {
   const { setNodeRef, listeners, isDragging } = useDraggable({
     id: entryKey(entry),
     disabled: !resolvable(entry) && !reopenable(entry),

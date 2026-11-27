@@ -296,7 +296,7 @@ describe('OpenInEditor', () => {
     ).toEqual(['Open in VS Code', 'Open in Cursor']);
   });
 
-  it('opens the editor chosen last', async () => {
+  it('opens the editor chosen last', () => {
     localStorage.setItem('spotlight.editor-app', 'cursor');
     render(<OpenInEditor slug="acme" target={task} />);
 

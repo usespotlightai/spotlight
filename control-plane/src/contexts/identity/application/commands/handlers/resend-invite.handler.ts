@@ -43,7 +43,7 @@ export class ResendInviteHandler implements CommandHandlerPort<
       const sender = await this.sending.sender(by);
       const invite = await this.invites.find(InviteId.of(command.inviteId));
 
-      if (!sender || !invite?.workspaceId.equals(workspace.id)) {
+      if (!sender || invite?.workspaceId.equals(workspace.id) !== true) {
         return null;
       }
 

@@ -1,20 +1,22 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import type { RateLimit } from '@platform/http/decorators/rate-limited.decorator';
 import { RateLimitGuard } from '@platform/http/guards/rate-limit.guard';
 import type { RedisConnection } from '@platform/redis/redis-connection';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type { Redis } from 'ioredis';
 import RedisMock from 'ioredis-mock';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const logger = {
+const logger = partial<LoggerPort>({
   info: vi.fn(),
   error: vi.fn(),
   warn: vi.fn(),
   debug: vi.fn(),
-} as unknown as LoggerPort;
+});
 
 const limit: RateLimit = { name: 'invite-preview', max: 2, windowSeconds: 60 };
 
@@ -22,21 +24,18 @@ const contextFor = (
   headers: Record<string, string>,
   setHeader = vi.fn(),
 ): ExecutionContext =>
-  ({
-    getHandler: () => () => undefined,
-    getClass: () => class {},
-    switchToHttp: () => ({
-      getRequest: () => ({ headers, ip: '10.0.0.1' }),
-      getResponse: () => ({ setHeader }),
-    }),
-  }) as unknown as ExecutionContext;
+  new ExecutionContextHost(
+    [{ headers, ip: '10.0.0.1' }, { setHeader }],
+    class {},
+    () => undefined,
+  );
 
 const guardWith = (client: Redis | null, routeLimit: RateLimit | undefined) => {
   const reflector = new Reflector();
   vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(routeLimit);
   return new RateLimitGuard(
     reflector,
-    { client } as unknown as RedisConnection,
+    partial<RedisConnection>({ client }),
     logger,
   );
 };
@@ -99,11 +98,9 @@ describe('RateLimitGuard', () => {
   });
 
   it('lets the request through when Redis cannot be reached', async () => {
-    const broken = {
-      eval: async () => {
-        throw new Error('Command timed out');
-      },
-    } as unknown as Redis;
+    const broken = partial<Redis>({
+      eval: () => Promise.reject(new Error('Command timed out')),
+    });
 
     await expect(
       guardWith(broken, limit).canActivate(contextFor({})),

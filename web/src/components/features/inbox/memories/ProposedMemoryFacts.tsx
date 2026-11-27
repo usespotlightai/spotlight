@@ -1,4 +1,4 @@
-import { use } from 'react';
+import { type ReactElement, use } from 'react';
 
 import { ExpandableText } from '@/components/features/inbox/conversation/ExpandableText';
 import { MemoryProvenanceList } from '@/components/features/memory/MemoryProvenanceList';
@@ -28,7 +28,7 @@ export function ProposedMemoryFacts({
   body,
   bodyId,
   onBody,
-}: ProposedMemoryFactsProps) {
+}: ProposedMemoryFactsProps): ReactElement {
   const docked = use(DockedContext) !== null;
   const text = (
     <p id={bodyId} className={FACT_VALUE}>

@@ -4,6 +4,7 @@ import {
   tracesOf,
 } from '@insights/domain/services/traces';
 import type { UnfinishedRun } from '@insights/domain/services/unfinished-runs';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { describe, expect, it } from 'vitest';
 
 const at = (hour: number) => new Date(Date.UTC(2026, 9, 1, hour));
@@ -91,10 +92,12 @@ describe('tracesOf', () => {
   });
 
   it('lists a run once when it ended between the two reads, as ended', () => {
-    const [trace] = tracesOf(
-      [ended('run_1', 'task_1', 9)],
-      [unfinished('run_1', 'task_1', 8)],
-      null,
+    const trace = firstOf(
+      tracesOf(
+        [ended('run_1', 'task_1', 9)],
+        [unfinished('run_1', 'task_1', 8)],
+        null,
+      ),
     );
 
     expect(trace?.runs.map((each) => [each.runId, each.kind])).toEqual([
@@ -120,13 +123,17 @@ describe('tracesOf', () => {
   });
 
   it('gives no cost where prices are in more than one currency', () => {
-    const [trace] = tracesOf(
-      [
-        ended('run_1', 'task_1', 9),
-        ended('run_2', 'task_1', 10, { cost: { amount: 1, currency: 'EUR' } }),
-      ],
-      [],
-      null,
+    const trace = firstOf(
+      tracesOf(
+        [
+          ended('run_1', 'task_1', 9),
+          ended('run_2', 'task_1', 10, {
+            cost: { amount: 1, currency: 'EUR' },
+          }),
+        ],
+        [],
+        null,
+      ),
     );
 
     expect(trace?.spending.spend).toBeNull();

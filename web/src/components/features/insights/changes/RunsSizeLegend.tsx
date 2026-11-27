@@ -1,7 +1,9 @@
+import type { ReactElement } from 'react';
+
 import { formatCount } from '@/lib/insights';
 import { dotRadius, type RunsScale } from '@/lib/insights-changes';
 
-export function RunsSizeLegend({ scale }: { scale: RunsScale }) {
+export function RunsSizeLegend({ scale }: { scale: RunsScale }): ReactElement {
   return (
     <span
       data-slot="runs-size-legend"

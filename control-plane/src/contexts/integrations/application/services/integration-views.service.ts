@@ -29,7 +29,7 @@ const readingWarnings = (
   }
 
   return [
-    ...(reading.problem
+    ...(reading.problem !== null && reading.problem !== ''
       ? [
           warned(
             FieldPath.of([spec.kind, spec.readsUrl ? 'url' : 'document']),
@@ -68,7 +68,7 @@ export class IntegrationViews {
               ? OfferedTools.listed(
                   compiled.integration,
                   tools,
-                  record.generatedFrom
+                  record.generatedFrom !== null && record.generatedFrom !== ''
                     ? ContentHash.of(record.generatedFrom)
                     : null,
                 ).generatedCount

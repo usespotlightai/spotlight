@@ -4,6 +4,7 @@ import {
 } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { isJsonObject } from '@shared-kernel/domain/json-value';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
@@ -116,12 +117,13 @@ const textsAt = (record: HookEventRecord, on: HookEventName, field: string) => {
     : unreadable(on, field);
 };
 
-const inputsAt = (record: HookEventRecord, on: HookEventName) => {
+const inputsAt = (
+  record: HookEventRecord,
+  on: HookEventName,
+): Readonly<Record<string, unknown>> => {
   const value = record.inputs;
 
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Readonly<Record<string, unknown>>)
-    : unreadable(on, 'inputs');
+  return isJsonObject(value) ? value : unreadable(on, 'inputs');
 };
 
 const readable = <T>(read: () => T, on: HookEventName, field: string): T => {

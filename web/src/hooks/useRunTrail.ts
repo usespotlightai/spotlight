@@ -24,7 +24,10 @@ export function useRunTrail({
     ...(team ? [teamCrumb(slug, team)] : []),
     {
       label: title ?? run.taskTitle ?? 'Run',
-      to: run.taskId ? taskPath(slug, teamId, run.taskId) : undefined,
+      to:
+        run.taskId !== null && run.taskId !== ''
+          ? taskPath(slug, teamId, run.taskId)
+          : undefined,
     },
     { label: run.station?.name ?? 'Run' },
   ];

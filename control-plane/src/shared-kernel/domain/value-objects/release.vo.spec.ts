@@ -45,11 +45,18 @@ describe('Release', () => {
   });
 
   it('orders the same after it travels as JSON in an event payload', () => {
-    const travelled = (raw: string): Release =>
-      Object.assign(
-        Object.create(Release.prototype) as Release,
-        JSON.parse(JSON.stringify(Release.of(raw))) as unknown,
+    const travelled = (raw: string): Release => {
+      const copy: unknown = Object.setPrototypeOf(
+        JSON.parse(JSON.stringify(Release.of(raw))),
+        Release.prototype,
       );
+
+      if (!(copy instanceof Release)) {
+        throw new Error('expected a Release');
+      }
+
+      return copy;
+    };
 
     expect(travelled('v1.0.0').isOlderThan(Release.of('v1.0.0-rc.1'))).toBe(
       false,

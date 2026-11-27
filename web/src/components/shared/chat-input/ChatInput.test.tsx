@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { CommandsProvider } from '@/components/shell/command/CommandsProvider';
+import { htmlElement } from '@/test/elements';
 import { erase, restore, snapshot, textOf, write } from '@/test/lexical';
 
 const uploaded = vi.fn<(...args: unknown[]) => unknown>();
@@ -334,7 +335,7 @@ describe('ChatInput', () => {
 
     try {
       const { container } = input();
-      const grid = () => container.querySelector('form > div') as HTMLElement;
+      const grid = () => htmlElement(container.querySelector('form > div'));
 
       expect(grid()).not.toHaveAttribute('data-expanded');
 

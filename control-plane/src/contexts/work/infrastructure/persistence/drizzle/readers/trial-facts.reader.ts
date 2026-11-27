@@ -41,7 +41,10 @@ export class DrizzleTrialFacts implements TrialFactsPort {
 
     return new Map(
       rows.flatMap((row) =>
-        row.taskId && row.stationId
+        row.taskId !== null &&
+        row.taskId !== '' &&
+        row.stationId !== null &&
+        row.stationId !== ''
           ? [
               [
                 row.runId,

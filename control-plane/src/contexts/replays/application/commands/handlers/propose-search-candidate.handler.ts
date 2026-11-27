@@ -29,6 +29,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const textOf = (raw: unknown): string => (typeof raw === 'string' ? raw : '');
@@ -80,14 +81,22 @@ export class ProposeSearchCandidateHandler implements CommandHandlerPort<
       const { lineId, stationId } = seen.station;
       const station = await this.lines.station(lineId, stationId);
       const teamKey = await this.people.teamKey(seen.teamId);
-      const [seed] = await this.candidates.findMany([seen.seed.candidateId]);
+      const seed = firstOf(
+        await this.candidates.findMany([seen.seed.candidateId]),
+      );
       const validated = await this.configs.validate(
         lineId,
         stationId,
         command.station,
       );
 
-      if (!station || !teamKey || !seed || !validated) {
+      if (
+        !station ||
+        teamKey === null ||
+        teamKey === '' ||
+        !seed ||
+        !validated
+      ) {
         throw new UnknownStationError(stationId.value);
       }
 
@@ -167,45 +176,51 @@ export class ProposeSearchCandidateHandler implements CommandHandlerPort<
       block: proposal.validated.block,
       at: this.clock.now(),
     });
-    let accepted = false;
 
     await this.snapshots.kept(candidate);
 
     try {
-      const proposed = await this.transaction.inTransaction(async () => {
-        const search = await this.searches.locked(seen.id);
+      const { proposed, accepted } = await this.transaction.inTransaction(
+        async (): Promise<{
+          proposed: SearchCandidateProposed;
+          accepted: boolean;
+        }> => {
+          const search = await this.searches.locked(seen.id);
 
-        if (!search) {
-          throw new SearchRunNotActiveError();
-        }
+          if (!search) {
+            throw new SearchRunNotActiveError();
+          }
 
-        const again = this.proposedBy(search, run, proposal.name.value);
+          const again = this.proposedBy(search, run, proposal.name.value);
 
-        if (again) {
-          return again;
-        }
-        if (search.iterationOf(run)?.number !== iteration.number) {
-          throw new SearchRunNotActiveError();
-        }
+          if (again) {
+            return { proposed: again, accepted: false };
+          }
+          if (search.iterationOf(run)?.number !== iteration.number) {
+            throw new SearchRunNotActiveError();
+          }
 
-        const replayId = ReplayId.of(this.ids.generate());
+          const replayId = ReplayId.of(this.ids.generate());
 
-        await this.searches.save(
-          search.acceptProposal(run, {
-            candidateId: candidate.id,
-            name: proposal.name,
-            replayId,
-          }),
-        );
-        accepted = true;
+          await this.searches.save(
+            search.acceptProposal(run, {
+              candidateId: candidate.id,
+              name: proposal.name,
+              replayId,
+            }),
+          );
 
-        return {
-          outcome: 'proposed' as const,
-          candidateId: candidate.id.value,
-          name: proposal.name.value,
-          replayId: replayId.value,
-        };
-      });
+          return {
+            proposed: {
+              outcome: 'proposed' as const,
+              candidateId: candidate.id.value,
+              name: proposal.name.value,
+              replayId: replayId.value,
+            },
+            accepted: true,
+          };
+        },
+      );
 
       if (!accepted) {
         await this.snapshots.release(candidate);

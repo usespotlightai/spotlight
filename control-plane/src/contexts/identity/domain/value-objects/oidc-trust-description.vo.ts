@@ -4,7 +4,7 @@ import { trimmedWithin } from '@identity/domain/value-objects/trimmed-within';
 const LONGEST = 1000;
 
 export class OidcTrustDescription {
-  private readonly kind = 'oidc-trust-description';
+  private readonly kind: string = 'oidc-trust-description';
 
   private constructor(readonly value: string) {}
 

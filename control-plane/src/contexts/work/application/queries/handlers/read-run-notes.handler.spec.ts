@@ -72,7 +72,7 @@ const reading = (
       taskNotesBetween: vi.fn(),
       configFor: vi.fn(),
     } satisfies RunReaderPort,
-    { forRuns: async () => new Map(usages) },
+    { forRuns: () => Promise.resolve(new Map(usages)) },
     runAccessWhere(true, standing),
     linesWhere(),
   ).execute(new ReadRunNotesQuery(RUN_ID, viewer));
@@ -90,7 +90,11 @@ const waitingOn = (
       waits: true,
       task: {
         running: true,
-        pending: { assignee: assignee ? UserId.of(assignee) : null, ask },
+        pending: {
+          assignee:
+            assignee !== null && assignee !== '' ? UserId.of(assignee) : null,
+          ask,
+        },
       },
       to: { currentRun: true, atTaskStation: true },
     }),

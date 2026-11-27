@@ -187,19 +187,21 @@ const described = (diff: Diff, facts: DiffFacts): string => {
 
   return diff.files
     .filter((file) =>
-      file.hunks.some((hunk) => !known.get(hunk.id)?.incidental),
+      file.hunks.some((hunk) => known.get(hunk.id)?.incidental !== true),
     )
     .map((file) => {
       const heading = [
         `## ${file.path}`,
-        file.previousPath ? `(renamed from ${file.previousPath})` : null,
+        file.previousPath !== null && file.previousPath !== ''
+          ? `(renamed from ${file.previousPath})`
+          : null,
         `[${[file.status, known.get(file.hunks[0]?.id ?? '')?.fileClass, file.binary ? 'binary' : null].filter(Boolean).join(', ')}]`,
       ]
         .filter(Boolean)
         .join(' ');
 
       const hunks = file.hunks
-        .filter((hunk) => !known.get(hunk.id)?.incidental)
+        .filter((hunk) => known.get(hunk.id)?.incidental !== true)
         .map((hunk) => {
           const defines = known.get(hunk.id)?.defines ?? [];
           const outside = known.get(hunk.id)?.outside ?? [];
@@ -368,7 +370,9 @@ const REMEDIES: Partial<Record<StackProblemCode, string>> = {
 export const describeProblem = (problem: StackProblem): string => {
   const remedy = REMEDIES[problem.code];
 
-  return remedy ? `${problem.message}; ${remedy}` : problem.message;
+  return remedy !== undefined && remedy !== ''
+    ? `${problem.message}; ${remedy}`
+    : problem.message;
 };
 
 const problemsFileOf = (problems: readonly StackProblem[]): string =>
@@ -385,7 +389,9 @@ const filesFor = (
   return {
     [DIFF_FILE]: diffFileOf(request),
     [SCHEMA_FILE]: `${JSON.stringify(CHANGE_STACK_RESULT.json, null, 2)}\n`,
-    ...(previous ? { [PREVIOUS_FILE]: previous } : {}),
+    ...(previous !== null && previous !== undefined && previous !== ''
+      ? { [PREVIOUS_FILE]: previous }
+      : {}),
     ...(request.redraft
       ? { [REDRAFT_FILE]: redraftFileOf(request.redraft) }
       : {}),

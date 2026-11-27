@@ -8,7 +8,7 @@ type EditorHandleProps = {
   editable: boolean;
 };
 
-export function EditorHandle({ editorRef, editable }: EditorHandleProps) {
+export function EditorHandle({ editorRef, editable }: EditorHandleProps): null {
   useEditorHandle(editorRef, editable);
 
   return null;

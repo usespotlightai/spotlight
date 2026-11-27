@@ -69,9 +69,11 @@ export class AcceptDeliveryHandler implements CommandHandlerPort<
             id: InboundDeliveryId.of(provider.delivery(command.delivered)),
             headers: command.delivered.headers,
             body: command.delivered.body,
-            causeFiringId: command.causeFiringId?.trim()
-              ? HookFiringId.of(command.causeFiringId.trim())
-              : null,
+            causeFiringId:
+              command.causeFiringId !== null &&
+              command.causeFiringId.trim() !== ''
+                ? HookFiringId.of(command.causeFiringId.trim())
+                : null,
           },
           this.clock.now(),
         ),
@@ -114,7 +116,10 @@ export class AcceptDeliveryHandler implements CommandHandlerPort<
       return await provider.verifies(delivered);
     } catch (error) {
       this.logger.warn(
-        { integration: provider.key, error: (error as Error).message },
+        {
+          integration: provider.key,
+          error: error instanceof Error ? error.message : undefined,
+        },
         'A webhook delivery could not be verified',
       );
 

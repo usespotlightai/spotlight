@@ -25,6 +25,7 @@ import {
   WORKSPACE,
 } from '@insights/runs.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -55,8 +56,8 @@ export const NEXT_JUDGE = judgeOf({
 export const judgesWith = (
   judge: StationJudge | null = judgeOf(),
 ): StationJudgesPort => ({
-  judgeAt: async () => judge,
-  judgesOnTeam: async () => new Map(),
+  judgeAt: () => Promise.resolve(judge),
+  judgesOnTeam: () => Promise.resolve(new Map()),
 });
 
 export const clockAt = (now = NOW): ClockPort => ({
@@ -64,11 +65,11 @@ export const clockAt = (now = NOW): ClockPort => ({
   sleep: async () => {},
 });
 
-export const sequence = (prefix: string) => {
+export const sequence = (prefix: string): IdGeneratorPort => {
   let next = 0;
 
   return {
-    generate: () => {
+    generate: (): string => {
       next += 1;
       return `${prefix}_${next}`;
     },
@@ -84,7 +85,18 @@ export type StationRun = {
   readonly scores?: readonly Score[];
 };
 
-export const stationWith = async (runs: readonly StationRun[]) => {
+export interface Station {
+  readonly records: RunRecordsInMemory;
+  readonly scores: ScoresInMemory;
+  readonly taskActions: TaskActionsInMemory;
+  readonly deletions: ReturnType<typeof deletionsInMemory>;
+  readonly recorder: FactRecorder;
+  readonly facts: StationFactsInMemory;
+}
+
+export const stationWith = async (
+  runs: readonly StationRun[],
+): Promise<Station> => {
   const records = new RunRecordsInMemory();
   const scores = new ScoresInMemory();
   const taskActions = new TaskActionsInMemory();

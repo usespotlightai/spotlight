@@ -7,7 +7,7 @@ import type { TaskPullRequestSummariesPort } from '@work/application/ports/task-
 const PICTURE_SIZE = 64;
 
 const pictureOf = (author: string | null, bot: boolean): string | null =>
-  author && !bot
+  author !== null && author !== '' && !bot
     ? `https://github.com/${encodeURIComponent(author)}.png?size=${PICTURE_SIZE}`
     : null;
 

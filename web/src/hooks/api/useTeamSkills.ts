@@ -1,18 +1,21 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { listTeamSkills } from '@/lib/api';
+import { listTeamSkills, type TeamSkillsResponseDto } from '@/lib/api';
+import { required } from '@/lib/required';
 
 const teamSkillKeys = {
   forTeam: (teamId?: string) => ['team-skills', teamId ?? null] as const,
 };
 
-export function useTeamSkills(teamId: string | undefined) {
+export function useTeamSkills(
+  teamId: string | undefined,
+): UseQueryResult<TeamSkillsResponseDto> {
   return useQuery({
     queryKey: teamSkillKeys.forTeam(teamId),
     enabled: Boolean(teamId),
     queryFn: async () => {
       const { data } = await listTeamSkills({
-        path: { teamId: teamId as string },
+        path: { teamId: required(teamId) },
         throwOnError: true,
       });
       return data;

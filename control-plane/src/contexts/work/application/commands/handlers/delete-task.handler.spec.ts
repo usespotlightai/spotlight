@@ -1,4 +1,5 @@
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -69,31 +70,34 @@ const tasks = (found: Task | null = existing()) =>
   ({
     add: vi.fn(),
     save: vi.fn(),
-    find: vi.fn(async () => found),
+    find: vi.fn(() => Promise.resolve(found)),
     remove: vi.fn<TaskRepository['remove']>(),
-    placementsAt: vi.fn(async () => []),
-    findByCorrelation: vi.fn(async () => []),
-    owningPullRequest: vi.fn(async () => null),
-    reviewingPullRequest: vi.fn(async () => null),
-    holdingMark: vi.fn(async () => []),
-    settingUpFor: vi.fn(async () => null),
-    settingUpIn: vi.fn(async () => []),
-    settingUp: vi.fn(async () => []),
-    withTurnAnsweredBetween: vi.fn(async () => []),
-    awaitingConnection: vi.fn(async () => []),
-    startingFrom: vi.fn(async () => []),
-    onBranch: vi.fn(async () => null),
+    placementsAt: vi.fn(() => Promise.resolve([])),
+    findByCorrelation: vi.fn(() => Promise.resolve([])),
+    owningPullRequest: vi.fn(() => Promise.resolve(null)),
+    reviewingPullRequest: vi.fn(() => Promise.resolve(null)),
+    holdingMark: vi.fn(() => Promise.resolve([])),
+    settingUpFor: vi.fn(() => Promise.resolve(null)),
+    settingUpIn: vi.fn(() => Promise.resolve([])),
+    settingUp: vi.fn(() => Promise.resolve([])),
+    withTurnAnsweredBetween: vi.fn(() => Promise.resolve([])),
+    awaitingConnection: vi.fn(() => Promise.resolve([])),
+    startingFrom: vi.fn(() => Promise.resolve([])),
+    onBranch: vi.fn(() => Promise.resolve(null)),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const access = (teamId = 'team_1') =>
   workAccessSeeing((requested) => requested.value === teamId);
 
 const lines = (teamId = 'team_1', seen = access()) =>
-  new LineLoader(seen, {
-    findByStation: vi.fn(
-      async () => ({ teamId: TeamId.of(teamId) }) as LineMap,
-    ),
-  } as unknown as LineMapsPort);
+  new LineLoader(
+    seen,
+    partial<LineMapsPort>({
+      findByStation: vi.fn(() =>
+        Promise.resolve(partial<LineMap>({ teamId: TeamId.of(teamId) })),
+      ),
+    }),
+  );
 
 const inOneTransaction = () => {
   const transaction = {
@@ -116,12 +120,14 @@ describe('DeleteTaskHandler', () => {
     const transaction = inOneTransaction();
     const seen: boolean[] = [];
     const stored = tasks();
-    stored.find.mockImplementation(async () => {
+    stored.find.mockImplementation(() => {
       seen.push(transaction.open);
-      return existing();
+      return Promise.resolve(existing());
     });
-    stored.remove.mockImplementation(async () => {
+    stored.remove.mockImplementation(() => {
       seen.push(transaction.open);
+
+      return Promise.resolve();
     });
 
     await new DeleteTaskHandler(stored, lines(), transaction).execute(

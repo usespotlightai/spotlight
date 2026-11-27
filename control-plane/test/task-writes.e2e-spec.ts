@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -15,10 +16,18 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
+
+interface PartsReading {
+  partsFor: (ids: readonly string[]) => Promise<unknown>;
+}
+
+const readsParts = (value: object): value is PartsReading =>
+  typeof Reflect.get(value, 'partsFor') === 'function';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
@@ -41,7 +50,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const withCurrentRun = (task: Task, runId: RunId): Task =>
@@ -108,11 +117,7 @@ describe('writing a task somebody else has written', () => {
     const newNote = setupDoneNote(again?.notes ?? [], DONE, NOW, null);
 
     await expect(
-      tasks.save(
-        (again as NonNullable<typeof again>).closeConversation(
-          newNote as NonNullable<typeof newNote>,
-        ),
-      ),
+      tasks.save(present(again).closeConversation(present(newNote))),
     ).resolves.toBeUndefined();
   });
 
@@ -128,9 +133,10 @@ describe('writing a task somebody else has written', () => {
 
   it('rejects a write from a reading whose notes came after its row', async () => {
     const { one } = await opened();
-    const reading = tasks as unknown as {
-      partsFor: (ids: readonly string[]) => Promise<unknown>;
-    };
+    const reading: object = tasks;
+    if (!readsParts(reading)) {
+      throw new Error('the repository reads no parts');
+    }
     const parts = reading.partsFor.bind(tasks);
     const between = vi
       .spyOn(reading, 'partsFor')
@@ -144,7 +150,7 @@ describe('writing a task somebody else has written', () => {
     between.mockRestore();
     expect(torn?.notes.length).toBeGreaterThan(one.notes.length);
     await expect(
-      tasks.save(withCurrentRun(torn as Task, RunId.of(randomUUID()))),
+      tasks.save(withCurrentRun(present(torn), RunId.of(randomUUID()))),
     ).rejects.toBeInstanceOf(TaskVersionConflictError);
   });
 
@@ -227,7 +233,7 @@ describe('a person moving a task by hand', () => {
   }, 60_000);
 
   afterAll(async () => {
-    await app?.close();
+    await app.close();
   });
 
   const taskAt = async (stationId: string) => {
@@ -264,7 +270,7 @@ describe('a person moving a task by hand', () => {
 
     const denied = await moving(taskId, SHIP).expect(422);
 
-    expect((denied.body as { message: string }).message).toContain(
+    expect(bodyOf<{ message: string }>(denied).message).toContain(
       'from Build to Ship',
     );
     expect(
@@ -278,6 +284,6 @@ describe('a person moving a task by hand', () => {
 
     const parked = await moving(taskId, BACKLOG).expect(200);
 
-    expect((parked.body as { stationId: string }).stationId).toBe(BACKLOG);
+    expect(bodyOf<{ stationId: string }>(parked).stationId).toBe(BACKLOG);
   });
 });

@@ -1,5 +1,5 @@
 import { Pause, Play } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { type ReactElement, useMemo, useRef, useState } from 'react';
 
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
@@ -23,7 +23,7 @@ import {
 
 const NARROW = 640;
 
-export function PipelineFlow({ flow }: { flow: Flow }) {
+export function PipelineFlow({ flow }: { flow: Flow }): ReactElement {
   const [percentile, setPercentile] = useState<Percentile>(DEFAULT_PERCENTILE);
   const [layout, setLayout] = useState<FlowLayout>('stations');
   const [focus, setFocus] = useState<PullRequestType | null>(null);

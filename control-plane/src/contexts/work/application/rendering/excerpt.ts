@@ -4,7 +4,7 @@ export const excerptOf = (
 ): string | null => {
   const trimmed = text?.trim();
 
-  if (!trimmed) {
+  if (trimmed === undefined || trimmed === '') {
     return null;
   }
 

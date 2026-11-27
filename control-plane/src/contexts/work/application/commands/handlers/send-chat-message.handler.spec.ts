@@ -1,5 +1,7 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -36,20 +38,24 @@ const sendMessage = async (model?: string | null, effort?: string | null) => {
   const saved: Chat[] = [];
 
   await new SendChatMessageHandler(
-    { openedBy: async () => chatOnOpus() } as unknown as ChatLoader,
-    {
-      save: async (chat: Chat) => {
+    partial<ChatLoader>({ openedBy: () => Promise.resolve(chatOnOpus()) }),
+    partial<ChatRepository>({
+      save: (chat: Chat) => {
         saved.push(chat);
+
+        return Promise.resolve();
       },
-    } as unknown as ChatRepository,
-    {
-      handedOver: async () => [],
-      takenIn: async () => undefined,
-    } as unknown as FilesLoader,
-    { shared: async () => [] } as unknown as TracesLoader,
-    { takenUp: async (chat: Chat) => chat },
-    { now: () => NOW } as ClockPort,
-    { inTransaction: (work: () => Promise<void>) => work() } as TransactionPort,
+    }),
+    partial<FilesLoader>({
+      handedOver: () => Promise.resolve([]),
+      takenIn: () => Promise.resolve(undefined),
+    }),
+    partial<TracesLoader>({ shared: () => Promise.resolve([]) }),
+    { takenUp: (chat: Chat) => Promise.resolve(chat) },
+    partial<ClockPort>({ now: () => NOW }),
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
   ).execute(
     new SendChatMessageCommand(
       'team_1',
@@ -63,7 +69,7 @@ const sendMessage = async (model?: string | null, effort?: string | null) => {
     ),
   );
 
-  const [chat] = saved;
+  const chat = firstOf(saved);
   return {
     model: chat?.model?.value ?? null,
     effort: chat?.effort?.value ?? null,

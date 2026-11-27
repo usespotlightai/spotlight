@@ -13,6 +13,7 @@ import {
   type DockedDecision,
   dockedRuns,
 } from '@/lib/decision-tray';
+import { htmlElement } from '@/test/elements';
 
 const decision = (id: string, label: string): DockedDecision => ({
   id,
@@ -133,7 +134,7 @@ describe('DecisionTray', () => {
   it('puts the pager and the decision buttons in one row under the decision, and leaves out copy', () => {
     render(<Docking decisions={[APPROVAL, CONNECTION]} />);
 
-    const row = tray()?.querySelector('footer') as HTMLElement;
+    const row = htmlElement(tray()?.querySelector('footer'));
     expect(within(row).getByText('1 of 2')).toBeVisible();
     expect(within(row).getByRole('button', { name: 'Approve' })).toBeVisible();
     expect(within(row).getByRole('button', { name: 'Dismiss' })).toBeVisible();

@@ -17,7 +17,9 @@ export class WebInboxLinks implements InboxLinksPort {
   ): Promise<string | null> {
     const slug = await this.workspaces.slugOf(workspaceId);
 
-    return slug ? this.taskLinks.conversationPage(slug, conversationId) : null;
+    return slug !== null && slug !== ''
+      ? this.taskLinks.conversationPage(slug, conversationId)
+      : null;
   }
 
   async chat(
@@ -27,7 +29,9 @@ export class WebInboxLinks implements InboxLinksPort {
   ): Promise<string | null> {
     const slug = await this.workspaces.slugOf(workspaceId);
 
-    return slug ? this.taskLinks.chatPage(slug, teamId.value, chatId) : null;
+    return slug !== null && slug !== ''
+      ? this.taskLinks.chatPage(slug, teamId.value, chatId)
+      : null;
   }
 
   async task(
@@ -37,7 +41,7 @@ export class WebInboxLinks implements InboxLinksPort {
   ): Promise<string | null> {
     const slug = await this.workspaces.slugOf(workspaceId);
 
-    return slug
+    return slug !== null && slug !== ''
       ? this.taskLinks.taskPage(slug, teamId.value, taskId.value)
       : null;
   }
@@ -48,7 +52,9 @@ export class WebInboxLinks implements InboxLinksPort {
   ): Promise<string | null> {
     const slug = await this.workspaces.slugOf(workspaceId);
 
-    return slug ? this.taskLinks.inboxRequestPage(slug, inboxRequestId) : null;
+    return slug !== null && slug !== ''
+      ? this.taskLinks.inboxRequestPage(slug, inboxRequestId)
+      : null;
   }
 
   async notice(
@@ -57,6 +63,8 @@ export class WebInboxLinks implements InboxLinksPort {
   ): Promise<string | null> {
     const slug = await this.workspaces.slugOf(workspaceId);
 
-    return slug ? this.taskLinks.noticePage(slug, noticeId) : null;
+    return slug !== null && slug !== ''
+      ? this.taskLinks.noticePage(slug, noticeId)
+      : null;
   }
 }

@@ -19,6 +19,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
@@ -65,6 +66,19 @@ const texts = (value: unknown): readonly string[] =>
     ? value.filter((each): each is string => typeof each === 'string')
     : [];
 
+interface SentRecord {
+  readonly proxyCredential?: unknown;
+  readonly host?: unknown;
+  readonly port?: unknown;
+  readonly bytesOut?: unknown;
+  readonly bytesIn?: unknown;
+  readonly ms?: unknown;
+  readonly outcome?: unknown;
+  readonly status?: unknown;
+  readonly reason?: unknown;
+  readonly at?: unknown;
+}
+
 const isRecord = ({
   proxyCredential,
   host,
@@ -76,7 +90,7 @@ const isRecord = ({
   status,
   reason,
   at,
-}: Record<string, unknown>): boolean =>
+}: SentRecord): boolean =>
   typeof proxyCredential === 'string' &&
   typeof host === 'string' &&
   typeof port === 'number' &&
@@ -90,15 +104,14 @@ const isRecord = ({
 
 const records = (
   value: unknown,
-): RecordEgressConnectionsRequestDto['records'] =>
-  Array.isArray(value)
-    ? (value as unknown[]).filter(
-        (each): each is RecordEgressConnectionsRequestDto['records'][number] =>
-          typeof each === 'object' &&
-          each !== null &&
-          isRecord(each as Record<string, unknown>),
-      )
-    : [];
+): RecordEgressConnectionsRequestDto['records'] => {
+  const sent: unknown[] = Array.isArray(value) ? value : [];
+
+  return sent.filter(
+    (each): each is RecordEgressConnectionsRequestDto['records'][number] =>
+      typeof each === 'object' && each !== null && isRecord(each),
+  );
+};
 
 @ApiTags('runners')
 @ApiBearerAuth()
@@ -126,9 +139,10 @@ export class EgressController {
     description: 'The recipient is not an X25519 public key',
   })
   @ApiConflictResponse({ description: WAITING })
+  @ApiBody({ type: FetchRunSecretsRequestDto })
   async fetchRunSecrets(
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: FetchRunSecretsRequestDto,
+    @Body() body: FetchRunSecretsRequestDto | undefined,
   ): Promise<EgressSecretsResponseDto> {
     const token = bearerIn(authorization);
     const recipient = typeof body?.recipient === 'string' ? body.recipient : '';
@@ -166,9 +180,10 @@ export class EgressController {
       'Called by a shared egress with its egress token. Before the runner has a run, the egress allows it to connect only to the control plane.',
   })
   @ApiOkResponse({ type: EgressAuthorizationResponseDto })
+  @ApiBody({ type: AuthorizeRunnerRequestDto })
   async authorize(
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: AuthorizeRunnerRequestDto,
+    @Body() body: AuthorizeRunnerRequestDto | undefined,
   ): Promise<EgressAuthorizationResponseDto> {
     const authorized = await this.queryBus.execute<
       AuthorizeRunnerQuery,
@@ -205,9 +220,10 @@ export class EgressController {
   @ApiUnprocessableEntityResponse({
     description: 'The request has more than 500 proxy credentials',
   })
+  @ApiBody({ type: CheckActiveRunsRequestDto })
   async checkActiveRuns(
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: CheckActiveRunsRequestDto,
+    @Body() body: CheckActiveRunsRequestDto | undefined,
   ): Promise<EgressActiveRunsResponseDto> {
     const checked = await this.queryBus.execute<
       ActiveRunsQuery,
@@ -244,9 +260,10 @@ export class EgressController {
   @ApiUnprocessableEntityResponse({
     description: 'The request has more than 2000 records',
   })
+  @ApiBody({ type: RecordEgressConnectionsRequestDto })
   async connections(
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: RecordEgressConnectionsRequestDto,
+    @Body() body: RecordEgressConnectionsRequestDto | undefined,
   ): Promise<void> {
     const recorded = await this.commandBus.execute<
       RecordEgressConnectionsCommand,

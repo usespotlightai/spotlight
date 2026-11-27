@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
@@ -39,7 +41,7 @@ const weekCell = (repository: Repository, week: WeekShare | undefined) =>
 export function RepositorySpotlightShare({
   weeks,
   repositories,
-}: RepositorySpotlightShareProps) {
+}: RepositorySpotlightShareProps): ReactElement {
   const columns: InsightsColumn<Repository>[] = [
     {
       id: 'repository',

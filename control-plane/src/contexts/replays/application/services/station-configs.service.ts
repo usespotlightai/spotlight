@@ -66,7 +66,7 @@ export class StationConfigs {
       line,
     );
 
-    if (!validated?.ok) {
+    if (validated?.ok !== true) {
       return validated;
     }
 

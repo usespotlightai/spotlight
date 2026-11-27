@@ -88,10 +88,11 @@ export class ExpressionCheckController {
     @Body() body: unknown,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ExpressionCheckResponseDto> {
-    const { position, expression, definition } = (body ?? {}) as Record<
-      string,
-      unknown
-    >;
+    const fields: object =
+      typeof body === 'object' && body !== null ? body : {};
+    const position = 'position' in fields ? fields.position : undefined;
+    const expression = 'expression' in fields ? fields.expression : undefined;
+    const definition = 'definition' in fields ? fields.definition : undefined;
     const field =
       typeof position === 'string' ? FieldPath.parsed(position.trim()) : null;
 

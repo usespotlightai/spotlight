@@ -124,8 +124,8 @@ const refusalOf = (error: unknown): RedeemCallSecretsDto => {
     return { outcome: 'expired', reason: error.message };
   }
 
-  if (TAKEN.some((kind) => error instanceof kind)) {
-    return { outcome: 'taken', reason: (error as Error).message };
+  if (error instanceof Error && TAKEN.some((kind) => error instanceof kind)) {
+    return { outcome: 'taken', reason: error.message };
   }
 
   throw error;

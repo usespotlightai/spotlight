@@ -20,6 +20,7 @@ import type { WithdrawalReason } from '@insights/domain/value-objects/withdrawal
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -188,7 +189,7 @@ export class RaiseJudgeDisagreements {
     scores: readonly Scored[];
     known: readonly JudgeDisagreement[];
   }> {
-    const [fact] = await this.facts.ofRuns([runId]);
+    const fact = firstOf(await this.facts.ofRuns([runId]));
     const scores = await this.facts.scoresOfRuns([runId]);
     const label = fact?.humanLabel ?? null;
     const known = await this.disagreements.ofRun(runId);
@@ -229,7 +230,7 @@ export class RaiseJudgeDisagreements {
       await this.transaction.inTransaction(() =>
         this.recorder.record(this.disagreements, {
           owner: this.ownerOf(input.workspaceId, live.location),
-          load: async () => null,
+          load: () => Promise.resolve(null),
           deleted: (existing) => existing.delete(),
           created: () =>
             JudgeDisagreement.open({

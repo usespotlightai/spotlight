@@ -25,11 +25,13 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
   type CallToolResult,
+  CallToolResultSchema,
   ErrorCode,
   McpError,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { OnModuleDestroy } from '@nestjs/common';
+import { causeOf } from '@platform/json/field-of';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -54,6 +56,8 @@ interface Session {
   idle: NodeJS.Timeout | null;
 }
 
+const askedDuringCall = (session: Session): boolean => session.asked;
+
 const IDLE_MS = 5 * 60_000;
 
 const ANSWERS_WITHIN_MS = 60_000;
@@ -73,7 +77,7 @@ const unechoedIn = (error: unknown, injected: InjectedSecrets): void => {
 
   error.message = redactInjected(injected, error.message);
 
-  const { cause } = error as { cause?: unknown };
+  const cause = causeOf(error);
 
   if (cause instanceof Error) {
     cause.message = redactInjected(injected, cause.message);
@@ -161,14 +165,14 @@ export class McpSessions implements OnModuleDestroy {
 
       for (let page = 0; page < MAX_PAGES; page += 1) {
         const listed = await session.client.listTools(
-          cursor ? { cursor } : undefined,
+          cursor !== undefined && cursor !== '' ? { cursor } : undefined,
           { timeout: ANSWERS_WITHIN_MS },
         );
 
         tools.push(...listed.tools);
         cursor = listed.nextCursor;
 
-        if (!cursor) {
+        if (cursor === undefined || cursor === '') {
           break;
         }
       }
@@ -221,6 +225,7 @@ export class McpSessions implements OnModuleDestroy {
     try {
       const answer = await answering();
 
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       return redactInjectedIn(injected.seen, answer) as T;
     } catch (error) {
       if (!injected.seen.isEmpty) {
@@ -256,15 +261,17 @@ export class McpSessions implements OnModuleDestroy {
     let reusable = false;
 
     try {
-      const result = (await session.client.callTool(
-        { name: tool, arguments: { ...args } },
-        undefined,
-        { timeout: ANSWERS_WITHIN_MS },
-      )) as CallToolResult;
+      const result = CallToolResultSchema.parse(
+        await session.client.callTool(
+          { name: tool, arguments: { ...args } },
+          undefined,
+          { timeout: ANSWERS_WITHIN_MS },
+        ),
+      );
 
       reusable = true;
 
-      if (result.isError && session.asked) {
+      if (result.isError === true && askedDuringCall(session)) {
         throw new McpQuestionUnsupportedError();
       }
 
@@ -272,7 +279,9 @@ export class McpSessions implements OnModuleDestroy {
     } catch (error) {
       reusable = error instanceof McpError;
 
-      throw session.asked ? new McpQuestionUnsupportedError() : error;
+      throw askedDuringCall(session)
+        ? new McpQuestionUnsupportedError()
+        : error;
     } finally {
       this.#busy.delete(session);
 
@@ -332,14 +341,16 @@ export class McpSessions implements OnModuleDestroy {
     });
     const session: Session = { client, transport, asked: false, idle: null };
 
-    client.fallbackRequestHandler = async (request) => {
+    client.fallbackRequestHandler = (request) => {
       if (request.method === ELICITATION_METHOD) {
         session.asked = true;
       }
 
-      throw new McpError(
-        ErrorCode.MethodNotFound,
-        `Spotlight does not answer ${request.method}`,
+      return Promise.reject(
+        new McpError(
+          ErrorCode.MethodNotFound,
+          `Spotlight does not answer ${request.method}`,
+        ),
       );
     };
 
@@ -377,7 +388,7 @@ export class McpSessions implements OnModuleDestroy {
       return InjectedSecrets.none();
     }
 
-    if (injected.connection) {
+    if (injected.connection !== null && injected.connection !== '') {
       request.headers.authorization = `Bearer ${injected.connection}`;
     }
 

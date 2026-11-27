@@ -44,9 +44,9 @@ export const holdPathOf = (
   teamId: string,
   hold: TaskHoldResponseDto,
 ): string | undefined =>
-  hold.chatId
+  hold.chatId !== null && hold.chatId !== ''
     ? chatPath(slug, teamId, hold.chatId)
-    : hold.runId
+    : hold.runId !== null && hold.runId !== ''
       ? runPath(slug, teamId, hold.runId)
       : undefined;
 
@@ -54,7 +54,7 @@ export const heldUntilResumed = (
   hold: TaskHoldResponseDto,
   viewerId: string | undefined,
 ): string =>
-  hold.chatId
+  hold.chatId !== null && hold.chatId !== ''
     ? hold.by.id === viewerId
       ? `Your agent chat opened the pull request of this task ${since(hold.startedAt)}. The line continues when you hand the task to the line.`
       : `The agent chat of ${hold.by.name} opened the pull request of this task ${since(hold.startedAt)}. The line continues when they hand the task to the line.`

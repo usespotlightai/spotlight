@@ -95,7 +95,7 @@ export const stationReportsFrom = (
   for (const each of counts.failing) {
     const stationId = each.occurrence.stationId.value;
 
-    if (!places.has(stationId) && each.lineId) {
+    if (!places.has(stationId) && each.lineId !== null && each.lineId !== '') {
       places.set(stationId, {
         lineId: each.lineId,
         stationId,

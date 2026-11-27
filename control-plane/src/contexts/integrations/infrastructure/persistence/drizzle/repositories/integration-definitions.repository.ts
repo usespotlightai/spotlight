@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationAlreadyExistsError } from '@integrations/domain/exceptions/integration-already-exists.error';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
@@ -28,10 +29,10 @@ const collided = (error: unknown): boolean =>
 type Row = typeof integrationDefinition.$inferSelect;
 
 const readingOf = (row: Row): SpecFetchResult | null =>
-  row.specFingerprint && row.specReadAt
+  (row.specFingerprint !== null && row.specFingerprint !== '') && row.specReadAt
     ? SpecFetchResult.rehydrate({
         fingerprint: row.specFingerprint,
-        hash: row.specHash ? ContentHash.of(row.specHash) : null,
+        hash: (row.specHash !== null && row.specHash !== '') ? ContentHash.of(row.specHash) : null,
         readAt: row.specReadAt,
         problem: row.specProblem,
         skipped: row.specSkipped ?? [],
@@ -154,11 +155,11 @@ export class DrizzleIntegrationDefinitions
   private async first(
     where: SQL | undefined,
   ): Promise<IntegrationDefinition | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(integrationDefinition)
       .where(where)
-      .limit(1);
+      .limit(1));
 
     return found ? rehydrated(found) : null;
   }

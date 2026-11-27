@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { NewTaskDialog } from '@/components/features/board/task/NewTaskDialog';
 import { useAddTask } from '@/hooks/api/useAddTask';
 import type { LineResponseDto } from '@/lib/api';
@@ -16,7 +18,7 @@ export function AddTaskDialog({
   line,
   stationId,
   onClose,
-}: AddTaskDialogProps) {
+}: AddTaskDialogProps): ReactElement {
   const addTask = useAddTask();
 
   return (
@@ -29,7 +31,8 @@ export function AddTaskDialog({
         line.stations.find((each) => each.id === stationId)?.name ?? ''
       }
       onCreate={(task) =>
-        stationId &&
+        stationId !== null &&
+        stationId !== '' &&
         addTask.mutate({ teamId, lineId: line.id, stationId, task })
       }
     />

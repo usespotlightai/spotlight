@@ -7,6 +7,12 @@ interface Settings {
   readonly address: string;
 }
 
+const isSettings = (value: unknown): value is Settings =>
+  typeof value === 'object' &&
+  value !== null &&
+  'address' in value &&
+  typeof value.address === 'string';
+
 export class SettingsFile {
   private readonly path: string;
 
@@ -16,9 +22,11 @@ export class SettingsFile {
 
   origin(): string {
     try {
-      const stored = JSON.parse(readFileSync(this.path, 'utf8')) as Settings;
+      const stored: unknown = JSON.parse(readFileSync(this.path, 'utf8'));
 
-      return originOf(stored.address) ?? DEFAULT_ADDRESS;
+      return isSettings(stored)
+        ? (originOf(stored.address) ?? DEFAULT_ADDRESS)
+        : DEFAULT_ADDRESS;
     } catch {
       return DEFAULT_ADDRESS;
     }
@@ -27,7 +35,7 @@ export class SettingsFile {
   save(address: string): string | null {
     const origin = originOf(address);
 
-    if (!origin) {
+    if (origin === null) {
       return null;
     }
 

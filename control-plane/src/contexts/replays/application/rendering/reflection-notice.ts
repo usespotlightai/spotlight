@@ -58,8 +58,13 @@ const pointOf =
   (titles: ReadonlyMap<string, string | null>) =>
   (cause: FailureCause): string => {
     const title = titles.get(cause.originalRunId.value)?.trim();
-    const kind = cause.cause as OutsideConfig;
-    const lead = `${title ? `“${clipped(title, MAX_TITLE)}”` : UNTITLED}: the cause is ${CAUSES[kind]}.`;
+    const kind = cause.cause;
+
+    if (kind === 'config') {
+      throw new Error('a config change fixes this cause');
+    }
+
+    const lead = `${title !== undefined && title !== '' ? `“${clipped(title, MAX_TITLE)}”` : UNTITLED}: the cause is ${CAUSES[kind]}.`;
     const fix = FIXES[kind];
     const room = MAX_POINT - lead.length - fix.length - 2;
 

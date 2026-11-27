@@ -11,6 +11,7 @@ import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -38,26 +39,28 @@ const remembered = (provenance: MemoryProvenance | null) =>
 const recalling = (memory: Memory) => {
   const lookedUp: string[] = [];
   const people: PeoplePort = {
-    viewerOf: async () => null,
-    find: async (id) => {
+    viewerOf: () => Promise.resolve(null),
+    find: (id) => {
       lookedUp.push(id.value);
-      return { name: 'Maya Chen', image: null };
+      return Promise.resolve({ name: 'Maya Chen', image: null });
     },
   };
-  const work = {
-    reasoning: async () => [
-      { index: 1, kind: 'thought', text: 'A queue needs a worker.' },
-      { index: 2, kind: 'message', text: 'Retrying in the request.' },
-    ],
-    notesOf: async () => [
-      { position: 1, by: 'person', author: MAYA, text: 'Never queue it.' },
-      { position: 2, by: 'world', author: null, text: 'FYI.' },
-    ],
-  } as unknown as WorkPort;
+  const work = partial<WorkPort>({
+    reasoning: () =>
+      Promise.resolve([
+        { index: 1, kind: 'thought', text: 'A queue needs a worker.' },
+        { index: 2, kind: 'message', text: 'Retrying in the request.' },
+      ]),
+    notesOf: () =>
+      Promise.resolve([
+        { position: 1, by: 'person', author: MAYA, text: 'Never queue it.' },
+        { position: 2, by: 'world', author: null, text: 'FYI.' },
+      ]),
+  });
   const views = new TeamMemoryViews(
-    { find: async () => null } as unknown as MemoryRepository,
+    partial<MemoryRepository>({ find: () => Promise.resolve(null) }),
     people,
-    { runsUsing: async () => new Map() } as unknown as MemoryUsesPort,
+    partial<MemoryUsesPort>({ runsUsing: () => Promise.resolve(new Map()) }),
   );
 
   return {

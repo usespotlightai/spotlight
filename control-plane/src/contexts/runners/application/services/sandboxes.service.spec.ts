@@ -23,6 +23,7 @@ import {
 } from '@runners/domain/value-objects/sandbox-lease.vo';
 import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -70,7 +71,9 @@ const serving = (
   const reported =
     input.reported ?? (input.known ?? []).map((each) => each.id.value);
   const heardAt = (host: string) =>
-    input.silentHosts?.includes(host) ? later(-10 * 60_000) : STARTED_AT;
+    input.silentHosts?.includes(host) === true
+      ? later(-10 * 60_000)
+      : STARTED_AT;
   const { stored: hostsStored, hosts } = storedHosts(
     aHost({
       id: HostId.of(HOST),
@@ -93,7 +96,7 @@ const serving = (
     { generate: () => `sandbox_new_${++next}` },
     sandboxTokens(),
     { now: () => input.now ?? STARTED_AT, sleep: async () => {} },
-    { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as LoggerPort,
+    partial<LoggerPort>({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
   );
 
   return { stored, sandboxes, hosts: hostsStored, service };

@@ -1,4 +1,8 @@
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  codeOf,
+  UNIQUE_VIOLATION,
+} from '@platform/persistence/drizzle/violations';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { SecretAlreadyExistsError } from '@secrets/domain/exceptions/secret-already-exists.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
@@ -12,18 +16,13 @@ import {
 } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 import type { EncryptedSecretStore } from '@secrets/infrastructure/store/encrypted-secret.store';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
 
-const UNIQUE_VIOLATION = '23505';
-
 const collided = (error: unknown): boolean =>
-  (
-    ((error as { cause?: unknown } | null)?.cause ?? error) as {
-      code?: string;
-    } | null
-  )?.code === UNIQUE_VIOLATION;
+  codeOf(error) === UNIQUE_VIOLATION;
 
 type Row = typeof secret.$inferSelect;
 
@@ -142,9 +141,9 @@ export class DrizzleSecrets implements SecretRepository {
   }
 
   private async first(where: SQL | undefined): Promise<Secret | null> {
-    const [found] = await this.held(where).limit(1);
+    const found = firstOf(await this.held(where).limit(1));
 
-    return found ? rehydrated(found) : null;
+    return found !== undefined ? rehydrated(found) : null;
   }
 
   private held(where: SQL | undefined) {

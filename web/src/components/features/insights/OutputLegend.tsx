@@ -1,4 +1,5 @@
-export function OutputLegend({ priced }: { priced: boolean }) {
+import type { ReactElement } from 'react';
+export function OutputLegend({ priced }: { priced: boolean }): ReactElement {
   return (
     <figcaption className="flex items-center gap-3 text-muted-foreground text-xs">
       {priced && (

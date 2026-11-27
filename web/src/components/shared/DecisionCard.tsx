@@ -1,4 +1,4 @@
-import { type HTMLAttributes, type Ref, use } from 'react';
+import { type HTMLAttributes, type Ref, use, type ReactElement } from 'react';
 
 import { DockedContext } from '@/lib/decision-tray';
 import { cn } from '@/lib/utils';
@@ -13,12 +13,18 @@ export function DecisionCard({
   className,
   ref,
   ...props
-}: DecisionCardProps) {
+}: DecisionCardProps): ReactElement {
   const docked = use(DockedContext) !== null;
 
   return (
     <Card
-      ref={ref as Ref<HTMLLIElement & HTMLElement>}
+      ref={(node: HTMLElement | null) => {
+        if (typeof ref === 'function') {
+          ref(node);
+        } else if (ref) {
+          ref.current = node;
+        }
+      }}
       data-decision
       tabIndex={-1}
       className={cn(

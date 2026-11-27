@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { ImageGallery } from '@/components/shared/attachment/ImageGallery';
 import { ImagePreview } from '@/components/shared/attachment/ImagePreview';
@@ -10,7 +11,10 @@ type ImageThumbsProps = {
   onRemove: (key: string) => void;
 };
 
-export function ImageThumbs({ images, onRemove }: ImageThumbsProps) {
+export function ImageThumbs({
+  images,
+  onRemove,
+}: ImageThumbsProps): ReactElement | null {
   if (images.length === 0) {
     return null;
   }

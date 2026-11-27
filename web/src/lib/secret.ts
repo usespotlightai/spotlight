@@ -17,7 +17,9 @@ const ORIGIN_NOTES: Record<SecretValueOrigin, string> = {
 };
 
 export const describeValue = (secret: WorkspaceSecret): string =>
-  secret.valueSetAt && secret.valueOrigin === 'spotlight'
+  secret.valueSetAt !== null &&
+  secret.valueSetAt !== '' &&
+  secret.valueOrigin === 'spotlight'
     ? `Set ${since(secret.valueSetAt)}`
     : ORIGIN_LABELS[secret.valueOrigin];
 

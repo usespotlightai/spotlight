@@ -16,6 +16,7 @@ import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import type { DraftHandle } from '@/hooks/useChatDraft';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
 import type { Outgoing } from '@/lib/chat-input';
+import { htmlElement } from '@/test/elements';
 import { textOf as textIn, write } from '@/test/lexical';
 
 type State = Record<string, unknown>;
@@ -66,6 +67,7 @@ const draftFor = (
 ): SharedDraft => {
   const doc = new Doc();
   const synced = new Set<(synced: boolean) => void>();
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const provider = {
     awareness: awareness(doc.clientID, everyone),
     connect: () => {
@@ -227,7 +229,7 @@ describe('ChatEditor on a shared draft', () => {
       await write(adas, 'Cap the retries at 500.');
       await waitFor(() => expect(textIn(beas)).toBe('Cap the retries at 500.'));
       await userEvent.click(
-        within(adas.closest('form') as HTMLElement).getByRole('button', {
+        within(htmlElement(adas.closest('form'))).getByRole('button', {
           name: 'Send',
         }),
       );

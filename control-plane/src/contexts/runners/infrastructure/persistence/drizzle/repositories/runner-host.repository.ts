@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -84,8 +85,8 @@ const columnsOf = (host: RunnerHost) => ({
         ...(harness.version ? { version: harness.version.value } : {}),
       })),
       ...(each.digest ? { digest: each.digest.value } : {}),
-      ...(each.release ? { release: each.release } : {}),
-      ...(each.unavailableReason
+      ...(each.release !== null && each.release !== '' ? { release: each.release } : {}),
+      ...(each.unavailableReason !== null && each.unavailableReason !== ''
         ? { unavailableReason: each.unavailableReason }
         : {}),
     }),
@@ -106,11 +107,11 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
   ) {}
 
   async find(id: HostId): Promise<RunnerHost | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(runnerHost)
       .where(eq(runnerHost.id, id.value))
-      .limit(1);
+      .limit(1));
 
     return found ? toHost(found) : null;
   }

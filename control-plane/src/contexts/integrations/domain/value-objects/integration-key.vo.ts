@@ -8,7 +8,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class IntegrationKey {
-  private readonly kind = 'integration-key';
+  private readonly kind: string = 'integration-key';
 
   static readonly RESERVED =
     'is catalog, which is the name of Spotlight’s catalog. Please give the integration another name';

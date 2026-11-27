@@ -1,4 +1,5 @@
 import type { SandboxRetirementPort } from '@runners/application/ports/sandbox-retirement.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -18,7 +19,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 
 const STATION = StationId.of('station_done');
 
-const LINE = {} as LineMap;
+const LINE = partial<LineMap>({});
 
 const KEY = WorkRequesters.taskWorkingCopyKey(TASK);
 
@@ -41,13 +42,15 @@ const retiring = (
   const task =
     input.task === null
       ? null
-      : ({ stationId: STATION, keepsNoLiveWorkingCopyOn } as unknown as Task);
-  const tasks = { find: vi.fn(async () => task) } as unknown as TaskRepository;
-  const lines = {
-    findByStation: vi.fn(async () =>
-      input.line === undefined ? LINE : input.line,
+      : partial<Task>({ stationId: STATION, keepsNoLiveWorkingCopyOn });
+  const tasks = partial<TaskRepository>({
+    find: vi.fn(() => Promise.resolve(task)),
+  });
+  const lines = partial<LineMapsPort>({
+    findByStation: vi.fn(() =>
+      Promise.resolve(input.line === undefined ? LINE : input.line),
     ),
-  } as unknown as LineMapsPort;
+  });
   const sandboxes: SandboxRetirementPort = { retire: vi.fn(async () => {}) };
 
   return {

@@ -2,6 +2,7 @@ import { GenerateRunChangeStackCommand } from '@change-review/application/comman
 import { GenerateRunChangeStackHandler } from '@change-review/application/commands/handlers/generate-run-change-stack.handler';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { GenerateChangeStack } from '@change-review/application/services/generate-change-stack.service';
+import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import {
   type CheckingPlan,
   CheckRequest,
@@ -9,6 +10,7 @@ import {
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -28,40 +30,43 @@ const generating = (
     repositories?: Repository[];
   } = {},
 ) => {
-  const begin = vi.fn(async () => ({}) as never);
+  const begin = vi.fn(() => Promise.resolve(partial<ChangeStack>({})));
 
   const work = {
-    run: async () => ({
-      id: RunId.of(RUN),
-      workspaceId: WorkspaceId.of('ws_1'),
-      taskId: over.trial ? null : TaskId.of('task_1'),
-      checking: over.checking ?? null,
-      working: true,
-      attempt: 1,
-      orderedAt: null,
-      decisions: false,
-      trial: over.trial === true,
-      isolated: over.trial === true,
-      checkouts: 1,
-      placement: RunnerPlacement.anywhere(),
-    }),
-    teamOfRun: async () => TeamId.of('team_1'),
-    repositoriesOfRun: async () =>
-      over.repositories ?? [
-        Repository.of('acme/widgets'),
-        Repository.of('acme/gadgets'),
-      ],
-    task: async () => null,
-    taskWithPullRequest: async () => null,
+    run: () =>
+      Promise.resolve({
+        id: RunId.of(RUN),
+        workspaceId: WorkspaceId.of('ws_1'),
+        taskId: over.trial === true ? null : TaskId.of('task_1'),
+        checking: over.checking ?? null,
+        working: true,
+        attempt: 1,
+        orderedAt: null,
+        decisions: false,
+        trial: over.trial === true,
+        isolated: over.trial === true,
+        checkouts: 1,
+        placement: RunnerPlacement.anywhere(),
+      }),
+    teamOfRun: () => Promise.resolve(TeamId.of('team_1')),
+    repositoriesOfRun: () =>
+      Promise.resolve(
+        over.repositories ?? [
+          Repository.of('acme/widgets'),
+          Repository.of('acme/gadgets'),
+        ],
+      ),
+    task: () => Promise.resolve(null),
+    taskWithPullRequest: () => Promise.resolve(null),
   } satisfies WorkPort;
 
   return {
     handler: new GenerateRunChangeStackHandler(
       work,
-      {
-        claimedBy: async () => over.claimed !== false,
-      } as unknown as RunLeasesPort,
-      { begin } as unknown as GenerateChangeStack,
+      partial<RunLeasesPort>({
+        claimedBy: () => Promise.resolve(over.claimed !== false),
+      }),
+      partial<GenerateChangeStack>({ begin }),
     ),
     begin,
   };

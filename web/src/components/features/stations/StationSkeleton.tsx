@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { STATION_COLUMN } from '@/components/features/stations/station-column';
 import { StationPane } from '@/components/features/stations/StationPane';
 import { StationTabSkeleton } from '@/components/features/stations/StationTabSkeleton';
@@ -8,7 +10,7 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { STATION_TABS, type StationTab } from '@/lib/station';
 import { cn } from '@/lib/utils';
 
-export function StationSkeleton({ tab }: { tab: StationTab }) {
+export function StationSkeleton({ tab }: { tab: StationTab }): ReactElement {
   return (
     <div
       role="status"

@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import type { Ref, ReactElement } from 'react';
 
 import { SidebarToggle } from '@/components/shell/layout/SidebarToggle';
 import type { useCollapsedSidebar } from '@/hooks/useCollapsedSidebar';
@@ -29,7 +29,7 @@ export function SidebarExpand({
   disabled,
   peekIntent,
   onToggle,
-}: SidebarExpandProps) {
+}: SidebarExpandProps): ReactElement {
   const kept = desktop || (coarse && !narrow);
 
   return (

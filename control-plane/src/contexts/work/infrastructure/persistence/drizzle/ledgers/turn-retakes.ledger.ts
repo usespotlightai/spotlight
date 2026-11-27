@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
   DueRetake,
@@ -15,10 +16,12 @@ export class DrizzleTurnRetakes implements TurnRetakesPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async checkedAt(runId: RunId, suspendedAt: Date): Promise<Date | null> {
-    const [found] = await this.context.db
-      .select({ checkedAt: turnRetake.checkedAt })
-      .from(turnRetake)
-      .where(this.turn(runId, suspendedAt));
+    const found = firstOf(
+      await this.context.db
+        .select({ checkedAt: turnRetake.checkedAt })
+        .from(turnRetake)
+        .where(this.turn(runId, suspendedAt)),
+    );
 
     return found?.checkedAt ?? null;
   }
@@ -77,20 +80,22 @@ export class DrizzleTurnRetakes implements TurnRetakesPort {
       .limit(1)
       .for('update', { skipLocked: true });
 
-    const [leased] = await this.context.db
-      .update(turnRetake)
-      .set({
-        retakeLeasedUntil: lease.leasedUntil,
-        retakeLeaseToken: lease.token,
-        retakeTries: sql`${turnRetake.retakeTries} + 1`,
-      })
-      .where(sql`(${turnRetake.runId}, ${turnRetake.suspendedAt}) in ${due}`)
-      .returning({
-        runId: turnRetake.runId,
-        suspendedAt: turnRetake.suspendedAt,
-        attempt: turnRetake.attempt,
-        tries: turnRetake.retakeTries,
-      });
+    const leased = firstOf(
+      await this.context.db
+        .update(turnRetake)
+        .set({
+          retakeLeasedUntil: lease.leasedUntil,
+          retakeLeaseToken: lease.token,
+          retakeTries: sql`${turnRetake.retakeTries} + 1`,
+        })
+        .where(sql`(${turnRetake.runId}, ${turnRetake.suspendedAt}) in ${due}`)
+        .returning({
+          runId: turnRetake.runId,
+          suspendedAt: turnRetake.suspendedAt,
+          attempt: turnRetake.attempt,
+          tries: turnRetake.retakeTries,
+        }),
+    );
 
     return leased
       ? { ...leased, runId: RunId.of(leased.runId), leaseToken: lease.token }

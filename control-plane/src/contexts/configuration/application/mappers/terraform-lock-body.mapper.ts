@@ -1,4 +1,8 @@
 import { InvalidTerraformStateError } from '@configuration/domain/exceptions/invalid-terraform-state.error';
+import {
+  isJsonObject,
+  type JsonObject,
+} from '@configuration/domain/value-objects/json-object';
 import type { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
 import { StateLockId } from '@configuration/domain/value-objects/state-lock-id.vo';
 import {
@@ -6,14 +10,12 @@ import {
   StateLock,
 } from '@configuration/domain/value-objects/state-lock.vo';
 
-type LockBody = Readonly<Record<string, unknown>>;
-
-const bodyOf = (raw: unknown): LockBody => {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+const bodyOf = (raw: unknown): JsonObject => {
+  if (!isJsonObject(raw)) {
     throw new InvalidTerraformStateError('lock must be a JSON object');
   }
 
-  return raw as LockBody;
+  return raw;
 };
 
 export const TerraformLockBody = {

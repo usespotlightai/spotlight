@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { SETUP_CONTROL } from '@/components/features/onboarding/setup-control';
@@ -20,7 +20,10 @@ type ConfigFolderFormProps = {
   teamId: string;
 };
 
-export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
+export function ConfigFolderForm({
+  slug,
+  teamId,
+}: ConfigFolderFormProps): ReactElement {
   const navigate = useNavigate();
   const trail = useForwardTrail();
   const { data: repositories } = useRepositories(slug);
@@ -31,7 +34,12 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
   const open = () => {
     const chosen = folder.trim();
 
-    if (!repository || !chosen || reading.length === 0) {
+    if (
+      repository === null ||
+      repository === '' ||
+      !chosen ||
+      reading.length === 0
+    ) {
       return;
     }
 
@@ -91,7 +99,12 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
       <Button
         type="submit"
         size="sm"
-        disabled={!repository || !folder.trim() || reading.length === 0}
+        disabled={
+          repository === null ||
+          repository === '' ||
+          !folder.trim() ||
+          reading.length === 0
+        }
         className={cn(SETUP_CONTROL, 'col-span-2 mt-4 w-fit')}
       >
         Continue in chat

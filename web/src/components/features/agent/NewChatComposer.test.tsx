@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewChatComposer } from '@/components/features/agent/NewChatComposer';
 import type { SharedTrace, TargetStation } from '@/lib/chat';
 import { toast } from '@/lib/toast';
+import { inputElement } from '@/test/elements';
 import { erase, pressEnter, textOf, write } from '@/test/lexical';
 
 const started = vi.fn<
@@ -169,11 +170,12 @@ describe('NewChatComposer', () => {
 
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
+    const asked: unknown = expect.stringContaining(
+      'What should change at this station?',
+    );
     expect(started).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.stringContaining(
-          'What should change at this station?',
-        ) as string,
+        body: asked,
         targetStation: 'station_spec',
       }),
       expect.anything(),
@@ -258,7 +260,7 @@ describe('NewChatComposer', () => {
 
     await write(box(), 'Look at ');
     await userEvent.upload(
-      document.querySelector('input[type="file"]') as HTMLInputElement,
+      inputElement(document.querySelector('input[type="file"]')),
       [
         new File(['{}'], 'agent.json', { type: 'application/json' }),
         new File(['png'], 'shot.png', { type: 'image/png' }),
@@ -276,9 +278,7 @@ describe('NewChatComposer', () => {
 
   it('sends a file with the message, and lets it go when its token is deleted', async () => {
     showing();
-    const picker = document.querySelector(
-      'input[type="file"]',
-    ) as HTMLInputElement;
+    const picker = inputElement(document.querySelector('input[type="file"]'));
 
     await userEvent.upload(
       picker,
@@ -329,7 +329,7 @@ describe('NewChatComposer', () => {
 
     const returning = async (prompt: string | null = null, write_?: string) => {
       showing();
-      if (write_) {
+      if (write_ !== undefined && write_ !== '') {
         await write(box(), write_);
       }
       cleanup();
@@ -400,7 +400,7 @@ describe('NewChatComposer', () => {
       URL.createObjectURL = vi.fn(() => 'blob:preview');
       showing();
       await userEvent.upload(
-        document.querySelector('input[type="file"]') as HTMLInputElement,
+        inputElement(document.querySelector('input[type="file"]')),
         [
           new File(['{}'], 'agent.json', { type: 'application/json' }),
           new File(['png'], 'shot.png', { type: 'image/png' }),

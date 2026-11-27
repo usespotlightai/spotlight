@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 
 import { useSession } from '@/hooks/api/useSession';
@@ -8,7 +9,7 @@ import { loading } from '@/lib/query';
 
 const CREATE_WORKSPACE = '/workspaces/new';
 
-export function RequireAuth() {
+export function RequireAuth(): ReactElement | null {
   const { data: session, isPending } = useSession();
   const location = useLocation();
   const signedIn = Boolean(session?.user);

@@ -12,6 +12,8 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
 import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-pool.repository';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { InboxItemDto } from '@work/application/dto/inbox.dto';
@@ -66,7 +68,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 describe('the open setup lists of a team', () => {
@@ -100,7 +102,7 @@ describe('the open setup lists of a team', () => {
     const { teamId, list } = await createTeam('fallon');
 
     const newNote = setupDoneNote(list.notes, DONE, NOW, null);
-    const gone = list.closeConversation(newNote as NonNullable<typeof newNote>);
+    const gone = list.closeConversation(present(newNote));
 
     expect(gone.finishedAt).toBeNull();
     await tasks.save(gone);
@@ -174,7 +176,7 @@ describe('the inbox item of a setup list', () => {
   const inbox = (state: 'open' | 'resolved' = 'open') =>
     new ListInboxHandler(
       new DrizzleInboxReader(db, new DrizzlePersonReader(db), {
-        progressOf: async () => [],
+        progressOf: () => Promise.resolve([]),
       }),
       new WorkAccess(
         access(db),
@@ -215,7 +217,7 @@ describe('the inbox item of a setup list', () => {
   });
 
   it('stays unresolved while a step is still to be taken', async () => {
-    const [item] = await inbox();
+    const item = firstOf(await inbox());
 
     expect(item?.title).toBe('Set up your team');
     expect(item?.resolved).toBe(false);
@@ -224,11 +226,9 @@ describe('the inbox item of a setup list', () => {
   it('reads as resolved once the list has been closed', async () => {
     const newNote = setupDoneNote(waiting.list.notes, DONE, NOW, null);
 
-    await tasks.save(
-      waiting.list.closeConversation(newNote as NonNullable<typeof newNote>),
-    );
+    await tasks.save(waiting.list.closeConversation(present(newNote)));
 
-    const [item] = await inbox('resolved');
+    const item = firstOf(await inbox('resolved'));
 
     expect(item?.resolved).toBe(true);
     expect(item?.lastNote?.body).toBe('Everything on this list is done.');
@@ -458,7 +458,7 @@ describe('whether a workspace is ready to run', () => {
       for (const platformPool of [true, false]) {
         const workspace = WorkspaceId.of(randomUUID());
         await add(workspace);
-        const [pool] = await pools.inWorkspace(workspace);
+        const pool = firstOf(await pools.inWorkspace(workspace));
 
         expect({
           kind,

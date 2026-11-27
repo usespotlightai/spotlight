@@ -114,7 +114,7 @@ export class AttachmentController {
       ),
     );
 
-    if (!url) {
+    if (url === null || url === '') {
       throw new NotFoundException();
     }
 

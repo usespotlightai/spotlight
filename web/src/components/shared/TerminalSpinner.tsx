@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, type ReactElement } from 'react';
 
 import { useFrameStrip } from '@/hooks/useFrameStrip';
 import { prefersReducedMotion } from '@/lib/motion';
@@ -28,7 +28,7 @@ export function TerminalSpinner({
   stopped = null,
   className,
   'aria-hidden': hidden = true,
-}: TerminalSpinnerProps) {
+}: TerminalSpinnerProps): ReactElement {
   const strip = useRef<HTMLSpanElement>(null);
   const moving = !stopped && !prefersReducedMotion();
   const glyphs = moving

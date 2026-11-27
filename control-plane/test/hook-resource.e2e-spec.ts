@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -121,12 +122,12 @@ describe('a hook, created through the resource API (e2e)', () => {
   let app: INestApplication;
   let fixture: ResourceFixture;
 
-  const create = async (body: unknown): Promise<Answer<Problem & Hook>> =>
+  const create = async (body: object): Promise<Answer<Problem & Hook>> =>
     served(app)
       .post(fixture.collection)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('Idempotency-Key', randomUUID())
-      .send(body as object);
+      .send(body);
 
   beforeAll(async () => {
     app = await openApp();
@@ -147,10 +148,12 @@ describe('a hook, created through the resource API (e2e)', () => {
   it('never answers or stores its secret in the clear', async () => {
     const made = await create(GRAFANA_READS);
     const db = app.get<DrizzleDatabase>(DRIZZLE);
-    const [row] = await db
-      .select()
-      .from(schema.hookDefinition)
-      .where(eq(schema.hookDefinition.id, made.body.id));
+    const row = firstOf(
+      await db
+        .select()
+        .from(schema.hookDefinition)
+        .where(eq(schema.hookDefinition.id, made.body.id)),
+    );
 
     expect(made.status).toBe(201);
     expect(made.body.signing).toEqual({ secretVersion: 1 });
@@ -177,16 +180,18 @@ describe('a hook, created through the resource API (e2e)', () => {
   it('keeps the integration offering a tool while a hook matches it', async () => {
     await create(GRAFANA_READS);
 
-    const [integration] = await app
-      .get<DrizzleDatabase>(DRIZZLE)
-      .select()
-      .from(schema.integrationDefinition)
-      .where(
-        eq(
-          schema.integrationDefinition.teamId,
-          fixture.collection.split('/')[5] ?? '',
+    const integration = firstOf(
+      await app
+        .get<DrizzleDatabase>(DRIZZLE)
+        .select()
+        .from(schema.integrationDefinition)
+        .where(
+          eq(
+            schema.integrationDefinition.teamId,
+            fixture.collection.split('/')[5] ?? '',
+          ),
         ),
-      );
+    );
     const removed = (await served(app)
       .put(`/api/v1/resources/integrations/${integration?.id}`)
       .set(TEST_USER_HEADER, fixture.admin)

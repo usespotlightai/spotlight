@@ -12,7 +12,7 @@ export class StaticCatalog implements CatalogItems {
   constructor(private readonly items: readonly CatalogItem[]) {
     const problem = catalogProblem(items);
 
-    if (problem) {
+    if (problem !== null && problem !== '') {
       throw new InconsistentStateError('catalog', problem);
     }
   }

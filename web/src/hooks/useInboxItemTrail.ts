@@ -14,8 +14,10 @@ export function useInboxItemTrail(
   );
 
   return [
-    ...(team && slug ? [teamCrumb(slug, team)] : []),
-    ...(item && slug
+    ...(team && slug !== undefined && slug !== ''
+      ? [teamCrumb(slug, team)]
+      : []),
+    ...(item && slug !== undefined && slug !== ''
       ? [{ label: item.title, to: taskPath(slug, item.teamId, item.taskId) }]
       : []),
   ];

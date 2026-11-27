@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
+import { htmlElement } from '@/test/elements';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -27,9 +28,11 @@ describe('PersonMessage', () => {
         authors={[]}
       />,
     );
-    const viewport = container.querySelector<HTMLElement>(
-      '[data-slot="scroll-area-viewport"]',
-    ) as HTMLElement;
+    const viewport = htmlElement(
+      container.querySelector<HTMLElement>(
+        '[data-slot="scroll-area-viewport"]',
+      ),
+    );
     Object.defineProperty(viewport, 'clientHeight', { value: 128 });
     Object.defineProperty(viewport, 'scrollHeight', { value: 400 });
     act(() => {

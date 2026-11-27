@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { InboxDetailLayout } from '@/components/features/inbox/InboxDetailLayout';
@@ -19,7 +20,7 @@ import { failed, loading } from '@/lib/query';
 import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
 
-export function InboxNotice() {
+export function InboxNotice(): ReactElement {
   const { slug, noticeId } = useParams();
   const found = useInboxNotice(slug, noticeId);
   const notice = found.data;
@@ -32,7 +33,7 @@ export function InboxNotice() {
   );
 
   const base: BreadcrumbSegment[] = [
-    ...(team && slug
+    ...(team && slug !== undefined && slug !== ''
       ? [{ label: team.name, avatar: team.name, to: teamPath(slug, team.id) }]
       : []),
     ...(notice ? [{ label: notice.headline }] : []),
@@ -61,7 +62,7 @@ export function InboxNotice() {
     );
   }
 
-  if (!notice || !slug || notFound(resolve.error)) {
+  if (!notice || slug === undefined || slug === '' || notFound(resolve.error)) {
     return <InboxGone />;
   }
 

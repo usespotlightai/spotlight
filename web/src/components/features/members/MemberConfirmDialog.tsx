@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -64,7 +66,7 @@ export function MemberConfirmDialog({
   error,
   onConfirm,
   onClose,
-}: MemberConfirmDialogProps) {
+}: MemberConfirmDialogProps): ReactElement {
   const shown = useDelayedValue(change, CLOSING_MS);
   const wording = shown ? WORDING[shown] : null;
 
@@ -76,7 +78,7 @@ export function MemberConfirmDialog({
           <DialogDescription>{wording?.description}</DialogDescription>
         </DialogHeader>
 
-        {error && (
+        {error !== null && error !== '' && (
           <p role="alert" className="text-destructive text-sm">
             {error}
           </p>
@@ -87,7 +89,7 @@ export function MemberConfirmDialog({
             Cancel
           </DialogClose>
           <Button
-            variant={wording?.destructive ? 'destructive' : 'default'}
+            variant={wording?.destructive === true ? 'destructive' : 'default'}
             size="sm"
             disabled={!change || pending}
             onClick={onConfirm}

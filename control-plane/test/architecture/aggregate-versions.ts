@@ -131,7 +131,8 @@ const persistedTypesIn = (file: SourceFile): Violation[] => {
                 const name = reference.typeName.getText();
                 const target = imported.get(name);
 
-                return target &&
+                return target !== undefined &&
+                  target !== '' &&
                   /\/domain\//.test(target) &&
                   !AGGREGATE_FILE.test(target)
                   ? [

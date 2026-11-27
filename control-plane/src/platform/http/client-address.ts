@@ -1,4 +1,5 @@
 import type { RequestHeaders } from '@platform/http/request-headers';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 
 type AddressedRequest = {
   readonly headers: RequestHeaders;
@@ -15,8 +16,8 @@ export const clientAddress = (request: AddressedRequest): string => {
   const forwarded = entries(request.headers['x-forwarded-for']);
 
   return (
-    entries(request.headers['cf-connecting-ip'])[0] ??
-    forwarded[forwarded.length - 1] ??
+    firstOf(entries(request.headers['cf-connecting-ip'])) ??
+    itemAt(forwarded, forwarded.length - 1) ??
     request.ip ??
     'unknown'
   );

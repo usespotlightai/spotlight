@@ -18,6 +18,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProposalSetId } from '@memory/domain/value-objects/memory-proposal-set-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -64,41 +65,46 @@ const reacting = (
   const reviews = { reopen: vi.fn(), resolve: vi.fn() };
   let handles = 100;
   const memories = {
-    nextHandle: async () => {
+    nextHandle: () => {
       handles += 1;
-      return MemoryHandle.of(handles);
+      return Promise.resolve(MemoryHandle.of(handles));
     },
-    find: async (id: MemoryId) =>
-      stored.find((each) => each.id.equals(id)) ?? null,
-    add: vi.fn(async (memory: Memory) => {
+    find: (id: MemoryId) =>
+      Promise.resolve(stored.find((each) => each.id.equals(id)) ?? null),
+    add: vi.fn((memory: Memory) => {
       stored.push(memory);
+      return Promise.resolve();
     }),
-    save: vi.fn(async (memory: Memory) => {
+    save: vi.fn((memory: Memory) => {
       stored.splice(
         stored.findIndex((each) => each.id.equals(memory.id)),
         1,
         memory,
       );
+      return Promise.resolve();
     }),
   };
 
   return {
     reactions: new MemoryReactions(
-      reviews as unknown as ReviewsPort,
-      {
-        forTaskLocked: async () =>
-          ({
-            awaitsReviewIn: (runId: RunId) =>
-              awaiting.some((each) => each.equals(runId)),
-          }) as unknown as MemoryProposalSet,
-        forTask: async () => sets[sets.length - 1] ?? null,
-        save: async (saved: MemoryProposalSet) => {
+      partial<ReviewsPort>(reviews),
+      partial<MemoryProposalSetRepository>({
+        forTaskLocked: () =>
+          Promise.resolve(
+            partial<MemoryProposalSet>({
+              awaitsReviewIn: (runId: RunId) =>
+                awaiting.some((each) => each.equals(runId)),
+            }),
+          ),
+        forTask: () => Promise.resolve(sets[sets.length - 1] ?? null),
+        save: (saved: MemoryProposalSet) => {
           sets.push(saved);
+          return Promise.resolve();
         },
-      } as unknown as MemoryProposalSetRepository,
-      memories as unknown as MemoryRepository,
+      }),
+      partial<MemoryRepository>(memories),
       { inTransaction: <T>(work: () => Promise<T>) => work() },
-      { now: () => NOW, sleep: async () => undefined },
+      { now: () => NOW, sleep: () => Promise.resolve(undefined) },
     ),
     reviews,
     memories,

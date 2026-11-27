@@ -1,5 +1,6 @@
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { TaskRunDto } from '@work/application/dto/task-run.dto';
@@ -28,9 +29,9 @@ export class ListTaskRunsHandler implements QueryHandlerPort<
           await this.runs.listForTask(TaskId.of(query.taskId)),
           person,
         )) ?? [];
-      const [first] = found;
+      const first = firstOf(found);
 
-      if (!first) {
+      if (first === undefined) {
         return [];
       }
 

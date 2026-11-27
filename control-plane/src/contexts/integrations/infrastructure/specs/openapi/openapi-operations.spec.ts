@@ -1,5 +1,6 @@
 import { openapiOperations } from '@integrations/infrastructure/specs/openapi/openapi-operations';
 import { PETSTORE } from '@integrations/infrastructure/specs/openapi/petstore.fake-spec';
+import { valueAt } from '@integrations/integrations.requests.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const AT: { url: string | null; baseUrl: string | null; connected: boolean } = {
@@ -87,18 +88,19 @@ describe('openapiOperations', () => {
 
   it('takes a JSON body as body, resolving its schema and stopping at a cycle', () => {
     const body = named('add-pet')?.inputs.find((each) => each.name === 'body');
-    const schema = body?.schema as {
-      required: string[];
-      properties: Record<string, { properties?: Record<string, unknown> }>;
-    };
+    const schema = body?.schema;
 
     expect(body?.required).toBe(true);
-    expect(schema.required).toEqual(['name', 'photoUrls']);
-    expect(schema.properties.category?.properties?.name).toEqual({
+    expect(valueAt(schema, 'required')).toEqual(['name', 'photoUrls']);
+    expect(
+      valueAt(schema, 'properties', 'category', 'properties', 'name'),
+    ).toEqual({
       type: ['string', 'null'],
       nullable: true,
     });
-    expect(schema.properties.category?.properties?.parent).toEqual({});
+    expect(
+      valueAt(schema, 'properties', 'category', 'properties', 'parent'),
+    ).toEqual({});
   });
 
   it('says an operation writes when it posts, puts, patches or deletes', () => {

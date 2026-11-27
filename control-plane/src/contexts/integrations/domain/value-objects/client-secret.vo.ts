@@ -37,7 +37,9 @@ export class ClientSecret implements Secret {
   }
 
   static maybe(raw: string | null | undefined): ClientSecret | null {
-    return raw?.trim() ? ClientSecret.of(raw) : null;
+    return raw !== null && raw !== undefined && raw.trim() !== ''
+      ? ClientSecret.of(raw)
+      : null;
   }
 
   equals(other: ClientSecret): boolean {

@@ -1,17 +1,23 @@
 import type { PullRequestOpening } from '@github/application/ports/pull-request.port';
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubPullRequests } from '@github/infrastructure/github/github-pull-requests';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
-const access = {
-  credential: vi.fn(async () => ({
-    username: 'x-access-token',
-    password: 'tok_1',
-  })),
-} as unknown as RepositoryAccessPort;
+const JSON_OBJECT = z.record(z.string(), z.unknown());
+
+const access = partial<RepositoryAccessPort>({
+  credential: vi.fn(() =>
+    Promise.resolve({
+      username: 'x-access-token',
+      password: 'tok_1',
+    }),
+  ),
+});
 
 const opening: PullRequestOpening = {
   workspaceId: WorkspaceId.of('ws_1'),
@@ -33,77 +39,89 @@ let sent: Sent[] = [];
 const answering = (status: number, body: unknown) => ({
   status,
   ok: status >= 200 && status < 300,
-  json: async () => body,
+  json: () => Promise.resolve(body),
 });
 
 const repository = (over: { open?: boolean; taken?: boolean } = {}) =>
-  vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
+  vi.stubGlobal('fetch', (url: string, init: RequestInit = {}) => {
     sent.push({
       url,
       method: init.method ?? 'GET',
-      body: init.body
-        ? (JSON.parse(init.body as string) as Record<string, unknown>)
-        : {},
+      body:
+        typeof init.body === 'string'
+          ? JSON_OBJECT.parse(JSON.parse(init.body))
+          : {},
     });
 
     if (url.endsWith('/repos/acme/api')) {
-      return answering(200, { default_branch: 'trunk' });
+      return Promise.resolve(answering(200, { default_branch: 'trunk' }));
     }
     if (url.includes('/pulls?state=open')) {
-      return answering(
-        200,
-        over.open
-          ? [
-              {
-                html_url: 'https://github.com/acme/api/pull/3',
-                number: 3,
-                id: 303,
-                base: { repo: { full_name: 'Acme/API' } },
-              },
-            ]
-          : [],
+      return Promise.resolve(
+        answering(
+          200,
+          over.open === true
+            ? [
+                {
+                  html_url: 'https://github.com/acme/api/pull/3',
+                  number: 3,
+                  id: 303,
+                  base: { repo: { full_name: 'Acme/API' } },
+                },
+              ]
+            : [],
+        ),
       );
     }
     if (url.endsWith('/pulls/3')) {
-      return answering(200, {
-        html_url: 'https://github.com/acme/api/pull/3',
-        state: 'closed',
-        merged: false,
-        closed_at: '2026-10-28T09:00:00Z',
-      });
+      return Promise.resolve(
+        answering(200, {
+          html_url: 'https://github.com/acme/api/pull/3',
+          state: 'closed',
+          merged: false,
+          closed_at: '2026-10-28T09:00:00Z',
+        }),
+      );
     }
     if (url.endsWith('/pulls/5')) {
-      return answering(200, {
-        state: 'closed',
-        merged: true,
-        merged_at: '2026-10-28T10:00:00Z',
-      });
+      return Promise.resolve(
+        answering(200, {
+          state: 'closed',
+          merged: true,
+          merged_at: '2026-10-28T10:00:00Z',
+        }),
+      );
     }
     if (url.endsWith('/pulls/6')) {
-      return answering(200, { state: 'open', merged: false });
+      return Promise.resolve(answering(200, { state: 'open', merged: false }));
     }
     if (url.endsWith('/issues/3/comments')) {
-      return answering(201, { id: 1 });
+      return Promise.resolve(answering(201, { id: 1 }));
     }
-    if (url.endsWith('/pulls') && over.taken) {
-      return answering(422, {
-        errors: [
-          {
-            message: 'A pull request already exists for acme:spotlight/task_1.',
-          },
-        ],
-      });
+    if (url.endsWith('/pulls') && over.taken === true) {
+      return Promise.resolve(
+        answering(422, {
+          errors: [
+            {
+              message:
+                'A pull request already exists for acme:spotlight/task_1.',
+            },
+          ],
+        }),
+      );
     }
     if (url.endsWith('/pulls')) {
-      return answering(201, {
-        html_url: 'https://github.com/acme/api/pull/9',
-        number: 9,
-        id: 909,
-        base: { repo: { full_name: 'Acme/API' } },
-      });
+      return Promise.resolve(
+        answering(201, {
+          html_url: 'https://github.com/acme/api/pull/9',
+          number: 9,
+          id: 909,
+          base: { repo: { full_name: 'Acme/API' } },
+        }),
+      );
     }
 
-    return answering(404, { message: `unrouted ${url}` });
+    return Promise.resolve(answering(404, { message: `unrouted ${url}` }));
   });
 
 const sentTo = (fragment: string) =>
@@ -328,18 +346,20 @@ describe('GitHubPullRequests', () => {
       }));
 
     const changing = (pages: Record<number, unknown>) =>
-      vi.stubGlobal('fetch', async (url: string) => {
+      vi.stubGlobal('fetch', (url: string) => {
         sent.push({ url, method: 'GET', body: {} });
 
         if (url.endsWith('/repos/acme/api')) {
-          return answering(200, { default_branch: 'trunk' });
+          return Promise.resolve(answering(200, { default_branch: 'trunk' }));
         }
 
         const page = Number(new URL(url).searchParams.get('page'));
 
-        return page in pages
-          ? answering(200, pages[page])
-          : answering(404, { message: 'Not Found' });
+        return Promise.resolve(
+          page in pages
+            ? answering(200, pages[page])
+            : answering(404, { message: 'Not Found' }),
+        );
       });
 
     it('compares a branch with the default branch, page after page', async () => {
@@ -438,10 +458,10 @@ describe('GitHubPullRequests', () => {
     const SHA = '3f1c9a7e5b2d4c6f8a0e1b3d5c7f9a2e4b6d8c0f';
 
     const associating = (status: number, body: unknown) =>
-      vi.stubGlobal('fetch', async (url: string) => {
+      vi.stubGlobal('fetch', (url: string) => {
         sent.push({ url, method: 'GET', body: {} });
 
-        return answering(status, body);
+        return Promise.resolve(answering(status, body));
       });
 
     it('lists each with its title and whether it merged', async () => {

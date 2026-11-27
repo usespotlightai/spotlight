@@ -73,7 +73,7 @@ const finishedLive = async (
 
 const oracleReplays = () =>
   [...memory.replays.values()].filter(
-    (each) => memory.candidates.get(each.candidateId.value)?.isOracle,
+    (each) => memory.candidates.get(each.candidateId.value)?.isOracle === true,
   );
 
 beforeEach(async () => {
@@ -92,21 +92,21 @@ describe('StartOracleReplay', () => {
     await oracles().baselineEnded(await finishedLive({ repeats: 2 }));
 
     const [oracle] = oracleReplays();
-    const candidate = memory.candidates.get(oracle?.candidateId.value ?? '');
+    const candidate = memory.candidates.get(oracle.candidateId.value);
 
     expect(oracleReplays()).toHaveLength(1);
     expect(candidate?.block).toEqual(LIVE.block);
     expect(candidate?.name.value).toMatch(/^With the answer, /);
-    expect(oracle?.runSubset?.map((each) => each.value)).toEqual([
+    expect(oracle.runSubset?.map((each) => each.value)).toEqual([
       'original_0',
       'original_2',
     ]);
-    expect(oracle?.referenceReplayId?.value).toBe('replay_live');
-    expect(oracle?.answerTo(RunId.of('original_0'))).toBe('accepted');
-    expect(oracle?.answerTo(RunId.of('original_2'))).toBe('sent-back');
-    expect(oracle?.pairwiseReferenceId).toBeNull();
-    expect(oracle?.repeats).toBe(2);
-    expect(oracle?.ceiling.amount).toBe(10);
+    expect(oracle.referenceReplayId?.value).toBe('replay_live');
+    expect(oracle.answerTo(RunId.of('original_0'))).toBe('accepted');
+    expect(oracle.answerTo(RunId.of('original_2'))).toBe('sent-back');
+    expect(oracle.pairwiseReferenceId).toBeNull();
+    expect(oracle.repeats).toBe(2);
+    expect(oracle.ceiling.amount).toBe(10);
   });
 
   it('starts nothing when the live config moves on while it is starting', async () => {
@@ -219,8 +219,8 @@ describe('StartOracleReplay', () => {
 
     const [oracle] = oracleReplays();
 
-    expect(oracle?.referenceReplayId?.value).toBe('replay_live');
-    expect(oracle?.searchId).toBeNull();
-    expect(oracle?.repeats).toBe(3);
+    expect(oracle.referenceReplayId?.value).toBe('replay_live');
+    expect(oracle.searchId).toBeNull();
+    expect(oracle.repeats).toBe(3);
   });
 });

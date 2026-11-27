@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class SandboxKey {
-  private readonly kind = 'sandbox-key';
+  private readonly kind: string = 'sandbox-key';
 
   private constructor(readonly value: string) {}
 

@@ -133,7 +133,7 @@ export class JudgeDisagreement extends EventRecorder {
         ? 'opens only where the judge and the label disagree'
         : brokenRuleOf(verdict, input.labelFrom, input.askedOf);
 
-    if (broken) {
+    if (broken !== null && broken !== '') {
       throw new InvalidJudgeDisagreementError(broken);
     }
 
@@ -170,7 +170,7 @@ export class JudgeDisagreement extends EventRecorder {
     const { verdict } = fields;
     const broken = brokenRuleOf(verdict, fields.labelFrom, fields.askedOf);
 
-    if (broken) {
+    if (broken !== null && broken !== '') {
       throw new InconsistentStateError('judge disagreement', broken);
     }
 
@@ -199,7 +199,7 @@ export class JudgeDisagreement extends EventRecorder {
       fields.notMet &&
       notMetRuleOf(verdict, fields.labelFrom, fields.notMet.shouldHaveFailed);
 
-    if (brokenNotMet) {
+    if (brokenNotMet !== null && brokenNotMet !== '') {
       throw new InconsistentStateError('judge disagreement', brokenNotMet);
     }
 
@@ -437,7 +437,7 @@ export class JudgeDisagreement extends EventRecorder {
       input.shouldHaveFailed,
     );
 
-    if (brokenNotMet) {
+    if (brokenNotMet !== null && brokenNotMet !== '') {
       throw new InvalidJudgeDisagreementError(brokenNotMet);
     }
 

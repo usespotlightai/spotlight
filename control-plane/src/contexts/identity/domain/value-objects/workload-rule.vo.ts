@@ -13,7 +13,7 @@ const MAX_CLAIMS = 16;
 const OWNER_END = '/';
 
 export class WorkloadRule {
-  private readonly kind = 'workload-rule';
+  private readonly kind: string = 'workload-rule';
 
   private constructor(
     readonly issuer: OidcIssuer,

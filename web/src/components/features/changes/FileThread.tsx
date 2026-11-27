@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ReplyBox } from '@/components/features/review/ReplyBox';
 import { ReviewCommentItem } from '@/components/features/review/ReviewCommentItem';
 import { ThreadEntry } from '@/components/features/review/ThreadEntry';
@@ -18,12 +20,12 @@ export function FileThread({
   note,
   replying,
   onReplying,
-}: FileThreadProps) {
+}: FileThreadProps): ReactElement | null {
   const reviewing = useReviewing();
   const draft = useDraftReviewComment();
   const comments = fileCommentsOf(reviewing?.review?.comments ?? [], path);
 
-  if (!note && comments.length === 0 && !replying) {
+  if ((note === null || note === '') && comments.length === 0 && !replying) {
     return null;
   }
 
@@ -33,9 +35,9 @@ export function FileThread({
         aria-label={`Comments on ${path}`}
         className="flex flex-col gap-3 rounded-lg border-[0.5px] border-border bg-card p-3 font-sans shadow-xs"
       >
-        {(note || comments.length > 0) && (
+        {((note !== null && note !== '') || comments.length > 0) && (
           <ol className="flex flex-col">
-            {note && (
+            {note !== null && note !== '' && (
               <ThreadEntry
                 avatar={<Logo className="size-5 rounded" aria-hidden />}
                 author="Spotlight"
@@ -50,7 +52,7 @@ export function FileThread({
               <ReviewCommentItem
                 key={comment.id}
                 comment={comment}
-                first={!note && place === 0}
+                first={(note === null || note === '') && place === 0}
               />
             ))}
           </ol>
@@ -58,7 +60,11 @@ export function FileThread({
 
         {reviewing && (
           <ReplyBox
-            label={note ? 'Reply to the summary' : `Comment on ${path}`}
+            label={
+              note !== null && note !== ''
+                ? 'Reply to the summary'
+                : `Comment on ${path}`
+            }
             open={replying}
             onOpenChange={onReplying}
             pending={draft.isPending}

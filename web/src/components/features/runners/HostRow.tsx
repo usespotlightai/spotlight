@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   HOST_COLUMNS,
   HOST_ROW,
@@ -55,7 +57,7 @@ export function HostRow({
   selectable,
   selected,
   onSelectedChange,
-}: HostRowProps) {
+}: HostRowProps): ReactElement {
   return (
     <li data-slot="host-row">
       <div

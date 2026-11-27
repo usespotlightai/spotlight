@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { autoSearched } from './app';
@@ -57,14 +58,18 @@ export const policyAt = async (
     .where(eq(schema.station.id, stationId));
 };
 
-export const scheduleOf = async ({ db, stationId }: SearchedStation) => {
-  const [row] = await db
-    .select()
-    .from(schema.stationSearchSchedule)
-    .where(eq(schema.stationSearchSchedule.stationId, stationId));
-
-  return row;
-};
+export const scheduleOf = async ({
+  db,
+  stationId,
+}: SearchedStation): Promise<
+  typeof schema.stationSearchSchedule.$inferSelect | undefined
+> =>
+  firstOf(
+    await db
+      .select()
+      .from(schema.stationSearchSchedule)
+      .where(eq(schema.stationSearchSchedule.stationId, stationId)),
+  );
 
 export const dueNow = async (
   { db, stationId }: SearchedStation,
@@ -81,23 +86,27 @@ export const dueNow = async (
     .where(eq(schema.stationSearchSchedule.stationId, stationId));
 };
 
-export const activeSearchAt = async ({ db, stationId }: SearchedStation) => {
-  const [row] = await db
-    .select()
-    .from(schema.replaySearch)
-    .where(
-      and(
-        eq(schema.replaySearch.stationId, stationId),
-        inArray(schema.replaySearch.state, [
-          'seeding',
-          'searching',
-          'holding-out',
-        ]),
+export const activeSearchAt = async ({
+  db,
+  stationId,
+}: SearchedStation): Promise<
+  typeof schema.replaySearch.$inferSelect | undefined
+> =>
+  firstOf(
+    await db
+      .select()
+      .from(schema.replaySearch)
+      .where(
+        and(
+          eq(schema.replaySearch.stationId, stationId),
+          inArray(schema.replaySearch.state, [
+            'seeding',
+            'searching',
+            'holding-out',
+          ]),
+        ),
       ),
-    );
-
-  return row;
-};
+  );
 
 const SEARCH_RUN_SUBSCRIBERS = [
   'replays.dispatch-search-iteration',
@@ -151,7 +160,7 @@ export const searchStarted = async (
 
   const started = await activeSearchAt(at);
 
-  if (!started) {
+  if (started === undefined) {
     throw new Error(
       `Spotlight started no search: ${(await scheduleOf(at))?.lastSkipReason ?? 'it waits'}`,
     );

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { Modified } from '@/components/features/inbox/conversation/approval/Modified';
 import { CodeBlock } from '@/components/shared/CodeBlock';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
@@ -10,7 +12,11 @@ import {
 } from '@/lib/approval';
 import { cn } from '@/lib/utils';
 
-export function ApprovalAction({ approval }: { approval: Approval }) {
+export function ApprovalAction({
+  approval,
+}: {
+  approval: Approval;
+}): ReactElement {
   const changed = changedNames(approval);
 
   return (
@@ -21,12 +27,14 @@ export function ApprovalAction({ approval }: { approval: Approval }) {
 
         return (
           <FactRow key={input.name}>
-            {label && (
+            {label !== null && label !== '' && (
               <dt className={cn(FACT_LABEL, 'truncate first-letter:uppercase')}>
                 {label}
               </dt>
             )}
-            <dd className={cn(!label && 'col-span-2')}>
+            <dd
+              className={cn((label === null || label === '') && 'col-span-2')}
+            >
               {readsAsCode(approval, input) ? (
                 <>
                   <CodeBlock command={input.value} className="px-2.5 py-1.5" />

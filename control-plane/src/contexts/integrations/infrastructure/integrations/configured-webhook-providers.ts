@@ -44,9 +44,8 @@ export class ConfiguredWebhookProviders implements ConfiguredWebhookProvidersPor
   async all(team: OfTeam): Promise<readonly WebhookProviderPort[]> {
     const definitions = await this.defined.ofTeam(team.teamId);
     const built: WebhookProviderPort[] = [];
-    const credentials = new SpotlightCredentials(
-      this.injection,
-      async () => team.workspaceId,
+    const credentials = new SpotlightCredentials(this.injection, () =>
+      Promise.resolve(team.workspaceId),
     );
     const signing = new SpotlightSigningSecrets(
       this.injection,

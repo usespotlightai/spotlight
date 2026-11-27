@@ -13,6 +13,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { JudgingFailure } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
@@ -143,28 +144,32 @@ export class DrizzleJudgingRepository implements JudgingRepository {
   }
 
   async of(runId: RunId): Promise<Judging | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(judging)
-      .where(eq(judging.runId, runId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(judging)
+        .where(eq(judging.runId, runId.value))
+        .limit(1),
+    );
 
     return row ? toJudging(row) : null;
   }
 
   async nextDueJob(now: Date): Promise<Judging | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(judging)
-      .where(
-        and(
-          eq(judging.pending, true),
-          or(isNull(judging.jobDueAt), lte(judging.jobDueAt, now)),
-        ),
-      )
-      .orderBy(asc(judging.queuedAt))
-      .limit(1)
-      .for('update', { skipLocked: true });
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(judging)
+        .where(
+          and(
+            eq(judging.pending, true),
+            or(isNull(judging.jobDueAt), lte(judging.jobDueAt, now)),
+          ),
+        )
+        .orderBy(asc(judging.queuedAt))
+        .limit(1)
+        .for('update', { skipLocked: true }),
+    );
 
     return row ? toJudging(row) : null;
   }

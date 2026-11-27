@@ -42,7 +42,7 @@ export const harnessToolOf = (
 ): HarnessTool => {
   const trimmed = title.trim();
 
-  if (named) {
+  if (named !== null && named !== '') {
     return prefixed(named.trim()) ?? { server: null, tool: named.trim() };
   }
 
@@ -53,14 +53,24 @@ export const requestedSkillOf = (
   tool: HarnessTool,
   input: string | null,
 ): string | null => {
-  if (tool.server !== null || tool.tool !== SKILL_TOOL || !input) {
+  if (
+    tool.server !== null ||
+    tool.tool !== SKILL_TOOL ||
+    input === null ||
+    input === ''
+  ) {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(input) as { skill?: unknown };
+    const parsed: unknown = JSON.parse(input);
 
-    return typeof parsed.skill === 'string' ? parsed.skill : null;
+    return typeof parsed === 'object' &&
+      parsed !== null &&
+      'skill' in parsed &&
+      typeof parsed.skill === 'string'
+      ? parsed.skill
+      : null;
   } catch {
     return null;
   }
@@ -72,7 +82,7 @@ export const readingPaths = (
   read: readonly (string | null)[],
 ): readonly string[] =>
   tool.server === null && kind !== null && READING_KINDS.has(kind)
-    ? read.flatMap((each) => (each ? [each] : []))
+    ? read.flatMap((each) => (each !== null && each !== '' ? [each] : []))
     : [];
 
 export const callEndingOf = (

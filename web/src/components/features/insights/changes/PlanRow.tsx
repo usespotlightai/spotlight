@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import type { PlanMark } from '@/lib/config-plan';
 import { cn } from '@/lib/utils';
@@ -33,7 +33,7 @@ export function PlanRow({
   depth = 0,
   toned = false,
   children,
-}: PlanRowProps) {
+}: PlanRowProps): ReactElement {
   return (
     <li
       data-slot="plan-row"

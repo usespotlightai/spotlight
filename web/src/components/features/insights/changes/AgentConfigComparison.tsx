@@ -1,4 +1,5 @@
 import type { UseQueryResult } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 
 import { AgentConfigFilters } from '@/components/features/insights/changes/AgentConfigFilters';
 import { AgentConfigScatter } from '@/components/features/insights/changes/AgentConfigScatter';
@@ -44,14 +45,14 @@ export function AgentConfigComparison({
   names,
   onNarrow,
   onMeasure,
-}: AgentConfigComparisonProps) {
+}: AgentConfigComparisonProps): ReactElement {
   const harnesses = useHarnesses().data;
   const judged = comparison.agentConfigs.some(
     (each) => (each.judge?.judged ?? 0) > 0,
   );
   const points = agentConfigPoints(comparison.agentConfigs, measure, harnesses);
   const stationReplayed =
-    narrowed.stationId && candidates.data
+    narrowed.stationId !== null && narrowed.stationId !== '' && candidates.data
       ? stationReplayedPoints(
           candidates.data,
           narrowed.stationId,
@@ -59,7 +60,8 @@ export function AgentConfigComparison({
         )
       : null;
   const hiddenFor = lowerIsBetter(measure) ? outcomeLabel(measure) : null;
-  const replayed = hiddenFor ? [] : (stationReplayed ?? []);
+  const replayed =
+    hiddenFor !== null && hiddenFor !== '' ? [] : (stationReplayed ?? []);
   const scattered =
     comparison.agentConfigs.length > 0 &&
     points.length > 0 &&
@@ -115,12 +117,14 @@ export function AgentConfigComparison({
             harnesses={harnesses}
             judged={judged}
           />
-          {replayed.length > 0 && comparison.currency && (
-            <ReplayedAgentConfigTable
-              points={replayed}
-              currency={comparison.currency}
-            />
-          )}
+          {replayed.length > 0 &&
+            comparison.currency !== null &&
+            comparison.currency !== '' && (
+              <ReplayedAgentConfigTable
+                points={replayed}
+                currency={comparison.currency}
+              />
+            )}
           {notes(false)}
         </>
       }
@@ -129,7 +133,9 @@ export function AgentConfigComparison({
         <p className="py-6 text-center text-muted-foreground text-sm">
           No runs match these filters in this period.
         </p>
-      ) : !scattered || !comparison.currency ? (
+      ) : !scattered ||
+        comparison.currency === null ||
+        comparison.currency === '' ? (
         <p className="py-6 text-center text-muted-foreground text-sm">
           No priced runs to chart. Show the table for outcomes alone.
         </p>

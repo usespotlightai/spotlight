@@ -1,8 +1,9 @@
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
 import { GitHubWebhookProvider } from '@integrations/infrastructure/webhooks/github.webhook-provider';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it } from 'vitest';
 
-const provider = new GitHubWebhookProvider({} as unknown as GitHubWebhooksPort);
+const provider = new GitHubWebhookProvider(partial<GitHubWebhooksPort>({}));
 
 const raised = provider.happenings.map((each) => each.happening.value);
 

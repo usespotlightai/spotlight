@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { AvatarSetting } from '@/components/features/settings/AvatarSetting';
@@ -12,7 +13,7 @@ import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { failed } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
 
-export function TeamGeneral() {
+export function TeamGeneral(): ReactElement | null {
   const { slug, teamId } = useParams();
   const workspace = useWorkspace(slug);
   const change = useTeamAvatar(slug, teamId);
@@ -21,7 +22,11 @@ export function TeamGeneral() {
     (candidate) => candidate.id === teamId,
   );
 
-  if (!teamId || (workspace.data !== undefined && !team)) {
+  if (
+    teamId === undefined ||
+    teamId === '' ||
+    (workspace.data !== undefined && !team)
+  ) {
     return null;
   }
 

@@ -4,7 +4,9 @@ import { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 
 export const ToolActingAsMapper = {
   toActingAs(dto: ToolActingAsDto): ToolActingAs {
-    return dto.actsAs === 'requester' && dto.personId
+    return dto.actsAs === 'requester' &&
+      dto.personId !== null &&
+      dto.personId !== ''
       ? ToolActingAs.person(UserId.of(dto.personId), dto.linkedAccount)
       : ToolActingAs.team(dto.linkedAccount);
   },

@@ -115,7 +115,7 @@ export const appliesTo = (memory: Scoped): string => {
 };
 
 export const memoryFilesOf = (memory: Scoped): string | null => {
-  if (!memory.repository) {
+  if (memory.repository === null || memory.repository === '') {
     return null;
   }
 
@@ -151,7 +151,9 @@ export const proposalTitleOf = (memory: ProposedMemory): string => {
     memory.state === 'approved' ? 'Memory approved' : 'Memory rejected';
   const who = memory.decision?.name;
 
-  return who ? `${outcome} by ${who}` : outcome;
+  return who !== undefined && who !== null && who !== ''
+    ? `${outcome} by ${who}`
+    : outcome;
 };
 
 const PROPOSAL_STATUSES: Record<ProposedMemory['state'], ApprovalStatus> = {
@@ -215,7 +217,7 @@ export const paramsOf = (filter: MemoryFilter): Record<string, string> =>
     ...(filter.status === 'retired' ? [['status', 'retired'] as const] : []),
     ...FILTERED.flatMap((key) => {
       const value = filter[key];
-      return value ? [[key, value] as const] : [];
+      return value !== null && value !== '' ? [[key, value] as const] : [];
     }),
   ]);
 
@@ -285,7 +287,7 @@ export const memoryPathsOf = (
   [
     ...new Set([
       ...memories.flatMap((memory) => memory.paths),
-      ...(chosen ? [chosen] : []),
+      ...(chosen !== null && chosen !== '' ? [chosen] : []),
     ]),
   ].sort();
 
@@ -310,16 +312,17 @@ export const placeTreeOf = (
     joinedBy: ' › ',
     children: [],
   }));
-  const repository: PlaceNode[] = memory.repository
-    ? [
-        {
-          kind: 'repository',
-          label: memory.repository,
-          joinedBy: ' › ',
-          children: paths,
-        },
-      ]
-    : [];
+  const repository: PlaceNode[] =
+    memory.repository !== null && memory.repository !== ''
+      ? [
+          {
+            kind: 'repository',
+            label: memory.repository,
+            joinedBy: ' › ',
+            children: paths,
+          },
+        ]
+      : [];
   const stations: PlaceNode[] = station
     ? [
         {
@@ -341,14 +344,19 @@ export const placeTreeOf = (
   }
 
   return {
-    kind: memory.lineId ? 'line' : 'team',
-    label: memory.lineId ? 'Line deleted' : 'The whole team',
+    kind: memory.lineId !== null && memory.lineId !== '' ? 'line' : 'team',
+    label:
+      memory.lineId !== null && memory.lineId !== ''
+        ? 'Line deleted'
+        : 'The whole team',
     joinedBy: null,
     children: repository,
   };
 };
 
-export const workStationsOf = (line: LineResponseDto | undefined) =>
+export const workStationsOf = (
+  line: LineResponseDto | undefined,
+): LineResponseDto['stations'] =>
   (line?.stations ?? []).filter((each) => each.kind === 'work');
 
 export const repositoriesOf = (

@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -48,7 +49,7 @@ export class DrizzleRunnerReader
   private readonly platformPoolSet: boolean;
 
   // As RunnerPool.canProvision: a pool with a provision URL pushes, and so does the platform pool while the deployment sets its provisioner and the operator did not disable it.
-  private readonly pushes: SQL;
+  private readonly pushes: SQL | undefined;
 
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
@@ -58,10 +59,10 @@ export class DrizzleRunnerReader
     this.platform = setup.platformEgressSet;
     this.platformPoolSet = setup.platformPoolSet;
     this.pushes = setup.platformPoolSet
-      ? (or(
+      ? or(
           isNotNull(runnerPool.provisionUrl),
           and(eq(runnerPool.platform, true), eq(runnerPool.disabled, false)),
-        ) as SQL)
+        )
       : isNotNull(runnerPool.provisionUrl);
   }
 
@@ -73,7 +74,7 @@ export class DrizzleRunnerReader
     return {
       kind: 'pool',
       key: row.poolKey,
-      platform: row.poolPlatform
+      platform: row.poolPlatform === true
         ? {
             egress:
               row.poolEgress !== null &&
@@ -84,13 +85,13 @@ export class DrizzleRunnerReader
   }
 
   async readyToRun(workspaceId: WorkspaceId): Promise<boolean> {
-    const [pushed] = await this.db
+    const pushed = firstOf(await this.db
       .select({ id: runnerPool.id })
       .from(runnerPool)
       .where(
         and(eq(runnerPool.workspaceId, workspaceId.value), this.pushes),
       )
-      .limit(1);
+      .limit(1));
 
     if (pushed) {
       return true;
@@ -104,7 +105,7 @@ export class DrizzleRunnerReader
       return false;
     }
 
-    const [disabled] = await this.db
+    const disabled = firstOf(await this.db
       .select({ id: runnerPool.id })
       .from(runnerPool)
       .where(
@@ -114,7 +115,7 @@ export class DrizzleRunnerReader
           eq(runnerPool.disabled, true),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return !disabled;
   }
@@ -207,7 +208,7 @@ export class DrizzleRunnerReader
 
     for (const row of hosts) {
       for (const image of row.images.filter(
-        (each) => !each.unavailableReason,
+        (each) => (each.unavailableReason === undefined || each.unavailableReason === ''),
       )) {
         for (const each of image.harnesses) {
           collect(each.id, each.models);

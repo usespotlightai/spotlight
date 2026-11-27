@@ -75,14 +75,14 @@ const guardRead = (
     return;
   }
 
-  if (!reading?.isOf(compiled.spec)) {
+  if (reading?.isOf(compiled.spec) !== true) {
     throw new InvalidIntegrationError(
       integration,
       `names its ${compiled.spec.label} and did not receive a fetched spec`,
     );
   }
 
-  if (generatedFrom && !reading.hash?.equals(generatedFrom)) {
+  if (generatedFrom && reading.hash?.equals(generatedFrom) !== true) {
     throw new InvalidIntegrationError(
       integration,
       `provides tools from another fetch of its ${compiled.spec.label} than the one it stores`,
@@ -216,7 +216,7 @@ export class IntegrationDefinition extends EventRecorder {
   changesSpec(reading: SpecFetchResult): boolean {
     const current = this.state.reading;
 
-    return !current?.sameReadingAs(reading);
+    return current?.sameReadingAs(reading) !== true;
   }
 
   refreshSpec(

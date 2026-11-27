@@ -1,10 +1,12 @@
+import type { ReactElement } from 'react';
+
 import { TraceHead } from '@/components/features/trace/list/TraceHead';
 import { TraceLegend } from '@/components/features/trace/list/TraceLegend';
 import { TraceRowSkeleton } from '@/components/features/trace/list/TraceRowSkeleton';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-export function TraceListSkeleton() {
+export function TraceListSkeleton(): ReactElement {
   return (
     <div
       role="status"

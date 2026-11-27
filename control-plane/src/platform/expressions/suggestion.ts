@@ -67,7 +67,7 @@ export const suggestionFor = (
 ): string | null => {
   const unknown = UNKNOWN_VARIABLE.exec(reason)?.[1];
 
-  if (unknown) {
+  if (unknown !== undefined && unknown !== '') {
     return closest(unknown, scope.names);
   }
 
@@ -76,12 +76,17 @@ export const suggestionFor = (
     ? RECEIVER.exec(source.slice(0, span.start))?.[1]
     : undefined;
 
-  if (!missing || !receiver) {
+  if (
+    missing === undefined ||
+    missing === '' ||
+    receiver === undefined ||
+    receiver === ''
+  ) {
     return null;
   }
 
   const path = receiver.split('.').map((each) => each.trim());
   const field = closest(missing, scope.fieldsAt(path));
 
-  return field ? [...path, field].join('.') : null;
+  return field !== null && field !== '' ? [...path, field].join('.') : null;
 };

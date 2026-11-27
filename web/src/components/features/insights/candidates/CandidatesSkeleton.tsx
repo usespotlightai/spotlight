@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
@@ -8,7 +10,7 @@ import {
 } from '@/lib/insights-candidates';
 import { ignore } from '@/lib/utils';
 
-export function CandidatesSkeleton() {
+export function CandidatesSkeleton(): ReactElement {
   return (
     <div role="status" aria-label="Loading the candidates">
       <InsightsCardSkeleton

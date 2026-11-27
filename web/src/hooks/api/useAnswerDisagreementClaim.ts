@@ -1,8 +1,15 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { judgeDisagreementKeys } from '@/hooks/api/useJudgeDisagreement';
-import { answerJudgeDisagreementClaim } from '@/lib/api';
+import {
+  answerJudgeDisagreementClaim,
+  type JudgeDisagreementResponseDto,
+} from '@/lib/api';
 import type { ClaimAnswerBody } from '@/lib/judge-disagreement';
 
 type AnswerDisagreementClaimInput = {
@@ -13,7 +20,11 @@ type AnswerDisagreementClaimInput = {
   answer: ClaimAnswerBody;
 };
 
-export function useAnswerDisagreementClaim() {
+export function useAnswerDisagreementClaim(): UseMutationResult<
+  JudgeDisagreementResponseDto,
+  Error,
+  AnswerDisagreementClaimInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

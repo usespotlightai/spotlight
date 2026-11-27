@@ -10,7 +10,7 @@ export const everyPage = async <T>(
     const page = await read(before);
     items.push(...page.items);
     before = page.next ?? undefined;
-  } while (before);
+  } while (before !== undefined && before !== '');
 
   return items;
 };

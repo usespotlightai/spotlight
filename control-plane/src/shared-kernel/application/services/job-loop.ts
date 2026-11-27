@@ -116,7 +116,7 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
       return;
     }
 
-    if (job?.hasPendingJob) {
+    if (job?.hasPendingJob === true) {
       await this.attempt(job);
     }
   }
@@ -159,7 +159,7 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
     try {
       const found = await this.source.find(this.source.keyOf(job));
 
-      return found?.hasPendingJob ? found : job;
+      return found?.hasPendingJob === true ? found : job;
     } catch {
       return job;
     }

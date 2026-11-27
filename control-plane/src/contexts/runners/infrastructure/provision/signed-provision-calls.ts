@@ -156,7 +156,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
     const reason =
       answered.status === UNPROCESSABLE ? declinedReason(text) : null;
 
-    if (reason) {
+    if (reason !== null && reason !== '') {
       return { outcome: 'declined', detail: reason };
     }
 

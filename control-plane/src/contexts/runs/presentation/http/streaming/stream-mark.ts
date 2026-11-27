@@ -1,5 +1,6 @@
 import type { RunJournalEntryView } from '@runs/application/ports/run-stream.port';
 import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 const counted = (raw: string | undefined): number | null => {
   const parsed = Number.parseInt(raw ?? '', 10);
@@ -15,7 +16,9 @@ export const cursorOf = (
   raw: string | undefined,
   attempt: number,
 ): StreamCursor => {
-  const [first, second] = (raw ?? '').split(':');
+  const parts = (raw ?? '').split(':');
+  const first = itemAt(parts, 0);
+  const second = itemAt(parts, 1);
   const seq = counted(second === undefined ? first : second) ?? 0;
   const at = second === undefined ? attempt : (counted(first) ?? 0);
 

@@ -35,11 +35,15 @@ export const call = (
     throw new GitHubUnansweredError(`${init.method ?? 'GET'} ${path}`, error);
   });
 
+const headerOf = (
+  headers: Partial<Pick<Headers, 'get'>> | undefined,
+  name: string,
+): string | null | undefined => headers?.get?.(name);
+
 const retryable = (response: Response, body: GitHubError): boolean => {
-  const headers = response.headers as Headers | undefined;
   const rateLimited =
-    headers?.get?.('x-ratelimit-remaining') === '0' ||
-    Boolean(headers?.get?.('retry-after')) ||
+    headerOf(response.headers, 'x-ratelimit-remaining') === '0' ||
+    Boolean(headerOf(response.headers, 'retry-after')) ||
     /rate limit/i.test(body.message ?? '');
 
   return (
@@ -53,6 +57,7 @@ export const answered = async <T>(
   response: Response,
   operation: string,
 ): Promise<T> => {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const body = (await response.json().catch(() => ({}))) as T & GitHubError;
 
   if (!response.ok) {

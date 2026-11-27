@@ -46,13 +46,15 @@ const providerOver = (activity: readonly PullRequestActivity[]) => {
   const github = {
     verifies: vi.fn(() => true),
     idOf: vi.fn(() => 'd_1'),
-    workspaceOf: vi.fn(async () => WorkspaceId.of('ws_1')),
-    receive: vi.fn(async () => {
+    workspaceOf: vi.fn(() => Promise.resolve(WorkspaceId.of('ws_1'))),
+    receive: vi.fn(() => {
       order.push('receive');
+
+      return Promise.resolve();
     }),
-    activityIn: vi.fn(async () => {
+    activityIn: vi.fn(() => {
       order.push('activity');
-      return activity;
+      return Promise.resolve(activity);
     }),
   } satisfies GitHubWebhooksPort;
 

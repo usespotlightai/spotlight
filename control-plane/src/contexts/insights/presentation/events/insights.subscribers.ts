@@ -315,7 +315,9 @@ export const insightsSubscribers = (
       handlers.superseding.superseded(
         RunId.of(event.runId),
         WorkspaceId.of(event.workspaceId),
-        event.taskId ? TaskId.of(event.taskId) : null,
+        event.taskId !== null && event.taskId !== ''
+          ? TaskId.of(event.taskId)
+          : null,
         new Date(event.at),
       ),
   ),
@@ -326,7 +328,9 @@ export const insightsSubscribers = (
       handlers.checking.checked(
         RunId.of(event.runId),
         WorkspaceId.of(event.workspaceId),
-        event.taskId ? TaskId.of(event.taskId) : null,
+        event.taskId !== null && event.taskId !== ''
+          ? TaskId.of(event.taskId)
+          : null,
         {
           repository: event.repository,
           startedAt: new Date(event.stackStartedAt),
@@ -388,7 +392,10 @@ export const insightsSubscribers = (
     [TASK_ASKED],
     (event) =>
       handlers.asking.asked({
-        runId: event.runId ? RunId.of(event.runId) : null,
+        runId:
+          event.runId !== null && event.runId !== ''
+            ? RunId.of(event.runId)
+            : null,
         workspaceId: WorkspaceId.of(event.workspaceId),
         taskId: TaskId.of(event.taskId),
         drivenByAPerson: event.driver === 'person',

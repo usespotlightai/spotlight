@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, type ReactElement } from 'react';
 
 import { ColumnResizer } from '@/components/shared/ColumnResizer';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
@@ -32,7 +32,7 @@ export function NestedHeadings({
   onPin,
   onResize,
   onReset,
-}: NestedHeadingsProps) {
+}: NestedHeadingsProps): ReactElement {
   const row = useRef<HTMLDivElement>(null);
   const pin = () =>
     onPin(
@@ -52,14 +52,16 @@ export function NestedHeadings({
           key={heading.label}
           className={cn(
             'relative min-w-0',
-            heading.numeric ? NUMERIC : 'flex items-center gap-1',
+            heading.numeric === true ? NUMERIC : 'flex items-center gap-1',
             heading.indent && INDENTS[heading.indent],
           )}
         >
           <span aria-hidden className="truncate">
             {heading.label}
           </span>
-          {heading.tooltip && <InfoTooltip tooltip={heading.tooltip} />}
+          {heading.tooltip !== undefined && heading.tooltip !== '' && (
+            <InfoTooltip tooltip={heading.tooltip} />
+          )}
           {column < headings.length - 1 || trailing ? (
             <ColumnResizer
               label={heading.label}

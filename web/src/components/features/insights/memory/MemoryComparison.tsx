@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import {
   EDGE_INDENT,
@@ -14,7 +16,10 @@ type MemoryComparisonProps = {
   verdicts: readonly MeasureVerdict[];
 };
 
-export function MemoryComparison({ runs, verdicts }: MemoryComparisonProps) {
+export function MemoryComparison({
+  runs,
+  verdicts,
+}: MemoryComparisonProps): ReactElement {
   return (
     <NestedTable
       label="Runs without memories compared with runs with them"

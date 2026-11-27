@@ -1,5 +1,6 @@
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { RunsPort } from '@runs/application/ports/runs.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -83,41 +84,45 @@ let calls: string[];
 let refuseOrder: boolean;
 
 const dispatches: DispatchRepository = {
-  find: async () => stored,
-  add: async () => undefined,
-  save: async (saved) => {
+  find: () => Promise.resolve(stored),
+  add: () => Promise.resolve(undefined),
+  save: (saved) => {
     calls.push(
       `save:${saved.enqueued ? 'enqueued' : (saved.refusedBecause ?? 'ordered')}${saved.detachedAt ? ':detached' : ''}`,
     );
     saved.pullEvents();
     stored = saved;
+
+    return Promise.resolve();
   },
 };
 
-const tasks = {
-  find: async () => {
+const tasks = partial<TaskRepository>({
+  find: () => {
     const held = holds.shift() ?? false;
 
-    return { hasCurrentRun: () => held } as unknown as Task;
+    return Promise.resolve(partial<Task>({ hasCurrentRun: () => held }));
   },
-} as unknown as TaskRepository;
+});
 
-const runs = {
-  enqueue: vi.fn(async () => {
+const runs = partial<RunsPort>({
+  enqueue: vi.fn(() => {
     calls.push('enqueue');
 
-    return refuseOrder
-      ? { outcome: 'refused' as const, reason: 'it names no harness' }
-      : { outcome: 'enqueued' as const };
+    return Promise.resolve(
+      refuseOrder
+        ? { outcome: 'refused' as const, reason: 'it names no harness' }
+        : { outcome: 'enqueued' as const },
+    );
   }),
-  cancel: vi.fn(async () => {
+  cancel: vi.fn(() => {
     calls.push('cancel');
-    return { was: 'unknown' as const, started: false };
+    return Promise.resolve({ was: 'unknown' as const, started: false });
   }),
-} as unknown as RunsPort;
+});
 
 const handler = () =>
-  new EnqueueOrderedRun(dispatches, tasks, {} as ChatRepository, runs, {
+  new EnqueueOrderedRun(dispatches, tasks, partial<ChatRepository>({}), runs, {
     now: () => NOW,
     sleep: async () => {},
   });

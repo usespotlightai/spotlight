@@ -1,5 +1,5 @@
 import { Paperclip } from 'lucide-react';
-import { type ReactNode, useRef } from 'react';
+import { type ReactNode, useRef, type ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -18,7 +18,7 @@ export function AttachButton({
   label,
   icon,
   className,
-}: AttachButtonProps) {
+}: AttachButtonProps): ReactElement {
   const picker = useRef<HTMLInputElement>(null);
 
   return (
@@ -26,9 +26,11 @@ export function AttachButton({
       <Button
         type="button"
         variant="ghost"
-        size={label ? 'sm' : 'icon-sm'}
+        size={label !== undefined && label !== '' ? 'sm' : 'icon-sm'}
         className={cn(
-          label ? 'pointer-coarse:h-9' : 'pointer-coarse:size-9',
+          label !== undefined && label !== ''
+            ? 'pointer-coarse:h-9'
+            : 'pointer-coarse:size-9',
           className,
         )}
         disabled={disabled}

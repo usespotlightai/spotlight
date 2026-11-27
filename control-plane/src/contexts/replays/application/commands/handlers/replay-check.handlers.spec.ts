@@ -26,7 +26,6 @@ import { StartCheckReplays } from '@replays/application/services/start-check-rep
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import { StopFailedChecks } from '@replays/application/services/stop-failed-checks.service';
 import { StopSupersededChecks } from '@replays/application/services/stop-superseded-checks.service';
-import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
@@ -46,10 +45,10 @@ import {
   replayedAs,
   replayFor,
   runIds,
-  STATION,
   SEARCH_ID,
   sha256,
   slots,
+  STATION,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { DependencyFacts } from '@replays/domain/value-objects/dependency-facts';
@@ -70,6 +69,7 @@ import { ApplicationError } from '@shared-kernel/application/errors/application-
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { IdempotentLookupsPort } from '@shared-kernel/application/ports/idempotent-lookups.port';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -106,12 +106,12 @@ const JUDGED = CandidateScoring.of({
 });
 
 const FRESH: IdempotentCreatesPort = {
-  reserve: async () => ({ kind: 'new' }),
+  reserve: () => Promise.resolve({ kind: 'new' }),
   recordCreated: async () => {},
 };
 
 const LOOKUPS: IdempotentLookupsPort = {
-  lookup: async () => ({ kind: 'new' }),
+  lookup: () => Promise.resolve({ kind: 'new' }),
 };
 
 const PLAN = {
@@ -141,8 +141,11 @@ let asked: { station: string; hooks: readonly unknown[] }[];
 const texts = (value: unknown): readonly string[] =>
   Array.isArray(value) ? value.filter((each) => typeof each === 'string') : [];
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
 const dependingOn = (block: unknown) => {
-  const fields = block as Record<string, unknown>;
+  const fields = isRecord(block) ? block : {};
 
   return {
     dependsOn: {
@@ -156,17 +159,17 @@ const dependingOn = (block: unknown) => {
 };
 
 const factsOf: DependencyFactsPort = {
-  of: async (station, names, hooks) => {
+  of: (station, names, hooks) => {
     asked.push({
       station: `${station.teamKey}/${station.lineKey}/${station.stationKey}`,
       hooks,
     });
-    return {
+    return Promise.resolve({
       ...facts,
       secrets: facts.secrets.filter((each) =>
         names.some((name) => name.equals(each.secret)),
       ),
-    };
+    });
   },
 };
 
@@ -294,10 +297,9 @@ const idOf = (started: ReplayCheckStartedOutcome): string => {
   return started.id;
 };
 
-const checkOf = (id: string): ReplayCheck =>
-  checks.stored.get(id) as ReplayCheck;
+const checkOf = (id: string): ReplayCheck => present(checks.stored.get(id));
 
-const ownReplayOf = (id: string): ReplayId => checkOf(id).replayId as ReplayId;
+const ownReplayOf = (id: string): ReplayId => present(checkOf(id).replayId);
 
 const wantedBaselines = () =>
   memory.events.filter(
@@ -319,13 +321,14 @@ const startingBaselines = async () => {
   }
 };
 
-const finished = async (replayId: ReplayId, succeeds = true) => {
-  const replay = memory.replays.get(replayId.value) as Replay;
+const finished = (replayId: ReplayId, succeeds = true) => {
+  const replay = present(memory.replays.get(replayId.value));
 
   memory.replays.set(
     replayId.value,
     replayedAs(replay, () => (succeeds ? 'completed' : 'failed')),
   );
+  return Promise.resolve();
 };
 
 beforeEach(() => {
@@ -336,26 +339,27 @@ beforeEach(() => {
   facts = { hooks: [], onMarksAsPlanned: [], secrets: [] };
   asked = [];
   suppliers.lines.threshold = threshold(1);
-  suppliers.configs.live = async () => ({
-    lineKey: 'delivery',
-    block: StationBlock.of({
-      key: 'build',
-      name: 'Build',
-      kind: 'work',
-      prompt: 'Build it.',
-      check: 'npm test',
-      diffs: true,
-    }),
-    fingerprint: LIVE_FINGERPRINT,
-    scoring: CHECKED,
-    hashes: LIVE_HASHES,
-    threshold: suppliers.lines.threshold,
-    search: null,
-    agent: null,
-  });
-  suppliers.configs.validate = async (_line, _station, block, line) => {
+  suppliers.configs.live = () =>
+    Promise.resolve({
+      lineKey: 'delivery',
+      block: StationBlock.of({
+        key: 'build',
+        name: 'Build',
+        kind: 'work',
+        prompt: 'Build it.',
+        check: 'npm test',
+        diffs: true,
+      }),
+      fingerprint: LIVE_FINGERPRINT,
+      scoring: CHECKED,
+      hashes: LIVE_HASHES,
+      threshold: suppliers.lines.threshold,
+      search: null,
+      agent: null,
+    });
+  suppliers.configs.validate = (_line, _station, block, line) => {
     validated.push({ block, line: line?.value ?? null });
-    return {
+    return Promise.resolve({
       ok: true,
       fingerprint: PLANNED,
       hashes: PLANNED_HASHES,
@@ -364,7 +368,7 @@ beforeEach(() => {
       changedFrom: StationChanges.none(LIVE_FINGERPRINT),
       ...dependingOn(block),
       block: StationBlock.of(block),
-    };
+    });
   };
 });
 
@@ -378,9 +382,7 @@ describe('StartReplayCheckHandler', () => {
     );
     const check = checkOf(id);
     const replay = memory.replays.get(check.replayId?.value ?? '');
-    const candidate = memory.candidates.get(
-      check.candidateId.value,
-    ) as Candidate;
+    const candidate = present(memory.candidates.get(check.candidateId.value));
 
     expect(validated).toEqual([
       {
@@ -439,7 +441,7 @@ describe('StartReplayCheckHandler', () => {
 
     memory.replays.set(
       ownReplayOf(first).value,
-      (memory.replays.get(ownReplayOf(first).value) as Replay).stop(
+      present(memory.replays.get(ownReplayOf(first).value)).stop(
         NOW,
         BY,
         'search-ended',
@@ -481,19 +483,20 @@ describe('StartReplayCheckHandler', () => {
   it('never points two checks at a baseline that will not exist: the second waits for the first one’s, and both compare against it', async () => {
     keptAtStation();
     const one = idOf(await start());
-    suppliers.configs.validate = async (_line, _station, block) => ({
-      ok: true,
-      fingerprint: PLANNED,
-      hashes: StationHashes.of({
-        behaviour: '5'.repeat(64),
-        scoring: '6'.repeat(64),
-      }),
-      liveHashes: LIVE_HASHES,
-      scoring: CHECKED,
-      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-      ...dependingOn(block),
-      block: StationBlock.of(block),
-    });
+    suppliers.configs.validate = (_line, _station, block) =>
+      Promise.resolve({
+        ok: true,
+        fingerprint: PLANNED,
+        hashes: StationHashes.of({
+          behaviour: '5'.repeat(64),
+          scoring: '6'.repeat(64),
+        }),
+        liveHashes: LIVE_HASHES,
+        scoring: CHECKED,
+        changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+        ...dependingOn(block),
+        block: StationBlock.of(block),
+      });
     const two = idOf(await start({ ...PLAN, prompt: 'Build it twice.' }));
 
     expect(wantedBaselines()).toHaveLength(2);
@@ -576,25 +579,27 @@ describe('StartReplayCheckHandler', () => {
       at: FieldPath.of(['station', 'effort']),
       reason: 'is low, medium, high, xhigh or max',
     });
-    suppliers.configs.validate = async (_line, _station, block) => ({
-      ok: true,
-      fingerprint: LIVE_FINGERPRINT,
-      hashes: LIVE_HASHES,
-      liveHashes: LIVE_HASHES,
-      scoring: CHECKED,
-      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-      ...dependingOn(block),
-      block: StationBlock.of(block),
-    });
+    suppliers.configs.validate = (_line, _station, block) =>
+      Promise.resolve({
+        ok: true,
+        fingerprint: LIVE_FINGERPRINT,
+        hashes: LIVE_HASHES,
+        liveHashes: LIVE_HASHES,
+        scoring: CHECKED,
+        changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+        ...dependingOn(block),
+        block: StationBlock.of(block),
+      });
 
     expect((await start()) as { outcome: string }).toMatchObject({
       outcome: 'unchanged',
     });
 
-    suppliers.configs.validate = async () => ({
-      ok: false,
-      problems: [problem],
-    });
+    suppliers.configs.validate = () =>
+      Promise.resolve({
+        ok: false,
+        problems: [problem],
+      });
 
     expect(await start()).toEqual({ outcome: 'invalid', problems: [problem] });
     expect(checks.stored.size).toBe(0);
@@ -618,26 +623,28 @@ describe('StartReplayCheckHandler', () => {
       at: FieldPath.of(['station', 'effort']),
       reason: 'is low, medium, high, xhigh or max',
     });
-    suppliers.configs.validate = async () => ({
-      ok: false,
-      problems: [problem],
-    });
+    suppliers.configs.validate = () =>
+      Promise.resolve({
+        ok: false,
+        problems: [problem],
+      });
 
     expect(await start()).toEqual({ outcome: 'invalid', problems: [problem] });
   });
 
   it('says there is nothing to replay when the plan changes nothing about how the station runs', async () => {
     keptAtStation();
-    suppliers.configs.validate = async (_line, _station, block) => ({
-      ok: true,
-      fingerprint: LIVE_FINGERPRINT,
-      hashes: LIVE_HASHES,
-      liveHashes: LIVE_HASHES,
-      scoring: CHECKED,
-      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-      ...dependingOn(block),
-      block: StationBlock.of(block),
-    });
+    suppliers.configs.validate = (_line, _station, block) =>
+      Promise.resolve({
+        ok: true,
+        fingerprint: LIVE_FINGERPRINT,
+        hashes: LIVE_HASHES,
+        liveHashes: LIVE_HASHES,
+        scoring: CHECKED,
+        changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+        ...dependingOn(block),
+        block: StationBlock.of(block),
+      });
 
     expect(await start()).toEqual({
       outcome: 'unchanged',
@@ -699,16 +706,17 @@ describe('StartReplayCheckHandler', () => {
 
   it('leaves a change undecided when the plan changes only what the unchanged station depends on', async () => {
     keptAtStation();
-    suppliers.configs.validate = async (_line, _station, block) => ({
-      ok: true,
-      fingerprint: LIVE_FINGERPRINT,
-      hashes: LIVE_HASHES,
-      liveHashes: LIVE_HASHES,
-      scoring: CHECKED,
-      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-      ...dependingOn(block),
-      block: StationBlock.of(block),
-    });
+    suppliers.configs.validate = (_line, _station, block) =>
+      Promise.resolve({
+        ok: true,
+        fingerprint: LIVE_FINGERPRINT,
+        hashes: LIVE_HASHES,
+        liveHashes: LIVE_HASHES,
+        scoring: CHECKED,
+        changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+        ...dependingOn(block),
+        block: StationBlock.of(block),
+      });
 
     expect(
       await start({ ...PLAN, profile: 'careful' }, true, undefined, CLOCK, {
@@ -783,13 +791,14 @@ describe('EnsureCheckBaselines', () => {
     keptAtStation();
     const id = idOf(await start());
     const live = await liveFrom(suppliers.configs)();
-    suppliers.configs.live = async () => ({
-      ...live,
-      hashes: StationHashes.of({
-        behaviour: '7'.repeat(64),
-        scoring: '8'.repeat(64),
-      }),
-    });
+    suppliers.configs.live = () =>
+      Promise.resolve({
+        ...live,
+        hashes: StationHashes.of({
+          behaviour: '7'.repeat(64),
+          scoring: '8'.repeat(64),
+        }),
+      });
 
     await ensuring();
     await finished(ownReplayOf(id));
@@ -805,7 +814,7 @@ describe('EnsureCheckBaselines', () => {
   it('starts no baseline for a check whose replay stopped, which reads as stopped', async () => {
     keptAtStation();
     const id = idOf(await start());
-    const replay = memory.replays.get(ownReplayOf(id).value) as Replay;
+    const replay = present(memory.replays.get(ownReplayOf(id).value));
     await memory.replayRepository.save(replay.stop(NOW, BY, 'search-ended'));
 
     await ensuring();
@@ -950,16 +959,17 @@ describe('StopSupersededChecks', () => {
   };
 
   const plannedAs = (hashes: StationHashes) => {
-    suppliers.configs.validate = async (_line, _station, block) => ({
-      ok: true,
-      fingerprint: PLANNED,
-      hashes,
-      liveHashes: LIVE_HASHES,
-      scoring: CHECKED,
-      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-      ...dependingOn(block),
-      block: StationBlock.of(block),
-    });
+    suppliers.configs.validate = (_line, _station, block) =>
+      Promise.resolve({
+        ok: true,
+        fingerprint: PLANNED,
+        hashes,
+        liveHashes: LIVE_HASHES,
+        scoring: CHECKED,
+        changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+        ...dependingOn(block),
+        block: StationBlock.of(block),
+      });
   };
 
   const stoppingSuperseded = async () => {
@@ -978,7 +988,7 @@ describe('StopSupersededChecks', () => {
   };
 
   const replayOf = (id: string) =>
-    memory.replays.get(ownReplayOf(id).value) as Replay;
+    present(memory.replays.get(ownReplayOf(id).value));
 
   it('stops the replay of an earlier check of the same pull request once a later change of it starts a check', async () => {
     keptAtStation();
@@ -1058,7 +1068,7 @@ describe('StartReplayCheckHandler, after a search', () => {
     suppliers.configs.validate = async (...input) => {
       const found = await planned(...input);
 
-      return found?.ok ? { ...found, hashes: HASHES } : found;
+      return found?.ok === true ? { ...found, hashes: HASHES } : found;
     };
   };
 
@@ -1066,7 +1076,7 @@ describe('StartReplayCheckHandler, after a search', () => {
 
   it('takes a search’s replays of the same config as its result, against the search’s seed, and replays nothing once they cover every run', async () => {
     const set = keptAtStation();
-    const [first, second, third] = set.runs as [RunId, RunId, RunId];
+    const [first, second, third] = set.runs;
     searched(set, [[first, second], [third]]);
     const before = memory.replays.size;
 
@@ -1093,11 +1103,11 @@ describe('StartReplayCheckHandler, after a search', () => {
 
   it('replays only the runs no search replayed, against the search’s seed', async () => {
     const set = keptAtStation();
-    const [first, second, third] = set.runs as [RunId, RunId, RunId];
+    const [first, second, third] = set.runs;
     searched(set, [[first, second]]);
 
     const id = idOf(await start());
-    const own = memory.replays.get(ownReplayOf(id).value) as Replay;
+    const own = present(memory.replays.get(ownReplayOf(id).value));
 
     expect(own.runSubset?.map((each) => each.value)).toEqual([third.value]);
     expect(own.pairwiseReferenceId?.value).toBe('replay_seed');
@@ -1142,17 +1152,17 @@ describe('StopFailedChecks', () => {
     const id = idOf(await start());
 
     await startingBaselines();
-    const baseline = [...memory.replays.values()].find(
-      (each) => each.baseline,
-    ) as Replay;
+    const baseline = present(
+      [...memory.replays.values()].find((each) => each.baseline),
+    );
     await finished(baseline.id);
 
-    const own = (memory.replays.get(ownReplayOf(id).value) as Replay).reserving(
+    const own = present(memory.replays.get(ownReplayOf(id).value)).reserving(
       slots(set.runs.length),
       runIds(),
     );
     const [entry] = own.entries;
-    const run = entry?.run as RunId;
+    const run = present(entry.run);
     memory.replays.set(own.id.value, ranToEnd(own, run, 'failed', 1));
 
     await new StopFailedChecks(
@@ -1163,7 +1173,7 @@ describe('StopFailedChecks', () => {
       TRANSACTION,
     ).concluded(new ReplayEntryConcluded(own.id, set.workspaceId, set.id, run));
 
-    const stopped = memory.replays.get(own.id.value) as Replay;
+    const stopped = present(memory.replays.get(own.id.value));
 
     expect(stopped.wasStopped).toBe(true);
     expect(stopped.stoppedBecause).toBe('check-failed');

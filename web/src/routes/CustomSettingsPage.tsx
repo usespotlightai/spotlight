@@ -1,4 +1,4 @@
-import { createElement } from 'react';
+import { createElement, type ReactElement } from 'react';
 import { Navigate, useParams } from 'react-router';
 
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
@@ -67,12 +67,12 @@ function PageElement({ page, slug, role }: PageElementProps) {
   });
 }
 
-export function CustomSettingsPage() {
+export function CustomSettingsPage(): ReactElement | null {
   const { slug, pageId } = useParams();
   const pages = useCustomSettingsPages();
   const workspace = useWorkspace(slug);
 
-  if (!slug) {
+  if (slug === undefined || slug === '') {
     return null;
   }
 

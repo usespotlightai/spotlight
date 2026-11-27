@@ -5,6 +5,9 @@ export const REVIEW_STARTS = ['opened', 'mentioned'] as const;
 
 export type ReviewStart = (typeof REVIEW_STARTS)[number];
 
+const isReviewStart = (start: string): start is ReviewStart =>
+  (REVIEW_STARTS as readonly string[]).includes(start);
+
 const DEFAULT_MENTION = '@spotlight';
 
 const DEFAULT_LABEL = 'spotlight';
@@ -23,7 +26,7 @@ export interface ReviewSkips {
 }
 
 export class ReviewPolicy {
-  private readonly kind = 'review-policy';
+  private readonly kind: string = 'review-policy';
 
   private constructor(
     readonly start: ReviewStart,
@@ -40,7 +43,7 @@ export class ReviewPolicy {
   }): ReviewPolicy {
     const start = input.start ?? 'mentioned';
 
-    if (!(REVIEW_STARTS as readonly string[]).includes(start)) {
+    if (!isReviewStart(start)) {
       throw new InvalidReviewPolicyError(
         'must start on an opened pull request or a mention',
       );
@@ -66,7 +69,7 @@ export class ReviewPolicy {
       .map((each) => each.trim().toLowerCase())
       .filter(Boolean);
 
-    return new ReviewPolicy(start as ReviewStart, mention, label, {
+    return new ReviewPolicy(start, mention, label, {
       spotlight: input.skip?.spotlight ?? true,
       drafts: input.skip?.drafts ?? true,
       authors: [...new Set(authors)].sort(),

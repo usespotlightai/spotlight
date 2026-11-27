@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { AUTHOR_SERIES } from '@/components/features/insights/chart-series';
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { WithTooltip } from '@/components/shared/WithTooltip';
@@ -11,7 +13,7 @@ export function PullRequestTypesChart({
   types,
 }: {
   types: readonly TypeShare[];
-}) {
+}): ReactElement {
   const most = Math.max(
     0,
     ...types.flatMap((each) => [each.spotlight, each.people]),

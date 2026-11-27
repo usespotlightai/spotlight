@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
   EDGE_INDENT,
@@ -20,7 +22,11 @@ import { cn } from '@/lib/utils';
 
 type PersonUse = InsightsPeople['adoption']['people'][number];
 
-export function PeopleTable({ people }: { people: readonly PersonUse[] }) {
+export function PeopleTable({
+  people,
+}: {
+  people: readonly PersonUse[];
+}): ReactElement {
   return (
     <NestedTable
       label="What each person did"

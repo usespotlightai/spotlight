@@ -114,21 +114,21 @@ const reading = async (
   }
 
   const evidence = {
-    hasTask: async () => true,
-    of: async () => {
-      throw new Error('the run’s journal is never read again');
-    },
-    judgesOnTeam: async () => new Map(),
-    judgeAt: async () => JUDGE,
+    hasTask: () => Promise.resolve(true),
+    of: () =>
+      Promise.reject(new Error('the run’s journal is never read again')),
+    judgesOnTeam: () => Promise.resolve(new Map()),
+    judgeAt: () => Promise.resolve(JUDGE),
   };
 
   return new ReadRunScoresHandler(
     new InsightsAccess({
       ...NOBODY_ELSE,
-      viewerOf: async (_teamId, principal) => ({
-        workspaceId: WORKSPACE,
-        by: principal.userId,
-      }),
+      viewerOf: (_teamId, principal) =>
+        Promise.resolve({
+          workspaceId: WORKSPACE,
+          by: principal.userId,
+        }),
     }),
     new RunScoresViews(
       new StationFactsInMemory(records, { scores }),

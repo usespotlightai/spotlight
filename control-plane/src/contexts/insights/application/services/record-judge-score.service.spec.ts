@@ -20,6 +20,7 @@ import {
   TEAM,
   WORKSPACE,
 } from '@insights/runs.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -55,7 +56,7 @@ const recording = () => {
     },
   );
   const deleting = new DeleteInsights(
-    { scores } as unknown as InsightsRepositories,
+    partial<InsightsRepositories>({ scores }),
     deletions,
     inTransaction,
   );

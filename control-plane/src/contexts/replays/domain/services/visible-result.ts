@@ -8,7 +8,9 @@ export const DEFAULT_GUIDANCE =
   'The judge found the change falls short of what the task needed.';
 
 const visibleReasonOf = (reason: EntryReason): string =>
-  reason.detail && !isVerifierReason(reason.code)
+  reason.detail !== null &&
+  reason.detail !== '' &&
+  !isVerifierReason(reason.code)
     ? `${reason.code}: ${reason.detail}`
     : reason.code;
 

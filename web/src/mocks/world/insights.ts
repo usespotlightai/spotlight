@@ -6,6 +6,7 @@ import type {
   InsightsFlowResponseDto,
   InsightsOverviewResponseDto,
   InsightsPeopleResponseDto,
+  RunFailureSummaryResponseDto,
   InsightsStationsResponseDto,
   InsightsTraceResponseDto,
   InsightsTracesResponseDto,
@@ -14,8 +15,10 @@ import type {
   StationCacheUseResponseDto,
   StationReportResponseDto,
   StationWorthImprovingResponseDto,
+  TallyCountedResponseDto,
   TallyDeltasResponseDto,
 } from '@/lib/api';
+import { isKeyOf } from '@/lib/one-of';
 import { tallyCountOf } from '@/lib/station-insights';
 import { world } from '@/mocks/world';
 import { type HistoryRun, tasksOfTeam } from '@/mocks/world/insights-history';
@@ -339,7 +342,8 @@ const flowStationsOf = (teamId: string, span: Span) => {
 const deliveryIn = (teamId: string, window: Window) => {
   const tasks = tasksOfTeam(teamId);
   const opened = tasks.filter(
-    (task) => task.pullRequest && within(task.pullRequest.openedAt, window),
+    (task) =>
+      task.pullRequest !== null && within(task.pullRequest.openedAt, window),
   );
   const reviewed = tasks.filter(
     (task) =>
@@ -358,8 +362,6 @@ export const flowOf = (
   const span = spanOf(name);
   const now = deliveryIn(teamId, span.now);
   const before = deliveryIn(teamId, span.before);
-  const pullRequestOf = (task: (typeof now.opened)[number]) =>
-    task.pullRequest as NonNullable<typeof task.pullRequest>;
 
   return {
     period: span.period,
@@ -367,23 +369,25 @@ export const flowOf = (
       stations: flowStationsOf(teamId, span),
       delivery: {
         toPullRequest: spreadOf(
-          now.opened.map(
-            (task) => pullRequestOf(task).openedAt - task.openedAt,
+          now.opened.flatMap(({ openedAt, pullRequest }) =>
+            pullRequest ? [pullRequest.openedAt - openedAt] : [],
           ),
         ),
         toFirstReview: spreadOf(
-          now.reviewed.map(
-            (task) =>
-              (pullRequestOf(task).firstReviewAt ?? 0) -
-              pullRequestOf(task).openedAt,
+          now.reviewed.flatMap(({ pullRequest }) =>
+            pullRequest
+              ? [(pullRequest.firstReviewAt ?? 0) - pullRequest.openedAt]
+              : [],
           ),
         ),
         toMerge: spreadOf(
-          now.merged.map(
-            (task) =>
-              (pullRequestOf(task).closedAt ?? 0) -
-              (pullRequestOf(task).firstReviewAt ??
-                pullRequestOf(task).openedAt),
+          now.merged.flatMap(({ pullRequest }) =>
+            pullRequest
+              ? [
+                  (pullRequest.closedAt ?? 0) -
+                    (pullRequest.firstReviewAt ?? pullRequest.openedAt),
+                ]
+              : [],
           ),
         ),
         opened: now.opened.length,
@@ -499,7 +503,7 @@ export const hookFailuresAt = (
 
 export const runFailuresOf = (
   runs: readonly Pick<HistoryRun, 'runId' | 'ending' | 'failure'>[],
-) => {
+): RunFailureSummaryResponseDto[] => {
   const failed = runs.filter((run) => run.ending === 'failed');
   return distinct(failed.map((run) => run.failure))
     .map((failure) => {
@@ -513,17 +517,27 @@ export const runFailuresOf = (
     .sort((one, other) => other.runs - one.runs);
 };
 
-const COUNTED = [
-  'failed',
-  'stopped',
-  'checksPassed',
-  'checksFailed',
-  'accepted',
-  'sentBack',
-  'passed',
-  'merged',
-  'cancelled',
-] as const;
+const countedOf = (
+  tally: Parameters<typeof tallyCountOf>[0],
+): TallyCountedResponseDto => {
+  const counted = (key: keyof TallyCountedResponseDto) =>
+    tallyCountOf(tally, key) > 0;
+
+  return {
+    failed: counted('failed'),
+    stopped: counted('stopped'),
+    checksPassed: counted('checksPassed'),
+    checksFailed: counted('checksFailed'),
+    accepted: counted('accepted'),
+    sentBack: counted('sentBack'),
+    passed: counted('passed'),
+    merged: counted('merged'),
+    cancelled: counted('cancelled'),
+  };
+};
+
+const isDismissed = ({ dismissed }: { readonly dismissed: string | null }) =>
+  dismissed !== null && dismissed !== '';
 
 export const stationsOf = (
   teamId: string,
@@ -561,9 +575,7 @@ export const stationsOf = (
     team,
     teamChanges: tallyChangesOf(now, before),
     teamSeen: seenOf(now),
-    teamCounted: Object.fromEntries(
-      COUNTED.map((key) => [key, tallyCountOf(team, key) > 0]),
-    ) as InsightsStationsResponseDto['teamCounted'],
+    teamCounted: countedOf(team),
     teamTrend: now.length === 0 ? [] : trendOf(now, span),
     stations: reports,
   };
@@ -595,12 +607,11 @@ const loadOf = (teamId: string, window: Window, unanswered: number) => {
     unanswered,
     sentBack,
     sentBackRate: shareOf(sentBack, runs.length),
-    dismissed: runs.filter((run) => run.calls.some((call) => call.dismissed))
-      .length,
+    dismissed: runs.filter((run) => run.calls.some(isDismissed)).length,
     askedTaskIds: distinct(asked.map((run) => run.taskId)).slice(0, 200),
     dismissedTaskIds: distinct(
       runs
-        .filter((run) => run.calls.some((call) => call.dismissed))
+        .filter((run) => run.calls.some(isDismissed))
         .map((run) => run.taskId),
     ),
   };
@@ -729,8 +740,8 @@ const flowOfCost = (runs: readonly HistoryRun[]) => {
     }
     return [...sums]
       .map(([key, amount]) => {
-        const [from, to] = key.split('>');
-        return { source: from ?? '', target: to ?? '', amount: cents(amount) };
+        const [from = '', to = ''] = key.split('>');
+        return { source: from, target: to, amount: cents(amount) };
       })
       .sort((one, other) => other.amount - one.amount);
   };
@@ -894,7 +905,10 @@ const unfinishedIn = (
           each.stations.some((station) => station.id === stationId),
         );
 
-        return run.progress && stationId && line
+        return run.progress !== null &&
+          stationId !== undefined &&
+          stationId !== '' &&
+          line
           ? [
               {
                 runId: run.id,
@@ -915,7 +929,8 @@ const unfinishedIn = (
     .filter((run) =>
       filters.every(
         ([key, value]) =>
-          UNFINISHED_MATCHERS[key as keyof RunQuery]?.(run, value) ?? false,
+          isKeyOf(UNFINISHED_MATCHERS, key) &&
+          (UNFINISHED_MATCHERS[key]?.(run, value) ?? false),
       ),
     )
     .sort((one, other) => other.queuedAt.localeCompare(one.queuedAt));
@@ -934,9 +949,7 @@ const RANGE_HOURS: Record<InsightsTracesResponseDto['range'], number> = {
 };
 
 const rangeNameOf = (raw: string | null): InsightsTracesResponseDto['range'] =>
-  raw && raw in RANGE_HOURS
-    ? (raw as InsightsTracesResponseDto['range'])
-    : '30d';
+  raw !== null && isKeyOf(RANGE_HOURS, raw) ? raw : '30d';
 
 const BUCKETS = 30;
 

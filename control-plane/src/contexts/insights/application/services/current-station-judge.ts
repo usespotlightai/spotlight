@@ -12,7 +12,7 @@ export const currentJudgeOf = (
   judge: StationJudge | null,
 ): CurrentStationJudge | null => {
   if (
-    !judge?.teamId.equals(station.teamId) ||
+    judge?.teamId.equals(station.teamId) !== true ||
     !judge.lineId.equals(station.lineId)
   ) {
     return null;

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { HoldMarker } from '@/components/features/inbox/conversation/HoldMarker';
 import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
 import { WorldMessage } from '@/components/features/inbox/conversation/WorldMessage';
@@ -10,7 +12,10 @@ type ThreadMessageProps = {
   teamId: string | undefined;
 };
 
-export function ThreadMessage({ note, teamId }: ThreadMessageProps) {
+export function ThreadMessage({
+  note,
+  teamId,
+}: ThreadMessageProps): ReactElement {
   const sourceOf = useMessageSources(teamId);
 
   if (note.voice === 'world') {

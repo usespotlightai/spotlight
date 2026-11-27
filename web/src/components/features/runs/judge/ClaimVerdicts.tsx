@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ClaimVerdictRow } from '@/components/features/runs/judge/ClaimVerdictRow';
 import { CLAIMS_LABEL, type JudgeReason } from '@/lib/judge';
 
@@ -7,7 +9,11 @@ type ClaimVerdictsProps = {
   reasons: readonly JudgeReason[];
 };
 
-export function ClaimVerdicts({ claims, marks, reasons }: ClaimVerdictsProps) {
+export function ClaimVerdicts({
+  claims,
+  marks,
+  reasons,
+}: ClaimVerdictsProps): ReactElement {
   return (
     <ol
       data-slot="claim-verdicts"

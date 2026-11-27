@@ -6,6 +6,7 @@ import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { UpkeepProposal } from '@memory/domain/entities/upkeep-proposal.entity';
 import type { MemoryUpkeepRepository } from '@memory/domain/repositories/memory-upkeep.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
+import { TeamAccess } from '@memory/domain/services/team-access';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
@@ -13,6 +14,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { MemoryUpkeepId } from '@memory/domain/value-objects/memory-upkeep-id.vo';
 import { UpkeepProposalId } from '@memory/domain/value-objects/upkeep-proposal-id.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -56,23 +58,26 @@ const deciding = (memories: Memory[]) => {
     ],
   });
   const handler = new DecideUpkeepProposalHandler(
-    {
-      forTeam: async () => ({
-        teamId: TEAM,
-        workspaceId: WorkspaceId.of('ws_1'),
-        by: ADA,
-      }),
-    } as unknown as MemoryAccess,
-    {
-      find: async () => upkeep,
-      save: async (each: MemoryUpkeep) => {
+    partial<MemoryAccess>({
+      forTeam: () =>
+        Promise.resolve(
+          TeamAccess.onTeam(TEAM, {
+            workspaceId: WorkspaceId.of('ws_1'),
+            by: ADA,
+          }),
+        ),
+    }),
+    partial<MemoryUpkeepRepository>({
+      find: () => Promise.resolve(upkeep),
+      save: (each: MemoryUpkeep) => {
         saved.push(each);
+        return Promise.resolve();
       },
-    } as unknown as MemoryUpkeepRepository,
-    { findAll: async () => memories } as unknown as MemoryRepository,
+    }),
+    partial<MemoryRepository>({ findAll: () => Promise.resolve(memories) }),
     { generate: () => 'memory_new' },
     { inTransaction: (work) => work() },
-    { now: () => NOW, sleep: async () => undefined },
+    { now: () => NOW, sleep: () => Promise.resolve(undefined) },
   );
 
   return { handler, saved };

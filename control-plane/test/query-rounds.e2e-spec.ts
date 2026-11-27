@@ -5,12 +5,14 @@ import { BetterAuthSessionReader } from '@identity/infrastructure/auth/better-au
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { ne } from 'drizzle-orm';
 import type { Test } from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import {
   queryRoundsDuring,
@@ -111,13 +113,13 @@ const claimed = async (runId: string): Promise<string> => {
     .send(hostReport)
     .expect(200);
 
-  const assignment = (
+  const assignment = bodyOf<{ token: string; work: { run: { id: string } } }>(
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
       .send({ host: HOST, image: IMAGE })
-      .expect(200)
-  ).body as { token: string; work: { run: { id: string } } };
+      .expect(200),
+  );
 
   expect(assignment.work.run.id).toBe(runId);
 
@@ -151,8 +153,9 @@ const inbox = () =>
 
 const inboxItems = async (count: number): Promise<InboxItem[]> =>
   eventually(async () => {
-    const items = ((await inbox().expect(200)).body as { items: InboxItem[] })
-      .items;
+    const items = bodyOf<{ items: InboxItem[] }>(
+      await inbox().expect(200),
+    ).items;
 
     return items.filter((each) => each.kind === 'task').length >= count
       ? items
@@ -234,7 +237,7 @@ beforeAll(async () => {
   }
 
   const items = await inboxItems(3);
-  waiting = items.find((each) => each.kind === 'task') as InboxItem;
+  waiting = present(items.find((each) => each.kind === 'task'));
 
   const run = await aTaskWithQueuedRun();
   leased = { runId: run.runId, token: await claimed(run.runId) };
@@ -242,7 +245,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteRunnersOf(db, team.workspaceId.value);
-  await app?.close();
+  await app.close();
 });
 
 const withinBudget = (found: Rounds, budget: number) =>

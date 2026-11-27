@@ -1,5 +1,9 @@
 import { Run, type RunStart } from '@runs/domain/aggregates/run.aggregate';
-import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import {
+  claimer,
+  leaseEndOf,
+  orderedFor,
+} from '@runs/domain/aggregates/run.fake-spec';
 import { InvalidRunTransitionError } from '@runs/domain/exceptions/invalid-run-transition.error';
 import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-starting-point.error';
 import { RunAttemptOverError } from '@runs/domain/exceptions/run-attempt-over.error';
@@ -132,7 +136,7 @@ describe('where a run started', () => {
 
   it('keeps where its first attempt started when a later attempt starts elsewhere', () => {
     const first = claimed().startsFrom(on(), RUNNER, restored(), NOW);
-    const expired = first.expireLease(first.leaseExpiresAt as Date);
+    const expired = first.expireLease(leaseEndOf(first));
     const retried = expired
       .claim(claimer(OTHER), later(120_000))
       .startsFrom(

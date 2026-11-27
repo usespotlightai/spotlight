@@ -14,9 +14,10 @@ export class NoticeLoader {
   async putTo(noticeId: string, slug: string, person: string): Promise<Notice> {
     const viewer = UserId.of(person);
     const notice = await this.notices.find(NoticeId.of(noticeId));
-    const team = notice?.isFor(viewer)
-      ? await this.access.seenTeam(notice.teamId, viewer)
-      : null;
+    const team =
+      notice?.isFor(viewer) === true
+        ? await this.access.seenTeam(notice.teamId, viewer)
+        : null;
 
     const unknown = () => new UnknownNoticeError(noticeId);
 

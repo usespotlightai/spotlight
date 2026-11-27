@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import type { Mark } from '@work/domain/value-objects/mark.vo';
@@ -41,5 +42,5 @@ export const correlatedTaskAmong = (
     ? tasks.find((each) => each.branch.equals(branch))
     : undefined;
 
-  return named ?? newestHolderOf(keys.marks, tasks) ?? tasks[0] ?? null;
+  return named ?? newestHolderOf(keys.marks, tasks) ?? firstOf(tasks) ?? null;
 };

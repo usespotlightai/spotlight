@@ -235,7 +235,7 @@ export class WorkHookFirings {
       return null;
     }
 
-    if (hook.broken || !hook.written) {
+    if ((hook.broken !== null && hook.broken !== '') || !hook.written) {
       await this.firings.save(
         firing.hookBroken(hook.key.value, hook.broken ?? '', this.clock.now()),
       );

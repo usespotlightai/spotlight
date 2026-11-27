@@ -14,6 +14,7 @@ import {
   RUN_PROGRESS,
   type RunProgressPort,
 } from '@runs/application/ports/run-progress.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
@@ -93,11 +94,13 @@ export class DrizzleChatReader implements ChatReaderPort {
   ) {}
 
   async ownershipOf(chatId: ChatId): Promise<ChatOwnership | null> {
-    const [row] = await this.db
-      .select({ startedById: chat.startedById, teamId: chat.teamId })
-      .from(chat)
-      .where(eq(chat.id, chatId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.db
+        .select({ startedById: chat.startedById, teamId: chat.teamId })
+        .from(chat)
+        .where(eq(chat.id, chatId.value))
+        .limit(1),
+    );
 
     return row
       ? { startedBy: UserId.of(row.startedById), teamId: TeamId.of(row.teamId) }
@@ -181,11 +184,13 @@ export class DrizzleChatReader implements ChatReaderPort {
   }
 
   async read(teamId: TeamId, chatId: ChatId): Promise<ChatView | null> {
-    const [found] = await this.db
-      .select({ chat, ...chatInboxFacts })
-      .from(chat)
-      .where(and(eq(chat.id, chatId.value), eq(chat.teamId, teamId.value)))
-      .limit(1);
+    const found = firstOf(
+      await this.db
+        .select({ chat, ...chatInboxFacts })
+        .from(chat)
+        .where(and(eq(chat.id, chatId.value), eq(chat.teamId, teamId.value)))
+        .limit(1),
+    );
 
     if (!found) {
       return null;

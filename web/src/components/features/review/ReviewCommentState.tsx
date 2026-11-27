@@ -1,4 +1,5 @@
 import { ExternalLink } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import type { PullRequestRoute, ReviewComment } from '@/lib/review';
 import { cn } from '@/lib/utils';
@@ -25,7 +26,7 @@ export function ReviewCommentState({
 }: {
   comment: ReviewComment;
   route: PullRequestRoute;
-}) {
+}): ReactElement {
   const sending = comment.state === 'sending';
   const description = sending
     ? SENDING_DESCRIPTION[route]
@@ -39,7 +40,11 @@ export function ReviewCommentState({
       'border-destructive/40 bg-destructive/10 text-destructive',
   );
 
-  if (comment.state === 'posted' && comment.url) {
+  if (
+    comment.state === 'posted' &&
+    comment.url !== null &&
+    comment.url !== ''
+  ) {
     return (
       <a
         href={comment.url}

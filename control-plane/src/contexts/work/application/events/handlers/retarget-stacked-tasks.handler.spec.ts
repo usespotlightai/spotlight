@@ -1,4 +1,5 @@
 import type { PullRequestAt } from '@github/application/ports/pull-request.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -70,19 +71,25 @@ const retargeting = (
 ) => {
   const saved: Task[] = [];
   const moved: [number, string | null][] = [];
-  const tasks = {
-    owningPullRequest: async (_at: WorkspaceId, pullRequest: PullRequestUrl) =>
-      stored.find((each) =>
-        each.ownedPullRequests.some((owned) => owned.url.equals(pullRequest)),
-      ) ?? null,
-    startingFrom: async (_at: WorkspaceId, base: Branch) =>
-      stored.filter((each) => each.base?.equals(base) ?? false),
-    find: async (id: Task['id']) =>
-      stored.find((each) => each.id.equals(id)) ?? null,
-    save: async (each: Task) => {
+  const tasks = partial<TaskRepository>({
+    owningPullRequest: (_at: WorkspaceId, pullRequest: PullRequestUrl) =>
+      Promise.resolve(
+        stored.find((each) =>
+          each.ownedPullRequests.some((owned) => owned.url.equals(pullRequest)),
+        ) ?? null,
+      ),
+    startingFrom: (_at: WorkspaceId, base: Branch) =>
+      Promise.resolve(
+        stored.filter((each) => each.base?.equals(base) ?? false),
+      ),
+    find: (id: Task['id']) =>
+      Promise.resolve(stored.find((each) => each.id.equals(id)) ?? null),
+    save: (each: Task) => {
       saved.push(each);
+
+      return Promise.resolve();
     },
-  } as unknown as TaskRepository;
+  });
 
   return {
     saved,
@@ -90,12 +97,16 @@ const retargeting = (
     handler: new RetargetStackedTasks(
       tasks,
       {
-        retarget: async (at: PullRequestAt, base: string | null) => {
+        retarget: (at: PullRequestAt, base: string | null) => {
           if (refused.includes(at.number)) {
-            throw new Error(`GitHub refused pull request ${at.number}`);
+            return Promise.reject(
+              new Error(`GitHub refused pull request ${at.number}`),
+            );
           }
 
           moved.push([at.number, base]);
+
+          return Promise.resolve();
         },
       },
       { inTransaction: (work) => work() },

@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from 'react';
 
 import type { Position, Sequences } from '@/lib/live-sequences';
+import { isOneOf } from '@/lib/one-of';
+import { fieldOf, isRecord } from '@/lib/record';
 
 export const LIVE_URL = '/api/me/live';
 
@@ -26,7 +28,7 @@ export interface LiveReady {
 }
 
 const isTopic = (value: unknown): value is LiveTopic =>
-  LIVE_TOPICS.includes(value as LiveTopic);
+  isOneOf(LIVE_TOPICS, value);
 
 export const parsed = (data: string): unknown => {
   try {
@@ -37,15 +39,10 @@ export const parsed = (data: string): unknown => {
 };
 
 export const changeOf = (data: string): LiveChange | null => {
-  const change = parsed(data) as {
-    topic?: unknown;
-    ids?: unknown;
-    channel?: unknown;
-    sequence?: unknown;
-  } | null;
+  const change = parsed(data);
 
   if (
-    !change ||
+    !isRecord(change) ||
     !isTopic(change.topic) ||
     typeof change.ids !== 'object' ||
     change.ids === null
@@ -63,11 +60,12 @@ export const changeOf = (data: string): LiveChange | null => {
     topic: change.topic,
     ids,
     ...(typeof change.channel === 'string' &&
+    typeof change.sequence === 'number' &&
     Number.isSafeInteger(change.sequence)
       ? {
           position: {
             channel: change.channel,
-            sequence: change.sequence as number,
+            sequence: change.sequence,
           },
         }
       : {}),
@@ -75,18 +73,18 @@ export const changeOf = (data: string): LiveChange | null => {
 };
 
 export const readyOf = (data: string): LiveReady => {
-  const ready = parsed(data) as { complete?: unknown; heads?: unknown } | null;
+  const ready = parsed(data);
+  const given = fieldOf(ready, 'heads');
   const heads =
-    typeof ready?.heads === 'object' && ready.heads !== null
+    typeof given === 'object' && given !== null
       ? Object.fromEntries(
-          Object.entries(ready.heads).filter(
-            (entry): entry is [string, number] =>
-              Number.isSafeInteger(entry[1]),
+          Object.entries(given).filter((entry): entry is [string, number] =>
+            Number.isSafeInteger(entry[1]),
           ),
         )
       : {};
 
-  return { complete: ready?.complete === true, heads };
+  return { complete: fieldOf(ready, 'complete') === true, heads };
 };
 
 let fresh = false;

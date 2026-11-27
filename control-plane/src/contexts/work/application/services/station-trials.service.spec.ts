@@ -3,6 +3,7 @@ import type { HarnessProfileShape } from '@runs/application/contracts/harness-pr
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { RunFacts } from '@runs/application/ports/run-facts.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -35,6 +36,7 @@ import type { StationSkills } from '@work/application/services/station-skills.se
 import { StationTrials } from '@work/application/services/station-trials.service';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
+import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -50,6 +52,7 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -211,8 +214,20 @@ const originalDispatch = (toolsOnMarks: readonly Tool[] = []) =>
     now: NOW,
   }).enqueuedAsRun();
 
+const ORIGINAL_CHECKOUT = { path: 'api', repository: 'acme/api', commit: API };
+
+const buildOf = (line: LineMap): Station => {
+  const station = line.stationAt(BUILD);
+
+  if (!station) {
+    throw new Error('expected the build station');
+  }
+
+  return station;
+};
+
 const factsOf = (over: Partial<RunFacts> = {}): RunFacts =>
-  ({
+  partial<RunFacts>({
     runId: ORIGINAL,
     workspaceId: WorkspaceId.of('ws_1'),
     ended: true,
@@ -220,10 +235,10 @@ const factsOf = (over: Partial<RunFacts> = {}): RunFacts =>
       archiveId: 'archive_1',
       archiveStored: true,
       at: NOW,
-      checkouts: [{ path: 'api', repository: 'acme/api', commit: API }],
+      checkouts: [ORIGINAL_CHECKOUT],
     },
     ...over,
-  }) as RunFacts;
+  });
 
 let facts: RunFacts | null = null;
 let candidate: LineMap = LINE;
@@ -260,80 +275,97 @@ let requestedAgain: {
 
 const trialsOf = () =>
   new StationTrials(
-    { of: async () => (facts ? [facts] : []) },
+    { of: () => Promise.resolve(facts ? [facts] : []) },
     {
-      find: async (id: RunId) =>
-        id.equals(ORIGINAL)
-          ? originalDispatch(toolsOnMarks)
-          : (trials.find((each) => each.id.equals(id)) ?? null),
-      add: async (trial: Dispatch) => {
+      find: (id: RunId) =>
+        Promise.resolve(
+          id.equals(ORIGINAL)
+            ? originalDispatch(toolsOnMarks)
+            : (trials.find((each) => each.id.equals(id)) ?? null),
+        ),
+      add: (trial: Dispatch) => {
         trials.push(trial);
+
+        return Promise.resolve();
       },
-      save: async (trial: Dispatch) => {
+      save: (trial: Dispatch) => {
         trials = trials.map((each) =>
           each.id.equals(trial.id) ? trial : each,
         );
+
+        return Promise.resolve();
       },
     },
-    {
-      find: async () => (taskGone ? null : { notes: taskNotes }),
-    } as unknown as TaskRepository,
-    {
-      live: async () => ({ line: LINE, station: LINE.stationAt(BUILD) }),
-      withStation: async () => ({
-        ok: true,
-        line: candidate,
-        station: candidate.stationAt(BUILD),
-        definition: {},
-      }),
-    } as unknown as CandidateLines,
+    partial<TaskRepository>({
+      find: () =>
+        Promise.resolve(taskGone ? null : partial<Task>({ notes: taskNotes })),
+    }),
+    partial<CandidateLines>({
+      live: () => Promise.resolve({ line: LINE, station: buildOf(LINE) }),
+      withStation: () =>
+        Promise.resolve({
+          ok: true,
+          line: candidate,
+          station: buildOf(candidate),
+        }),
+    }),
     new StationOrdering(
       harnesses,
       launch,
       { named: () => null },
-      { readyAt: async () => [] } as unknown as StationSkills,
+      partial<StationSkills>({ readyAt: () => Promise.resolve([]) }),
       new RunCatalog({
-        resolve: async () => ({
-          tools: [],
-          skills: [],
-          denied: [
-            {
-              id: 'catalog.web-search@1.1.0',
-              reason: 'unknown',
-              because: 'Catalog has no item catalog.web-search@1.1.0.',
-            },
-          ],
-        }),
-        call: async () => ({ kind: 'answered', output: null }),
+        resolve: () =>
+          Promise.resolve({
+            tools: [],
+            skills: [],
+            denied: [
+              {
+                id: 'catalog.web-search@1.1.0',
+                reason: 'unknown',
+                because: 'Catalog has no item catalog.web-search@1.1.0.',
+              },
+            ],
+          }),
+        call: () => Promise.resolve({ kind: 'answered', output: null }),
       }),
-      { named: async (_team, key) => (key === 'linear' ? LINEAR : null) },
+      {
+        named: (_team, key) =>
+          Promise.resolve(key === 'linear' ? LINEAR : null),
+      },
       new Sha256ContentHash(),
       {
-        boundIn: async (_workspace, names) => {
+        boundIn: (_workspace, names) => {
           awaitingAsked.push(...names);
-          return names.map((name) => ({
-            name,
-            bindings: [],
-            awaitingValue: true,
-            allowsSandbox: false,
-          }));
+          return Promise.resolve(
+            names.map((name) => ({
+              name,
+              bindings: [],
+              awaitingValue: true,
+              allowsSandbox: false,
+            })),
+          );
         },
       },
     ),
     new TeamIntegrations({
-      provided: async (_team, tools) =>
-        DECLARED.filter((each) => tools.includes(each.tool)),
-      toolsOnMarks: async () => {
-        throw new Error('a trial reads the tools its original had');
+      provided: (_team, tools) =>
+        Promise.resolve(DECLARED.filter((each) => tools.includes(each.tool))),
+      toolsOnMarks: () => {
+        return Promise.reject(
+          new Error('a trial reads the tools its original had'),
+        );
       },
-      toolsOnAnyMark: async () => {
-        throw new Error('a trial reads the tools its original had');
+      toolsOnAnyMark: () => {
+        return Promise.reject(
+          new Error('a trial reads the tools its original had'),
+        );
       },
     }),
     {
-      again: async (place, chosen) => {
+      again: (place, chosen) => {
         requestedAgain.push({ place, briefed: chosen.briefed });
-        return {
+        return Promise.resolve({
           briefed: [
             {
               id: 'memory_1',
@@ -344,35 +376,36 @@ const trialsOf = () =>
           ],
           omitted: [...chosen.omitted],
           folder: null,
-        };
+        });
       },
     },
-    {
-      stored: async (_workspace: WorkspaceId, ids: readonly AttachmentId[]) =>
-        !ids.some((each) => gone.includes(each.value)),
-    } as unknown as AttachmentStorePort,
+    partial<AttachmentStorePort>({
+      stored: (_workspace: WorkspaceId, ids: readonly AttachmentId[]) =>
+        Promise.resolve(!ids.some((each) => gone.includes(each.value))),
+    }),
     {
       for: (taskId, runId) => `trace:${taskId.value}:${runId.value}`,
       forChat: (chatId, runId) => `trace:${chatId.value}:${runId.value}`,
     },
-    {
-      of: async () => ({
-        runId: ORIGINAL.value,
-        taskId: 'task_1',
-        title: 'Drain the queue',
-        description: null,
-        steps: [],
-        hunks: [
-          {
-            id: 'h1',
-            path: 'api/queue.ts',
-            index: 0,
-            header: '@@ -1 +1 @@',
-            lines: ['-drain()', '+drain(oldestFirst)'],
-          },
-        ],
-      }),
-    } as unknown as RunEvidencePort,
+    partial<RunEvidencePort>({
+      of: () =>
+        Promise.resolve({
+          runId: ORIGINAL.value,
+          taskId: 'task_1',
+          title: 'Drain the queue',
+          description: null,
+          steps: [],
+          hunks: [
+            {
+              id: 'h1',
+              path: 'api/queue.ts',
+              index: 0,
+              header: '@@ -1 +1 @@',
+              lines: ['-drain()', '+drain(oldestFirst)'],
+            },
+          ],
+        }),
+    }),
     { now: () => NOW, sleep: async () => {} },
   );
 

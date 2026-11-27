@@ -1,12 +1,14 @@
 import { AppendRunJournalHandler } from '@runs/application/commands/handlers/append-run-journal.handler';
 import { AppendRunJournalCommand } from '@runs/application/commands/runner.commands';
 import type { JournalEntry } from '@runs/application/ports/run-journal.port';
+import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
 import { RunJournalAppends } from '@runs/application/services/run-journal-appends.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -37,18 +39,21 @@ const journalling = () => {
   const published: string[] = [];
 
   const handler = new AppendRunJournalHandler(
-    { findById: async () => leased } as unknown as RunRepository,
+    partial<RunRepository>({ findById: () => Promise.resolve(leased) }),
     new RunJournalAppends(
       {
-        append: async (attempt, entries) =>
-          void appended.push({ attempt, entries }),
-        appendControlPlaneEntry: async (_, entry) => ({
-          seq: -1_000_000,
-          type: entry.type,
-          at: entry.at,
-        }),
+        append: (attempt, entries) =>
+          Promise.resolve(void appended.push({ attempt, entries })),
+        appendControlPlaneEntry: (_, entry) =>
+          Promise.resolve({
+            seq: -1_000_000,
+            type: entry.type,
+            at: entry.at,
+          }),
       },
-      { publish: (runId: string) => void published.push(runId) } as never,
+      partial<RunStreamPort>({
+        publish: (runId: string) => void published.push(runId),
+      }),
     ),
   );
 

@@ -1,8 +1,10 @@
+import type { ReactElement } from 'react';
+
 import { FlaggedCell } from '@/components/features/runners/FlaggedCell';
 import type { Host } from '@/lib/runner';
 
-export function HostReleaseCell({ host }: { host: Host }) {
-  if (!host.unavailableReason) {
+export function HostReleaseCell({ host }: { host: Host }): ReactElement {
+  if (host.unavailableReason === null || host.unavailableReason === '') {
     return (
       <span
         title={host.release}

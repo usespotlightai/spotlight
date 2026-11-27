@@ -15,6 +15,7 @@ import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -36,6 +37,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
@@ -99,12 +101,12 @@ const lineWith = async (id: string, key: string, work: string) => {
 };
 
 const writing = async (body: Record<string, unknown>): Promise<Written> =>
-  (
+  bodyOf<Written>(
     await served(app)
       .post(`/api/teams/${team.teamId.value}/memories`)
       .set(TEST_USER_HEADER, team.owner.value)
-      .send({ kind: 'preference', ...body })
-  ).body as Written;
+      .send({ kind: 'preference', ...body }),
+  );
 
 const briefingContext = (
   over: Partial<BriefingContext> = {},
@@ -114,7 +116,8 @@ const briefingContext = (
   stationId: BUILD,
   repositories: [API],
   about: '',
-  touched: async () => [{ repository: API, path: 'src/uploads/retry.ts' }],
+  touched: () =>
+    Promise.resolve([{ repository: API, path: 'src/uploads/retry.ts' }]),
   ...over,
 });
 
@@ -131,7 +134,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('briefing runs with what the team remembers', () => {
@@ -192,7 +195,7 @@ describe('briefing runs with what the team remembers', () => {
 
   it('gives a path-scoped memory only once the task has touched its paths', async () => {
     const { briefed: memories } = await briefed().forBriefing(
-      briefingContext({ touched: async () => [] }),
+      briefingContext({ touched: () => Promise.resolve([]) }),
     );
 
     expect(memories.map((each) => each.id)).not.toContain(byPath.id);
@@ -256,18 +259,18 @@ describe('briefing runs with what the team remembers', () => {
 
     expect(read.status).toBe(200);
     expect(
-      (read.body as { briefed: Written[] }).briefed.map((each) => each.handle),
+      bodyOf<{ briefed: Written[] }>(read).briefed.map((each) => each.handle),
     ).toEqual([byPath.handle, teamWide.handle]);
     expect(
-      (read.body as { omitted: Written[] }).omitted.map((each) => each.handle),
+      bodyOf<{ omitted: Written[] }>(read).omitted.map((each) => each.handle),
     ).toEqual([lineOnly.handle]);
 
     const counted = await eventually(async () => {
-      const listed = (
+      const listed = bodyOf<(Written & { runs: number })[]>(
         await served(app)
           .get(`/api/teams/${team.teamId.value}/memories`)
-          .set(TEST_USER_HEADER, team.owner.value)
-      ).body as (Written & { runs: number })[];
+          .set(TEST_USER_HEADER, team.owner.value),
+      );
       const runsOf = (id: string) =>
         listed.find((each) => each.id === id)?.runs ?? 0;
 
@@ -277,12 +280,16 @@ describe('briefing runs with what the team remembers', () => {
     expect(counted(lineOnly.id)).toBe(0);
 
     const stored = await eventually(async () => {
-      const [record] = await db
-        .select({ memories: schema.runRecord.memories })
-        .from(schema.runRecord)
-        .where(eq(schema.runRecord.runId, runId.value));
+      const record = firstOf(
+        await db
+          .select({ memories: schema.runRecord.memories })
+          .from(schema.runRecord)
+          .where(eq(schema.runRecord.runId, runId.value)),
+      );
 
-      return record?.memories.briefed.length ? record.memories : null;
+      return record !== undefined && record.memories.briefed.length > 0
+        ? record.memories
+        : null;
     });
     expect(stored).toMatchObject({
       briefed: [byPath.id, teamWide.id].sort(),
@@ -407,7 +414,7 @@ describe('briefing runs with what the team remembers', () => {
   it('briefs a memory about paths the task has not touched yet when the task is about the same thing', async () => {
     const { briefed: memories } = await briefed().forBriefing(
       briefingContext({
-        touched: async () => [],
+        touched: () => Promise.resolve([]),
         about: 'Uploads retry in the request and fail',
       }),
     );

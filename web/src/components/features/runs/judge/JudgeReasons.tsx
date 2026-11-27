@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { JudgeReasonItem } from '@/components/features/runs/judge/JudgeReasonItem';
 import type { JudgeReason } from '@/lib/judge';
 import { cn } from '@/lib/utils';
@@ -8,7 +10,11 @@ type JudgeReasonsProps = {
   className?: string;
 };
 
-export function JudgeReasons({ reasons, label, className }: JudgeReasonsProps) {
+export function JudgeReasons({
+  reasons,
+  label,
+  className,
+}: JudgeReasonsProps): ReactElement {
   return (
     <ol aria-label={label} className={cn('flex flex-col gap-1.5', className)}>
       {reasons.map((reason, at) => (

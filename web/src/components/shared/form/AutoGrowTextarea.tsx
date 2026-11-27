@@ -1,4 +1,4 @@
-import { type ComponentProps, useRef } from 'react';
+import { type ComponentProps, useRef, type ReactElement } from 'react';
 
 import { useAutoGrow } from '@/hooks/useAutoGrow';
 import { cn } from '@/lib/utils';
@@ -9,7 +9,7 @@ export function AutoGrowTextarea({
   value,
   className,
   ...props
-}: AutoGrowTextareaProps) {
+}: AutoGrowTextareaProps): ReactElement {
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useAutoGrow(ref, value);

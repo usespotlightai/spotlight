@@ -11,12 +11,14 @@ let added: StartingPointHold[];
 let saved: StartingPointHold[];
 
 const holds: StartingPointHoldRepository = {
-  find: async () => stored,
-  add: async (hold) => {
+  find: () => Promise.resolve(stored),
+  add: (hold) => {
     added.push(hold);
+    return Promise.resolve();
   },
-  save: async (hold) => {
+  save: (hold) => {
     saved.push(hold);
+    return Promise.resolve();
   },
 };
 

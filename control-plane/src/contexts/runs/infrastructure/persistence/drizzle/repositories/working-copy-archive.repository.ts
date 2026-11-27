@@ -19,6 +19,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import {
@@ -31,11 +32,11 @@ import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 type Row = typeof workingCopyArchive.$inferSelect;
 
 const granteeOf = (row: Row): ArchiveGrantee => {
-  if (row.grantedToRunId) {
+  if (row.grantedToRunId !== null && row.grantedToRunId !== '') {
     return ArchiveGrantee.run(RunId.of(row.grantedToRunId));
   }
 
-  if (row.grantedToSandboxId) {
+  if (row.grantedToSandboxId !== null && row.grantedToSandboxId !== '') {
     return ArchiveGrantee.sandbox(SandboxId.of(row.grantedToSandboxId));
   }
 
@@ -147,11 +148,13 @@ export class DrizzleWorkingCopyArchiveRepository
   }
 
   async find(id: WorkingCopyArchiveId): Promise<WorkingCopyArchive | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(workingCopyArchive)
-      .where(eq(workingCopyArchive.id, id.value))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(workingCopyArchive)
+        .where(eq(workingCopyArchive.id, id.value))
+        .limit(1),
+    );
 
     return row ? toArchive(row) : null;
   }
@@ -160,18 +163,20 @@ export class DrizzleWorkingCopyArchiveRepository
     workspaceId: WorkspaceId,
     workingCopyKey: WorkingCopyKey,
   ): Promise<WorkingCopyArchive | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(workingCopyArchive)
-      .where(
-        and(
-          eq(workingCopyArchive.workspaceId, workspaceId.value),
-          eq(workingCopyArchive.workingCopyKey, workingCopyKey.value),
-          isNotNull(workingCopyArchive.completedAt),
-        ),
-      )
-      .orderBy(desc(workingCopyArchive.completedAt))
-      .limit(1);
+    const row = firstOf(
+      await this.context.db
+        .select()
+        .from(workingCopyArchive)
+        .where(
+          and(
+            eq(workingCopyArchive.workspaceId, workspaceId.value),
+            eq(workingCopyArchive.workingCopyKey, workingCopyKey.value),
+            isNotNull(workingCopyArchive.completedAt),
+          ),
+        )
+        .orderBy(desc(workingCopyArchive.completedAt))
+        .limit(1),
+    );
 
     return row ? toArchive(row) : null;
   }

@@ -1,6 +1,10 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 
-export function SidebarHeading({ children }: { children: ReactNode }) {
+export function SidebarHeading({
+  children,
+}: {
+  children: ReactNode;
+}): ReactElement {
   return (
     <div className="flex h-7 items-center px-2">
       <h2 className="font-medium text-muted-foreground text-xs">{children}</h2>

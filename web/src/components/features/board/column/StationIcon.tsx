@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { cn } from '@/lib/utils';
 
 const CENTRE = 8;
@@ -18,7 +20,11 @@ type StationIconProps = {
   className?: string;
 };
 
-export function StationIcon({ share, color, className }: StationIconProps) {
+export function StationIcon({
+  share,
+  color,
+  className,
+}: StationIconProps): ReactElement {
   const filled = Math.min(Math.max(share, 0), 1);
   const ink = color ?? 'currentColor';
 

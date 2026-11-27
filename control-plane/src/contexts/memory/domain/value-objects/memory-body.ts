@@ -3,7 +3,7 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 const MAX_BODY = 1_000;
 
 export class MemoryBody {
-  private readonly kind = 'memory-body';
+  private readonly kind: string = 'memory-body';
 
   private constructor(readonly value: string) {}
 

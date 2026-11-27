@@ -47,7 +47,8 @@ const setUp = (
       clock,
       logger(),
       {
-        currentOf: async (runId: RunId) => RunAttemptRef.of(runId, 2),
+        currentOf: (runId: RunId) =>
+          Promise.resolve(RunAttemptRef.of(runId, 2)),
       },
     ),
   };

@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import type {
   AttachmentHolder,
   AttachmentReaderPort,
@@ -13,18 +14,20 @@ const reading = (holder: AttachmentHolder) =>
   new ReadAttachmentHandler(
     workAccessSeeing(() => true),
     {
-      find: vi.fn(async () => ({
-        id: 'attachment_1',
-        name: 'screenshot.png',
-        contentType: 'image/png',
-        size: 1_024,
-        workspaceId: 'ws_1',
-        holder,
-      })),
+      find: vi.fn(() =>
+        Promise.resolve({
+          id: 'attachment_1',
+          name: 'screenshot.png',
+          contentType: 'image/png',
+          size: 1_024,
+          workspaceId: 'ws_1',
+          holder,
+        }),
+      ),
     } satisfies AttachmentReaderPort,
-    {
-      link: vi.fn(async () => 'https://files.example/attachment_1'),
-    } as unknown as AttachmentStorePort,
+    partial<AttachmentStorePort>({
+      link: vi.fn(() => Promise.resolve('https://files.example/attachment_1')),
+    }),
   );
 
 const read = (holder: AttachmentHolder, viewer: string) =>
@@ -36,11 +39,13 @@ const readingUnclaimed = (
   access: WorkAccess,
   attachmentId = 'attachment_1',
 ) => {
-  const linkPending = vi.fn(async () => 'https://files.example/pending');
+  const linkPending = vi.fn(() =>
+    Promise.resolve('https://files.example/pending'),
+  );
   const handler = new ReadAttachmentHandler(
     access,
-    { find: vi.fn(async () => null) } satisfies AttachmentReaderPort,
-    { linkPending } as unknown as AttachmentStorePort,
+    { find: vi.fn(() => Promise.resolve(null)) } satisfies AttachmentReaderPort,
+    partial<AttachmentStorePort>({ linkPending }),
   );
 
   return {
@@ -81,7 +86,7 @@ describe('ReadAttachmentHandler', () => {
       Object.assign(
         workAccessSeeing(() => true),
         {
-          memberWorkspaceAt: async () => null,
+          memberWorkspaceAt: () => Promise.resolve(null),
         },
       ),
     );

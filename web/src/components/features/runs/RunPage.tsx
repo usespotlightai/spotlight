@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactElement, type ReactNode, useState } from 'react';
 
 import { TaskPullRequestPills } from '@/components/features/board/task/TaskPullRequestPills';
 import type { AfterRun } from '@/components/features/inbox/conversation/Conversation';
@@ -44,7 +44,8 @@ const placeClosing = (
   if (!followedOn) {
     return { closing };
   }
-  return closing ? { afterRun: { runId, content: closing } } : {};
+  const closed = Boolean(closing);
+  return closed ? { afterRun: { runId, content: closing } } : {};
 };
 
 export function RunPage({
@@ -54,7 +55,7 @@ export function RunPage({
   conversation: reported,
   worked,
   journalFailed,
-}: RunPageProps) {
+}: RunPageProps): ReactElement {
   const base = useRunTrail({ slug, teamId, run, title: reported?.title });
   const { trail, forward } = useTrail(base, 2);
   const {

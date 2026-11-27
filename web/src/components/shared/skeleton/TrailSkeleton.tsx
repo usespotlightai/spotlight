@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import {
@@ -9,7 +11,7 @@ export function TrailSkeleton({
   known,
 }: {
   known: readonly BreadcrumbSegment[];
-}) {
+}): ReactElement {
   return (
     <>
       <Breadcrumbs segments={known} namesTab={false} />

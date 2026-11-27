@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
 import { WorkspaceInviteCreated } from '@identity/domain/events/workspace-invite-created.event';
 import { AlreadyInvitedError } from '@identity/domain/exceptions/already-invited.error';
@@ -165,12 +166,12 @@ export class DrizzleWorkspaceInviteRepository
   private async first(
     condition: SQL | undefined,
   ): Promise<WorkspaceInvite | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(workspaceInvite)
       .where(condition)
       .orderBy(desc(workspaceInvite.invitedAt))
-      .limit(1);
+      .limit(1));
 
     return found ? this.withTeams(found) : null;
   }
@@ -210,11 +211,11 @@ export class DrizzleWorkspaceInviteRepository
       email: EmailAddress.of(row.email),
       spec: InviteSpec.of(WorkspaceRole.of(row.role), teams),
       tokenHash: TokenHash.of(row.tokenHash),
-      invitedBy: row.invitedById ? UserId.of(row.invitedById) : null,
+      invitedBy: row.invitedById !== null && row.invitedById !== '' ? UserId.of(row.invitedById) : null,
       invitedAt: row.invitedAt,
       expiresAt: row.expiresAt,
       acceptedAt: row.acceptedAt,
-      acceptedBy: row.acceptedById ? UserId.of(row.acceptedById) : null,
+      acceptedBy: row.acceptedById !== null && row.acceptedById !== '' ? UserId.of(row.acceptedById) : null,
       revokedAt: row.revokedAt,
       version: row.version,
     });

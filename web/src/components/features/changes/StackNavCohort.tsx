@@ -1,5 +1,5 @@
 import { ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { CohortTally } from '@/components/features/changes/CohortTally';
 import { StackNavLayer } from '@/components/features/changes/StackNavLayer';
@@ -29,7 +29,7 @@ export function StackNavCohort({
   cohort,
   current,
   onPick,
-}: StackNavCohortProps) {
+}: StackNavCohortProps): ReactElement {
   const [open, setOpen] = useState(true);
 
   return (

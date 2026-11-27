@@ -7,6 +7,7 @@ import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -34,30 +35,32 @@ const claimed = () =>
 
 const recording = (options: { run?: Run | null; known?: boolean } = {}) => {
   const save = vi.fn<(run: Run) => Promise<void>>(async () => {});
-  const seen = vi.fn(async () =>
-    options.known === false
-      ? null
-      : {
-          workspaceId: WorkspaceId.of('ws_1'),
-          harnesses: [HarnessId.of('claude-code')],
-          offer: RunnerOffer.none(),
-          claims: 'reserved' as const,
-          source: null,
-        },
+  const seen = vi.fn(() =>
+    Promise.resolve(
+      options.known === false
+        ? null
+        : {
+            workspaceId: WorkspaceId.of('ws_1'),
+            harnesses: [HarnessId.of('claude-code')],
+            offer: RunnerOffer.none(),
+            claims: 'reserved' as const,
+            source: null,
+          },
+    ),
   );
 
   const handler = new RecordRunImageHandler(
-    {
-      findById: vi.fn(async () =>
-        options.run === undefined ? claimed() : options.run,
+    partial<RunRepository>({
+      findById: vi.fn(() =>
+        Promise.resolve(options.run === undefined ? claimed() : options.run),
       ),
       save,
-    } as unknown as RunRepository,
+    }),
     {
       claimantOf: seen,
-      registeredClaimantOf: async () => null,
+      registeredClaimantOf: () => Promise.resolve(null),
     } satisfies RunnerClaimantsPort,
-    { now: () => NOW } as ClockPort,
+    partial<ClockPort>({ now: () => NOW }),
   );
 
   return { handler, save, seen };

@@ -5,7 +5,7 @@ const LONGEST = 255;
 const WILDCARD = '*';
 
 export class ClaimPattern {
-  private readonly kind = 'claim-pattern';
+  private readonly kind: string = 'claim-pattern';
 
   private constructor(readonly value: string) {}
 

@@ -19,13 +19,18 @@ type Awaited = {
   readonly position: number;
 };
 
+type ProposalOutcomeResult = {
+  awaitOutcome: () => void;
+  stopAwaiting: () => void;
+};
+
 export function useProposalOutcome(
   slug: string,
   teamId: string,
   proposal: Proposal,
   card: RefObject<HTMLElement | null>,
   { awaiting, position }: Awaited,
-) {
+): ProposalOutcomeResult {
   const navigate = useNavigate();
   const trail = useForwardTrail();
   const seen = useRef(proposal.state);
@@ -38,7 +43,11 @@ export function useProposalOutcome(
       return;
     }
 
-    if (proposal.state === 'created' && proposal.taskId) {
+    if (
+      proposal.state === 'created' &&
+      typeof proposal.taskId === 'string' &&
+      proposal.taskId !== ''
+    ) {
       awaiting.current.delete(position);
       if (inView(card.current)) {
         return;

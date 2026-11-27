@@ -20,11 +20,21 @@ export const RunSpecPartsMapper = {
     return {
       remote: REMOTE_VIA_GIT_PROXY,
       path: checkout.path,
-      ...(checkout.branch ? { branch: checkout.branch } : {}),
-      ...(checkout.base ? { base: checkout.base } : {}),
-      ...(checkout.ref ? { ref: checkout.ref } : {}),
+      ...(checkout.branch !== null && checkout.branch !== ''
+        ? { branch: checkout.branch }
+        : {}),
+      ...(checkout.base !== null &&
+      checkout.base !== undefined &&
+      checkout.base !== ''
+        ? { base: checkout.base }
+        : {}),
+      ...(checkout.ref !== null && checkout.ref !== ''
+        ? { ref: checkout.ref }
+        : {}),
       ...(checkout.diffOf ? { diffOf: checkout.diffOf } : {}),
-      ...(checkout.setup ? { setup: checkout.setup } : {}),
+      ...(checkout.setup !== null && checkout.setup !== ''
+        ? { setup: checkout.setup }
+        : {}),
     };
   },
 
@@ -38,7 +48,7 @@ export const RunSpecPartsMapper = {
 
     return {
       sessionId: resume.session.value,
-      ...(followUp ? { followUp } : {}),
+      ...(followUp !== null && followUp !== '' ? { followUp } : {}),
     };
   },
 

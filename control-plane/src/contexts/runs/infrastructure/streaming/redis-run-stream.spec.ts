@@ -5,14 +5,15 @@ import {
   type RedisSubscriber,
 } from '@runs/infrastructure/streaming/redis-run-stream';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
-const logger = {
+const logger = partial<LoggerPort>({
   info: vi.fn(),
   error: vi.fn(),
   warn: vi.fn(),
   debug: vi.fn(),
-} as unknown as LoggerPort;
+});
 
 const bus = () => {
   const subscribers = new Set<{
@@ -21,12 +22,13 @@ const bus = () => {
   }>();
 
   const publisher = (): RedisPublisher => ({
-    publish: async (channel, message) => {
+    publish: (channel, message) => {
       for (const subscriber of subscribers) {
         if (subscriber.channels.has(channel)) {
           subscriber.deliver(channel, message);
         }
       }
+      return Promise.resolve();
     },
   });
 
@@ -39,9 +41,11 @@ const bus = () => {
 
     return {
       channels: entry.channels,
-      subscribe: vi.fn(async (channel: string) => entry.channels.add(channel)),
-      unsubscribe: vi.fn(async (channel: string) =>
-        entry.channels.delete(channel),
+      subscribe: vi.fn((channel: string) =>
+        Promise.resolve(entry.channels.add(channel)),
+      ),
+      unsubscribe: vi.fn((channel: string) =>
+        Promise.resolve(entry.channels.delete(channel)),
       ),
       on: (_event, listener) => {
         entry.deliver = listener;
@@ -96,7 +100,7 @@ describe('RedisRunStream', () => {
     await vi.waitFor(() => expect(seen).toEqual([event(2)]));
   });
 
-  it('watches a run on Redis once and stops when its last watcher leaves', async () => {
+  it('watches a run on Redis once and stops when its last watcher leaves', () => {
     const { instance } = bus();
     const a = instance();
 
@@ -111,5 +115,6 @@ describe('RedisRunStream', () => {
     second();
 
     expect(a.listening.unsubscribe).toHaveBeenCalledTimes(1);
+    return Promise.resolve();
   });
 });

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { LABEL_ROOM } from '@/components/features/trace/view/TraceBar';
 import { TICKS } from '@/lib/trace';
@@ -13,7 +13,11 @@ const crowded = (tick: number) =>
 
 const placed = (tick: number) => (tick === 0 ? undefined : 'translateX(-50%)');
 
-export function TraceScale({ label }: { label: (tick: number) => ReactNode }) {
+export function TraceScale({
+  label,
+}: {
+  label: (tick: number) => ReactNode;
+}): ReactElement {
   return (
     <div className="sticky top-0 z-20 flex h-6 min-w-0 shrink-0 items-end border-border border-b-[0.5px] bg-surface px-1.5">
       <span className="shrink-0" style={{ width: 'var(--names)' }} />

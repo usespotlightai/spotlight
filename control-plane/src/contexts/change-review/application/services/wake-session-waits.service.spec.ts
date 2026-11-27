@@ -18,6 +18,7 @@ import {
   QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
 import { StackOrigin } from '@change-review/domain/value-objects/stack-origin.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -95,21 +96,25 @@ const waking = (
   let stack = waitingStack();
   let answer = waitingAnswer();
   const rounds: AssistRoundsPort = { roundOf: () => round };
-  const stacks = {
-    find: async () => stack,
-    save: async (saved: ChangeStack) => {
-      if (over.conflict) {
-        throw new ChangeStackVersionConflictError(saved.id.value);
+  const stacks = partial<ChangeStackRepository>({
+    find: () => Promise.resolve(stack),
+    save: (saved: ChangeStack) => {
+      if (over.conflict === true) {
+        return Promise.reject(
+          new ChangeStackVersionConflictError(saved.id.value),
+        );
       }
       stack = saved;
+      return Promise.resolve();
     },
-  } as unknown as ChangeStackRepository;
-  const answers = {
-    find: async () => answer,
-    save: async (saved: QuestionAnswer) => {
+  });
+  const answers = partial<QuestionAnswerRepository>({
+    find: () => Promise.resolve(answer),
+    save: (saved: QuestionAnswer) => {
       answer = saved;
+      return Promise.resolve();
     },
-  } as unknown as QuestionAnswerRepository;
+  });
 
   return {
     service: new WakeSessionWaits(
@@ -117,7 +122,7 @@ const waking = (
       stacks,
       answers,
       { inTransaction: (work) => work() },
-      { now: () => SETTLED, sleep: async () => undefined },
+      { now: () => SETTLED, sleep: () => Promise.resolve() },
     ),
     stack: () => stack,
     answer: () => answer,

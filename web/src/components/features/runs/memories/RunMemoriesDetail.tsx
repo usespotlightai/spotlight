@@ -1,4 +1,5 @@
 import { Spool, X } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { BriefedMemory } from '@/components/features/runs/memories/BriefedMemory';
 import { MemoryGroup } from '@/components/features/runs/memories/MemoryGroup';
@@ -33,7 +34,7 @@ export function RunMemoriesDetail({
   runId,
   open,
   onClose,
-}: RunMemoriesDetailProps) {
+}: RunMemoriesDetailProps): ReactElement {
   const query = useRunMemories(teamId, runId);
   const memories = query.data;
   const supplied = memories ? suppliedMemories(memories) : [];

@@ -16,7 +16,9 @@ export class SmtpMail implements MailTransport {
   }
 
   static configured(env: Env): SmtpMail | null {
-    return env.SMTP_URL ? new SmtpMail(env.SMTP_URL, env.MAIL_FROM) : null;
+    return env.SMTP_URL !== undefined && env.SMTP_URL !== ''
+      ? new SmtpMail(env.SMTP_URL, env.MAIL_FROM)
+      : null;
   }
 
   async deliver(message: MailMessage): Promise<void> {

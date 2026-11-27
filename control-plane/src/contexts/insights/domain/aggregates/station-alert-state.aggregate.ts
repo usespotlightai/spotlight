@@ -10,6 +10,7 @@ import type {
 } from '@insights/domain/value-objects/alert-rule.vo';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -90,15 +91,17 @@ export class StationAlertState extends EventRecorder {
   }
 
   private inCooldown(rule: AlertRule): AlertFiring | undefined {
-    const [last] = this.firings
-      .filter((each) => !each.open && each.rule.equals(rule))
-      .sort(
-        (a, b) =>
-          (b.resolvedAt?.getTime() ?? 0) - (a.resolvedAt?.getTime() ?? 0) ||
-          b.id.value.localeCompare(a.id.value),
-      );
+    const last = firstOf(
+      this.firings
+        .filter((each) => !each.open && each.rule.equals(rule))
+        .sort(
+          (a, b) =>
+            (b.resolvedAt?.getTime() ?? 0) - (a.resolvedAt?.getTime() ?? 0) ||
+            b.id.value.localeCompare(a.id.value),
+        ),
+    );
 
-    return last?.cooling ? last : undefined;
+    return last?.cooling === true ? last : undefined;
   }
 
   check(

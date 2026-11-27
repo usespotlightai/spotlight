@@ -1,4 +1,4 @@
-import { type ReactNode, useId } from 'react';
+import { type ReactNode, useId, type ReactElement } from 'react';
 
 import { Collapsible } from '@/components/shared/Collapsible';
 
@@ -18,7 +18,7 @@ export function Step({
   open = true,
   onOpen,
   children,
-}: StepProps) {
+}: StepProps): ReactElement {
   const contentId = useId();
 
   return (
@@ -45,7 +45,7 @@ export function Step({
 
         <Collapsible open={open} appear={false}>
           <div id={contentId} className="flex flex-col gap-2 pt-1">
-            {description && (
+            {description !== undefined && description !== '' && (
               <p className="text-muted-foreground text-xs">{description}</p>
             )}
             {children}

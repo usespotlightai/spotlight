@@ -74,7 +74,9 @@ export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
       );
 
     return rows.flatMap((row) =>
-      row.claimedBy && isLeasedState(row.state)
+      row.claimedBy !== null &&
+      row.claimedBy !== '' &&
+      isLeasedState(row.state)
         ? [{ ...activityRunOf(row), runnerId: row.claimedBy }]
         : [],
     );

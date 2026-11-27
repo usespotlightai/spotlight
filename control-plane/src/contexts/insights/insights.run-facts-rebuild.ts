@@ -19,9 +19,10 @@ export interface RunFactsRebuild {
 }
 
 const READ_ONLY: DomainEventDispatcher = {
-  dispatch: async () => {
-    throw new Error('The run facts rebuild reads runs and never saves them');
-  },
+  dispatch: () =>
+    Promise.reject(
+      new Error('The run facts rebuild reads runs and never saves them'),
+    ),
 };
 
 export const openRunFactsRebuild = (): RunFactsRebuild => {

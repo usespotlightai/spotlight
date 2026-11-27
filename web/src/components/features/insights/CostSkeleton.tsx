@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { COST_SANKEY_HEIGHT } from '@/components/features/insights/CostSankey';
 import { CostSlicesSkeleton } from '@/components/features/insights/CostSlicesSkeleton';
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
@@ -16,7 +18,7 @@ const TILES: readonly TileBones[] = [
   { label: 'Cache share', detail: 'Of tokens read' },
 ];
 
-export function CostSkeleton() {
+export function CostSkeleton(): ReactElement {
   return (
     <div
       role="status"

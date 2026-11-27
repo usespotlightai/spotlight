@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { CandidatesCard } from '@/components/features/insights/candidates/CandidatesCard';
 import { CandidatesSkeleton } from '@/components/features/insights/candidates/CandidatesSkeleton';
 import { NoCandidates } from '@/components/features/insights/candidates/NoCandidates';
@@ -20,7 +22,7 @@ export function CandidatesTab({
   teamId,
   period,
   names,
-}: CandidatesTabProps) {
+}: CandidatesTabProps): ReactElement {
   const candidates = useInsightsCandidates(teamId, period);
 
   if (loading(candidates)) {

@@ -1,7 +1,15 @@
+import type { ReactElement } from 'react';
+
 import { CopyIcon } from '@/components/shared/CopyIcon';
 import { useCopied } from '@/hooks/useCopied';
 
-export function DetailCopy({ text, of }: { text: string; of: string }) {
+export function DetailCopy({
+  text,
+  of,
+}: {
+  text: string;
+  of: string;
+}): ReactElement {
   const { copied, copy } = useCopied();
 
   return (

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ApprovalApproveButton } from '@/components/features/inbox/conversation/approval/ApprovalApproveButton';
 import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionControls } from '@/components/shared/DecisionControls';
@@ -19,7 +21,7 @@ export function ApprovalDecision({
   keyed = false,
   onApprove,
   onDismiss,
-}: ApprovalDecisionProps) {
+}: ApprovalDecisionProps): ReactElement {
   return (
     <DecisionControls>
       <DecisionButton
@@ -32,7 +34,11 @@ export function ApprovalDecision({
       <ApprovalApproveButton
         approval={approval}
         disabled={pending || !onApprove}
-        disabledBecause={onlyFor ? `Only ${onlyFor} can approve this` : null}
+        disabledBecause={
+          onlyFor !== null && onlyFor !== ''
+            ? `Only ${onlyFor} can approve this`
+            : null
+        }
         keyed={keyed}
         onApprove={onApprove}
       />

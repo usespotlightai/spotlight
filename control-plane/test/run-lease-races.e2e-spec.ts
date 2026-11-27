@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
+import type {
+  RegisteredClaimant,
+  RunnerClaimantsPort,
+} from '@runners/application/ports/runner-claimants.port';
 import { CompleteRunHandler } from '@runs/application/commands/handlers/complete-run.handler';
 import { RenewLeaseHandler } from '@runs/application/commands/handlers/renew-lease.handler';
 import {
@@ -23,6 +26,7 @@ import { TranslatedDomainError } from '@shared-kernel/application/errors/transla
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import fc from 'fast-check';
 import { afterAll, beforeAll, describe, it } from 'vitest';
@@ -92,13 +96,13 @@ beforeAll(async () => {
   database = await openDatabase('run_lease_races');
   context = new DrizzleContext(database.db);
   runs = new DrizzleRunRepository(context, {
-    dispatch: async (events) =>
-      context.afterCommit(() => committed.push(...events)),
+    dispatch: (events) =>
+      Promise.resolve(context.afterCommit(() => committed.push(...events))),
   });
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const clockAt = (at: number): ClockPort => ({
@@ -107,14 +111,15 @@ const clockAt = (at: number): ClockPort => ({
 });
 
 const claimants: RunnerClaimantsPort = {
-  registeredClaimantOf: async () => null,
-  claimantOf: async () => ({
-    workspaceId: null as never,
-    harnesses: [],
-    offer: null as never,
-    claims: 'nothing',
-    source: null,
-  }),
+  registeredClaimantOf: () => Promise.resolve(null),
+  claimantOf: () =>
+    Promise.resolve(
+      partial<RegisteredClaimant>({
+        harnesses: [],
+        claims: 'nothing',
+        source: null,
+      }),
+    ),
 };
 
 const claimedRun = async (by: Requester): Promise<string> => {
@@ -146,15 +151,15 @@ const performed = async (runId: string, each: Action): Promise<void> => {
   const clock = clockAt(TIMES[each.when]);
   const service = new Runs(
     runs,
-    {} as ContentHashPort,
+    partial<ContentHashPort>({}),
     clock,
-    {} as HeldHarnessKeys,
+    partial<HeldHarnessKeys>({}),
   );
   const completing = new CompleteRunHandler(
     runs,
     context,
     clock,
-    {} as RunFileSources,
+    partial<RunFileSources>({}),
   );
 
   switch (each.kind) {

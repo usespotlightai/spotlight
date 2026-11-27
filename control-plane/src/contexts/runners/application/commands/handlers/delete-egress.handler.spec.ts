@@ -12,6 +12,7 @@ import type { EgressRepository } from '@runners/domain/repositories/egress.repos
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -19,25 +20,32 @@ const deleting = (pools: readonly RunnerPool[]) => {
   const egress = anEgress();
   const saved: Egress[] = [];
   const handler = new DeleteEgressHandler(
-    {
-      permissionsIn: vi.fn(async () => ({
-        workspaceId: egress.workspaceId,
-        scopes: new Set(['runners'] as const),
-      })),
-    } as unknown as WorkspaceAccessPort,
-    {
-      find: vi.fn(async () => egress),
-      findToDelete: vi.fn(async () => egress),
-      save: vi.fn(async (each: Egress) => {
+    partial<WorkspaceAccessPort>({
+      permissionsIn: vi.fn(() =>
+        Promise.resolve({
+          workspaceId: egress.workspaceId,
+          slug: 'acme',
+          plans: false,
+          configures: false,
+          scopes: new Set(['runners'] as const),
+          isAdmin: false,
+        }),
+      ),
+    }),
+    partial<EgressRepository>({
+      find: vi.fn(() => Promise.resolve(egress)),
+      findToDelete: vi.fn(() => Promise.resolve(egress)),
+      save: vi.fn((each: Egress) => {
         saved.push(each);
+        return Promise.resolve();
       }),
-    } as unknown as EgressRepository,
-    {
-      inWorkspace: vi.fn(async () => pools),
-    } as unknown as RunnerPoolRepository,
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
+    }),
+    partial<RunnerPoolRepository>({
+      inWorkspace: vi.fn(() => Promise.resolve(pools)),
+    }),
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
   );
 
   return { handler, saved };

@@ -17,6 +17,9 @@ import { DrizzleChangeStackRepository } from '@change-review/infrastructure/pers
 import { DrizzleQuestionAnswerRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/question-answer.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -32,9 +35,9 @@ const ADA = UserId.of('user_ada');
 const BEA = UserId.of('user_bea');
 const CY = UserId.of('user_cy');
 
-const EVENTS = {
+const EVENTS = partial<DomainEventDispatcher>({
   dispatch: async () => {},
-} as unknown as DomainEventDispatcher;
+});
 
 let database: TestDatabase;
 let stacks: DrizzleChangeStackRepository;
@@ -106,7 +109,7 @@ const ready = stackOf('stack_1', StackOrigin.run(RUN));
 const pushed = stackOf(
   'stack_pushed',
   StackOrigin.push(
-    CommitSha.parsed('b'.repeat(40)) as CommitSha,
+    present(CommitSha.parsed('b'.repeat(40))),
     Pusher.of('octocat'),
   ),
   new Date(NOW.getTime() + 60_000),
@@ -133,7 +136,7 @@ const answered = (
   });
 
 const questionsFor = async (viewer: UserId) => {
-  const [stack] = await reader.ofRun(RUN, viewer, NOW);
+  const stack = firstOf(await reader.ofRun(RUN, viewer, NOW));
   return stack?.cohorts[0]?.layers[0]?.questions;
 };
 
@@ -147,7 +150,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 describe('answers to the questions of a change stack', () => {
@@ -165,7 +168,7 @@ describe('answers to the questions of a change stack', () => {
   it('shows each reviewer only their own answer, with the expected answer', async () => {
     await answers.add(answered('answer_ada', ADA));
 
-    expect((await questionsFor(ADA))?.[0]?.answered).toEqual({
+    expect((await questionsFor(ADA))?.[0].answered).toEqual({
       questionId: 'c1.l1.q1',
       reply: 'The bot.',
       grading: 'graded',
@@ -174,7 +177,7 @@ describe('answers to the questions of a change stack', () => {
       expected: 'The integration signs it.',
       outdated: false,
     });
-    expect((await questionsFor(BEA))?.[0]?.answered).toBeNull();
+    expect((await questionsFor(BEA))?.[0].answered).toBeNull();
 
     const found = await answers.of(ready.id, question.id, ADA);
     expect(found?.usage.inputTokens).toBe(200);
@@ -191,14 +194,14 @@ describe('answers to the questions of a change stack', () => {
       answered('answer_bea', BEA, { ...question, question: 'Who signed?' }),
     );
 
-    expect((await questionsFor(BEA))?.[0]?.answered).toBeNull();
+    expect((await questionsFor(BEA))?.[0].answered).toBeNull();
   });
 
   it('shows the task’s pushed stack in place of its run’s older one, with the push and no run', async () => {
     await stacks.add(pushed);
 
     const found = await reader.ofTask(TaskId.of('task_1'), ADA, NOW);
-    const [ofRun] = await reader.ofRun(RUN, ADA, NOW);
+    const ofRun = firstOf(await reader.ofRun(RUN, ADA, NOW));
 
     expect(found.map((each) => [each.id, each.runId, each.push])).toEqual([
       ['stack_pushed', null, { head: 'b'.repeat(40), pushedBy: 'octocat' }],
@@ -231,7 +234,7 @@ describe('answers to the questions of a change stack', () => {
 
     await expect(
       answers.save(
-        (reworded as QuestionAnswer).answeredAgain({
+        present(reworded).answeredAgain({
           question,
           reply: null,
           now: NOW,
@@ -266,7 +269,7 @@ describe('answers to the questions of a change stack', () => {
     });
 
     await answers.save(
-      ((await answers.find(waiting.id)) as QuestionAnswer).graded({
+      present(await answers.find(waiting.id)).graded({
         grade: { verdict: 'right', feedback: '' },
         usage: null,
       }),

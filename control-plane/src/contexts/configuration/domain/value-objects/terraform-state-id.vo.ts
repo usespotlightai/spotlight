@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class TerraformStateId {
-  private readonly kind = 'terraform-state';
+  private readonly kind: string = 'terraform-state';
 
   private constructor(readonly value: string) {}
 

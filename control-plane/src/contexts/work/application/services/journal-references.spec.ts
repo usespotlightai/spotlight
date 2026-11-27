@@ -1,10 +1,11 @@
 import type { JournalStep } from '@runs/application/contracts/run-journal.contract';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { referencesUnder } from '@work/application/services/journal-references';
 import { describe, expect, it } from 'vitest';
 
 const MEMORY_FILES = { folder: '.spotlight/memory', extension: '.md' };
 
-const step = (over: Record<string, unknown>) => ({
+const step = (over: Partial<JournalStep>): Partial<JournalStep> => ({
   kind: 'tool',
   text: '',
   status: null,
@@ -19,8 +20,8 @@ const step = (over: Record<string, unknown>) => ({
   ...over,
 });
 
-const journal = (steps: Record<string, unknown>[]) =>
-  steps.map(step) as unknown as JournalStep[];
+const journal = (steps: Partial<JournalStep>[]): JournalStep[] =>
+  steps.map((each) => partial<JournalStep>(step(each)));
 
 describe('what a run referred to under a folder', () => {
   it('finds the files a tool opened, by its title, its input and the locations it touched', () => {

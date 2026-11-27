@@ -42,6 +42,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { OncePer } from '@shared-kernel/application/services/once-per';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -195,7 +196,7 @@ export class ProvisionWork {
     pools: readonly OfferedPool[],
     hostOffers: readonly HostOfferAtWork[],
   ): Promise<void> {
-    const [first] = pools;
+    const first = firstOf(pools);
 
     if (!first) {
       return;
@@ -232,7 +233,7 @@ export class ProvisionWork {
         room,
         provisionable.needs,
       );
-      const [chosen] = fitting;
+      const chosen = firstOf(fitting);
 
       if (!chosen) {
         const reason = waitReasonFor(
@@ -451,7 +452,7 @@ export class ProvisionWork {
   ): Promise<Provisioned> {
     const current = await this.runs.findById(queued.id);
 
-    if (!current?.provisionableAt(this.clock.now(), pool.egress)) {
+    if (current?.provisionableAt(this.clock.now(), pool.egress) !== true) {
       return 'done';
     }
 

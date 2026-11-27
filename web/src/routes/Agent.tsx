@@ -1,13 +1,19 @@
+import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 
 import { AgentChats } from '@/components/features/agent/AgentChats';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
 import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
 
-export function Agent() {
+export function Agent(): ReactElement | null {
   const { slug, teamId } = useParams();
 
-  if (!slug || !teamId) {
+  if (
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === ''
+  ) {
     return null;
   }
 

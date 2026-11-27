@@ -1,4 +1,4 @@
-import type { RequestHandler } from 'msw';
+import type { JsonBodyType, RequestHandler } from 'msw';
 
 import { api, json, notFound } from '@/mocks/http';
 import { world } from '@/mocks/world';
@@ -28,7 +28,7 @@ type ResolverInput = {
 
 const teamOf = (params: ResolverInput['params']): string | null => {
   const teamId = String(params.teamId);
-  return world().lines[teamId] ? teamId : null;
+  return Object.hasOwn(world().lines, teamId) ? teamId : null;
 };
 
 const queryOf = (request: Request): URLSearchParams =>
@@ -38,17 +38,17 @@ const periodOf = (request: Request): PeriodName =>
   periodNameOf(queryOf(request).get('period'));
 
 const forPeriod =
-  (read: (teamId: string, period: PeriodName) => unknown) =>
+  (read: (teamId: string, period: PeriodName) => JsonBodyType) =>
   ({ params, request }: ResolverInput) => {
     const teamId = teamOf(params);
-    return teamId ? json(read(teamId, periodOf(request))) : notFound();
+    return teamId !== null ? json(read(teamId, periodOf(request))) : notFound();
   };
 
 const forQuery =
-  (read: (teamId: string, query: URLSearchParams) => unknown) =>
+  (read: (teamId: string, query: URLSearchParams) => JsonBodyType) =>
   ({ params, request }: ResolverInput) => {
     const teamId = teamOf(params);
-    return teamId ? json(read(teamId, queryOf(request))) : notFound();
+    return teamId !== null ? json(read(teamId, queryOf(request))) : notFound();
   };
 
 const SIZES: readonly RunSize[] = ['small', 'medium', 'large'];
@@ -59,7 +59,7 @@ const agentConfigsFor = (teamId: string, query: URLSearchParams) => {
   return agentConfigsOf(
     teamId,
     periodNameOf(query.get('period')),
-    query.get('stationId') || null,
+    query.get('stationId') === '' ? null : query.get('stationId'),
     SIZES.find((each) => each === size) ?? null,
   );
 };

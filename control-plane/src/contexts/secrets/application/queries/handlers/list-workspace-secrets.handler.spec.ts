@@ -43,10 +43,10 @@ const listedBy = (managesSecrets: boolean, slug = SLUG) =>
   new ListWorkspaceSecretsHandler(
     accessFor(() => managesSecrets),
     {
-      withId: async () => null,
-      named: async () => null,
-      namedIn: async () => [],
-      secretsIn: async () => RECORDS,
+      withId: () => Promise.resolve(null),
+      named: () => Promise.resolve(null),
+      namedIn: () => Promise.resolve([]),
+      secretsIn: () => Promise.resolve(RECORDS),
     },
   ).execute(new ListWorkspaceSecretsQuery(slug, ADMIN.principal));
 

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -39,7 +40,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const WORKSPACE = WorkspaceId.of('ws_1');
@@ -58,8 +59,7 @@ const startedIn = (thread: Mark, workspaceId = WORKSPACE) =>
     newId: () => randomUUID(),
   });
 
-const keys = (...marks: Mark[]) =>
-  CorrelationKeys.of({ marks }) as CorrelationKeys;
+const keys = (...marks: Mark[]) => present(CorrelationKeys.of({ marks }));
 
 describe('chat marks, stored in the database (e2e)', () => {
   it('keeps the marks a chat was started with', async () => {

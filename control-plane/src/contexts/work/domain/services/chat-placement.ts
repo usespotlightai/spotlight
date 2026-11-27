@@ -27,7 +27,7 @@ export const chatSetupOf = (
     ...new Set(
       lines.flatMap((line) => {
         const setup = line.repositories.setupOf(repository);
-        return setup ? [setup] : [];
+        return setup !== null && setup !== '' ? [setup] : [];
       }),
     ),
   ];

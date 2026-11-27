@@ -32,13 +32,17 @@ export const WorkspaceHttpMapper = {
       dto.id,
       dto.name,
       dto.slug,
-      dto.avatarDigest && workspaceAvatarUrl(dto.slug, dto.avatarDigest),
+      dto.avatarDigest === null || dto.avatarDigest === ''
+        ? dto.avatarDigest
+        : workspaceAvatarUrl(dto.slug, dto.avatarDigest),
       dto.teams.map(
         (team) =>
           new TeamResponseDto(
             team.id,
             team.name,
-            team.avatarDigest && teamAvatarUrl(team.id, team.avatarDigest),
+            team.avatarDigest === null || team.avatarDigest === ''
+              ? team.avatarDigest
+              : teamAvatarUrl(team.id, team.avatarDigest),
           ),
       ),
       dto.role,
@@ -51,7 +55,9 @@ export const WorkspaceHttpMapper = {
       dto.id,
       dto.name,
       dto.slug,
-      dto.avatarDigest && workspaceAvatarUrl(dto.slug, dto.avatarDigest),
+      dto.avatarDigest === null || dto.avatarDigest === ''
+        ? dto.avatarDigest
+        : workspaceAvatarUrl(dto.slug, dto.avatarDigest),
       dto.role,
     );
   },

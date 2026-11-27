@@ -65,7 +65,11 @@ export class RunStreamController {
         (entry) => {
           if (mark.accepts(entry)) {
             const id = eventIdOf(entry);
-            subscriber.next(id ? { id, data: entry } : { data: entry });
+            subscriber.next(
+              id !== undefined && id !== ''
+                ? { id, data: entry }
+                : { data: entry },
+            );
           }
         },
         (error) => subscriber.error(error),

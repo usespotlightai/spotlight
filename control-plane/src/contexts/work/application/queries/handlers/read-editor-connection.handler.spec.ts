@@ -1,4 +1,5 @@
 import type { EditorLeasesPort } from '@runners/application/ports/editor-leases.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { EditorTarget } from '@work/application/dto/editor-connection.dto';
 import { ReadEditorConnectionQuery } from '@work/application/queries/editor-connection.query';
@@ -11,15 +12,17 @@ const TASK: EditorTarget = { kind: 'task', id: 'task_1' };
 
 const setUp = () => {
   const workingCopyOf = vi.fn(
-    async (_viewer: unknown, target: EditorTarget, _slug: string | null) =>
-      target.id === 'task_1'
-        ? { workspaceId: WorkspaceId.of('ws_1'), key: 'work/task-task_1' }
-        : null,
+    (_viewer: unknown, target: EditorTarget, _slug: string | null) =>
+      Promise.resolve(
+        target.id === 'task_1'
+          ? { workspaceId: WorkspaceId.of('ws_1'), key: 'work/task-task_1' }
+          : null,
+      ),
   );
-  const leases = { isHeld: vi.fn(async () => true) };
+  const leases = { isHeld: vi.fn(() => Promise.resolve(true)) };
   const handler = new ReadEditorConnectionHandler(
-    { workingCopyOf } as unknown as EditorTargets,
-    leases as unknown as EditorLeasesPort,
+    partial<EditorTargets>({ workingCopyOf }),
+    partial<EditorLeasesPort>(leases),
   );
 
   return {

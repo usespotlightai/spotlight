@@ -8,7 +8,8 @@ import { AgentChat } from '@/routes/AgentChat';
 import { write } from '@/test/lexical';
 
 const chat = vi.fn<(...args: unknown[]) => unknown>();
-const chatError = vi.fn<(...args: unknown[]) => unknown>();
+const chatError =
+  vi.fn<() => { statusCode: number; message?: string } | null>();
 const refetch = vi.fn();
 const journal = vi.fn<(...args: unknown[]) => unknown>();
 

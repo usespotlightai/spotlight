@@ -9,6 +9,7 @@ import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 import { journalEntryText } from '@runs/infrastructure/journal/control-plane-facts';
 import { enforcementOf } from '@runs/infrastructure/journal/egress-enforcement';
 import { runJournalEntry } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { and, asc, desc, eq, gt, lte } from 'drizzle-orm';
 
@@ -90,18 +91,20 @@ export class DrizzleRunJournalEntryReader implements RunJournalEntryReaderPort {
     runId: RunId,
     attempt: number,
   ): Promise<EgressEnforcement | null> {
-    const [found] = await this.db
-      .select({ data: runJournalEntry.data })
-      .from(runJournalEntry)
-      .where(
-        and(
-          eq(runJournalEntry.runId, runId.value),
-          eq(runJournalEntry.attempt, attempt),
-          eq(runJournalEntry.type, EGRESS_CHECKED),
-        ),
-      )
-      .orderBy(desc(runJournalEntry.at), desc(runJournalEntry.seq))
-      .limit(1);
+    const found = firstOf(
+      await this.db
+        .select({ data: runJournalEntry.data })
+        .from(runJournalEntry)
+        .where(
+          and(
+            eq(runJournalEntry.runId, runId.value),
+            eq(runJournalEntry.attempt, attempt),
+            eq(runJournalEntry.type, EGRESS_CHECKED),
+          ),
+        )
+        .orderBy(desc(runJournalEntry.at), desc(runJournalEntry.seq))
+        .limit(1),
+    );
 
     return enforcementOf(found?.data);
   }

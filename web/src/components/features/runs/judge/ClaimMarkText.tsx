@@ -1,7 +1,9 @@
+import type { ReactElement } from 'react';
+
 import { OutcomeIcon } from '@/components/shared/OutcomeIcon';
 import { formatMark } from '@/lib/judge';
 
-export function ClaimMarkText({ met }: { met: boolean }) {
+export function ClaimMarkText({ met }: { met: boolean }): ReactElement {
   return (
     <span
       data-slot="claim-mark"

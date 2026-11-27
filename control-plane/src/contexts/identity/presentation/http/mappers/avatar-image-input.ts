@@ -18,7 +18,7 @@ const decoded = (data: unknown): Uint8Array => {
 };
 
 export const avatarImageInput = (
-  body: SetAvatarRequestDto,
+  body: Partial<Record<keyof SetAvatarRequestDto, unknown>>,
 ): AvatarImageInput => ({
   bytes: decoded(body.data),
   contentType: typeof body.contentType === 'string' ? body.contentType : '',

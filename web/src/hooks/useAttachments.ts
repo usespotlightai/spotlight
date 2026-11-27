@@ -30,11 +30,26 @@ type Outcome =
 
 type Ready = PendingAttachment & { readonly state: 'ready' };
 
+type AttachmentsResult = {
+  attachments: PendingAttachment[];
+  ids: string[];
+  uploading: boolean;
+  add: (files: readonly File[]) => PendingAttachment[];
+  remove: (key: string) => void;
+  clear: () => void;
+  restore: (back: readonly PendingAttachment[]) => void;
+  handlers: {
+    onDragOver: (event: DragEvent) => void;
+    onDropCapture: (event: DragEvent) => void;
+    onPasteCapture: (event: ClipboardEvent) => void;
+  };
+};
+
 export function useAttachments(
   slug: string,
   onReady?: (attachment: Ready) => void,
   initial: readonly PendingAttachment[] = [],
-) {
+): AttachmentsResult {
   const [attachments, setAttachments] = useState<PendingAttachment[]>(() => [
     ...initial,
   ]);
@@ -59,7 +74,9 @@ export function useAttachments(
         size: file.size,
         contentType: file.type,
         imageSource: drawn(file.type) ? { blob: file } : null,
-        ...(problem ? { state: 'failed', problem } : { state: 'uploading' }),
+        ...(problem !== null && problem !== ''
+          ? { state: 'failed', problem }
+          : { state: 'uploading' }),
       };
 
       return { file, pending };

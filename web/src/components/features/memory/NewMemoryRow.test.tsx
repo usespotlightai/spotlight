@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NewMemoryRow } from '@/components/features/memory/NewMemoryRow';
-import type { LineResponseDto } from '@/lib/api';
+import type { LineResponseDto, StationResponseDto } from '@/lib/api';
+import { partial } from '@/test/partial';
 
 const mutate = vi.fn();
 
@@ -15,11 +16,17 @@ vi.mock('@/hooks/api/useSession', () => ({
 }));
 
 const LINES = [
-  {
+  partial<LineResponseDto>({
     id: 'line_delivery',
     key: 'delivery',
     name: 'Delivery',
-    stations: [{ id: 'station_build', name: 'Implementation', kind: 'work' }],
+    stations: [
+      partial<StationResponseDto>({
+        id: 'station_build',
+        name: 'Implementation',
+        kind: 'work',
+      }),
+    ],
     reactions: [],
     repositories: [
       {
@@ -28,8 +35,8 @@ const LINES = [
         url: 'https://github.com/acme/api',
       },
     ],
-  },
-] as unknown as LineResponseDto[];
+  }),
+];
 
 const onDone = vi.fn();
 

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { MemoryTab } from '@/components/features/insights/memory/MemoryTab';
 import { OVERVIEW_LAYOUT } from '@/components/features/insights/overview-layout';
@@ -15,7 +17,7 @@ type ToolsAndSkillsTabProps = {
   names: StationNames;
 };
 
-export function ToolsAndSkillsTab(props: ToolsAndSkillsTabProps) {
+export function ToolsAndSkillsTab(props: ToolsAndSkillsTabProps): ReactElement {
   const queries = [
     useInsightsTools(props.teamId, props.period),
     useInsightsMemory(props.teamId, props.period),

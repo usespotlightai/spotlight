@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 
 import {
@@ -21,7 +21,7 @@ export function InsightsLink({
   filter = {},
   className,
   children,
-}: InsightsLinkProps) {
+}: InsightsLinkProps): ReactElement {
   const { slug = '', teamId = '' } = useParams();
   const [params] = useSearchParams();
   const { period } = viewOf(params);

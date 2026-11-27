@@ -80,9 +80,10 @@ export class StartChatHandler implements CommandHandlerPort<
         command.attachments,
       );
       const traces = await this.traces.shared(command.traces);
-      const targetStation = command.targetStation
-        ? await this.targetStationOf(command.targetStation)
-        : null;
+      const targetStation =
+        command.targetStation !== null && command.targetStation !== ''
+          ? await this.targetStationOf(command.targetStation)
+          : null;
       const chat = Chat.start({
         workspaceId,
         teamId,

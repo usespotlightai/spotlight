@@ -34,7 +34,7 @@ const station = (
     harness: HarnessId.of('dev'),
     tools: tools.map((each) => Tool.of(each)),
     skills: skills.map((each) => SkillKey.of(each)),
-    profile: profile ? ProfileKey.of(profile) : null,
+    profile: profile !== null && profile !== '' ? ProfileKey.of(profile) : null,
   });
 
 const skill = (key: string, tools: string[] = []) => ({

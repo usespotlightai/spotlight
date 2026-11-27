@@ -1,6 +1,6 @@
 const ELLIPSIS = '…';
 
-export const measured = (font: string) => {
+export const measured = (font: string): ((text: string) => number) | null => {
   const canvas = document.createElement('canvas');
   const pen = canvas.getContext('2d');
 

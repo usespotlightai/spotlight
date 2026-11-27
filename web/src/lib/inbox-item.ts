@@ -19,7 +19,13 @@ export const carriesItsOwn = (item: InboxItemView): boolean =>
   item.notes[0]?.form === 'setup';
 
 export const promptOf = (item: InboxItemView): RunPrompt | null => {
-  const runId = item.notes[0]?.runId;
+  const runId = item.notes.at(0)?.runId;
 
-  return runId && item.briefing ? { runId, text: item.briefing } : null;
+  return runId !== undefined &&
+    runId !== null &&
+    runId !== '' &&
+    item.briefing !== null &&
+    item.briefing !== ''
+    ? { runId, text: item.briefing }
+    : null;
 };

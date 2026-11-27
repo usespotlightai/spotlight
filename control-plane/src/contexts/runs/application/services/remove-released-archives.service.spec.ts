@@ -21,6 +21,8 @@ import {
 import type { SnapshotRemoval } from '@runs/domain/value-objects/snapshot-removal.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const DAY = 24 * 60 * 60_000;
@@ -34,15 +36,21 @@ const dueAs = (id: string, name = 'task-task_1'): ArchiveDue => ({
   pinned: false,
 });
 
-const holdingWork = (held: Readonly<Record<string, HeldWorkingCopy>>) => {
+const holdingWork = (
+  held: Readonly<Partial<Record<string, HeldWorkingCopy>>>,
+) => {
   const holders = new ArchiveHolders();
 
   holders.register({
     owner: 'work',
-    heldOf: async (names) =>
-      new Map(
-        names.flatMap((name): [string, HeldWorkingCopy][] =>
-          held[name] ? [[name, held[name]]] : [],
+    heldOf: (names) =>
+      Promise.resolve(
+        new Map(
+          names.flatMap((name): [string, HeldWorkingCopy][] => {
+            const each = held[name];
+
+            return each !== undefined ? [[name, each]] : [];
+          }),
         ),
       ),
   });
@@ -60,14 +68,15 @@ const setUp = async (
   const queued: SnapshotRemoval[] = [];
   let queueFails = false;
   const snapshots: SnapshotRemovalsPort = {
-    queue: async (removal) => {
+    queue: (removal) => {
       if (queueFails) {
-        throw new Error('the database is gone');
+        return Promise.reject(new Error('the database is gone'));
       }
       queued.push(removal);
+      return Promise.resolve();
     },
-    due: async () => queued,
-    forget: async () => true,
+    due: () => Promise.resolve(queued),
+    forget: () => Promise.resolve(true),
   };
 
   await archives.add(aCompletedArchive({ id: 'gone' }));
@@ -83,7 +92,7 @@ const setUp = async (
         }
         return page;
       },
-      of: async (id) => seen.get(id.value) ?? null,
+      of: (id) => Promise.resolve(seen.get(id.value) ?? null),
     },
     {
       referencing: (_workspace, work) => work(),
@@ -94,7 +103,7 @@ const setUp = async (
     store,
     snapshots,
     { now: () => later(DAY), sleep: async () => {} },
-    logger as never,
+    partial<LoggerPort>(logger),
   );
 
   const failQueue = () => {
@@ -162,10 +171,11 @@ describe('RemoveReleasedArchives', () => {
 
   it('removes each archive whose holder is gone, from the record and then storage, and keeps one still held', async () => {
     const { archives, store, service } = await setUp(
-      async () => ({
-        due: [dueAs('gone', 'task-task_9'), dueAs('owned')],
-        next: null,
-      }),
+      () =>
+        Promise.resolve({
+          due: [dueAs('gone', 'task-task_9'), dueAs('owned')],
+          next: null,
+        }),
       holdingWork({
         'task-task_1': { released: false, changedAt: later(0) },
       }),
@@ -178,10 +188,12 @@ describe('RemoveReleasedArchives', () => {
   });
 
   it('keeps a snapshot archive when its removal cannot be queued, so the snapshot is never left behind', async () => {
-    const { archives, service, logger, failQueue } = await setUp(async () => ({
-      due: [dueAs('branched', 'task-task_9')],
-      next: null,
-    }));
+    const { archives, service, logger, failQueue } = await setUp(() =>
+      Promise.resolve({
+        due: [dueAs('branched', 'task-task_9')],
+        next: null,
+      }),
+    );
     await archives.add(aCompletedSnapshotArchive({ id: 'branched' }));
     failQueue();
 
@@ -192,10 +204,12 @@ describe('RemoveReleasedArchives', () => {
   });
 
   it('leaves the snapshot of a removed archive to a host of its store, as Spotlight cannot reach the store', async () => {
-    const { archives, store, service, queued } = await setUp(async () => ({
-      due: [dueAs('branched', 'task-task_9')],
-      next: null,
-    }));
+    const { archives, store, service, queued } = await setUp(() =>
+      Promise.resolve({
+        due: [dueAs('branched', 'task-task_9')],
+        next: null,
+      }),
+    );
     await archives.add(aCompletedSnapshotArchive({ id: 'branched' }));
 
     await service.processDue();
@@ -212,15 +226,16 @@ describe('RemoveReleasedArchives', () => {
 
   it('treats a working copy of an owner that holds nothing as held by nobody', async () => {
     const { store, service } = await setUp(
-      async () => ({
-        due: [
-          {
-            ...dueAs('gone'),
-            workingCopyKey: WorkingCopyKey.of('replays', 'x'),
-          },
-        ],
-        next: null,
-      }),
+      () =>
+        Promise.resolve({
+          due: [
+            {
+              ...dueAs('gone'),
+              workingCopyKey: WorkingCopyKey.of('replays', 'x'),
+            },
+          ],
+          next: null,
+        }),
       new ArchiveHolders(),
     );
 
@@ -231,14 +246,14 @@ describe('RemoveReleasedArchives', () => {
 
   it('keeps the object of an archive completed while it was being removed', async () => {
     const { archives, store, logger, service } = await setUp(
-      async () => ({ due: [dueAs('late')], next: null }),
+      () => Promise.resolve({ due: [dueAs('late')], next: null }),
       holdingWork({
         'task-task_1': { released: false, changedAt: later(0) },
       }),
     );
     const incomplete = anArchive({ id: 'late' });
     await archives.add(completedMeanwhile(incomplete));
-    archives.find = async () => incomplete;
+    archives.find = () => Promise.resolve(incomplete);
 
     await service.processDue();
 
@@ -248,10 +263,12 @@ describe('RemoveReleasedArchives', () => {
   });
 
   it('removes the archive record and says so when storage could not delete its object', async () => {
-    const { archives, store, service, logger } = await setUp(async () => ({
-      due: [dueAs('gone'), dueAs('owned')],
-      next: null,
-    }));
+    const { archives, store, service, logger } = await setUp(() =>
+      Promise.resolve({
+        due: [dueAs('gone'), dueAs('owned')],
+        next: null,
+      }),
+    );
     const remove = store.remove.bind(store);
     store.remove = async (archive) => {
       if (archive.id.value === 'gone') {

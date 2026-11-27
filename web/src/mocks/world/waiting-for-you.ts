@@ -55,7 +55,7 @@ export const stationsAmong =
 const currentRunOf = <Run extends Pick<TaskRunResponseDto, 'state'>>(
   runs: readonly Run[],
 ): Run | null => {
-  const [newest] = runs;
+  const newest = runs.at(0);
 
   return newest && !ENDED.has(newest.state) ? newest : null;
 };
@@ -168,7 +168,7 @@ export const seenByTheViewer = <
   }
 };
 
-export const actedOnByTheViewer = (task: TaskResponseDto | undefined) => {
+export const actedOnByTheViewer = (task: TaskResponseDto | undefined): void => {
   if (task && task.assignee === null && task.hold === null) {
     task.assignee = SAM;
   }

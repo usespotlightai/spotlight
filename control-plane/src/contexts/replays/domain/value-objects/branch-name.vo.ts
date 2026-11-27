@@ -2,14 +2,17 @@ import { InvalidConfigPullRequestError } from '@replays/domain/exceptions/invali
 
 export type BranchName = string & { readonly brand: 'branch-name' };
 
+const isBranchName = (raw: string): raw is BranchName =>
+  raw.length > 0 && !/\s/.test(raw);
+
 export const BranchName = {
   of(raw: string): BranchName {
-    if (raw.length === 0 || /\s/.test(raw)) {
+    if (!isBranchName(raw)) {
       throw new InvalidConfigPullRequestError(
         'branch must be non-empty without whitespace',
       );
     }
 
-    return raw as BranchName;
+    return raw;
   },
 };

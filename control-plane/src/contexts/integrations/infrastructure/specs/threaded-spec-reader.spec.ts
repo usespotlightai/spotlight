@@ -6,26 +6,28 @@ import { LINEAR_SDL } from '@integrations/infrastructure/specs/graphql/linear.fa
 import { PETSTORE } from '@integrations/infrastructure/specs/openapi/petstore.fake-spec';
 import {
   type SpecFetch,
-  type SpecInjection,
   SpecUnauthorized,
 } from '@integrations/infrastructure/specs/spec-fetch';
 import { ThreadedSpecReader } from '@integrations/infrastructure/specs/threaded-spec-reader';
 import { credentialsFor } from '@integrations/integrations.secrets.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, type Mock, vi } from 'vitest';
 import { stringify as yamlOf } from 'yaml';
 
 const CALL_AUTH: CallAuth = {
-  workspace: async () => WorkspaceId.of('ws_1'),
+  workspace: () => Promise.resolve(WorkspaceId.of('ws_1')),
   connection: null,
   credentials: credentialsFor(),
 };
 
-const fetchingNothing = {
-  text: vi.fn(async () => {
-    throw new Error('nothing is fetched for a document written out');
+const fetchingNothing = partial<SpecFetch>({
+  text: vi.fn(() => {
+    return Promise.reject(
+      new Error('nothing is fetched for a document written out'),
+    );
   }),
-} as unknown as SpecFetch;
+});
 
 const openapi = (document: string, baseUrl: string | null = null) =>
   ApiSpec.of({
@@ -67,9 +69,9 @@ describe('ThreadedSpecReader', () => {
   }, 30_000);
 
   it('introspects a GraphQL endpoint it fetches from', async () => {
-    const fetching = {
-      text: vi.fn(async () => LINEAR_SDL),
-    } as unknown as SpecFetch;
+    const fetching = partial<SpecFetch>({
+      text: vi.fn(() => Promise.resolve(LINEAR_SDL)),
+    });
     const read = await new ThreadedSpecReader(fetching).read(
       ApiSpec.of({
         kind: 'graphql',
@@ -111,11 +113,15 @@ describe('ThreadedSpecReader', () => {
       });
 
     const callAuthWith = (refreshed: string | null) => {
-      const unauthorized = vi.fn(async () =>
-        refreshed ? AccessToken.of(refreshed) : null,
+      const unauthorized = vi.fn(() =>
+        Promise.resolve(
+          refreshed !== null && refreshed !== ''
+            ? AccessToken.of(refreshed)
+            : null,
+        ),
       );
       const callAuth: CallAuth = {
-        workspace: async () => WorkspaceId.of('ws_1'),
+        workspace: () => Promise.resolve(WorkspaceId.of('ws_1')),
         connection: {
           token: AccessToken.of('lin-old'),
           owner: ConnectionOwner.team(),
@@ -128,35 +134,31 @@ describe('ThreadedSpecReader', () => {
       return { callAuth, unauthorized };
     };
 
-    const connectionsSent = (fetching: SpecFetch) =>
-      (fetching.text as ReturnType<typeof vi.fn>).mock.calls.map(
-        (call) => (call[1] as SpecInjection).connection,
-      );
+    const connectionsSent = (text: Mock<SpecFetch['text']>) =>
+      text.mock.calls.map(([, injection]) => injection.connection);
 
     it('sends it only where the spec authenticates by oauth2', async () => {
-      const fetching = {
-        text: vi.fn(async () => LINEAR_SDL),
-      } as unknown as SpecFetch;
+      const text = vi.fn<SpecFetch['text']>(() => Promise.resolve(LINEAR_SDL));
+      const fetching = partial<SpecFetch>({ text });
       const { callAuth } = callAuthWith(null);
       const reader = new ThreadedSpecReader(fetching);
 
       await reader.read(graphql(false), callAuth);
       await reader.read(graphql(true), callAuth);
 
-      expect(connectionsSent(fetching)).toEqual([null, 'lin-old']);
+      expect(connectionsSent(text)).toEqual([null, 'lin-old']);
     }, 30_000);
 
     it('refreshes it once when the service does not accept it, and reads with the new token', async () => {
-      const fetching = {
-        text: vi
-          .fn()
-          .mockRejectedValueOnce(
-            new SpecUnauthorized(
-              'could not be read: api.linear.app answered 401',
-            ),
-          )
-          .mockResolvedValueOnce(LINEAR_SDL),
-      } as unknown as SpecFetch;
+      const text = vi
+        .fn<SpecFetch['text']>()
+        .mockRejectedValueOnce(
+          new SpecUnauthorized(
+            'could not be read: api.linear.app answered 401',
+          ),
+        )
+        .mockResolvedValueOnce(LINEAR_SDL);
+      const fetching = partial<SpecFetch>({ text });
       const { callAuth, unauthorized } = callAuthWith('lin-new');
 
       const read = await new ThreadedSpecReader(fetching).read(
@@ -166,11 +168,11 @@ describe('ThreadedSpecReader', () => {
 
       expect(read.kind).toBe('read');
       expect(unauthorized).toHaveBeenCalledOnce();
-      expect(connectionsSent(fetching)).toEqual(['lin-old', 'lin-new']);
+      expect(connectionsSent(text)).toEqual(['lin-old', 'lin-new']);
     }, 30_000);
 
     it('says it could not be read when a refresh does not help', async () => {
-      const fetching = {
+      const fetching = partial<SpecFetch>({
         text: vi
           .fn()
           .mockRejectedValue(
@@ -178,7 +180,7 @@ describe('ThreadedSpecReader', () => {
               'could not be read: api.linear.app answered 401',
             ),
           ),
-      } as unknown as SpecFetch;
+      });
       const { callAuth } = callAuthWith(null);
 
       expect(

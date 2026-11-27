@@ -16,7 +16,7 @@ import type { MessagePosition } from '@work/domain/value-objects/message-positio
 
 const opening = (team: string | null): string =>
   [
-    `You are working together with a person${team ? ` on the ${team} team` : ''}. Talk it through with them: ask what you need to know, read the code, and shape what they want into tasks their lines can work.`,
+    `You are working together with a person${team !== null && team !== '' ? ` on the ${team} team` : ''}. Talk it through with them: ask what you need to know, read the code, and shape what they want into tasks their lines can work.`,
     'When they ask you to make a small change yourself, make it here and open its pull request. Do not edit files before they ask.',
   ].join(' ');
 

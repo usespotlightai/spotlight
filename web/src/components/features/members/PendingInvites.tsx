@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { InviteRow } from '@/components/features/members/InviteRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
@@ -19,7 +19,7 @@ export function PendingInvites({
   invites,
   alone,
   action,
-}: PendingInvitesProps) {
+}: PendingInvitesProps): ReactElement | null {
   if (!alone && (loading(invites) || invites.data?.length === 0)) {
     return null;
   }

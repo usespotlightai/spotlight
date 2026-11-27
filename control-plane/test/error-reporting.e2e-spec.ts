@@ -3,17 +3,26 @@ import { ENV } from '@platform/config/config.constants';
 import { sentryOptions } from '@platform/errors/sentry-options';
 import {
   close,
-  type ErrorEvent,
+  type Event,
+  type NodeOptions,
   flush,
   httpIntegration,
   init,
   requestDataIntegration,
 } from '@sentry/nestjs';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { openApp, served } from './support/app';
 
-type SentEnvelope = [unknown, [{ type: string }, unknown][]];
+type SentEnvelope = Parameters<
+  ReturnType<NonNullable<NodeOptions['transport']>>['send']
+>[0];
+type SentItem = SentEnvelope[1][number];
+type EventItem = Extract<SentItem, [{ type: Event['type'] | 'event' }, Event]>;
+
+const isEventItem = (item: SentItem): item is EventItem =>
+  item[0].type === 'event';
 
 const TRACE_ID = '4bf92f3577b34da6a3ce929d0e0e4736';
 const SECRETS = [
@@ -70,11 +79,11 @@ describe('error reporting', () => {
         defaultIntegrations: false,
         integrations: [httpIntegration(), requestDataIntegration()],
         transport: () => ({
-          send: async (envelope) => {
+          send: (envelope) => {
             envelopes.push(envelope);
-            return {};
+            return Promise.resolve({});
           },
-          flush: async () => true,
+          flush: () => Promise.resolve(true),
         }),
       });
 
@@ -100,11 +109,9 @@ describe('error reporting', () => {
       vi.unstubAllEnvs();
     });
 
-    const events = (): ErrorEvent[] =>
+    const events = (): Event[] =>
       envelopes.flatMap(([, items]) =>
-        items
-          .filter(([header]) => header.type === 'event')
-          .map(([, payload]) => payload as ErrorEvent),
+        items.filter(isEventItem).map(([, payload]) => payload),
       );
 
     it('gives the web app its DSN, environment and release', async () => {
@@ -133,7 +140,7 @@ describe('error reporting', () => {
       const reported = events();
       expect(reported).toHaveLength(1);
 
-      const [event] = reported;
+      const event = firstOf(reported);
       expect(event?.exception?.values?.[0]?.value).toBe(
         'the settings could not be read',
       );

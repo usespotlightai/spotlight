@@ -24,4 +24,5 @@ export const DEFAULT_RANGE: RangeId = '30d';
 
 export const rangeOf = (id: string): Range =>
   RANGES.find((each) => each.id === id) ??
-  (RANGES.find((each) => each.id === DEFAULT_RANGE) as Range);
+  RANGES.find((each) => each.id === DEFAULT_RANGE) ??
+  RANGES[0];

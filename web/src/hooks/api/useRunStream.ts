@@ -9,11 +9,11 @@ export function useRunStream(
   open: boolean,
   progress: Progress | null,
   onBump: () => void,
-) {
+): void {
   const bump = useEffectEvent(onBump);
 
   useEffect(() => {
-    if (!runId || !open) {
+    if (runId === undefined || runId === '' || !open) {
       return;
     }
 

@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { TerraformLockBody } from '@configuration/application/mappers/terraform-lock-body.mapper';
 import { TerraformState } from '@configuration/domain/aggregates/terraform-state.aggregate';
 import { TerraformStateVersionConflictError } from '@configuration/domain/exceptions/terraform-state-version-conflict.error';
@@ -89,7 +90,7 @@ export class DrizzleTerraformStates implements TerraformStateRepository {
     workspaceId: WorkspaceId,
     name: StateName,
   ): Promise<TerraformState | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(terraformState)
       .where(
@@ -98,7 +99,7 @@ export class DrizzleTerraformStates implements TerraformStateRepository {
           eq(terraformState.name, name.value),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return row ? this.rehydrated(row) : null;
   }

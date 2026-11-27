@@ -11,6 +11,7 @@ import type { PushSubscriptionRepository } from '@notifications/domain/repositor
 import { PushEndpoint } from '@notifications/domain/value-objects/push-endpoint.vo';
 import { PushKeys } from '@notifications/domain/value-objects/push-keys.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -46,26 +47,26 @@ const deliveriesWith = (input: {
     published
       .filter((each) => each.personId === personId)
       .map((each) => each.notification);
-  const send = vi.fn<WebPushPort['send']>(
-    async () => input.outcome ?? 'delivered',
+  const send = vi.fn<WebPushPort['send']>(() =>
+    Promise.resolve(input.outcome ?? 'delivered'),
   );
-  const remove = vi.fn(async () => undefined);
+  const remove = vi.fn(() => Promise.resolve());
   const push: WebPushPort = {
     publicKey: input.publicKey === undefined ? 'key' : input.publicKey,
     send,
   };
-  const subscriptions = {
-    ofPerson: async () => input.subscriptions ?? [],
+  const subscriptions = partial<PushSubscriptionRepository>({
+    ofPerson: () => Promise.resolve(input.subscriptions ?? []),
     remove,
-  } as unknown as PushSubscriptionRepository;
-  const workspaces = {
-    slugOf: async () => 'acme',
-  } as unknown as WorkspaceReaderPort;
-  const logger = {
+  });
+  const workspaces = partial<WorkspaceReaderPort>({
+    slugOf: () => Promise.resolve('acme'),
+  });
+  const logger = partial<LoggerPort>({
     info: () => {},
     warn: () => {},
     error: () => {},
-  } as unknown as LoggerPort;
+  });
 
   return {
     deliveries: new ArrivalDeliveries(

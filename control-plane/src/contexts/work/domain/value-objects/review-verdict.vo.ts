@@ -8,7 +8,7 @@ export class ReviewVerdict {
   private constructor(readonly value: ReviewVerdictName) {}
 
   static fromInput(raw: string | null): ReviewVerdict {
-    const named = raw?.trim() || 'comment';
+    const named = (raw?.trim() ?? '') || 'comment';
     const verdict = REVIEW_VERDICTS.find((each) => each === named);
 
     if (!verdict) {

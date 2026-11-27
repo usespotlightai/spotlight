@@ -60,7 +60,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const readBack = async (task: Task): Promise<Task> => {
@@ -122,7 +122,7 @@ describe('an approval a run asked for', () => {
   it('is read for the board with the question it asks, so the server can tell whom it waits for', async () => {
     const { task, teamId } = await asking();
     const board = new DrizzleTaskReader(db, new DrizzlePersonReader(db), {
-      progressOf: async () => [],
+      progressOf: () => Promise.resolve([]),
     });
 
     const found = await board.findInTeam(teamId, task.id);

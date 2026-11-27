@@ -15,10 +15,10 @@ export interface TaskCheckout {
   readonly setup: string | null;
 }
 
-export const reviewedOrAll = <T>(
+export const reviewedOrAll = <T extends object | string>(
   reviewing: T | null,
   all: readonly T[],
-): readonly T[] => (reviewing ? [reviewing] : all);
+): readonly T[] => (reviewing !== null && reviewing !== '' ? [reviewing] : all);
 
 export const repositoriesReviewedOrAll = (
   reviewing: Repository | null,

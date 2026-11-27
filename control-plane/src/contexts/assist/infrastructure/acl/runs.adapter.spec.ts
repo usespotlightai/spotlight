@@ -6,6 +6,7 @@ import type { HarnessCommandsPort } from '@runs/application/ports/harness-comman
 import type { RunFacts } from '@runs/application/ports/run-facts.port';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import type { RunsPort as RunQueuePort } from '@runs/application/ports/runs.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -17,7 +18,7 @@ import type {
 } from '@work/application/ports/station-runs.port';
 import { describe, expect, it } from 'vitest';
 
-const BASED_ON = {
+const BASED_ON = partial<RunFacts>({
   runId: RunId.of('run_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   harness: HarnessId.of('claude-code'),
@@ -30,7 +31,7 @@ const BASED_ON = {
     at: new Date(0),
     checkouts: [],
   },
-} as unknown as RunFacts;
+});
 
 const ORDER = {
   run: RunId.of('run_2'),
@@ -56,12 +57,12 @@ const adapting = ({
   const enqueued: RunOrderContract[] = [];
   const chosen: unknown[] = [];
   const restoredFrom: RunId[] = [];
-  const runs = {
-    enqueue: async (order: RunOrderContract) => {
+  const runs = partial<RunQueuePort>({
+    enqueue: (order: RunOrderContract) => {
       enqueued.push(order);
-      return { outcome: 'enqueued' as const };
+      return Promise.resolve({ outcome: 'enqueued' as const });
     },
-  } as unknown as RunQueuePort;
+  });
   const commands: HarnessCommandsPort = {
     problemOf: () => null,
     commandFor: (picked, trail) => {
@@ -73,15 +74,17 @@ const adapting = ({
   };
   const adapter = new Runs(
     runs,
-    { of: async () => facts },
+    { of: () => Promise.resolve(facts) },
     {
-      restorableFor: async (run: RunId) => {
+      restorableFor: (run: RunId) => {
         restoredFrom.push(run);
-        return restorable;
+        return Promise.resolve(restorable);
       },
     },
-    { leasedBy: async () => null } as unknown as RunLeasesPort,
-    { harnessChoiceOf: async () => choice } as unknown as StationRunsPort,
+    partial<RunLeasesPort>({ leasedBy: () => Promise.resolve(null) }),
+    partial<StationRunsPort>({
+      harnessChoiceOf: () => Promise.resolve(choice),
+    }),
     commands,
   );
 

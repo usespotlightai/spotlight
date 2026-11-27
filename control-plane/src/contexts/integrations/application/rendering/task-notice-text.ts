@@ -1,11 +1,11 @@
 const waiting = (station: string, link: string | null): string => {
   const where = station ? ` at ${station}` : '';
 
-  return `A task${where} is waiting on you.${link ? ` ${link}` : ''}`;
+  return `A task${where} is waiting on you.${link !== null && link !== '' ? ` ${link}` : ''}`;
 };
 
 const decidedAt = (link: string | null): string =>
-  link
+  link !== null && link !== ''
     ? `Approve or reject it in Spotlight: ${link}`
     : 'Approve or reject it in your Spotlight inbox.';
 

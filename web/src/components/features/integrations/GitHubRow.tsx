@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useLocation } from 'react-router';
 
 import { GitHubAppLink } from '@/components/features/integrations/GitHubAppLink';
@@ -21,7 +22,7 @@ export function GitHubRow({
   teamId,
   installUrl,
   connected,
-}: GitHubRowProps) {
+}: GitHubRowProps): ReactElement {
   const here = useLocation();
   const repositories = useRepositories(connected ? slug : undefined);
   const lines = useLines(teamId);
@@ -37,13 +38,14 @@ export function GitHubRow({
     connected && repositories.data
       ? inaccessibleOf(used, accessible)
       : new Set();
-  const href = installUrl
-    ? installUrlFor(installUrl, {
-        slug,
-        teamId,
-        from: `${here.pathname}${here.search}`,
-      })
-    : null;
+  const href =
+    installUrl !== null && installUrl !== ''
+      ? installUrlFor(installUrl, {
+          slug,
+          teamId,
+          from: `${here.pathname}${here.search}`,
+        })
+      : null;
 
   return (
     <IntegrationRowFrame
@@ -69,7 +71,9 @@ export function GitHubRow({
             : 'Works in this team’s repositories'
       }
       need={
-        !connected && href && <GitHubAppLink href={href} installed={false} />
+        !connected &&
+        href !== null &&
+        href !== '' && <GitHubAppLink href={href} installed={false} />
       }
     >
       <GitHubDetails

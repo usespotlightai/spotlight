@@ -21,6 +21,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
 import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
@@ -59,10 +60,8 @@ import { SandboxEnvResponseDto } from '@runs/presentation/http/dto/sandbox-env.r
 import { ClaimedWorkHttpMapper } from '@runs/presentation/http/mappers/claimed-work.http.mapper';
 
 const textAt = (raw: unknown, key: string): string => {
-  const value =
-    raw !== null && typeof raw === 'object'
-      ? (raw as Record<string, unknown>)[key]
-      : undefined;
+  const value: unknown =
+    raw !== null && typeof raw === 'object' ? Reflect.get(raw, key) : undefined;
 
   return typeof value === 'string' ? value : '';
 };
@@ -269,10 +268,11 @@ export class RunnerController {
   })
   @ApiNoContentResponse()
   @ApiConflictResponse({ description: 'The run is not leased by this runner' })
+  @ApiBody({ type: RecordRunImageRequestDto })
   async recordImage(
     @Param('runId') runId: string,
     @CurrentMachine() runnerId: string,
-    @Body() body: RecordRunImageRequestDto,
+    @Body() body: RecordRunImageRequestDto | undefined,
   ): Promise<void> {
     await this.commandBus.execute(
       new RecordRunImageCommand(runId, runnerId, body?.image ?? ''),
@@ -329,10 +329,11 @@ export class RunnerController {
     description:
       'An archive the run could not have restored, a commit that is not a full SHA, or checkouts that are not the run’s own',
   })
+  @ApiBody({ type: RecordStartingPointRequestDto })
   async recordStartingPoint(
     @Param('runId') runId: string,
     @CurrentMachine() runnerId: string,
-    @Body() body: RecordStartingPointRequestDto,
+    @Body() body: RecordStartingPointRequestDto | undefined,
   ): Promise<void> {
     await this.commandBus.execute(
       new RecordStartingPointCommand(

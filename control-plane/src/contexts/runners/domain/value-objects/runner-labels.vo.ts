@@ -5,7 +5,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class RunnerLabels {
-  private readonly kind = 'runner-labels' as const;
+  private readonly kind: string = 'runner-labels';
 
   private constructor(readonly values: readonly string[]) {}
 

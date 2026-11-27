@@ -9,6 +9,7 @@ import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo'
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleSearchRepository } from '@replays/infrastructure/persistence/drizzle/repositories/search.repository';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 const SEED = 'seed';
 
@@ -21,7 +22,7 @@ const nameOf = (search: Search, candidateId: CandidateId): string =>
 const overfitOfScored = (scored: Scored) =>
   scored.seed ? null : overfitOf(scored.searchedGain, scored.heldOutGain);
 
-export const searchReadOf = async (app: INestApplication, id: string) => {
+const readOf = async (app: INestApplication, id: string) => {
   const search = await app.get(DrizzleSearchRepository).find(SearchId.of(id));
 
   if (!search) {
@@ -39,9 +40,8 @@ export const searchReadOf = async (app: INestApplication, id: string) => {
     [scores.seed, ...scores.candidates],
     search.objective,
   );
-  const [best] = rankedOf(
-    [scores.seed, ...scores.candidates],
-    search.objective,
+  const best = firstOf(
+    rankedOf([scores.seed, ...scores.candidates], search.objective),
   );
   const candidateOf = (each: Scored) => ({
     candidateId: each.candidateId.value,
@@ -115,11 +115,19 @@ export const searchReadOf = async (app: INestApplication, id: string) => {
             reason: pick.reason,
           }
       : null,
-    best: best
-      ? {
-          name: nameOf(search, best.candidateId),
-          overfit: overfitOfScored(best),
-        }
-      : null,
+    best:
+      best !== undefined
+        ? {
+            name: nameOf(search, best.candidateId),
+            overfit: overfitOfScored(best),
+          }
+        : null,
   };
 };
+
+export type SearchRead = Awaited<ReturnType<typeof readOf>>;
+
+export const searchReadOf = (
+  app: INestApplication,
+  id: string,
+): Promise<SearchRead> => readOf(app, id);

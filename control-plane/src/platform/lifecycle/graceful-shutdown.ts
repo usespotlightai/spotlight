@@ -1,5 +1,7 @@
 import { type BeforeApplicationShutdown, Injectable } from '@nestjs/common';
 import type { HttpAdapterHost } from '@nestjs/core';
+import { httpServerOf } from '@platform/http/http-server-of';
+import { fieldOf } from '@platform/json/field-of';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
 export const GRACE_MS = 5_000;
@@ -12,11 +14,10 @@ export class GracefulShutdown implements BeforeApplicationShutdown {
   ) {}
 
   beforeApplicationShutdown(signal?: string): void {
-    const server = this.adapters.httpAdapter?.getHttpServer() as
-      | { closeAllConnections?: () => void }
-      | undefined;
+    const server = httpServerOf(this.adapters);
+    const closeAllConnections = fieldOf(server, 'closeAllConnections');
 
-    if (!server?.closeAllConnections) {
+    if (typeof closeAllConnections !== 'function') {
       return;
     }
 
@@ -24,7 +25,7 @@ export class GracefulShutdown implements BeforeApplicationShutdown {
 
     setTimeout(() => {
       this.logger.info({ signal }, 'Cutting what is still connected');
-      server.closeAllConnections?.();
+      Reflect.apply(closeAllConnections, server, []);
     }, GRACE_MS).unref();
   }
 }

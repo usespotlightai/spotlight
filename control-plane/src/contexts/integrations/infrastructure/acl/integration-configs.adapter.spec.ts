@@ -1,4 +1,7 @@
-import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type {
+  TeamDirectoryPort,
+  TeamProfile,
+} from '@identity/application/ports/team-directory.port';
 import type {
   IntegrationRecord,
   IntegrationResourcesPort,
@@ -6,6 +9,7 @@ import type {
 import { IntegrationConfigs } from '@integrations/infrastructure/acl/integration-configs.adapter';
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -13,9 +17,9 @@ const TEAM = TeamId.of('team_1');
 
 const configsOver = (integration: string) =>
   new IntegrationConfigs(
-    {
-      withId: async () =>
-        ({
+    partial<IntegrationResourcesPort>({
+      withId: () =>
+        Promise.resolve({
           id: 'definition_1',
           version: 1,
           integration,
@@ -24,12 +28,12 @@ const configsOver = (integration: string) =>
           generatedFrom: null,
           reading: null,
           teamId: TEAM,
-        }) satisfies IntegrationRecord,
-    } as unknown as IntegrationResourcesPort,
-    {
-      find: async () => ({ key: 'acme' }),
-    } as unknown as TeamDirectoryPort,
-    { secretReferencesOf: () => [] } as unknown as IntegrationReader,
+        } satisfies IntegrationRecord),
+    }),
+    partial<TeamDirectoryPort>({
+      find: () => Promise.resolve(partial<TeamProfile>({ key: 'acme' })),
+    }),
+    partial<IntegrationReader>({ secretReferencesOf: () => [] }),
   );
 
 describe('IntegrationConfigs', () => {

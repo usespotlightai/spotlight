@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import {
   EDGE_INDENT,
@@ -26,7 +28,7 @@ type OutcomeRowProps = {
   to: string;
 };
 
-export function OutcomeRow({ run, to }: OutcomeRowProps) {
+export function OutcomeRow({ run, to }: OutcomeRowProps): ReactElement {
   return (
     <li className={cn(TABLE_ROW, ROW_DIVIDER)}>
       <span className={cn(LEAD_CELL, EDGE_INDENT)}>
@@ -38,14 +40,14 @@ export function OutcomeRow({ run, to }: OutcomeRowProps) {
           {resolutionLabel(run)}
         </TrailLink>
 
-        {run.failure && (
+        {run.failure !== null && run.failure !== '' && (
           <span className="relative hidden @4xl:flex @lg:group-data-compact/nested:flex">
             <InfoTooltip tooltip={run.failure} />
           </span>
         )}
       </span>
 
-      {run.failure && (
+      {run.failure !== null && run.failure !== '' && (
         <p className="col-span-full pl-(--cell-indent,0.5rem) text-muted-foreground text-xs @4xl:hidden @lg:group-data-compact/nested:hidden">
           {run.failure}
         </p>

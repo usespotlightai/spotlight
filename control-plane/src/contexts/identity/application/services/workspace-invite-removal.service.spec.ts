@@ -8,6 +8,7 @@ import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -44,16 +45,19 @@ const deleted = new WorkspaceDeleted(
 
 describe('WorkspaceInviteRemoval', () => {
   it('removes each invite of a deleted workspace on its own, at the version it was read', async () => {
-    const remove = vi.fn(async (removed: WorkspaceInvite) => {
+    const remove = vi.fn((removed: WorkspaceInvite) => {
       if (removed.id.value === 'first') {
-        throw new InviteVersionConflictError(removed.id.value);
+        return Promise.reject(new InviteVersionConflictError(removed.id.value));
       }
+      return Promise.resolve();
     });
 
-    await new WorkspaceInviteRemoval({
-      ofWorkspace: async () => [invite('first'), invite('second')],
-      remove,
-    } as unknown as WorkspaceInviteRepository).removeOf(deleted);
+    await new WorkspaceInviteRemoval(
+      partial<WorkspaceInviteRepository>({
+        ofWorkspace: () => Promise.resolve([invite('first'), invite('second')]),
+        remove,
+      }),
+    ).removeOf(deleted);
 
     expect(remove.mock.calls.map(([each]) => each.id.value)).toEqual([
       'first',

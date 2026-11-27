@@ -5,7 +5,7 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class TokenName {
-  private readonly kind = 'token-name';
+  private readonly kind: string = 'token-name';
 
   private constructor(readonly value: string) {}
 

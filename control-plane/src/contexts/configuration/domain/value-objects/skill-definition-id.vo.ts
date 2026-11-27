@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class SkillDefinitionId {
-  private readonly kind = 'skill-definition';
+  private readonly kind: string = 'skill-definition';
 
   private constructor(readonly value: string) {}
 

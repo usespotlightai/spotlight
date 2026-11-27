@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import type { LineResponseDto, RunTallyResponseDto } from '@/lib/api';
+import type {
+  LineResponseDto,
+  RunTallyResponseDto,
+  StationResponseDto,
+} from '@/lib/api';
 import {
   type Delta,
   formatDuration,
@@ -26,6 +30,7 @@ import {
   tallyTiles,
   viewOf,
 } from '@/lib/insights';
+import { partial } from '@/test/partial';
 
 const HOUR = 3_600_000;
 
@@ -71,24 +76,24 @@ const UNCHANGED: HeadlineChanges = {
 };
 
 const LINES = [
-  {
+  partial<LineResponseDto>({
     id: 'line_1',
     key: 'delivery',
     name: 'Delivery',
     reactions: [],
     repositories: [],
     stations: [
-      {
+      partial<StationResponseDto>({
         id: 'station_build',
         key: 'build',
         name: 'Implementation',
         position: 1,
         color: '#5c66d9',
         kind: 'work',
-      },
+      }),
     ],
-  },
-] as unknown as LineResponseDto[];
+  }),
+];
 
 describe('the insights view in the address', () => {
   it('opens on the overview for the last 30 days', () => {
@@ -348,9 +353,9 @@ describe('headlineTiles', () => {
       spend: null,
     });
 
-    expect(spend?.value).toBe('–');
-    expect(spend?.detail).toBe('No priced runs');
-    expect(spend?.delta).toBeNull();
+    expect(spend.value).toBe('–');
+    expect(spend.detail).toBe('No priced runs');
+    expect(spend.delta).toBeNull();
   });
 
   it('says when spend could not be summed across currencies', () => {
@@ -359,7 +364,7 @@ describe('headlineTiles', () => {
       UNCHANGED,
     );
 
-    expect(spend?.detail).toBe('Prices in more than one currency');
+    expect(spend.detail).toBe('Prices in more than one currency');
   });
 
   it('drills from merged pull requests into the runs of the tasks with a pull request merged in the period, and not from the merge rate', () => {

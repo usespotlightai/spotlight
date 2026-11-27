@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { BaselineRow } from '@/components/features/insights/candidates/BaselineRow';
 import { CandidateComparisonRow } from '@/components/features/insights/candidates/CandidateComparisonRow';
 import { ReplayedSetChart } from '@/components/features/insights/candidates/ReplayedSetChart';
@@ -19,7 +21,7 @@ export function CandidateSetRows({
   set,
   heldOut,
   chartStatus,
-}: CandidateSetRowsProps) {
+}: CandidateSetRowsProps): ReactElement {
   const candidates = chartStatus ? [] : set.candidates;
 
   return (

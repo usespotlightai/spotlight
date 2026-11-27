@@ -4,6 +4,7 @@ import {
   useCallback,
   useRef,
   useState,
+  type ReactElement,
 } from 'react';
 
 import { FileDropContext, type TakeFiles } from '@/hooks/useFileDropTarget';
@@ -15,7 +16,10 @@ type FileDropZoneProps = {
   className?: string;
 };
 
-export function FileDropZone({ children, className }: FileDropZoneProps) {
+export function FileDropZone({
+  children,
+  className,
+}: FileDropZoneProps): ReactElement {
   const take = useRef<TakeFiles | null>(null);
   const [over, setOver] = useState(false);
   const depth = useRef(0);
@@ -64,8 +68,9 @@ export function FileDropZone({ children, className }: FileDropZoneProps) {
             return;
           }
           event.preventDefault();
-          if (event.dataTransfer) {
-            event.dataTransfer.dropEffect = 'copy';
+          const transfer = event.nativeEvent.dataTransfer;
+          if (transfer !== null) {
+            transfer.dropEffect = 'copy';
           }
         }}
         onDropCapture={leave}

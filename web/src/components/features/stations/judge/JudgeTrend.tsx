@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import {
   CartesianGrid,
   Line,
@@ -25,7 +26,7 @@ const TipContent = ({
 }) => {
   const point = payload?.[0]?.payload;
 
-  if (!active || !point) {
+  if (active !== true || !point) {
     return null;
   }
 
@@ -46,7 +47,11 @@ const TipContent = ({
   );
 };
 
-export function JudgeTrend({ trend }: { trend: readonly TrendPoint[] }) {
+export function JudgeTrend({
+  trend,
+}: {
+  trend: readonly TrendPoint[];
+}): ReactElement | null {
   const cursor = useCursorTooltip();
   if (trend.length === 0) {
     return null;

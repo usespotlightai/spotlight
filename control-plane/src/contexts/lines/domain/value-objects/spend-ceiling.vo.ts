@@ -34,7 +34,7 @@ export class SpendCeiling {
     const problem = spendAmountProblem(amount, most);
     const counted = currency.trim().toUpperCase();
 
-    if (problem) {
+    if (problem !== null && problem !== '') {
       throw new InvalidSpendCeilingError('amount', problem);
     }
     if (!CURRENCY.test(counted)) {

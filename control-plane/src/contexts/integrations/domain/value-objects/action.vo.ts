@@ -70,7 +70,7 @@ const fromNetworkProblems = (fields: ActionFields): ActionProblem[] => [
 ];
 
 const uploadProblems = (fields: ActionFields): ActionProblem[] =>
-  fields.uploads?.sendsBody
+  fields.uploads?.sendsBody === true
     ? [
         {
           at: at('uploads', 'send', 'body'),
@@ -104,9 +104,10 @@ export class Action {
       );
     }
 
-    const [problem] = Action.problemsOf(fields);
+    const problems = Action.problemsOf(fields);
 
-    if (problem) {
+    if (problems.length > 0) {
+      const [problem] = problems;
       throw new InvalidActionError(problem.at, problem.because);
     }
 

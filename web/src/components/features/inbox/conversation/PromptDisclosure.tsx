@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { Collapsible } from '@/components/shared/Collapsible';
 import { DisclosureToggle } from '@/components/shared/DisclosureToggle';
 import { FadingScroll } from '@/components/shared/FadingScroll';
 
-export function PromptDisclosure({ prompt }: { prompt: string }) {
+export function PromptDisclosure({ prompt }: { prompt: string }): ReactElement {
   const [open, setOpen] = useState(false);
 
   return (

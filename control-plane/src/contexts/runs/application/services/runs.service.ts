@@ -104,7 +104,10 @@ export class Runs implements RunsPort {
         priority: RunPriority.of(order.priority),
         requester: RunRequester.of({
           ...order.requester,
-          team: order.requester.team ? TeamId.of(order.requester.team) : null,
+          team:
+            order.requester.team !== null && order.requester.team !== ''
+              ? TeamId.of(order.requester.team)
+              : null,
         }),
         policy: RunPolicy.of(order.policy),
         workingCopy: order.workingCopy
@@ -123,7 +126,9 @@ export class Runs implements RunsPort {
         apiGrant: order.apiGrant ? RunApiGrant.of(order.apiGrant) : null,
         placement: RunnerPlacement.ofLabelGroups(
           order.placement.labelGroups,
-          order.placement.image ? RunnerImage.of(order.placement.image) : null,
+          order.placement.image !== null && order.placement.image !== ''
+            ? RunnerImage.of(order.placement.image)
+            : null,
         ),
         spec: RunSpecMapper.received(order.spec).wearingHarnessKeys(
           harnessKeys,
@@ -163,9 +168,10 @@ export class Runs implements RunsPort {
     }
 
     return {
-      pendingTurn: stopped.turnAt(stopped.attempt)?.pending
-        ? stopped.attempt.number
-        : null,
+      pendingTurn:
+        stopped.turnAt(stopped.attempt)?.pending === true
+          ? stopped.attempt.number
+          : null,
     };
   }
 

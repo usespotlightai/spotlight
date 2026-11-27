@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { RunnerRow } from '@/components/features/runners/RunnerRow';
 import type { ActiveRunner, NamedHarness } from '@/lib/runner';
 
@@ -13,7 +15,7 @@ export function RunnerChildren({
   of,
   runners,
   harnesses,
-}: RunnerChildrenProps) {
+}: RunnerChildrenProps): ReactElement | null {
   if (runners.length === 0) {
     return null;
   }

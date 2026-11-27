@@ -43,7 +43,9 @@ export class ReadInsightsMemoryHandler implements QueryHandlerPort<
         compared.cutThenRead.most.map((each) => each.memoryId),
       );
       const names = await this.people.namesOf(
-        use.flagged.flatMap((each) => (each.by ? [each.by] : [])),
+        use.flagged.flatMap((each) =>
+          each.by !== null && each.by !== '' ? [each.by] : [],
+        ),
       );
 
       return {
@@ -66,7 +68,10 @@ export class ReadInsightsMemoryHandler implements QueryHandlerPort<
         }),
         flagged: use.flagged.map((each) => ({
           ...each,
-          byName: each.by ? (names.get(each.by) ?? null) : null,
+          byName:
+            each.by !== null && each.by !== ''
+              ? (names.get(each.by) ?? null)
+              : null,
           at: each.at.toISOString(),
         })),
         withMemories: compared.withMemories,

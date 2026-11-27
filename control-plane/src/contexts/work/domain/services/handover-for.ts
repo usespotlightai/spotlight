@@ -65,7 +65,7 @@ export const HandoverFor = {
     }
 
     if (handover.isDone()) {
-      return line?.endsAt(currentStation)
+      return line?.endsAt(currentStation) === true
         ? ResolvedHandover.done(
             bodyOf(handover, 'The work is done.'),
             ownWords(handover),
@@ -124,7 +124,7 @@ export const HandoverFor = {
     if (outcome.failure) {
       return ResolvedHandover.failed(
         TaskNoteBody.of(
-          outcome.message
+          outcome.message !== null && outcome.message !== ''
             ? `The run failed: ${outcome.message}`
             : `The run failed. Exit code: ${outcome.exitCode}`,
         ),
@@ -132,7 +132,7 @@ export const HandoverFor = {
       );
     }
 
-    if (lastWords?.trim()) {
+    if (lastWords !== null && lastWords.trim() !== '') {
       const said = TaskNoteBody.of(lastWords);
 
       return ResolvedHandover.review(said, said);

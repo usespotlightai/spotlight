@@ -18,7 +18,7 @@ export class WebReviewLinks implements ReviewLinksPort {
       'changes',
     ]);
 
-    return page.repository
+    return page.repository !== null && page.repository !== ''
       ? `${changes}?${new URLSearchParams({ repository: page.repository }).toString()}`
       : changes;
   }

@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import { REPLAYS_PAYLOAD_TYPES } from '@replays/infrastructure/events/replays-payload-types';
 import { describe, expect, it } from 'vitest';
 
+const isModule = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
 const FOLDERS = ['value-objects', 'events'];
 
 describe('REPLAYS_PAYLOAD_TYPES', () => {
@@ -21,10 +24,11 @@ describe('REPLAYS_PAYLOAD_TYPES', () => {
       for (const file of readdirSync(within).filter(
         (each) => each.endsWith('.ts') && !each.endsWith('.spec.ts'),
       )) {
-        const loaded = (await import(join(within, file))) as Record<
-          string,
-          unknown
-        >;
+        const loaded: unknown = await import(join(within, file));
+
+        if (!isModule(loaded)) {
+          continue;
+        }
 
         for (const [name, value] of Object.entries(loaded)) {
           if (

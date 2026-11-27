@@ -1,12 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { listMyEmails } from '@/lib/api';
+import { listMyEmails, type UserEmailsResponseDto } from '@/lib/api';
 
 export const myEmailKeys = {
   all: ['my-emails'] as const,
 };
 
-export function useMyEmails() {
+export function useMyEmails(): UseQueryResult<UserEmailsResponseDto> {
   return useQuery({
     queryKey: myEmailKeys.all,
     queryFn: async () => {

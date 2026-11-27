@@ -43,7 +43,7 @@ export const journalRunsOf = (
         runId: journal.runId,
         createdAt:
           journal.marks.startedAt ??
-          journal.steps[0]?.startedAt ??
+          journal.steps.at(0)?.startedAt ??
           new Date(0).toISOString(),
         stepCount: steps.length - messageCount,
         messageCount,
@@ -65,7 +65,7 @@ const takenUp = (record: ChatRecord): ChatRecord => {
           return message;
         }
 
-        const next = sent[sent.indexOf(message) + 1];
+        const next = sent.at(sent.indexOf(message) + 1);
         const run = runs.find(
           (each) =>
             each.createdAt >= message.at && (!next || each.createdAt < next.at),
@@ -920,7 +920,7 @@ const longChat = (id = 'chat_long', proposes = true): ChatRecord => {
       longTurnSteps(turn),
     ),
   );
-  const last = journals[journals.length - 1];
+  const last = journals.at(-1);
 
   return {
     chat: chatOf({

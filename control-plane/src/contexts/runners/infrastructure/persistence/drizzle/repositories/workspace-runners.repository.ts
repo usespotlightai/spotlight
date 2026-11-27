@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -89,11 +90,11 @@ export class DrizzleWorkspaceRunnersRepository
   }
 
   private async first(where: SQL): Promise<WorkspaceRunners | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(workspaceRunners)
       .where(where)
-      .limit(1);
+      .limit(1));
 
     return found
       ? WorkspaceRunners.rehydrate({

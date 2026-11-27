@@ -1,5 +1,6 @@
 import { RememberHandler } from '@memory/application/commands/handlers/remember.handler';
 import { RememberCommand } from '@memory/application/commands/remember.command';
+import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
 import { ReadProposedMemoryHandler } from '@memory/application/queries/handlers/read-proposed-memory.handler';
 import { ReadProposedMemoryQuery } from '@memory/application/queries/read-proposed-memory.query';
@@ -10,6 +11,7 @@ import type { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposa
 import type { MemoryProposalSetRepository } from '@memory/domain/repositories/memory-proposal-set.repository';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -41,39 +43,43 @@ const LEASED: LeasedRun = {
 const remembering = (run: LeasedRun | null = LEASED) => {
   const added: MemoryProposalSet[] = [];
   let ids = 0;
-  const work = {
-    leasedBy: async () => run,
-    task: async () => ({
-      id: TASK,
-      workspaceId: WORKSPACE,
-      teamId: TEAM,
-      fromOutside: false,
-    }),
-    stationContextOf: async () => ({
-      teamId: TEAM,
-      lineId: 'line_1',
-      lineName: 'Delivery',
-      stationId: 'station_1',
-      stationName: 'Build',
-      repositories: [Repository.of('acme/api')],
-    }),
-    reasoning: async () => [
-      { index: 4, kind: 'remember', text: 'spotlight remember' },
-    ],
-    notesOf: async () => [],
-    harnessOf: async () => 'claude-code',
-  } as unknown as WorkPort;
+  const work = partial<WorkPort>({
+    leasedBy: () => Promise.resolve(run),
+    task: () =>
+      Promise.resolve({
+        id: TASK,
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        fromOutside: false,
+      }),
+    stationContextOf: () =>
+      Promise.resolve({
+        teamId: TEAM,
+        lineId: LineId.of('line_1'),
+        lineName: 'Delivery',
+        stationId: StationId.of('station_1'),
+        stationName: 'Build',
+        repositories: [Repository.of('acme/api')],
+      }),
+    reasoning: () =>
+      Promise.resolve([
+        { index: 4, kind: 'remember', text: 'spotlight remember' },
+      ]),
+    notesOf: () => Promise.resolve([]),
+    harnessOf: () => Promise.resolve('claude-code'),
+  });
 
   const handler = new RememberHandler(
     new RunProposing(
       new RunnerMemoryLoader(work),
       work,
-      {
-        forTask: async () => null,
-        add: async (set: MemoryProposalSet) => {
+      partial<MemoryProposalSetRepository>({
+        forTask: () => Promise.resolve(null),
+        add: (set: MemoryProposalSet) => {
           added.push(set);
+          return Promise.resolve();
         },
-      } as unknown as MemoryProposalSetRepository,
+      }),
       { inTransaction: <T>(each: () => Promise<T>) => each() },
       {
         generate: () => {
@@ -81,20 +87,20 @@ const remembering = (run: LeasedRun | null = LEASED) => {
           return `id_${ids}`;
         },
       },
-      { now: () => NOW, sleep: async () => undefined },
+      { now: () => NOW, sleep: () => Promise.resolve(undefined) },
     ),
-    {} as MemoryRepository,
+    partial<MemoryRepository>({}),
   );
 
   const reading = new ReadProposedMemoryHandler(
     new RunnerMemoryLoader(work),
-    {
-      forTask: async () => added[added.length - 1] ?? null,
-    } as unknown as MemoryProposalSetRepository,
+    partial<MemoryProposalSetRepository>({
+      forTask: () => Promise.resolve(added[added.length - 1] ?? null),
+    }),
     new MemoryReviews(
       work,
-      { find: async () => null } as never,
-      { findAll: async () => [] } as unknown as MemoryRepository,
+      partial<PeoplePort>({ find: () => Promise.resolve(null) }),
+      partial<MemoryRepository>({ findAll: () => Promise.resolve([]) }),
     ),
   );
 

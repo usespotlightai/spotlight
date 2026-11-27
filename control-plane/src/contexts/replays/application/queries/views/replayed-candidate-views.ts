@@ -40,6 +40,7 @@ import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface ReplayedCandidatesSeen {
@@ -79,7 +80,7 @@ interface Placed {
 const iso = (at: Date | null): string | null => at?.toISOString() ?? null;
 
 const timeOf = (at: string | null): number =>
-  at ? new Date(at).getTime() : Number.NEGATIVE_INFINITY;
+  at !== null && at !== '' ? new Date(at).getTime() : Number.NEGATIVE_INFINITY;
 
 const newestFirst = (one: string | null, other: string | null): number =>
   timeOf(other) - timeOf(one);
@@ -90,8 +91,11 @@ const newestOfTimes = (times: readonly (string | null)[]): string | null =>
 const newestIn = (set: ReplayedSetDto): string | null =>
   newestOfTimes(set.candidates.map((each) => each.replayedAt));
 
-const newestOf = (station: ReplayedStationDto): string | null =>
-  station.sets[0] ? newestIn(station.sets[0]) : null;
+const newestOf = (station: ReplayedStationDto): string | null => {
+  const newest = firstOf(station.sets);
+
+  return newest !== undefined ? newestIn(newest) : null;
+};
 
 const extremes = (
   times: readonly Date[],
@@ -228,9 +232,9 @@ const searchedOf = (
   };
 
   return search.proposals.flatMap((proposal, at) => {
-    const each = scores.candidates[at];
+    const each = itemAt(scores.candidates, at);
 
-    if (!each) {
+    if (each === undefined) {
       return [];
     }
 
@@ -454,7 +458,7 @@ export const replayedCandidatesView = (
       (each) => `${each.station.lineId.value}:${each.station.stationId.value}`,
     ).values(),
   ].flatMap((atStation) => {
-    const [first] = atStation;
+    const first = firstOf(atStation);
 
     return first
       ? [

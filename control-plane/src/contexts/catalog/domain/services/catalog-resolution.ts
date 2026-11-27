@@ -42,6 +42,11 @@ type ItemOf<K extends CatalogKind> = K extends 'tool'
   ? CatalogTool
   : CatalogSkill;
 
+const isOfKind = <K extends CatalogKind>(
+  item: CatalogItem,
+  kind: K,
+): item is ItemOf<K> => item.kind === kind;
+
 const denied = (id: string, reason: DenialReason, detail: string): Denied => ({
   resolved: false,
   denial: { id, reason, detail },
@@ -66,7 +71,7 @@ export const resolveItem = <K extends CatalogKind>(
     return denied(id, 'unknown', `Catalog has no item ${id}.`);
   }
 
-  if (item.kind !== kind) {
+  if (!isOfKind(item, kind)) {
     return denied(
       id,
       'wrong-kind',
@@ -74,7 +79,7 @@ export const resolveItem = <K extends CatalogKind>(
     );
   }
 
-  return { resolved: true, item: item as ItemOf<K> };
+  return { resolved: true, item };
 };
 
 export const resolveItems = (

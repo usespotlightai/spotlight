@@ -108,7 +108,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 interface Place {
@@ -269,7 +269,7 @@ const performed = (
       return service.releaseRun(runIds[each.run], AT).then(() => true);
     case 'drain-for-queued':
       return slots
-        .drainWarmOn(place.host.id.value, AT, async () => true)
+        .drainWarmOn(place.host.id.value, AT, () => Promise.resolve(true))
         .then(() => true);
     case 'sweep':
       return service.drainIdle(AT).then(() => true);

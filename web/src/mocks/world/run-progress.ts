@@ -36,7 +36,8 @@ export const waitingFor = (
   reason: NonNullable<TaskRunResponseDto['waiting']>['reason'],
   since: string,
 ): TaskRunResponseDto[] => {
-  const [newest, ...before] = runs;
+  const newest = runs.at(0);
+  const before = runs.slice(1);
 
   return newest
     ? [

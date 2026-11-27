@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { FileThread } from '@/components/features/changes/FileThread';
 import type { CodeReview, ReviewComment } from '@/lib/review';
 import { ReviewContext } from '@/lib/review-context';
+import { partial } from '@/test/partial';
 
 const draft = vi.fn();
 
@@ -27,7 +28,7 @@ vi.mock('@/hooks/api/useSession', () => ({
 const PATH = 'api/src/uploads.ts';
 
 const comment = (over: Partial<ReviewComment>): ReviewComment =>
-  ({
+  partial<ReviewComment>({
     id: 'comment_1',
     path: PATH,
     side: 'new',
@@ -46,7 +47,7 @@ const comment = (over: Partial<ReviewComment>): ReviewComment =>
     createdAt: '2026-09-21T10:00:00.000Z',
     editedAt: null,
     ...over,
-  }) as ReviewComment;
+  });
 
 const shown = (
   comments: ReviewComment[],
@@ -59,7 +60,7 @@ const shown = (
         teamId: 'team_1',
         taskId: 'task_1',
         repository: null,
-        review: { comments, landings: [] } as unknown as CodeReview,
+        review: partial<CodeReview>({ comments, landings: [] }),
         threads: [],
         composing: null,
         composerAppears: false,

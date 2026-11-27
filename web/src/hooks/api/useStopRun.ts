@@ -1,7 +1,9 @@
 import {
+  type Mutation,
   useMutation,
   useMutationState,
   useQueryClient,
+  type UseMutationResult,
 } from '@tanstack/react-query';
 
 import { runNotesKeys } from '@/hooks/api/useRunNotes';
@@ -11,7 +13,7 @@ type StopRunInput = { teamId: string; runId: string };
 
 const stopRunKey = ['stop-run'] as const;
 
-export function useStopRun() {
+export function useStopRun(): UseMutationResult<void, Error, StopRunInput> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -29,15 +31,9 @@ export function useStopRun() {
 }
 
 export function useStopInFlight(runId: string | null | undefined): boolean {
-  return (
-    useMutationState({
-      filters: {
-        mutationKey: stopRunKey,
-        status: 'pending',
-        predicate: (mutation) =>
-          (mutation.state.variables as StopRunInput | undefined)?.runId ===
-          runId,
-      },
-    }).length > 0
-  );
+  return useMutationState({
+    filters: { mutationKey: stopRunKey, status: 'pending' },
+    select: (mutation: Mutation<void, Error, StopRunInput>) =>
+      mutation.state.variables?.runId,
+  }).some((stopping) => stopping === runId);
 }

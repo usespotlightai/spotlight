@@ -11,6 +11,7 @@ import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -57,13 +58,13 @@ const authenticator = (
   at = NOW,
 ) =>
   new TokenAuthenticator(
-    {
-      findByHash: vi.fn(async () => token),
-    } as unknown as WorkspaceTokenRepository,
-    {
-      find: vi.fn(async () => trust),
-    } as unknown as OidcTrustRepository,
-    { hash: () => 'd'.repeat(64) } as unknown as TokenIssuer,
+    partial<WorkspaceTokenRepository>({
+      findByHash: vi.fn(() => Promise.resolve(token)),
+    }),
+    partial<OidcTrustRepository>({
+      find: vi.fn(() => Promise.resolve(trust)),
+    }),
+    partial<TokenIssuer>({ hash: () => 'd'.repeat(64) }),
     { now: () => at, sleep: async () => {} },
   );
 

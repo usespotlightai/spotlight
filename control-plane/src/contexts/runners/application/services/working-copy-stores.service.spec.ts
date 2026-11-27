@@ -10,6 +10,7 @@ import type { SandboxRepository } from '@runners/domain/repositories/sandbox.rep
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { WorkingCopyStore } from '@runners/domain/value-objects/working-copy-store.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
@@ -24,26 +25,36 @@ const stores = (input: {
   trust?: Partial<RunnerTrust>;
 }) =>
   new WorkingCopyStores(
-    {
-      find: async () =>
-        input.runner ? ({ source: input.runner } as Runner) : null,
-    } as unknown as RunnerRepository,
-    {
-      find: async () =>
-        input.sandbox === undefined
-          ? null
-          : ({ source: input.sandbox } as Sandbox),
-    } as unknown as SandboxRepository,
-    {
-      find: async () =>
-        input.pool ? ({ isDeleted: false, ...input.pool } as RunnerPool) : null,
-    } as unknown as RunnerPoolRepository,
-    {
-      find: async () =>
-        input.trust
-          ? ({ isDeleted: false, ...input.trust } as RunnerTrust)
-          : null,
-    } as unknown as RunnerTrustRepository,
+    partial<RunnerRepository>({
+      find: () =>
+        Promise.resolve(
+          input.runner ? partial<Runner>({ source: input.runner }) : null,
+        ),
+    }),
+    partial<SandboxRepository>({
+      find: () =>
+        Promise.resolve(
+          input.sandbox === undefined
+            ? null
+            : partial<Sandbox>({ source: input.sandbox }),
+        ),
+    }),
+    partial<RunnerPoolRepository>({
+      find: () =>
+        Promise.resolve(
+          input.pool
+            ? partial<RunnerPool>({ isDeleted: false, ...input.pool })
+            : null,
+        ),
+    }),
+    partial<RunnerTrustRepository>({
+      find: () =>
+        Promise.resolve(
+          input.trust
+            ? partial<RunnerTrust>({ isDeleted: false, ...input.trust })
+            : null,
+        ),
+    }),
   );
 
 const pool = CredentialSource.ofId(PoolId.of('pool_1'));

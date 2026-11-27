@@ -32,6 +32,9 @@ import {
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -39,15 +42,15 @@ import { describe, expect, it, vi } from 'vitest';
 const expressions = new CelExpressionEngine();
 
 const runtimeWith = (
-  outbound: unknown,
-  exchange: unknown = {},
+  outbound: Partial<HttpOutbound>,
+  exchange: Partial<OAuth2Exchange> = {},
   clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsContaining()),
-    outbound as HttpOutbound,
+    partial<HttpOutbound>(outbound),
     clients,
-    exchange as OAuth2Exchange,
+    partial<OAuth2Exchange>(exchange),
     discoveringNothing(),
     callingNoServer(),
     unlimited,
@@ -96,14 +99,14 @@ const scheduling = (
   injection: SecretInjectionPort = injecting().injection,
 ) =>
   new RunSchedules(
-    {
-      everywhere: async () => [config(file)],
-    } as unknown as DefinedIntegrationsPort,
+    partial<DefinedIntegrationsPort>({
+      everywhere: () => Promise.resolve([config(file)]),
+    }),
     runtimeWith({ run }),
     callAuthFor(injection),
     cursors,
     cronCalendar,
-    { now: () => now } as ClockPort,
+    partial<ClockPort>({ now: () => now }),
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
 
@@ -112,7 +115,7 @@ const working = (
   now: Date = NOW,
   file = schedule(),
 ) => {
-  const run = vi.fn(async (_request: unknown) => OK);
+  const run = vi.fn((_request: unknown) => Promise.resolve(OK));
   const cursors = new FakeScheduleCursors();
 
   if (state.ranAt) {
@@ -172,11 +175,8 @@ describe('RunSchedules', () => {
       LINEAR_TOKEN: { host: 'api.linear.app', value: 'lin-1' },
     });
     const run = vi.fn(
-      async (
-        _request: unknown,
-        _against: unknown,
-        _credentials?: Credentials,
-      ) => OK,
+      (_request: unknown, _against: unknown, _credentials?: Credentials) =>
+        Promise.resolve(OK),
     );
 
     const cursors = new FakeScheduleCursors();
@@ -192,7 +192,7 @@ describe('RunSchedules', () => {
       injection,
     ).runDue();
 
-    const credentials = run.mock.calls[0]?.[2] as Credentials;
+    const credentials = present(firstOf(run.mock.calls)?.[2]);
     await credentials.injectedFor('https://api.linear.app/digest', [
       SecretName.of('LINEAR_TOKEN'),
     ]);
@@ -220,7 +220,7 @@ describe('RunSchedules', () => {
     cursors.setState(TEAM, KEY, {
       ranAt: new Date('2026-09-07T08:00:00.000Z'),
     });
-    const run = vi.fn(async () => OK);
+    const run = vi.fn(() => Promise.resolve(OK));
 
     await Promise.all([
       scheduling(cursors, run).runDue(),

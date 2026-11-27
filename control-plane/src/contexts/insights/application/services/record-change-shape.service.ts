@@ -25,9 +25,10 @@ export class RecordChangeShape {
   ) {}
 
   async shaped(shaped: ChangeShaped): Promise<void> {
-    const run = shaped.taskId
-      ? await this.work.taskRunOf(RunId.of(shaped.runId))
-      : null;
+    const run =
+      shaped.taskId !== null && shaped.taskId !== ''
+        ? await this.work.taskRunOf(RunId.of(shaped.runId))
+        : null;
 
     if (
       !run ||

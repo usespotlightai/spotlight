@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
@@ -22,7 +24,7 @@ export function ProposedTaskFacts({
   proposal,
   attachments,
   titleId,
-}: ProposedTaskFactsProps) {
+}: ProposedTaskFactsProps): ReactElement {
   const station = proposedStationOf(proposal);
   const made = proposal.state === 'accepted' || proposal.state === 'created';
 
@@ -31,7 +33,7 @@ export function ProposedTaskFacts({
       <FactRow>
         <dt className={FACT_LABEL}>Task</dt>
         <dd>
-          {proposal.taskId ? (
+          {proposal.taskId !== null && proposal.taskId !== '' ? (
             <TrailLink
               id={titleId}
               data-focus-next
@@ -51,7 +53,7 @@ export function ProposedTaskFacts({
       <FactRow>
         <dt className={FACT_LABEL}>Station</dt>
         <dd>
-          {station ? (
+          {station !== null && station !== '' ? (
             <p className={`${FACT_VALUE} flex items-center gap-2`}>
               <StationIcon
                 share={stationShare(
@@ -72,21 +74,23 @@ export function ProposedTaskFacts({
         </dd>
       </FactRow>
 
-      {!made && proposal.description && (
-        <FactRow>
-          <dt className={FACT_LABEL}>Details</dt>
-          <dd>
-            <MarkdownEditor
-              key={proposal.description}
-              readOnly
-              initialValue={proposal.description}
-              placeholder=""
-              ariaLabel={`What ${proposal.title} is about`}
-              className="border-none bg-transparent p-0 text-sm"
-            />
-          </dd>
-        </FactRow>
-      )}
+      {!made &&
+        proposal.description !== null &&
+        proposal.description !== '' && (
+          <FactRow>
+            <dt className={FACT_LABEL}>Details</dt>
+            <dd>
+              <MarkdownEditor
+                key={proposal.description}
+                readOnly
+                initialValue={proposal.description}
+                placeholder=""
+                ariaLabel={`What ${proposal.title} is about`}
+                className="border-none bg-transparent p-0 text-sm"
+              />
+            </dd>
+          </FactRow>
+        )}
 
       {!made && attachments.length > 0 && (
         <FactRow>

@@ -68,6 +68,12 @@ import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.res
 import { RunnerHistoryHttpMapper } from '@work/presentation/http/mappers/runner-history.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
 
+const trimmedOrNull = (value: string | undefined): string | null => {
+  const trimmed = value?.trim();
+
+  return trimmed === undefined || trimmed === '' ? null : trimmed;
+};
+
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
   description: 'Missing, no longer valid or wrong runner token',
@@ -236,7 +242,7 @@ export class RunWorkController {
     @Query('last') last: string | undefined,
     @CurrentMachine() runnerId: string,
   ): Promise<RunnerHistoryResponseDto> {
-    if (!station?.trim()) {
+    if (station === undefined || station.trim() === '') {
       throw new NotFoundException();
     }
 
@@ -246,11 +252,11 @@ export class RunWorkController {
     >(
       new ReadRunnerHistoryQuery(runId, runnerId, {
         station: station.trim(),
-        line: line?.trim() || null,
-        fingerprint: fingerprint?.trim() || null,
-        outcome: outcome?.trim() || null,
-        since: since?.trim() || null,
-        last: last ? Number(last) : null,
+        line: trimmedOrNull(line),
+        fingerprint: trimmedOrNull(fingerprint),
+        outcome: trimmedOrNull(outcome),
+        since: trimmedOrNull(since),
+        last: last !== undefined && last !== '' ? Number(last) : null,
       }),
     );
 
@@ -319,7 +325,7 @@ export class RunWorkController {
     @Param('runId') runId: string,
     @Param('tool') tool: string,
     @CurrentMachine() runnerId: string,
-    @Body() input: Record<string, unknown>,
+    @Body() input: Record<string, unknown> | undefined,
   ): Promise<ToolAnswerResponseDto> {
     const answered = await this.commandBus.execute<
       UseToolCommand,
@@ -354,7 +360,10 @@ export class RunWorkController {
       PermissionAnswerDto
     >(
       new AskPermissionCommand(runId, runnerId, {
-        sessionId: body.sessionId || null,
+        sessionId:
+          body.sessionId === undefined || body.sessionId === ''
+            ? null
+            : body.sessionId,
         kind: body.kind ?? '',
         title: body.title ?? '',
         input: body.input,

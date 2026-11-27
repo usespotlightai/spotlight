@@ -4,12 +4,10 @@ import {
   type HeadObjectCommandOutput,
   type S3Client,
 } from '@aws-sdk/client-s3';
+import { fieldOf } from '@platform/json/field-of';
 
 export const missing = (error: unknown): null => {
-  if (
-    (error as { $metadata?: { httpStatusCode?: number } })?.$metadata
-      ?.httpStatusCode === 404
-  ) {
+  if (fieldOf(fieldOf(error, '$metadata'), 'httpStatusCode') === 404) {
     return null;
   }
 

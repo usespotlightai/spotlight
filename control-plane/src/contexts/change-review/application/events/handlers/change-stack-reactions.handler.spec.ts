@@ -16,8 +16,8 @@ const posting = () => {
   const posted: RunId[] = [];
   const postedForTask: TaskId[] = [];
   const reactions = new ChangeStackReactions({
-    ofRun: async (runId) => void posted.push(runId),
-    ofTask: async (taskId) => void postedForTask.push(taskId),
+    ofRun: (runId) => Promise.resolve(void posted.push(runId)),
+    ofTask: (taskId) => Promise.resolve(void postedForTask.push(taskId)),
   });
 
   return { posted, postedForTask, reactions };

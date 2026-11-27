@@ -136,14 +136,14 @@ describe('KeepReplaySets', () => {
 
     const [kept] = memory.sets.values();
 
-    expect(kept?.station).toEqual({
+    expect(kept.station).toEqual({
       workspaceId: STATION_VIEW.workspaceId,
       teamId: STATION_VIEW.teamId,
       lineId: STATION_VIEW.lineId,
       stationId: STATION_VIEW.stationId,
     });
-    expect(kept?.entries).toEqual([]);
-    expect(kept?.refreshedAt).toBeNull();
+    expect(kept.entries).toEqual([]);
+    expect(kept.refreshedAt).toBeNull();
   });
 
   it('keeps one set for a station, however many of its runs end', async () => {
@@ -170,7 +170,7 @@ describe('KeepReplaySets', () => {
     expect(memory.schedules.size).toBe(0);
 
     const [created] = memory.sets.values();
-    await keeping().onSetCreated(created?.id);
+    await keeping().onSetCreated(created.id);
     expect(memory.schedules.size).toBe(1);
 
     memory.schedules.clear();
@@ -189,9 +189,9 @@ describe('KeepReplaySets', () => {
     const [schedule] = memory.schedules.values();
 
     expect(memory.schedules.size).toBe(1);
-    expect(schedule?.setId).toEqual(set?.id);
-    expect(schedule?.checkAfter).toEqual(NOW);
-    expect(schedule?.searchedTasks).toEqual([]);
+    expect(schedule.setId).toEqual(set.id);
+    expect(schedule.checkAfter).toEqual(NOW);
+    expect(schedule.searchedTasks).toEqual([]);
   });
 
   it('keeps no set for a run without a station, at a station Work does not know, in another workspace, or driven by a person', async () => {
@@ -214,7 +214,7 @@ describe('KeepReplaySets', () => {
   it('keeps no set for a station whose team is gone', async () => {
     await keeping({
       ...peopleWho(true),
-      teamKey: async () => null,
+      teamKey: () => Promise.resolve(null),
     }).onRunEnded(STATION.stationId.value, STATION.workspaceId, false);
 
     expect(memory.sets.size).toBe(0);
@@ -281,7 +281,7 @@ describe('RefreshReplaySets', () => {
     suppliers.trialableRuns.recent = [recent('run_1')];
     const repository = {
       ...memory.setRepository,
-      atLiveStationsRefreshedBefore: async () => [fresh],
+      atLiveStationsRefreshedBefore: () => Promise.resolve([fresh]),
     };
 
     await new RefreshReplaySets(

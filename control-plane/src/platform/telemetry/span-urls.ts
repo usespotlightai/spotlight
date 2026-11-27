@@ -5,11 +5,15 @@ import {
   ATTR_URL_PATH,
   ATTR_URL_QUERY,
 } from '@opentelemetry/semantic-conventions';
+import { fieldOf } from '@platform/json/field-of';
 
-type WithAttributes = { readonly attributes?: Record<string, unknown> };
+const attributesOf = (span: unknown): object | undefined => {
+  const attributes = fieldOf(span, 'attributes');
 
-const attributesOf = (span: unknown): Record<string, unknown> | undefined =>
-  (span as WithAttributes).attributes;
+  return typeof attributes === 'object' && attributes !== null
+    ? attributes
+    : undefined;
+};
 
 const originOf = (url: string): string | undefined => {
   try {
@@ -26,16 +30,16 @@ export function withoutOutboundPath(span: unknown): void {
     return;
   }
 
-  delete attributes[ATTR_URL_PATH];
-  delete attributes[ATTR_URL_QUERY];
+  Reflect.deleteProperty(attributes, ATTR_URL_PATH);
+  Reflect.deleteProperty(attributes, ATTR_URL_QUERY);
 
-  const full = attributes[ATTR_URL_FULL];
+  const full = fieldOf(attributes, ATTR_URL_FULL);
   const origin = typeof full === 'string' ? originOf(full) : undefined;
 
-  if (origin) {
-    attributes[ATTR_URL_FULL] = origin;
+  if (origin !== undefined && origin !== '') {
+    Reflect.set(attributes, ATTR_URL_FULL, origin);
   } else {
-    delete attributes[ATTR_URL_FULL];
+    Reflect.deleteProperty(attributes, ATTR_URL_FULL);
   }
 }
 
@@ -43,7 +47,7 @@ function withoutQuery(span: unknown): void {
   const attributes = attributesOf(span);
 
   if (attributes) {
-    delete attributes[ATTR_URL_QUERY];
+    Reflect.deleteProperty(attributes, ATTR_URL_QUERY);
   }
 }
 
@@ -54,10 +58,10 @@ export function withRoutePath(span: unknown, route: string | undefined): void {
     return;
   }
 
-  if (route) {
-    attributes[ATTR_URL_PATH] = route;
+  if (route !== undefined && route !== '') {
+    Reflect.set(attributes, ATTR_URL_PATH, route);
   } else {
-    delete attributes[ATTR_URL_PATH];
+    Reflect.deleteProperty(attributes, ATTR_URL_PATH);
   }
 }
 

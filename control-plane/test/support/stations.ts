@@ -6,6 +6,7 @@ import {
   LINE_CHANGED,
   type LineChangedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/line-changed.integration-event';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { lineMapOf } from '@work/infrastructure/acl/line-map.translation';
 import { eq, inArray, sql } from 'drizzle-orm';
@@ -82,10 +83,9 @@ export const lineChangedOf = async (
   lineId: string,
   stationIds: readonly string[],
 ): Promise<LineChangedIntegrationEvent> => {
-  const [line] = await db
-    .select()
-    .from(schema.line)
-    .where(eq(schema.line.id, lineId));
+  const line = firstOf(
+    await db.select().from(schema.line).where(eq(schema.line.id, lineId)),
+  );
 
   if (!line) {
     throw new Error(`No line ${lineId}`);

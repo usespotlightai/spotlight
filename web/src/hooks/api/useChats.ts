@@ -1,6 +1,7 @@
-import { usePagedList } from '@/hooks/api/usePagedList';
-import { listChats } from '@/lib/api';
+import { usePagedList, type PagedList } from '@/hooks/api/usePagedList';
+import { listChats, type ChatSummaryResponseDto } from '@/lib/api';
 import { liveStaleTime, useLivePoll } from '@/lib/live';
+import { required } from '@/lib/required';
 
 export const chatKeys = {
   all: ['chats'] as const,
@@ -11,7 +12,9 @@ export const chatKeys = {
 
 const POLL_MS = 10_000;
 
-export function useChats(teamId: string | undefined) {
+export function useChats(
+  teamId: string | undefined,
+): PagedList<ChatSummaryResponseDto> {
   const livePollMs = useLivePoll(POLL_MS);
 
   return usePagedList({
@@ -22,7 +25,7 @@ export function useChats(teamId: string | undefined) {
     keyOf: (chat) => chat.id,
     fetchPage: async (before?: string) => {
       const { data } = await listChats({
-        path: { teamId: teamId as string },
+        path: { teamId: required(teamId) },
         query: { before },
         throwOnError: true,
       });

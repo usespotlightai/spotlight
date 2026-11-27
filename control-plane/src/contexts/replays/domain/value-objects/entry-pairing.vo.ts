@@ -1,4 +1,5 @@
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const PAIR_OUTCOMES = ['win', 'loss', 'tie'] as const;
@@ -37,7 +38,7 @@ const isOutcome = (raw: string): raw is PairOutcome =>
 
 const PASSES = 2;
 
-export interface PairReason {
+interface PairReason {
   readonly text: string;
   readonly ownHunks: readonly string[];
   readonly theirHunks: readonly string[];
@@ -49,6 +50,14 @@ export interface PairPass {
   readonly reasons: readonly PairReason[];
 }
 
+interface WrittenPass {
+  readonly ownShownFirst: boolean;
+  readonly outcome: string;
+  readonly reasons: readonly PairReason[];
+}
+
+const isPass = (pass: WrittenPass): pass is PairPass => isOutcome(pass.outcome);
+
 export class PairVerdict {
   private constructor(
     readonly outcome: PairOutcome,
@@ -59,51 +68,41 @@ export class PairVerdict {
   static of(input: {
     outcome: string;
     model: string;
-    passes: readonly {
-      readonly ownShownFirst: boolean;
-      readonly outcome: string;
-      readonly reasons: readonly PairReason[];
-    }[];
+    passes: readonly WrittenPass[];
   }): PairVerdict {
-    const outcomes = [
-      input.outcome,
-      ...input.passes.map((each) => each.outcome),
-    ];
+    const outcome = input.outcome;
+    const passes = input.passes.map((each): WrittenPass => ({
+      ownShownFirst: each.ownShownFirst,
+      outcome: each.outcome,
+      reasons: each.reasons.map((reason) => ({
+        text: reason.text,
+        ownHunks: [...reason.ownHunks],
+        theirHunks: [...reason.theirHunks],
+      })),
+    }));
 
-    if (!outcomes.every(isOutcome)) {
+    if (!isOutcome(outcome) || !passes.every(isPass)) {
       throw new InvalidReplayError(
-        `side-by-side verdict must be a win, loss or tie, not ${outcomes.join(', ')}`,
+        `side-by-side verdict must be a win, loss or tie, not ${[outcome, ...passes.map((each) => each.outcome)].join(', ')}`,
       );
     }
 
-    const [first, second] = input.passes;
+    const first = itemAt(passes, 0);
+    const second = itemAt(passes, 1);
 
     if (
-      !first ||
-      !second ||
-      input.passes.length !== PASSES ||
+      first === undefined ||
+      second === undefined ||
+      passes.length !== PASSES ||
       first.ownShownFirst === second.ownShownFirst ||
-      input.outcome !==
-        (first.outcome === second.outcome ? first.outcome : 'tie')
+      outcome !== (first.outcome === second.outcome ? first.outcome : 'tie')
     ) {
       throw new InvalidReplayError(
         'side-by-side verdict must be a tie when its two passes disagree',
       );
     }
 
-    return new PairVerdict(
-      input.outcome as PairOutcome,
-      input.model,
-      input.passes.map((each) => ({
-        ownShownFirst: each.ownShownFirst,
-        outcome: each.outcome as PairOutcome,
-        reasons: each.reasons.map((reason) => ({
-          text: reason.text,
-          ownHunks: [...reason.ownHunks],
-          theirHunks: [...reason.theirHunks],
-        })),
-      })),
-    );
+    return new PairVerdict(outcome, input.model, passes);
   }
 
   equals(other: PairVerdict): boolean {

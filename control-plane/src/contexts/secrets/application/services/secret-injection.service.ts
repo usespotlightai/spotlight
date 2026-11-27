@@ -28,8 +28,10 @@ type Injecting = (secret: Secret) => Promise<InjectedSecret>;
 
 const standInFor =
   (url: string): Injecting =>
-  async (secret) =>
-    secret.standInFor(url);
+  (secret) =>
+    new Promise((resolve) => {
+      resolve(secret.standInFor(url));
+    });
 
 export class SecretInjection implements SecretInjectionPort {
   constructor(
@@ -94,7 +96,7 @@ export class SecretInjection implements SecretInjectionPort {
     return (secret) => {
       const grant = secret.grantForUrl(lease.runId, request.url);
 
-      if (!existing?.allows(lease, grant)) {
+      if (existing?.allows(lease, grant) !== true) {
         throw new SecretNotGrantedError(secret.name.value, grant.host.value);
       }
     };

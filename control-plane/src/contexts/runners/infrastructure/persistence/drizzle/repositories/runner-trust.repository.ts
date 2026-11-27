@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -105,11 +106,11 @@ export class DrizzleRunnerTrustRepository implements RunnerTrustRepository {
   }
 
   async find(id: RunnerTrustId): Promise<RunnerTrust | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(runnerTrust)
       .where(eq(runnerTrust.id, id.value))
-      .limit(1);
+      .limit(1));
 
     return found ? toTrust(found) : null;
   }

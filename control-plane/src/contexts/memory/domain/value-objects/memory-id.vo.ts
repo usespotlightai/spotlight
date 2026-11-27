@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class MemoryId {
-  private readonly kind = 'memory';
+  private readonly kind: string = 'memory';
 
   private constructor(readonly value: string) {}
 

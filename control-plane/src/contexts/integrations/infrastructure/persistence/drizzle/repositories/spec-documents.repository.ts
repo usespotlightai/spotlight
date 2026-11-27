@@ -1,6 +1,6 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
 import type { SpecDocumentRepository } from '@integrations/domain/repositories/spec-document.repository';
-import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import {
   specDocument,
@@ -21,11 +21,11 @@ export class DrizzleSpecDocuments implements SpecDocumentRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async withHash(hash: ContentHash): Promise<SpecDocument | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(specDocument)
       .where(eq(specDocument.hash, hash.value))
-      .limit(1);
+      .limit(1));
 
     if (!found) {
       return null;
@@ -42,7 +42,7 @@ export class DrizzleSpecDocuments implements SpecDocumentRepository {
 
     return SpecDocument.rehydrate({
       hash: ContentHash.of(found.hash),
-      kind: found.kind as ApiSpecKind,
+      kind: found.kind,
       operations: operations.map((each) =>
         operationOf(each.name, each.operation),
       ),
@@ -74,7 +74,7 @@ export class DrizzleSpecDocuments implements SpecDocumentRepository {
         hash: document.hash.value,
         name: each.name,
         position,
-        operation: { ...rowOf(each) } as Record<string, unknown>,
+        operation: rowOf(each),
       }));
 
       for (let from = 0; from < rows.length; from += ROWS_PER_INSERT) {

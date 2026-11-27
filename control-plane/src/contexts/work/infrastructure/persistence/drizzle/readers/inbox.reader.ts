@@ -15,6 +15,7 @@ import {
   RUN_PROGRESS,
   type RunProgressPort,
 } from '@runs/application/ports/run-progress.port';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -194,9 +195,9 @@ const floorOf = <T>(
   fetched: number,
   at: (row: T) => string,
 ): string | null => {
-  const last = rows[rows.length - 1];
+  const last = itemAt(rows, rows.length - 1);
 
-  return rows.length === fetched && last ? at(last) : null;
+  return rows.length === fetched && last !== undefined ? at(last) : null;
 };
 
 const inTeamsSeen = (scope: InboxScope): SQL =>
@@ -270,7 +271,12 @@ const drivesHold = (
 ): boolean =>
   row.heldBy !== null &&
   HoldRights.drives(
-    { chat: row.heldForChat ? ChatId.of(row.heldForChat) : null },
+    {
+      chat:
+        row.heldForChat !== null && row.heldForChat !== ''
+          ? ChatId.of(row.heldForChat)
+          : null,
+    },
     { person: scope.viewer, team: teamStandingOf(scope, row.teamId) },
   );
 
@@ -284,7 +290,9 @@ const standingOf = (
   ask: OpenAsk | null,
 ): ConversationStanding | null =>
   ConversationAudience.standingOf(
-    row.assigneeId ? UserId.of(row.assigneeId) : null,
+    row.assigneeId !== null && row.assigneeId !== ''
+      ? UserId.of(row.assigneeId)
+      : null,
     {
       person: scope.viewer,
       takesTasks: teamStandingOf(scope, row.teamId).takesTasks,
@@ -356,7 +364,11 @@ const tasksWhere = async (
 ) => {
   const rows = await taskRowsWhere(db, scope, narrowedTo);
   const ids = [
-    ...new Set(rows.flatMap((row) => (row.working ? [row.working] : []))),
+    ...new Set(
+      rows.flatMap((row) =>
+        row.working !== null && row.working !== '' ? [row.working] : [],
+      ),
+    ),
   ];
   const facts = new Map(
     (ids.length === 0 ? [] : await progress.progressOf(ids.map(RunId.of))).map(
@@ -373,7 +385,10 @@ const tasksWhere = async (
   );
 
   return rows.flatMap((row) => {
-    const working = row.working ? facts.get(row.working) : undefined;
+    const working =
+      row.working !== null && row.working !== ''
+        ? facts.get(row.working)
+        : undefined;
     const standing = standingOf(scope, row, asks.get(row.taskId) ?? null);
 
     return standing
@@ -485,7 +500,9 @@ const chatsWhere = (
       reopenedAt: chat.reopenedAt,
       resolvedAt: chat.resolvedAt,
       readAt: chat.readAt,
-      cursorAt: sortableTime(chat.resolvedAt),
+      cursorAt: sortableTime(chat.resolvedAt).mapWith(
+        (value: string | null) => value,
+      ),
       lastAt:
         sql<Date>`(select max("chat_message"."at") from "chat_message" where "chat_message"."chat_id" = "chat"."id")`.mapWith(
           (value: string) => new Date(value),
@@ -545,9 +562,9 @@ const positionsOf = (
 const latestOf = (
   conversations: readonly MarkedConversation<{ readonly position: number }>[],
 ): Conversation | null => {
-  const latest = conversations[conversations.length - 1];
+  const latest = itemAt(conversations, conversations.length - 1);
 
-  return latest ? positionsOf(latest) : null;
+  return latest === undefined ? null : positionsOf(latest);
 };
 
 const closingOf = (
@@ -563,6 +580,19 @@ const stoppableRunOf = (row: TaskRow): StoppableRun => ({
   taskId: TaskId.of(row.taskId),
 });
 
+const briefingOf = (
+  runId: string | null,
+  briefings: ReadonlyMap<string, string>,
+): string | null => {
+  if (runId === null || runId === '') {
+    return null;
+  }
+
+  const briefing = briefings.get(runId);
+
+  return briefing === undefined || briefing === '' ? null : briefing;
+};
+
 const conversationItem = (
   row: TaskRow,
   conversation: MarkedConversation<ConversationMark>,
@@ -572,7 +602,7 @@ const conversationItem = (
 ): InboxItemSummary => {
   const opening = conversation.from;
   const open = stillOpen(conversation);
-  const last = conversation.notes[conversation.notes.length - 1];
+  const last = itemAt(conversation.notes, conversation.notes.length - 1);
   const progress =
     open && worksOn(row.working !== null, conversation.notes)
       ? progressOfCurrentRun(row.workingReading, true)
@@ -637,7 +667,7 @@ const conversationItem = (
         row.team,
       ),
     unread,
-    briefing: (opening.runId && context.briefings.get(opening.runId)) || null,
+    briefing: briefingOf(opening.runId, context.briefings),
     failure: failureIn(conversation.notes),
     inboxRequest: null,
     lastNote,
@@ -692,8 +722,14 @@ const requestVisibilityOf = (
 ): InboxRequestVisibility => ({
   form: row.form,
   viewer: scope.viewer,
-  assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
-  askedOf: row.askedOfId ? UserId.of(row.askedOfId) : null,
+  assignee:
+    row.assigneeId !== null && row.assigneeId !== ''
+      ? UserId.of(row.assigneeId)
+      : null,
+  askedOf:
+    row.askedOfId !== null && row.askedOfId !== ''
+      ? UserId.of(row.askedOfId)
+      : null,
   team: teamStandingOf(scope, row.teamId),
 });
 
@@ -739,9 +775,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       ...(await this.requestItems(scope, requests)).map((each) =>
         rankedAt(each.entry),
       ),
-      ...(await this.noticeItems(scope, notices)).map((each) =>
-        rankedAt(each.entry),
-      ),
+      ...this.noticeItems(scope, notices).map((each) => rankedAt(each.entry)),
       ...chatEntries.map((each, place) =>
         rankedAt(
           each.entry,
@@ -797,9 +831,9 @@ export class DrizzleInboxReader implements InboxReaderPort {
       eq(notice.id, noticeId),
       null,
     );
-    const [found] = await this.noticeItems(scope, rows);
+    const found = firstOf(this.noticeItems(scope, rows));
 
-    return found && found.entry.kind === 'notice' ? found.entry : null;
+    return found?.entry.kind === 'notice' ? found.entry : null;
   }
 
   private async resolvedPage(
@@ -814,8 +848,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
       this.resolvedNotices(scope, before, fetched),
       this.resolvedChats(scope, before, fetched),
     ]);
-    const floors = sources.flatMap((each) => (each.floor ? [each.floor] : []));
-    const floor = floors.sort()[floors.length - 1] ?? null;
+    const floors = sources.flatMap((each) =>
+      each.floor !== null && each.floor !== '' ? [each.floor] : [],
+    );
+    const floor = itemAt(floors.sort(), floors.length - 1) ?? null;
     const shown = sources
       .flatMap((each) => each.keyed)
       .filter(
@@ -825,7 +861,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       )
       .sort((one, other) => (newer(one.cursor, other.cursor) ? -1 : 1));
     const items = shown.slice(0, limit);
-    const last = items[items.length - 1];
+    const last = itemAt(items, items.length - 1);
     const more = shown.length > limit || floor !== null;
 
     if (!more) {
@@ -834,7 +870,12 @@ export class DrizzleInboxReader implements InboxReaderPort {
 
     return {
       items,
-      next: last ? last.cursor : floor ? { key: floor, id: '' } : null,
+      next:
+        last !== undefined
+          ? last.cursor
+          : floor !== null && floor !== ''
+            ? { key: floor, id: '' }
+            : null,
     };
   }
 
@@ -884,15 +925,18 @@ export class DrizzleInboxReader implements InboxReaderPort {
 
       return conversations.flatMap((conversation) => {
         const at =
-          conversation.to &&
-          closedAt.get(
-            noteKey({
-              taskId: row.taskId,
-              position: conversation.to.position,
-            }),
-          );
+          conversation.to === null
+            ? undefined
+            : closedAt.get(
+                noteKey({
+                  taskId: row.taskId,
+                  position: conversation.to.position,
+                }),
+              );
 
-        return at ? [{ row, conversation, latest, at }] : [];
+        return at !== undefined && at !== ''
+          ? [{ row, conversation, latest, at }]
+          : [];
       });
     });
     const [context, lastNotes] = await Promise.all([
@@ -976,7 +1020,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
     );
 
     return {
-      keyed: await this.noticeItems(scope, rows),
+      keyed: this.noticeItems(scope, rows),
       floor: floorOf(rows, fetched, (each) => each.cursorAt),
     };
   }
@@ -998,7 +1042,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
 
     return {
       keyed: await this.chatItems(rows),
-      floor: floorOf(rows, fetched, (each) => each.cursorAt),
+      floor: floorOf(rows, fetched, (each) => each.cursorAt ?? ''),
     };
   }
 
@@ -1057,7 +1101,8 @@ export class DrizzleInboxReader implements InboxReaderPort {
       const listed = shown.get(row.taskId) ?? [];
       const latest = latestOf(all.get(row.taskId) ?? []);
       const working =
-        row.working &&
+        row.working !== null &&
+        row.working !== '' &&
         ConversationAudience.listsRuns(row.standing) &&
         !listed.some(stillOpen)
           ? runItem(row, row.standing, row.working, context)
@@ -1099,14 +1144,16 @@ export class DrizzleInboxReader implements InboxReaderPort {
     scope: InboxScope,
     conversationId: ConversationId,
   ): Promise<InboxItemView | null> {
-    const [row] = await tasksWhere(
-      this.db,
-      this.progress,
-      scope,
-      eq(task.id, conversationId.taskId.value),
+    const row = firstOf(
+      await tasksWhere(
+        this.db,
+        this.progress,
+        scope,
+        eq(task.id, conversationId.taskId.value),
+      ),
     );
 
-    if (!row) {
+    if (row === undefined) {
       return null;
     }
 
@@ -1149,9 +1196,9 @@ export class DrizzleInboxReader implements InboxReaderPort {
       eq(inboxRequest.id, requestId),
       null,
     );
-    const [found] = await this.requestItems(scope, rows);
+    const found = firstOf(await this.requestItems(scope, rows));
 
-    return found && found.entry.kind === 'task'
+    return found?.entry.kind === 'task'
       ? { ...found.entry, notes: [], folded: [] }
       : null;
   }
@@ -1172,7 +1219,9 @@ export class DrizzleInboxReader implements InboxReaderPort {
       briefingsFor(
         this.db,
         conversations.flatMap((each) =>
-          each.from.runId ? [each.from.runId] : [],
+          each.from.runId !== null && each.from.runId !== ''
+            ? [each.from.runId]
+            : [],
         ),
       ),
       latestRunsAtCurrentStation(this.db, rows.map(placeOf)),
@@ -1263,16 +1312,15 @@ export class DrizzleInboxReader implements InboxReaderPort {
     });
   }
 
-  private async noticeItems(
-    scope: InboxScope,
-    rows: readonly NoticeRow[],
-  ): Promise<Keyed[]> {
+  private noticeItems(scope: InboxScope, rows: readonly NoticeRow[]): Keyed[] {
     return rows
       .filter(
         (row) =>
           scope.teamsSeen.has(row.notice.teamId) &&
           Notice.addressedTo(
-            row.notice.addresseeId ? UserId.of(row.notice.addresseeId) : null,
+            row.notice.addresseeId !== null && row.notice.addresseeId !== ''
+              ? UserId.of(row.notice.addresseeId)
+              : null,
             scope.viewer,
           ),
       )

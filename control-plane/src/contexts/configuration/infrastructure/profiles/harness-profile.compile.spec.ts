@@ -75,6 +75,6 @@ describe('HarnessProfileCompiler', () => {
       severity: 'warning',
       reason: 'is denied there instead',
     });
-    expect(dottedOf(warning?.field)).toBe('permissions.ask.0');
+    expect(dottedOf(warning.field)).toBe('permissions.ask.0');
   });
 });

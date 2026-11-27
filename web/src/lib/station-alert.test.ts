@@ -9,9 +9,10 @@ import {
   type StationAlertFiring,
   thresholdLine,
 } from '@/lib/station-alert';
+import { partial } from '@/test/partial';
 
 const alert = (over: Partial<StationAlertFiring>): StationAlertFiring =>
-  ({
+  partial<StationAlertFiring>({
     rule: {
       measure: 'cost_per_run',
       risesBy: null,
@@ -25,7 +26,7 @@ const alert = (over: Partial<StationAlertFiring>): StationAlertFiring =>
     change: null,
     currency: 'USD',
     ...over,
-  }) as StationAlertFiring;
+  });
 
 describe('formatFiring', () => {
   it('says what the runs it watches came to', () => {

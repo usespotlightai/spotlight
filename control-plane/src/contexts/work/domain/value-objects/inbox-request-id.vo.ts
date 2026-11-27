@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class InboxRequestId {
-  private readonly kind = 'inbox-request';
+  private readonly kind: string = 'inbox-request';
 
   private constructor(readonly value: string) {}
 

@@ -85,12 +85,18 @@ export const factOfRow = (row: RunFactRow): RunFact => {
     memories: memoriesOf(parts),
     opening: row.taskOpenedAt
       ? {
-          by: row.openedById ? UserId.of(row.openedById) : null,
+          by:
+            row.openedById !== null && row.openedById !== ''
+              ? UserId.of(row.openedById)
+              : null,
           at: row.taskOpenedAt,
         }
       : null,
     pullRequest:
-      row.pullRequest && row.pullRequestState && row.pullRequestOpenedAt
+      row.pullRequest !== null &&
+      row.pullRequest !== '' &&
+      row.pullRequestState &&
+      row.pullRequestOpenedAt
         ? {
             pullRequest: PullRequestUrl.of(row.pullRequest),
             state: row.pullRequestState,

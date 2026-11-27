@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { runnerPoolKeys } from '@/hooks/api/useRunnerPools';
 import { createRunnerPool } from '@/lib/api';
@@ -11,7 +15,9 @@ type CreatedRunnerPool = {
   token: string;
 };
 
-export function useCreateRunnerPool(workspaceId: string) {
+export function useCreateRunnerPool(
+  workspaceId: string,
+): UseMutationResult<CreatedRunnerPool, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -25,7 +31,7 @@ export function useCreateRunnerPool(workspaceId: string) {
 
       const token = response?.headers.get(POOL_TOKEN_HEADER);
 
-      if (data && token) {
+      if (data && token !== undefined && token !== null && token !== '') {
         return { key: data.key, token };
       }
 

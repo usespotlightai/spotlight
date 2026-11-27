@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { usePlotArea, useXAxisScale, useYAxisScale } from 'recharts';
 
 import { LABEL_SIZE, placeLabels } from '@/lib/point-labels';
@@ -9,7 +10,11 @@ export type ChartLabel = {
   readonly value: number;
 };
 
-export function PointLabels({ labels }: { labels: readonly ChartLabel[] }) {
+export function PointLabels({
+  labels,
+}: {
+  labels: readonly ChartLabel[];
+}): ReactElement | null {
   const across = useXAxisScale();
   const up = useYAxisScale();
   const plot = usePlotArea();

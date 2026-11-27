@@ -1,8 +1,14 @@
+import type { ReactElement } from 'react';
+
 import { ReferenceIcon } from '@/components/shared/chat-input/ReferenceIcon';
 import { type Reference, useReferenceState } from '@/lib/chat-input';
 import { cn } from '@/lib/utils';
 
-export function ReferenceToken({ reference }: { reference: Reference }) {
+export function ReferenceToken({
+  reference,
+}: {
+  reference: Reference;
+}): ReactElement {
   const state = useReferenceState(reference.key);
   const uploading = reference.kind === 'file' && state?.state === 'uploading';
   const failed = reference.kind === 'file' && state?.state === 'failed';

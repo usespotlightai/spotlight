@@ -11,7 +11,7 @@ export function useStopRunAction(
   const stop = useStopRun();
   const stopping = useStopInFlight(runId);
 
-  return teamId && stoppable
+  return teamId !== undefined && teamId !== '' && stoppable
     ? {
         label: 'Stop run',
         icon: Square,

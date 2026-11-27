@@ -12,6 +12,7 @@ import { SideBySideJudgingRound } from '@replays/domain/value-objects/side-by-si
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { JudgingFailure } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
@@ -243,11 +244,12 @@ export class SideBySideJudging
       return this.failed(JudgingFailure.of(judgment.failure, now));
     }
 
-    const [first, second] = judgment.passes;
+    const first = itemAt(judgment.passes, 0);
+    const second = itemAt(judgment.passes, 1);
 
     if (
-      !first ||
-      !second ||
+      first === undefined ||
+      second === undefined ||
       judgment.passes.length !== this.orders.length ||
       judgment.passes.some(
         (each, at) => each.ownShownFirst !== (this.orders[at] === 'run-first'),

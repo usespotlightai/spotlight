@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 import { useParams } from 'react-router';
 
 import { SecretRow } from '@/components/features/secrets/SecretRow';
@@ -11,12 +11,12 @@ import { useWorkspaceSecrets } from '@/hooks/api/useWorkspaceSecrets';
 import { failed, loading } from '@/lib/query';
 import type { WorkspaceSecret } from '@/lib/secret';
 
-export function Secrets() {
+export function Secrets(): ReactElement | null {
   const { slug } = useParams();
   const secrets = useWorkspaceSecrets(slug);
   const [setting, setSetting] = useState<WorkspaceSecret | null>(null);
 
-  if (!slug) {
+  if (slug === undefined || slug === '') {
     return null;
   }
 

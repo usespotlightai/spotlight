@@ -1,4 +1,5 @@
 import { Play } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import {
   AUTHOR_SERIES,
@@ -55,7 +56,7 @@ const DEPTH_LEGEND = ROUNDS.map((rounds) => ({
   color: ROUND_FILLS[rounds],
 }));
 
-export function ShippingSkeleton() {
+export function ShippingSkeleton(): ReactElement {
   return (
     <>
       <InsightsSection title="What the agents ship">

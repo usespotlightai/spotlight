@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { PersonNote } from '@/components/features/memory/PersonNote';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { ChatBubble } from '@/components/shared/ChatBubble';
@@ -8,8 +10,10 @@ type RetirementNoteProps = {
   retirement: NonNullable<TeamMemory['retirement']>;
 };
 
-export function RetirementNote({ retirement }: RetirementNoteProps) {
-  if (retirement.supersededBy) {
+export function RetirementNote({
+  retirement,
+}: RetirementNoteProps): ReactElement {
+  if (retirement.supersededBy !== null && retirement.supersededBy !== '') {
     return <p>A newer memory replaced this one.</p>;
   }
 

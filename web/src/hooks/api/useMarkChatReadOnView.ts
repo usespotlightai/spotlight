@@ -3,16 +3,28 @@ import { useEffect, useRef } from 'react';
 import { useMarkInboxChatRead } from '@/hooks/api/useMarkInboxChatRead';
 import type { Chat } from '@/lib/chat';
 
-export function useMarkChatReadOnView(slug: string | undefined, chat?: Chat) {
+export function useMarkChatReadOnView(
+  slug: string | undefined,
+  chat?: Chat,
+): void {
   const { mutate } = useMarkInboxChatRead();
   const seen = useRef<string | null>(null);
   const chatId = chat?.id;
   const messageCount = chat?.messages.length;
 
   useEffect(() => {
-    const at = chatId && `${chatId}:${messageCount}`;
+    if (
+      slug === undefined ||
+      slug === '' ||
+      chatId === undefined ||
+      chatId === ''
+    ) {
+      return;
+    }
 
-    if (!slug || !chatId || !at || seen.current === at) {
+    const at = `${chatId}:${messageCount}`;
+
+    if (seen.current === at) {
       return;
     }
 

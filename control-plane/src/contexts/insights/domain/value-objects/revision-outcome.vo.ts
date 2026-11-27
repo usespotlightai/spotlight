@@ -36,6 +36,14 @@ export class RevisionOutcome {
     pullRequest: string;
     agreement: RevisionAgreement;
   }): RevisionOutcome {
+    return RevisionOutcome.proposing(input);
+  }
+
+  private static proposing(input: {
+    claims: readonly string[];
+    pullRequest: string;
+    agreement: RevisionAgreement | null;
+  }): RevisionOutcome {
     if (!JudgeCriteria.readable({ claims: input.claims })) {
       throw new InvalidClaimsRevisionError('proposes a readable claims list');
     }
@@ -77,10 +85,10 @@ export class RevisionOutcome {
     message: string | null;
   }): RevisionOutcome {
     return input.kind === 'proposed'
-      ? RevisionOutcome.proposed({
+      ? RevisionOutcome.proposing({
           claims: input.claims ?? [],
           pullRequest: input.pullRequest ?? '',
-          agreement: input.agreement as RevisionAgreement,
+          agreement: input.agreement,
         })
       : RevisionOutcome.ended({
           reason: input.reason ?? 'interrupted',

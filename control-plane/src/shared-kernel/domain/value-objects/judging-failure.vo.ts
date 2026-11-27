@@ -13,7 +13,20 @@ const ONCE_MORE = Retry.backoff({
   maxDelayMs: 300_000,
 });
 
-const JUDGING_FAILURES = {
+export const JUDGING_FAILURE_CODES = [
+  'no-evidence',
+  'request-failed',
+  'insufficient-credits',
+  'unreadable',
+  'ungrounded',
+  'errored',
+  'interrupted',
+  'unavailable',
+] as const;
+
+export type JudgingFailureCode = (typeof JUDGING_FAILURE_CODES)[number];
+
+const JUDGING_FAILURES: Readonly<Record<JudgingFailureCode, Retry>> = {
   'no-evidence': Retry.never(),
   'request-failed': AGAIN,
   'insufficient-credits': Retry.never(),
@@ -22,14 +35,7 @@ const JUDGING_FAILURES = {
   errored: AGAIN,
   interrupted: Retry.never(),
   unavailable: Retry.never(),
-} as const satisfies Record<string, Retry>;
-
-export type JudgingFailureCode = keyof typeof JUDGING_FAILURES;
-
-export const JUDGING_FAILURE_CODES = Object.keys(JUDGING_FAILURES) as [
-  JudgingFailureCode,
-  ...JudgingFailureCode[],
-];
+};
 
 const isCode = (code: string): code is JudgingFailureCode =>
   JUDGING_FAILURE_CODES.some((each) => each === code);

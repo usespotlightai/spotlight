@@ -32,7 +32,7 @@ export class SecretName {
   static referencedBy(written: string): SecretName | null {
     const named = REFERENCE.exec(written.trim())?.[1];
 
-    return named ? new SecretName(named) : null;
+    return named !== undefined && named !== '' ? new SecretName(named) : null;
   }
 
   get standIn(): string {

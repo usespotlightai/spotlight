@@ -124,6 +124,14 @@ const reaction = (
   anchor: Anchor | null = null,
 ) => ReactionFor.happened({ task, line: LINE, payload, anchor });
 
+const reacted = (task: Task | null): Task => {
+  if (task === null) {
+    throw new Error('expected the task to react');
+  }
+
+  return task;
+};
+
 const destination = (outcome: Outcome) =>
   outcome.kind === 'moves' || outcome.kind === 'deferredMove'
     ? outcome.to.id
@@ -201,13 +209,12 @@ describe('ReactionFor.happened', () => {
 
   it('moves a task whose two pull requests close at once, when the last close is recorded', () => {
     const before = openedTwo();
-    const [apiHeld, docsHeld] = [mergedOf(API), mergedOf(DOCS)].map((each) =>
-      reaction(before, each),
-    );
+    const apiHeld = reaction(before, mergedOf(API));
+    const docsHeld = reaction(before, mergedOf(DOCS));
 
-    expect([apiHeld?.kind, docsHeld?.kind]).toEqual(['held', 'held']);
+    expect([apiHeld.kind, docsHeld.kind]).toEqual(['held', 'held']);
 
-    const held = before.reactTo(apiHeld, ON) as Task;
+    const held = reacted(before.reactTo(apiHeld, ON));
     const onLine = { line: LINE, ranksAtHeldMove: [] };
     const apiClosed = held.pullRequestClosed(API, NOW, onLine);
     const bothClosed = apiClosed.pullRequestClosed(DOCS, NOW, onLine);
@@ -227,10 +234,12 @@ describe('ReactionFor.happened', () => {
         OwnedPullRequest.of(DOCS, NOW),
       ],
     });
-    const held = toReview.reactTo(
-      reaction(toReview, { ...commented, closedPullRequest: API }),
-      ON,
-    ) as Task;
+    const held = reacted(
+      toReview.reactTo(
+        reaction(toReview, { ...commented, closedPullRequest: API }),
+        ON,
+      ),
+    );
     const released = held
       .pullRequestClosed(API, NOW, { line: LINE, ranksAtHeldMove: [] })
       .pullRequestClosed(DOCS, NOW, { line: LINE, ranksAtHeldMove: [] });
@@ -248,11 +257,11 @@ describe('ReactionFor.happened', () => {
         OwnedPullRequest.of(DOCS, NOW),
       ],
     });
-    const held = (
+    const held = reacted(
       toReview.reactTo(
         reaction(toReview, { ...commented, closedPullRequest: API }),
         ON,
-      ) as Task
+      ),
     ).putToAPerson(RUN, {
       line: null,
       body: TaskNoteBody.of('Which queue should I drain?'),
@@ -272,7 +281,7 @@ describe('ReactionFor.happened', () => {
 
   it('drops a held move once a pull request of the task reopens', () => {
     const before = openedTwo();
-    const held = before.reactTo(reaction(before, mergedOf(API)), ON) as Task;
+    const held = reacted(before.reactTo(reaction(before, mergedOf(API)), ON));
     const reopened = held
       .pullRequestClosed(API, NOW, NOTHING_HELD)
       .pullRequestReopened(API);

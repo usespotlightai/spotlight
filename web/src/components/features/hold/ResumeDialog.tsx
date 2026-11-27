@@ -1,4 +1,4 @@
-import { type SubmitEvent, useId, useState } from 'react';
+import { type ReactElement, type SubmitEvent, useId, useState } from 'react';
 
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { RadioRow } from '@/components/shared/form/RadioRow';
@@ -47,7 +47,7 @@ export function ResumeDialog({
   held,
   working,
   turn,
-}: ResumeDialogProps) {
+}: ResumeDialogProps): ReactElement {
   const id = useId();
   const resume = useResumeLine();
   const stop = useStopRun();
@@ -222,7 +222,7 @@ export function ResumeDialog({
               <p>
                 A turn is in progress. You can resume the line when it ends.
               </p>
-              {turn && (
+              {turn !== null && turn !== '' && (
                 <Button
                   type="button"
                   variant="outline"

@@ -3,7 +3,7 @@ import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.er
 const MAX_LENGTH = 2048;
 
 export class EgressUrl {
-  private readonly kind = 'egress-url';
+  private readonly kind: string = 'egress-url';
 
   private constructor(readonly value: string) {}
 

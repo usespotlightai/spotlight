@@ -23,13 +23,15 @@ import {
   titled,
   visited,
   withoutPane,
+  type AppTab,
+  type Panes,
 } from '@/lib/app-tabs';
 import { desktopApp } from '@/lib/desktop';
 import type { ReportTitle } from '@/lib/tab-title';
 import type { Team } from '@/lib/team';
 
 const tabStorage = (): Storage =>
-  desktopApp()?.extraWindow ? sessionStorage : localStorage;
+  desktopApp()?.extraWindow === true ? sessionStorage : localStorage;
 
 const readTabs = (storageKey: string, here: Place): AppTabs => {
   let stored: string | null = null;
@@ -80,7 +82,32 @@ const placeOf = (
   state: unknown,
 ): Place => placeAt(`${pathname}${search}${hash}`, state);
 
-export function useAppTabs(slug: string, teams: readonly Team[]) {
+type AppTabsResult = {
+  tabs: readonly AppTab[];
+  activeId: string;
+  splitId: string | undefined;
+  panes: Panes;
+  titleFor: (id: string) => ReportTitle;
+  visit: (id: string, place: Place) => void;
+  focus: (id: string) => void;
+  select: (id: string) => void;
+  close: (id: string) => void;
+  canPlace: (id: string, side: SplitSide) => boolean;
+  place: (id: string, side: SplitSide) => void;
+  hidePane: (side: SplitSide) => void;
+  move: (id: string, to: string) => void;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  back: () => void;
+  forward: () => void;
+  open: () => void;
+  openAt: (path: string) => void;
+};
+
+export function useAppTabs(
+  slug: string,
+  teams: readonly Team[],
+): AppTabsResult {
   const location: Location<unknown> = useLocation();
   const { pathname, search, hash, state } = location;
   const navigate = useNavigate();

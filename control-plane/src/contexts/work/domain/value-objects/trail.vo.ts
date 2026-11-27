@@ -1,3 +1,4 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
 import type { TaskNote } from '@work/domain/entities/task-note.entity';
 import {
   awaitsAPerson,
@@ -31,9 +32,9 @@ export class Trail {
 
   get lastClosed(): Conversation | null {
     const cut = conversationsOf(this.notes.map((each) => each.kind));
-    const last = cut[cut.length - 1];
+    const last = itemAt(cut, cut.length - 1);
 
-    return last && !stillOpen(last) ? last : null;
+    return last !== undefined && !stillOpen(last) ? last : null;
   }
 
   closesAConversationAt(position: NotePosition): boolean {

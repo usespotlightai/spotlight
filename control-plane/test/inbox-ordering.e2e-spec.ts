@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunReadModel } from '@runs/application/services/run-read-model.service';
 import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/readers/run-facts.reader';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -30,13 +33,13 @@ beforeAll(async () => {
   notices = new DrizzleNoticeRepository(context, { dispatch: async () => {} });
   reader = new DrizzleInboxReader(
     database.db,
-    { findMany: async () => new Map() } as never,
+    partial<PersonReaderPort>({ findMany: () => Promise.resolve(new Map()) }),
     new RunReadModel(new DrizzleRunFactsReader(context)),
   );
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const WORKSPACE = randomUUID();
@@ -131,7 +134,7 @@ describe('the order of inbox notices', () => {
 
       seen.push(...idsOf(page.items));
       before = page.next;
-    } while (before);
+    } while (before !== null && before !== '');
 
     expect(seen).toEqual(
       [...resolveOrder].reverse().map((place) => raised[place]?.id.value),
@@ -146,7 +149,7 @@ describe('the order of inbox notices', () => {
     await notices.add(early);
     await notices.add(late);
     await notices.save(early.resolve(at(10)));
-    const resolved = (await notices.find(early.id)) as Notice;
+    const resolved = present(await notices.find(early.id));
 
     await notices.save(resolved.reopen(at(20)));
 

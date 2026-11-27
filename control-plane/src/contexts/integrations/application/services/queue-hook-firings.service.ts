@@ -50,7 +50,7 @@ export class QueueHookFirings {
     let fired = 0;
 
     for (const hook of await this.runtime.listening(task.teamId, occurred.on)) {
-      if (hook.broken) {
+      if (hook.broken !== null && hook.broken !== '') {
         this.logger.warn(
           { hook: hook.key.value, reason: hook.broken },
           'A hook no longer reads as it was written',

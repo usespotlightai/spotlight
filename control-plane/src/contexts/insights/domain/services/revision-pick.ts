@@ -54,7 +54,7 @@ const splitAgreementOf = (
     ),
     after: kappaOf(
       judged.map((each) => ({
-        judge: passes.get(each.runId.value) as boolean,
+        judge: passes.get(each.runId.value) ?? false,
         human: each.human,
       })),
     ),

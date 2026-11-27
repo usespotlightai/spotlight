@@ -24,7 +24,9 @@ export const tooltipText = (
     ? tooltip
     : `${[
         tooltip.title !== named && tooltip.title,
-        tooltip.body && withoutStop(tooltip.body),
+        tooltip.body !== undefined &&
+          tooltip.body !== '' &&
+          withoutStop(tooltip.body),
         ...(tooltip.rows ?? []).map(([label, value]) => `${label}: ${value}`),
         tooltip.list &&
           tooltip.list.items.length > 0 &&

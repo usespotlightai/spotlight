@@ -12,7 +12,7 @@ export function suspensionDenial(
   if (!memberRole) {
     return 'not-a-member';
   }
-  if (!callerRole?.rankedAtLeast(WorkspaceRole.admin)) {
+  if (callerRole?.rankedAtLeast(WorkspaceRole.admin) !== true) {
     return 'not-an-admin-to-suspend';
   }
   if (memberRole.isOwner && !callerRole.isOwner) {

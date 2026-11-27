@@ -52,9 +52,10 @@ beforeEach(() => {
   enqueued = [];
   repository = {
     isTaken: vi.fn().mockResolvedValue(false),
-    add: vi.fn(async (workspace: Workspace) => {
+    add: vi.fn((workspace: Workspace) => {
       added = workspace;
       enqueued.push(...workspace.pullEvents());
+      return Promise.resolve();
     }),
     find: vi.fn().mockResolvedValue(null),
     findBySlug: vi.fn().mockResolvedValue(null),

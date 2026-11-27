@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { PageTitle } from '@/components/shared/PageTitle';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,7 +14,7 @@ export function SettingsPage({
   title,
   description,
   children,
-}: SettingsPageProps) {
+}: SettingsPageProps): ReactElement {
   useTabTitle(title);
 
   return (
@@ -23,7 +23,7 @@ export function SettingsPage({
         <div className="flex flex-col gap-3">
           <PageTitle>{title}</PageTitle>
 
-          {description && (
+          {Boolean(description) && (
             <p className="text-muted-foreground text-sm leading-6">
               {description}
             </p>

@@ -15,6 +15,7 @@ import {
 } from '@/lib/members';
 import type { Role } from '@/lib/role';
 import { daysAgo } from '@/mocks/clock';
+import { entryOf } from '@/mocks/entry';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { scenario } from '@/mocks/scenario';
 import { world } from '@/mocks/world';
@@ -38,8 +39,8 @@ const NOT_PENDING_BECAUSE: Record<EndedInvite | 'expired', string> = {
   expired: 'This invite has expired. Please request a new one.',
 };
 
-const endedInvite = (inviteId: unknown) =>
-  membersWorld().ended[String(inviteId)];
+const endedInvite = (inviteId: unknown): EndedInvite | undefined =>
+  entryOf(membersWorld().ended, String(inviteId));
 
 const pendingInvite = (inviteId: unknown) =>
   membersWorld().invites.find((each) => each.id === inviteId);
@@ -206,50 +207,56 @@ const inviteHandlers = [
     return isAdmin() ? json(membersWorld().invites) : notFound();
   }),
 
-  api.post('/workspaces/:slug/invites', async ({ params, request }) => {
-    if (!ofWorkspace(params.slug)) {
-      return notFound();
-    }
-    if (!isAdmin()) {
-      return notFound();
-    }
+  api.post<InviteToWorkspaceRequestDto>(
+    '/workspaces/:slug/invites',
+    async ({ params, request }) => {
+      if (!ofWorkspace(params.slug)) {
+        return notFound();
+      }
+      if (!isAdmin()) {
+        return notFound();
+      }
 
-    const spec = (await request.json()) as InviteToWorkspaceRequestDto;
-    const unknownTeam = spec.teamIds.find(
-      (teamId) => !world().workspace.teams.some((team) => team.id === teamId),
-    );
-    const notAnAddress = spec.emails.find(
-      (each) => !isEmailAddress(each.trim().toLowerCase()),
-    );
-    if (spec.emails.length === 0 || spec.emails.length > MAX_INVITED_AT_ONCE) {
-      return problem(
-        422,
-        `Number of email addresses must be 1 to ${MAX_INVITED_AT_ONCE}. Received: ${spec.emails.length}`,
+      const spec = await request.json();
+      const unknownTeam = spec.teamIds.find(
+        (teamId) => !world().workspace.teams.some((team) => team.id === teamId),
       );
-    }
-    if ((spec.role as Role) === 'owner') {
-      return problem(
-        403,
-        'Nobody can be invited as an owner. Please invite them as an admin, then make them an owner.',
+      const notAnAddress = spec.emails.find(
+        (each) => !isEmailAddress(each.trim().toLowerCase()),
       );
-    }
-    if (notAnAddress !== undefined) {
-      return problem(
-        422,
-        `Email address is not valid. Received: ${notAnAddress.trim()}`,
-      );
-    }
-    if (unknownTeam) {
-      return problem(422, `Team ${unknownTeam} is not in this workspace.`);
-    }
+      if (
+        spec.emails.length === 0 ||
+        spec.emails.length > MAX_INVITED_AT_ONCE
+      ) {
+        return problem(
+          422,
+          `Number of email addresses must be 1 to ${MAX_INVITED_AT_ONCE}. Received: ${spec.emails.length}`,
+        );
+      }
+      if ((spec.role as Role) === 'owner') {
+        return problem(
+          403,
+          'Nobody can be invited as an owner. Please invite them as an admin, then make them an owner.',
+        );
+      }
+      if (notAnAddress !== undefined) {
+        return problem(
+          422,
+          `Email address is not valid. Received: ${notAnAddress.trim()}`,
+        );
+      }
+      if (unknownTeam !== undefined && unknownTeam !== '') {
+        return problem(422, `Team ${unknownTeam} is not in this workspace.`);
+      }
 
-    return json({
-      outcomes: spec.emails.map((email) => ({
-        email,
-        outcome: inviteOne(email, spec),
-      })),
-    });
-  }),
+      return json({
+        outcomes: spec.emails.map((email) => ({
+          email,
+          outcome: inviteOne(email, spec),
+        })),
+      });
+    },
+  ),
 
   api.post('/workspaces/:slug/invites/:inviteId/resend', ({ params }) => {
     if (!ofWorkspace(params.slug) || !isAdmin()) {
@@ -257,7 +264,7 @@ const inviteHandlers = [
     }
 
     const ended = endedInvite(params.inviteId);
-    if (ended) {
+    if (ended !== undefined) {
       return problem(409, NOT_PENDING_BECAUSE[ended]);
     }
 
@@ -337,7 +344,7 @@ const memberHandlers = [
     return json(membersWorld().people.map(memberOf));
   }),
 
-  api.patch(
+  api.patch<ChangeMemberRoleRequestDto>(
     '/workspaces/:slug/members/:userId',
     async ({ params, request }) => {
       if (!ofWorkspace(params.slug)) {
@@ -351,7 +358,7 @@ const memberHandlers = [
         return problem(403, 'This person is not a member of this workspace.');
       }
 
-      const { role } = (await request.json()) as ChangeMemberRoleRequestDto;
+      const { role } = await request.json();
       const denial = roleAssignmentDenial(person, role);
       if (denial) {
         return problem(...denial);
@@ -420,35 +427,41 @@ const memberHandlers = [
     return noContent();
   }),
 
-  api.post('/teams/:teamId/members', async ({ params, request }) => {
-    const teamId = String(params.teamId);
-    const { userId } = (await request.json()) as AddTeamMemberRequestDto;
-    const person = membersWorld().people.find((each) => each.id === userId);
-    const team = world().members[teamId];
-    if (!team) {
-      return notFound();
-    }
-    if (!person) {
-      return problem(
-        422,
-        'This person is not a member of this workspace. Please invite them first.',
-      );
-    }
-    if (team.some((each) => each.id === userId)) {
-      return problem(409, `${teamNamed(teamId)} already includes this person.`);
-    }
+  api.post<AddTeamMemberRequestDto>(
+    '/teams/:teamId/members',
+    async ({ params, request }) => {
+      const teamId = String(params.teamId);
+      const { userId } = await request.json();
+      const person = membersWorld().people.find((each) => each.id === userId);
+      const team = entryOf(world().members, teamId);
+      if (!team) {
+        return notFound();
+      }
+      if (!person) {
+        return problem(
+          422,
+          'This person is not a member of this workspace. Please invite them first.',
+        );
+      }
+      if (team.some((each) => each.id === userId)) {
+        return problem(
+          409,
+          `${teamNamed(teamId)} already includes this person.`,
+        );
+      }
 
-    team.push({
-      id: person.id,
-      name: person.name,
-      image: person.image,
-      role: person.role,
-      assignableRoles: assignableRolesOf(person).filter(
-        (each) => each !== person.role,
-      ),
-    });
-    return noContent();
-  }),
+      team.push({
+        id: person.id,
+        name: person.name,
+        image: person.image,
+        role: person.role,
+        assignableRoles: assignableRolesOf(person).filter(
+          (each) => each !== person.role,
+        ),
+      });
+      return noContent();
+    },
+  ),
 ];
 
 export const membersHandlers: RequestHandler[] = [

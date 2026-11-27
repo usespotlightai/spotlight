@@ -1,4 +1,9 @@
-import { type ReactNode, useState, useSyncExternalStore } from 'react';
+import {
+  type ReactNode,
+  useState,
+  useSyncExternalStore,
+  type ReactElement,
+} from 'react';
 
 import {
   ContextMenuPopup,
@@ -60,7 +65,7 @@ export function WorkspaceContextMenu({
   slug,
   onOpenTab,
   children,
-}: WorkspaceContextMenuProps) {
+}: WorkspaceContextMenuProps): ReactElement {
   const [registry] = useState(menuActionsRegistry);
   const [menu, setMenu] = useState<Menu>(CLOSED);
   const live = useSyncExternalStore(

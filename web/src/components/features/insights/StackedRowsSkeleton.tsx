@@ -1,9 +1,11 @@
+import type { ReactElement } from 'react';
+
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
 const LENGTHS = ['w-3/4', 'w-full', 'w-2/3', 'w-5/6', 'w-1/2', 'w-3/5'];
 
-export function StackedRowsSkeleton({ rows }: { rows: number }) {
+export function StackedRowsSkeleton({ rows }: { rows: number }): ReactElement {
   return (
     <ul aria-hidden className="flex flex-col">
       {Array.from({ length: rows }, (_, at) => (

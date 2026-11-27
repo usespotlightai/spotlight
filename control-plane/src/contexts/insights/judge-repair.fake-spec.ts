@@ -139,99 +139,118 @@ export class JudgeDisagreementsInMemory implements JudgeDisagreementRepository {
   readonly stored = new Map<string, JudgeDisagreement>();
   readonly events: DomainEvent[] = [];
 
-  async add(disagreement: JudgeDisagreement): Promise<void> {
+  add(disagreement: JudgeDisagreement): Promise<void> {
     if (
       this.stored.has(disagreement.id.value) ||
       [...this.stored.values()].some(
         (each) => !each.isWithdrawn && each.runId.equals(disagreement.runId),
       )
     ) {
-      throw new JudgeDisagreementVersionConflictError(disagreement.id.value);
+      return Promise.reject(
+        new JudgeDisagreementVersionConflictError(disagreement.id.value),
+      );
     }
     this.events.push(...disagreement.pullEvents());
     this.stored.set(disagreement.id.value, disagreement);
+
+    return Promise.resolve();
   }
 
-  async save(disagreement: JudgeDisagreement): Promise<void> {
+  save(disagreement: JudgeDisagreement): Promise<void> {
     const existing = this.stored.get(disagreement.id.value);
 
     if (!existing || existing.version !== disagreement.version) {
-      throw new JudgeDisagreementVersionConflictError(disagreement.id.value);
+      return Promise.reject(
+        new JudgeDisagreementVersionConflictError(disagreement.id.value),
+      );
     }
     if (disagreement.isDeleted) {
       this.stored.delete(disagreement.id.value);
-      return;
+      return Promise.resolve();
     }
     this.events.push(...disagreement.pullEvents());
     this.stored.set(
       disagreement.id.value,
       disagreementWithVersion(disagreement, disagreement.version + 1),
     );
+
+    return Promise.resolve();
   }
 
-  async find(id: JudgeDisagreementId): Promise<JudgeDisagreement | null> {
-    return this.stored.get(id.value) ?? null;
+  find(id: JudgeDisagreementId): Promise<JudgeDisagreement | null> {
+    return Promise.resolve(this.stored.get(id.value) ?? null);
   }
 
-  async ofRun(runId: RunId): Promise<readonly JudgeDisagreement[]> {
-    return [...this.stored.values()].filter((each) => each.runId.equals(runId));
+  ofRun(runId: RunId): Promise<readonly JudgeDisagreement[]> {
+    return Promise.resolve(
+      [...this.stored.values()].filter((each) => each.runId.equals(runId)),
+    );
   }
 
-  async standing(
+  standing(
     after: JudgeDisagreementId | null,
     max: number,
   ): Promise<readonly JudgeDisagreement[]> {
-    return [...this.stored.values()]
-      .filter(
-        (each) =>
-          !each.isWithdrawn && (after === null || each.id.value > after.value),
-      )
-      .sort((a, b) => (a.id.value < b.id.value ? -1 : 1))
-      .slice(0, max);
+    return Promise.resolve(
+      [...this.stored.values()]
+        .filter(
+          (each) =>
+            !each.isWithdrawn &&
+            (after === null || each.id.value > after.value),
+        )
+        .sort((a, b) => (a.id.value < b.id.value ? -1 : 1))
+        .slice(0, max),
+    );
   }
 
-  async outdatedAtStation(
+  outdatedAtStation(
     stationId: StationId,
     current: RubricVersion | null,
     max: number,
   ): Promise<readonly JudgeDisagreement[]> {
-    return [...this.stored.values()]
-      .filter(
-        (each) =>
-          !each.isWithdrawn &&
-          each.location.stationId.equals(stationId) &&
-          each.rubricVersion !== current,
-      )
-      .slice(0, max);
-  }
-
-  async answeredAt(
-    criteria: AnsweredDisagreements,
-  ): Promise<readonly JudgeDisagreement[]> {
-    return [...this.stored.values()].filter(
-      (each) =>
-        each.location.stationId.equals(criteria.stationId) &&
-        each.rubricVersion === criteria.rubricVersion &&
-        !each.isWithdrawn &&
-        each.answeredAt !== null &&
-        (criteria.since === null ||
-          each.answeredAt.getTime() > criteria.since.getTime()),
+    return Promise.resolve(
+      [...this.stored.values()]
+        .filter(
+          (each) =>
+            !each.isWithdrawn &&
+            each.location.stationId.equals(stationId) &&
+            each.rubricVersion !== current,
+        )
+        .slice(0, max),
     );
   }
 
-  async ofScope(
+  answeredAt(
+    criteria: AnsweredDisagreements,
+  ): Promise<readonly JudgeDisagreement[]> {
+    return Promise.resolve(
+      [...this.stored.values()].filter(
+        (each) =>
+          each.location.stationId.equals(criteria.stationId) &&
+          each.rubricVersion === criteria.rubricVersion &&
+          !each.isWithdrawn &&
+          each.answeredAt !== null &&
+          (criteria.since === null ||
+            each.answeredAt.getTime() > criteria.since.getTime()),
+      ),
+    );
+  }
+
+  ofScope(
     scope: DeletionScope,
     max: number,
   ): Promise<readonly JudgeDisagreement[]> {
-    return inScope(
-      this.stored,
-      scope,
-      (each) => ({
-        workspaceId: each.workspaceId,
-        teamId: each.location.teamId,
-        taskId: each.location.taskId,
-      }),
-      max,
+    return Promise.resolve(
+      inScope(
+        this.stored,
+        scope,
+        (each) => ({
+          workspaceId: each.workspaceId,
+          teamId: each.location.teamId,
+          taskId: each.location.taskId,
+        }),
+        max,
+      ),
     );
   }
 }
@@ -257,7 +276,7 @@ export class ClaimsRevisionsInMemory implements ClaimsRevisionRepository {
   readonly stored = new Map<string, ClaimsRevision>();
   readonly events: DomainEvent[] = [];
 
-  async add(revision: ClaimsRevision): Promise<void> {
+  add(revision: ClaimsRevision): Promise<void> {
     const open = [...this.stored.values()].some(
       (each) =>
         each.endedAt === null &&
@@ -265,79 +284,91 @@ export class ClaimsRevisionsInMemory implements ClaimsRevisionRepository {
     );
 
     if (this.stored.has(revision.id.value) || open) {
-      throw new ClaimsRevisionVersionConflictError(revision.id.value);
+      return Promise.reject(
+        new ClaimsRevisionVersionConflictError(revision.id.value),
+      );
     }
     this.events.push(...revision.pullEvents());
     this.stored.set(revision.id.value, revision);
+
+    return Promise.resolve();
   }
 
-  async save(revision: ClaimsRevision): Promise<void> {
+  save(revision: ClaimsRevision): Promise<void> {
     const existing = this.stored.get(revision.id.value);
 
     if (!existing || existing.version !== revision.version) {
-      throw new ClaimsRevisionVersionConflictError(revision.id.value);
+      return Promise.reject(
+        new ClaimsRevisionVersionConflictError(revision.id.value),
+      );
     }
     if (revision.isDeleted) {
       this.stored.delete(revision.id.value);
-      return;
+      return Promise.resolve();
     }
     this.events.push(...revision.pullEvents());
     this.stored.set(
       revision.id.value,
       revisionWithVersion(revision, revision.version + 1),
     );
+
+    return Promise.resolve();
   }
 
-  async find(id: ClaimsRevisionId): Promise<ClaimsRevision | null> {
-    return this.stored.get(id.value) ?? null;
+  find(id: ClaimsRevisionId): Promise<ClaimsRevision | null> {
+    return Promise.resolve(this.stored.get(id.value) ?? null);
   }
 
-  async latestAt(stationId: StationId): Promise<ClaimsRevision | null> {
-    return (
+  latestAt(stationId: StationId): Promise<ClaimsRevision | null> {
+    return Promise.resolve(
       [...this.stored.values()]
         .filter((each) => each.station.stationId.equals(stationId))
         .sort(
           (one, other) => other.startedAt.getTime() - one.startedAt.getTime(),
-        )[0] ?? null
+        )[0] ?? null,
     );
   }
 
-  async nextDueJob(now: Date): Promise<ClaimsRevision | null> {
-    return (
+  nextDueJob(now: Date): Promise<ClaimsRevision | null> {
+    return Promise.resolve(
       [...this.stored.values()]
-        .filter((each) => each.job?.isDue(now))
+        .filter((each) => each.job?.isDue(now) === true)
         .sort(
           (one, other) => one.startedAt.getTime() - other.startedAt.getTime(),
-        )[0] ?? null
+        )[0] ?? null,
     );
   }
 
-  async pickedBefore(
+  pickedBefore(
     pickedAt: Date,
     max: number,
   ): Promise<readonly ClaimsRevision[]> {
-    return [...this.stored.values()]
-      .filter(
-        (each) =>
-          each.endedAt === null &&
-          each.pickedAt !== null &&
-          each.pickedAt.getTime() < pickedAt.getTime(),
-      )
-      .slice(0, max);
+    return Promise.resolve(
+      [...this.stored.values()]
+        .filter(
+          (each) =>
+            each.endedAt === null &&
+            each.pickedAt !== null &&
+            each.pickedAt.getTime() < pickedAt.getTime(),
+        )
+        .slice(0, max),
+    );
   }
 
-  async ofScope(
+  ofScope(
     scope: DeletionScope,
     max: number,
   ): Promise<readonly ClaimsRevision[]> {
-    return inScope(
-      this.stored,
-      scope,
-      (each) => ({
-        workspaceId: each.station.workspaceId,
-        teamId: each.station.teamId,
-      }),
-      max,
+    return Promise.resolve(
+      inScope(
+        this.stored,
+        scope,
+        (each) => ({
+          workspaceId: each.station.workspaceId,
+          teamId: each.station.teamId,
+        }),
+        max,
+      ),
     );
   }
 }
@@ -349,54 +380,64 @@ export class ClaimsSourcesInMemory implements ClaimsSourceRepository {
   readonly stored = new Map<string, ClaimsSource>();
   readonly events: DomainEvent[] = [];
 
-  async find(
+  find(
     stationId: StationId,
     rubricVersion: RubricVersion,
   ): Promise<ClaimsSource | null> {
-    return this.stored.get(keyOf(stationId, rubricVersion)) ?? null;
-  }
-
-  async ofStation(stationId: StationId): Promise<readonly ClaimsSource[]> {
-    return [...this.stored.values()].filter((each) =>
-      each.station.stationId.equals(stationId),
+    return Promise.resolve(
+      this.stored.get(keyOf(stationId, rubricVersion)) ?? null,
     );
   }
 
-  async nextDueJob(now: Date): Promise<ClaimsSource | null> {
-    return (
+  ofStation(stationId: StationId): Promise<readonly ClaimsSource[]> {
+    return Promise.resolve(
+      [...this.stored.values()].filter((each) =>
+        each.station.stationId.equals(stationId),
+      ),
+    );
+  }
+
+  nextDueJob(now: Date): Promise<ClaimsSource | null> {
+    return Promise.resolve(
       [...this.stored.values()]
-        .filter((each) => each.job?.isDue(now))
+        .filter((each) => each.job?.isDue(now) === true)
         .sort(
           (one, other) => one.recordedAt.getTime() - other.recordedAt.getTime(),
-        )[0] ?? null
+        )[0] ?? null,
     );
   }
 
-  async add(source: ClaimsSource): Promise<void> {
+  add(source: ClaimsSource): Promise<void> {
     const key = keyOf(source.station.stationId, source.rubricVersion);
 
     if (this.stored.has(key)) {
-      throw new ClaimsSourceVersionConflictError(
-        source.station.stationId.value,
-        source.rubricVersion,
+      return Promise.reject(
+        new ClaimsSourceVersionConflictError(
+          source.station.stationId.value,
+          source.rubricVersion,
+        ),
       );
     }
     this.events.push(...source.pullEvents());
     this.stored.set(key, source);
+
+    return Promise.resolve();
   }
 
-  async save(source: ClaimsSource): Promise<void> {
+  save(source: ClaimsSource): Promise<void> {
     const key = keyOf(source.station.stationId, source.rubricVersion);
 
     if (this.stored.get(key)?.version !== source.version) {
-      throw new ClaimsSourceVersionConflictError(
-        source.station.stationId.value,
-        source.rubricVersion,
+      return Promise.reject(
+        new ClaimsSourceVersionConflictError(
+          source.station.stationId.value,
+          source.rubricVersion,
+        ),
       );
     }
     if (source.isDeleted) {
       this.stored.delete(key);
-      return;
+      return Promise.resolve();
     }
     this.events.push(...source.pullEvents());
     this.stored.set(
@@ -413,20 +454,21 @@ export class ClaimsSourcesInMemory implements ClaimsSourceRepository {
         version: source.version + 1,
       }),
     );
+
+    return Promise.resolve();
   }
 
-  async ofScope(
-    scope: DeletionScope,
-    max: number,
-  ): Promise<readonly ClaimsSource[]> {
-    return inScope(
-      this.stored,
-      scope,
-      (each) => ({
-        workspaceId: each.station.workspaceId,
-        teamId: each.station.teamId,
-      }),
-      max,
+  ofScope(scope: DeletionScope, max: number): Promise<readonly ClaimsSource[]> {
+    return Promise.resolve(
+      inScope(
+        this.stored,
+        scope,
+        (each) => ({
+          workspaceId: each.station.workspaceId,
+          teamId: each.station.teamId,
+        }),
+        max,
+      ),
     );
   }
 }

@@ -10,10 +10,16 @@ type Moving = {
   readonly from: DOMRect;
 };
 
+type NeedMoveResult = {
+  open: boolean;
+  transitioning: boolean;
+  toggle: () => void;
+};
+
 export function useNeedMove(
   head: RefObject<HTMLElement | null>,
   body: RefObject<HTMLElement | null>,
-) {
+): NeedMoveResult {
   const [open, setOpen] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const moving = useRef<Moving | null>(null);
@@ -23,9 +29,10 @@ export function useNeedMove(
     const shown = (open ? body : head).current?.querySelector<HTMLElement>(
       NEED,
     );
-    moving.current = shown?.dataset.need
-      ? { need: shown.dataset.need, from: shown.getBoundingClientRect() }
-      : null;
+    moving.current =
+      shown?.dataset.need !== undefined && shown.dataset.need !== ''
+        ? { need: shown.dataset.need, from: shown.getBoundingClientRect() }
+        : null;
     setOpen((was) => !was);
   };
   useLayoutEffect(() => {
@@ -35,13 +42,15 @@ export function useNeedMove(
       `[data-need="${move?.need}"]`,
     );
 
+    const firstShown = body.current?.firstElementChild;
+
     stopTransition.current?.();
     stopTransition.current =
       move && target
         ? transitionMove(
             move.from,
             target,
-            body.current?.firstElementChild as HTMLElement | null,
+            firstShown instanceof HTMLElement ? firstShown : null,
             (end) =>
               end === 'finished'
                 ? flushSync(() => setTransitioning(false))

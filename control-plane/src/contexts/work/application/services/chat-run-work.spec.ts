@@ -1,5 +1,6 @@
 import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -31,13 +32,13 @@ const chat = Chat.start({
   newId: () => 'chat_1',
 });
 
-const onBranch = vi.fn(async () => null);
+const onBranch = vi.fn(() => Promise.resolve(null));
 
 const work = new ChatRunWork(
-  {} as LeasedRunFacts,
+  partial<LeasedRunFacts>({}),
   chat,
-  {} as unknown as ChatRepository,
-  { onBranch } as unknown as TaskRepository,
+  partial<ChatRepository>({}),
+  partial<TaskRepository>({ onBranch }),
   defaultBranchIs('main'),
 );
 
@@ -63,13 +64,13 @@ describe('the work of a chat run', () => {
   });
 
   it('lets the probe before a large push through without asking GitHub', async () => {
-    const asked = vi.fn(async () => 'main');
+    const asked = vi.fn(() => Promise.resolve('main'));
     const probing = new ChatRunWork(
-      {} as LeasedRunFacts,
+      partial<LeasedRunFacts>({}),
       chat,
-      {} as unknown as ChatRepository,
-      { onBranch } as unknown as TaskRepository,
-      { defaultBranchNameOf: asked } as unknown as RepositorySettingsPort,
+      partial<ChatRepository>({}),
+      partial<TaskRepository>({ onBranch }),
+      partial<RepositorySettingsPort>({ defaultBranchNameOf: asked }),
     );
 
     await expect(
@@ -80,15 +81,15 @@ describe('the work of a chat run', () => {
 
   it('refuses a push it cannot check while GitHub does not answer', async () => {
     const offline = new ChatRunWork(
-      {} as LeasedRunFacts,
+      partial<LeasedRunFacts>({}),
       chat,
-      {} as unknown as ChatRepository,
-      { onBranch } as unknown as TaskRepository,
-      {
-        defaultBranchNameOf: async () => {
-          throw new Error('rate limited');
+      partial<ChatRepository>({}),
+      partial<TaskRepository>({ onBranch }),
+      partial<RepositorySettingsPort>({
+        defaultBranchNameOf: () => {
+          return Promise.reject(new Error('rate limited'));
         },
-      } as unknown as RepositorySettingsPort,
+      }),
     );
 
     await expect(

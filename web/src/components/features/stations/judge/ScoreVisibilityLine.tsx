@@ -1,4 +1,5 @@
 import { Eye, EyeOff } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { ScoreVisibility } from '@/lib/judge';
@@ -8,7 +9,7 @@ export function ScoreVisibilityLine({
   visibility,
 }: {
   visibility: ScoreVisibility;
-}) {
+}): ReactElement {
   const Icon = visibility.hidden ? EyeOff : Eye;
 
   return (
@@ -26,7 +27,9 @@ export function ScoreVisibilityLine({
       />
       <span className="flex items-center gap-1.5">
         {visibility.text}
-        {visibility.reason && <InfoTooltip tooltip={visibility.reason} />}
+        {visibility.reason !== null && visibility.reason !== '' && (
+          <InfoTooltip tooltip={visibility.reason} />
+        )}
       </span>
     </p>
   );

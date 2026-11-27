@@ -2,7 +2,15 @@ import { useEffect, useRef } from 'react';
 
 const HOVER_INTENT_MS = 80;
 
-export function useOpenIntent(intent: (() => void) | undefined) {
+type OpenIntentResult = {
+  onPointerEnter?: () => void;
+  onPointerLeave?: () => void;
+  onFocusCapture?: () => void;
+};
+
+export function useOpenIntent(
+  intent: (() => void) | undefined,
+): OpenIntentResult {
   const timer = useRef<number | undefined>(undefined);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);

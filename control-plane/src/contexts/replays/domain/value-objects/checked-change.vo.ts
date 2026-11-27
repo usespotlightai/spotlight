@@ -1,7 +1,7 @@
 import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 
 export class CheckedChange {
-  private readonly kind = 'checked-change';
+  private readonly kind: string = 'checked-change';
 
   private constructor(readonly value: string) {}
 

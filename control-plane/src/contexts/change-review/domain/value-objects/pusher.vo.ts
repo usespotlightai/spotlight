@@ -4,7 +4,7 @@ export class Pusher {
   static of(login: string | null): Pusher | null {
     const trimmed = login?.trim();
 
-    return trimmed ? new Pusher(trimmed) : null;
+    return trimmed !== undefined && trimmed !== '' ? new Pusher(trimmed) : null;
   }
 
   equals(other: Pusher): boolean {

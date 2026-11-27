@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 import type { SpecOperationReader } from '@integrations/infrastructure/integrations/operation-cache';
@@ -15,13 +16,13 @@ export class DrizzleSpecOperations implements SpecOperationReader {
     hash: ContentHash,
     name: string,
   ): Promise<SpecOperation | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select({ operation: specOperation.operation })
       .from(specOperation)
       .where(
         and(eq(specOperation.hash, hash.value), eq(specOperation.name, name)),
       )
-      .limit(1);
+      .limit(1));
 
     return found ? operationOf(name, found.operation) : null;
   }

@@ -1,6 +1,9 @@
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
+const segmentsOf = (path: string): readonly (string | undefined)[] =>
+  path.replace(/^\/+/, '').split('/');
+
 export class PullRequestUrl {
   private constructor(readonly value: string) {}
 
@@ -23,9 +26,16 @@ export class PullRequestUrl {
       return null;
     }
 
-    const [owner, name, kind, number] = path.replace(/^\/+/, '').split('/');
+    const [owner, name, kind, number] = segmentsOf(path);
 
-    if (!owner || !name || kind !== 'pull' || !/^\d+$/.test(number ?? '')) {
+    if (
+      owner === undefined ||
+      owner === '' ||
+      name === undefined ||
+      name === '' ||
+      kind !== 'pull' ||
+      !/^\d+$/.test(number ?? '')
+    ) {
       return null;
     }
 
@@ -45,7 +55,7 @@ export class PullRequestUrl {
       return null;
     }
 
-    const [, , kind, number] = path.replace(/^\/+/, '').split('/');
+    const [, , kind, number] = segmentsOf(path);
 
     return kind === 'pull' && /^\d+$/.test(number ?? '')
       ? Number(number)

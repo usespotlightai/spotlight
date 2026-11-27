@@ -3,7 +3,7 @@ import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runne
 const MOST = 10_000;
 
 export class MaxRuns {
-  private readonly kind = 'max-runs';
+  private readonly kind: string = 'max-runs';
 
   private constructor(readonly value: number) {}
 

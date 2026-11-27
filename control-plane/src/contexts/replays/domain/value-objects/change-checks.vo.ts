@@ -4,6 +4,7 @@ import {
   NOT_GENERATED,
 } from '@replays/domain/value-objects/check-skip';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 const STACK_STATES = [
   'generating',
@@ -28,10 +29,12 @@ export interface StackStatus {
 const generationSpentOn = (
   stacks: readonly StackStatus[],
 ): ModelSpent | null => {
-  const [first, ...rest] = stacks;
+  const first = firstOf(stacks);
 
-  return first
-    ? rest.reduce((spent, each) => spent.plus(each.spent), first.spent)
+  return first !== undefined
+    ? stacks
+        .slice(1)
+        .reduce((spent, each) => spent.plus(each.spent), first.spent)
     : null;
 };
 
@@ -51,7 +54,9 @@ const isChecksState = (raw: string): raw is ChecksState =>
   (CHECKS_STATES as readonly string[]).includes(raw);
 
 const named = (stack: StackStatus, name: string, many: boolean): string =>
-  many && stack.repository ? `${stack.repository}: ${name}` : name;
+  many && stack.repository !== null && stack.repository !== ''
+    ? `${stack.repository}: ${name}`
+    : name;
 
 export class ChangeChecks {
   private constructor(

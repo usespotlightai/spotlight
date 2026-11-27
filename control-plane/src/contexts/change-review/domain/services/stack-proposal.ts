@@ -10,6 +10,7 @@ import {
   movedGroups,
   withMovedCodeTogether,
 } from '@change-review/domain/services/moved-code';
+import { nonEmpty } from '@change-review/domain/services/non-empty';
 import { PreviousStack } from '@change-review/domain/services/previous-stack';
 import { keptQuestions } from '@change-review/domain/services/shown-questions';
 import {
@@ -72,7 +73,7 @@ const numbered = (
       kind: cohort.kind,
       title: cohort.title.trim(),
       intent: cohort.intent.trim(),
-      joinedBecause: cohort.joinedBecause?.trim() || null,
+      joinedBecause: nonEmpty(cohort.joinedBecause?.trim()),
       layers: cohort.layers.map((layer, l) => {
         const layerId = LayerId.in(cohortId, l + 1);
 

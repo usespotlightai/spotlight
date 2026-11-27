@@ -46,7 +46,7 @@ export class SetAvatarHandler implements CommandHandlerPort<
       const digest = AvatarDigest.of(this.hash.sha256(image.bytes));
       const existing = await this.avatars.find(owned.owner);
 
-      if (existing?.shows(digest)) {
+      if (existing?.shows(digest) === true) {
         return { outcome: 'set', digest: digest.value };
       }
 

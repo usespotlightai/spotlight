@@ -1,5 +1,5 @@
 import { Check, ChevronsUpDown, UserRound } from 'lucide-react';
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { ShortcutHint } from '@/components/shared/shortcut/ShortcutHint';
@@ -153,7 +153,7 @@ export function AssigneePicker({
   task,
   variant = 'avatar',
   className,
-}: AssigneePickerProps) {
+}: AssigneePickerProps): ReactElement {
   const { data: members } = useMembers(teamId);
   const { mutate } = useAssignTask();
   const [open, setOpen] = useState(false);

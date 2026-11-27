@@ -1,10 +1,12 @@
+import type { ReactElement } from 'react';
+
 import {
   MEMORY_COLUMNS,
   MEMORY_WIDE_CELL,
 } from '@/components/features/memory/columns';
 import { cn } from '@/lib/utils';
 
-export function MemoryHead() {
+export function MemoryHead(): ReactElement {
   return (
     <div
       className={cn(

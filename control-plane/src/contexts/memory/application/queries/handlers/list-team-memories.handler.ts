@@ -24,7 +24,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 const pathOf = (raw: string | null): string | null => {
   try {
-    return raw?.trim() ? MemoryPath.of(raw).value : null;
+    return raw === null || raw.trim() === '' ? null : MemoryPath.of(raw).value;
   } catch (error) {
     if (error instanceof InvalidMemoryError) {
       return null;
@@ -33,8 +33,11 @@ const pathOf = (raw: string | null): string | null => {
   }
 };
 
-const textOf = (raw: string | null | undefined): string | null =>
-  raw?.trim() || null;
+const textOf = (raw: string | null | undefined): string | null => {
+  const trimmed = raw?.trim();
+
+  return trimmed === undefined || trimmed === '' ? null : trimmed;
+};
 
 const criteriaOf = (listing: MemoryListing): MemoryCriteria => {
   const kind = textOf(listing.kind);
@@ -44,10 +47,14 @@ const criteriaOf = (listing: MemoryListing): MemoryCriteria => {
 
   return {
     status: parseMemoryStatus(listing.status ?? 'active'),
-    kind: kind ? parseMemoryKind(kind) : null,
-    lineId: lineId ? LineId.of(lineId) : null,
-    stationId: stationId ? StationId.of(stationId) : null,
-    repository: repository ? Repository.of(repository) : null,
+    kind: kind !== null && kind !== '' ? parseMemoryKind(kind) : null,
+    lineId: lineId !== null && lineId !== '' ? LineId.of(lineId) : null,
+    stationId:
+      stationId !== null && stationId !== '' ? StationId.of(stationId) : null,
+    repository:
+      repository !== null && repository !== ''
+        ? Repository.of(repository)
+        : null,
     path: pathOf(listing.path),
   };
 };

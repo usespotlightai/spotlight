@@ -152,7 +152,8 @@ const headed = (delivery: GitHubDelivery, name: string): string | undefined => {
 const reviewCommentOf = (
   comment: CommentPayload | undefined,
 ): PullRequestReviewComment | null =>
-  comment && (text(comment.body) || text(comment.path))
+  comment !== undefined &&
+  (text(comment.body) !== null || text(comment.path) !== null)
     ? {
         body: text(comment.body)?.trim() ?? '',
         path: text(comment.path)?.trim() ?? null,
@@ -173,7 +174,7 @@ const detailsOf = (
 ): PullRequestDetails | null => {
   const title = text(pull?.title);
 
-  return pull && title
+  return pull && title !== null && title !== ''
     ? {
         title: title.trim(),
         body: text(pull.body)?.trim() ?? null,
@@ -193,7 +194,9 @@ const checkSuiteOf = (payload: Payload): CheckSuite | null => {
   const id = at(payload.check_suite?.id);
   const repository = text(payload.repository?.full_name);
 
-  return id !== null && repository ? { id, repository } : null;
+  return id !== null && repository !== null && repository !== ''
+    ? { id, repository }
+    : null;
 };
 
 const pullRequestActivity = (
@@ -266,7 +269,18 @@ const snapshotOf = (payload: Payload): PullRequestSnapshot | null => {
   const title = text(pull?.title);
   const openedAt = writtenAt(pull?.created_at);
 
-  if (!pull || !html || !fullName || !number || !title || !openedAt) {
+  if (
+    !pull ||
+    html === null ||
+    html === '' ||
+    fullName === null ||
+    fullName === '' ||
+    number === null ||
+    number === 0 ||
+    title === null ||
+    title === '' ||
+    !openedAt
+  ) {
     return null;
   }
 
@@ -328,7 +342,18 @@ const reviewComment = (payload: Payload): WebhookEvent[] => {
   const url = text(comment?.html_url);
   const path = text(comment?.path);
 
-  if (!comment || !action || !pullRequest || !id || !url || !path) {
+  if (
+    !comment ||
+    !action ||
+    pullRequest === null ||
+    pullRequest === '' ||
+    id === null ||
+    id === 0 ||
+    url === null ||
+    url === '' ||
+    path === null ||
+    path === ''
+  ) {
     return [];
   }
 
@@ -373,7 +398,14 @@ const conversationComment = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(payload.issue?.pull_request?.html_url);
   const id = at(comment?.id);
 
-  if (!comment || !action || !pullRequest || !id) {
+  if (
+    !comment ||
+    !action ||
+    pullRequest === null ||
+    pullRequest === '' ||
+    id === null ||
+    id === 0
+  ) {
     return [];
   }
 
@@ -397,7 +429,13 @@ const reviewThread = (payload: Payload): WebhookEvent[] => {
   const id = text(payload.thread?.node_id);
   const firstComment = payload.thread?.comments?.[0];
 
-  if (!pullRequest || resolved === undefined || !id) {
+  if (
+    pullRequest === null ||
+    pullRequest === '' ||
+    resolved === undefined ||
+    id === null ||
+    id === ''
+  ) {
     return [];
   }
 
@@ -422,7 +460,14 @@ const pullRequestClosed = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(pull?.html_url);
   const repository = text(payload.repository?.full_name);
 
-  if (payload.action !== 'closed' || !pull || !pullRequest || !repository) {
+  if (
+    payload.action !== 'closed' ||
+    !pull ||
+    pullRequest === null ||
+    pullRequest === '' ||
+    repository === null ||
+    repository === ''
+  ) {
     return [];
   }
 
@@ -449,7 +494,14 @@ const pullRequestReopened = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(pull?.html_url);
   const repository = text(payload.repository?.full_name);
 
-  if (payload.action !== 'reopened' || !pull || !pullRequest || !repository) {
+  if (
+    payload.action !== 'reopened' ||
+    !pull ||
+    pullRequest === null ||
+    pullRequest === '' ||
+    repository === null ||
+    repository === ''
+  ) {
     return [];
   }
 
@@ -474,10 +526,14 @@ const pullRequestPushed = (payload: Payload): WebhookEvent[] => {
 
   if (
     payload.action !== 'synchronize' ||
-    !pullRequest ||
-    !repository ||
-    !head ||
-    !baseTip ||
+    pullRequest === null ||
+    pullRequest === '' ||
+    repository === null ||
+    repository === '' ||
+    head === null ||
+    head === '' ||
+    baseTip === null ||
+    baseTip === '' ||
     !pushedAt
   ) {
     return [];
@@ -514,7 +570,13 @@ const pullRequestReviewed = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(payload.pull_request?.html_url);
   const state = reviewStateOf(review?.state);
 
-  if (payload.action !== 'submitted' || !review || !pullRequest || !state) {
+  if (
+    payload.action !== 'submitted' ||
+    !review ||
+    pullRequest === null ||
+    pullRequest === '' ||
+    !state
+  ) {
     return [];
   }
 
@@ -536,7 +598,12 @@ const reviewDismissed = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(payload.pull_request?.html_url);
   const id = at(payload.review?.id);
 
-  if (payload.action !== 'dismissed' || !pullRequest || id === null) {
+  if (
+    payload.action !== 'dismissed' ||
+    pullRequest === null ||
+    pullRequest === '' ||
+    id === null
+  ) {
     return [];
   }
 
@@ -559,7 +626,7 @@ const repositoryVisibility = (payload: Payload): WebhookEvent[] => {
   const visibility = VISIBILITY_ACTIONS.get(payload.action);
   const repository = text(payload.repository?.full_name);
 
-  return visibility && repository
+  return visibility && repository !== null && repository !== ''
     ? [{ kind: 'repository-visibility', repository, visibility }]
     : [];
 };

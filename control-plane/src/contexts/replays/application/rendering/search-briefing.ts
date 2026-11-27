@@ -40,7 +40,7 @@ const foundOf = (causes: readonly FailureCause[]): string[] =>
           '',
           ...causes.map(
             (each) =>
-              `- Task \`${each.taskId.value}\`: ${each.evidence}${each.suggestion ? ` Suggested: ${each.suggestion}` : ''}`,
+              `- Task \`${each.taskId.value}\`: ${each.evidence}${each.suggestion !== null && each.suggestion !== '' ? ` Suggested: ${each.suggestion}` : ''}`,
           ),
         ].join('\n'),
       ];

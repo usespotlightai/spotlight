@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { ReviewCommentState } from '@/components/features/review/ReviewCommentState';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
@@ -24,7 +24,7 @@ export function ReviewCommentItem({
   comment,
   first,
   onLeaving,
-}: ReviewCommentItemProps) {
+}: ReviewCommentItemProps): ReactElement | null {
   const reviewing = useReviewing();
   const [editing, setEditing] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -75,7 +75,9 @@ export function ReviewCommentItem({
               </span>
               <span className="text-faint">
                 {since(comment.createdAt)}
-                {comment.editedAt && ' · edited'}
+                {comment.editedAt !== null &&
+                  comment.editedAt !== '' &&
+                  ' · edited'}
               </span>
               <ReviewCommentState
                 comment={comment}

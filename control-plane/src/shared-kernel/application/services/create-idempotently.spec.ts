@@ -17,10 +17,10 @@ const CREATE = { by: 'user_1', key: IdempotencyKey.of('key-1'), request: {} };
 
 const reserving = (reservation: IdempotentReservation) => {
   const creates = {
-    reserve: vi.fn(async () => reservation),
+    reserve: vi.fn(() => Promise.resolve(reservation)),
     recordCreated: vi.fn(async () => {}),
   } satisfies IdempotentCreatesPort;
-  const make = vi.fn(async () => 'made_1');
+  const make = vi.fn(() => Promise.resolve('made_1'));
 
   return {
     creates,
@@ -76,7 +76,7 @@ describe('createIdempotently', () => {
 describe('lookupIdempotentCreate', () => {
   const lookingUp = (lookup: IdempotentLookup) =>
     lookupIdempotentCreate(
-      { lookup: async () => lookup } satisfies IdempotentLookupsPort,
+      { lookup: () => Promise.resolve(lookup) } satisfies IdempotentLookupsPort,
       CREATE,
     );
 

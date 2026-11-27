@@ -1,10 +1,11 @@
 import { InboxIcon } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 
-export function InboxEmpty({ slug }: { slug: string }) {
+export function InboxEmpty({ slug }: { slug: string }): ReactElement {
   const { data: workspace } = useWorkspace(slug);
 
   return (

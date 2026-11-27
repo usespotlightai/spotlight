@@ -14,7 +14,9 @@ export const formatReadProblem = ({
   kind,
   problem,
 }: ApiSpecViewResponseDto): string | null =>
-  problem ? `Its ${SPEC_KINDS[kind]} ${problem}.` : null;
+  problem !== null && problem !== ''
+    ? `Its ${SPEC_KINDS[kind]} ${problem}.`
+    : null;
 
 export const formatToolsRead = ({
   kind,

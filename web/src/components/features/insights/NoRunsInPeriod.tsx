@@ -1,5 +1,5 @@
 import { ChartNoAxesColumn } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { EmptyFrame } from '@/components/shared/EmptyFrame';
@@ -15,7 +15,7 @@ export function NoRunsInPeriod({
   slug,
   teamId,
   children,
-}: NoRunsInPeriodProps) {
+}: NoRunsInPeriodProps): ReactElement {
   return (
     <EmptyFrame>
       <EmptyState

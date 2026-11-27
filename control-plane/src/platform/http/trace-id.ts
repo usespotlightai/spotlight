@@ -10,7 +10,9 @@ export function traceIdOf(req: IncomingMessage): string | undefined {
   const value = Array.isArray(header) ? header[0] : header;
   const traceId = value?.match(TRACEPARENT)?.[1];
 
-  return traceId && traceId !== NIL_TRACE_ID ? traceId : undefined;
+  return traceId !== undefined && traceId !== '' && traceId !== NIL_TRACE_ID
+    ? traceId
+    : undefined;
 }
 
 export function activeTraceId(): string | undefined {

@@ -37,7 +37,7 @@ export class ConnectionRefresh {
     for (let round = 0; round <= watches; round++) {
       const found = await this.connections.of(teamId, integration, owner);
 
-      if (!found?.usable) {
+      if (found?.usable !== true) {
         return null;
       }
 
@@ -109,7 +109,9 @@ export class ConnectionRefresh {
     );
     const claim = claimed.refreshClaim;
 
-    return claim && current?.refreshClaim?.equals(claim) ? current : null;
+    return claim && current?.refreshClaim?.equals(claim) === true
+      ? current
+      : null;
   }
 
   private async refreshedToken(
@@ -195,7 +197,7 @@ export class ConnectionRefresh {
         claimed.owner,
       );
 
-      current = reloaded?.refreshesWith(used) ? reloaded : null;
+      current = reloaded?.refreshesWith(used) === true ? reloaded : null;
     }
   }
 }

@@ -354,7 +354,7 @@ export const factsOf = (
     const source = known.get(to);
 
     if (
-      !known.get(from)?.incidental &&
+      known.get(from)?.incidental !== true &&
       source?.fileClass === 'source' &&
       !source.incidental
     ) {
@@ -363,7 +363,10 @@ export const factsOf = (
   }
 
   for (const { kind, from, to, because } of indexed.links) {
-    if (!known.get(from)?.incidental && !known.get(to)?.incidental) {
+    if (
+      known.get(from)?.incidental !== true &&
+      known.get(to)?.incidental !== true
+    ) {
       link(kind, from, to, because);
     }
   }

@@ -4,7 +4,6 @@ import {
   STATION_ALERT_FIRED,
   type StationAlertFiredIntegrationEvent,
 } from '@shared-kernel/application/integration-events/station-alert-fired.integration-event';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { describe, expect, it } from 'vitest';
 
 import { autoSearched } from './support/app';
@@ -120,13 +119,15 @@ describe('searches Spotlight starts on its own', () => {
     await createSet(fiveTasks);
     await policyAt(searchedAt(), { iterations: 1, ceiling: 20 });
     await dueNow(searchedAt(), { lastStartedAt: null });
-    await delivered({
+    const fired: StationAlertFiredIntegrationEvent = {
       kind: STATION_ALERT_FIRED,
       alertId: randomUUID(),
       workspaceId: team.workspaceId.value,
       teamId: team.teamId.value,
       stationId: BUILD,
-    } as unknown as DomainEvent);
+    };
+
+    await delivered(fired);
 
     await Promise.all([autoSearched(app), autoSearched(app)]);
 
@@ -170,11 +171,15 @@ describe('searches Spotlight starts on its own', () => {
 
     const started = await activeSearchAt(searchedAt());
 
-    expect(started?.trigger).toBe('alert');
-    expect((await scheduleOf(searchedAt()))?.alertPendingSince).toBeNull();
-    expect((await searchOf(started?.id)).trigger).toBe('alert');
+    if (started === undefined) {
+      throw new Error('expected an active search');
+    }
 
-    await turnedOff(started?.id);
+    expect(started.trigger).toBe('alert');
+    expect((await scheduleOf(searchedAt()))?.alertPendingSince).toBeNull();
+    expect((await searchOf(started.id)).trigger).toBe('alert');
+
+    await turnedOff(started.id);
   }, 120_000);
 
   it('never holds out a task that an earlier automatic search of the station searched on', async () => {

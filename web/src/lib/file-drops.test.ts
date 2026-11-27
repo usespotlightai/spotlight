@@ -2,13 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { refuseStrayFileDrops } from '@/lib/file-drops';
 
-const dragged = (type: string, types: string[]) => {
-  const event = new Event(type, { bubbles: true, cancelable: true });
-  Object.defineProperty(event, 'dataTransfer', {
-    value: { types, dropEffect: 'copy' },
+const dragged = (type: string, types: string[]) =>
+  Object.assign(new Event(type, { bubbles: true, cancelable: true }), {
+    dataTransfer: { types, dropEffect: 'copy' },
   });
-  return event as DragEvent;
-};
 
 describe('refuseStrayFileDrops', () => {
   let stop = () => {};
@@ -24,7 +21,7 @@ describe('refuseStrayFileDrops', () => {
     document.body.dispatchEvent(drop);
 
     expect(over.defaultPrevented).toBe(true);
-    expect(over.dataTransfer?.dropEffect).toBe('none');
+    expect(over.dataTransfer.dropEffect).toBe('none');
     expect(drop.defaultPrevented).toBe(true);
   });
 
@@ -50,6 +47,6 @@ describe('refuseStrayFileDrops', () => {
     );
     document.body.dispatchEvent(over);
 
-    expect(over.dataTransfer?.dropEffect).toBe('copy');
+    expect(over.dataTransfer.dropEffect).toBe('copy');
   });
 });

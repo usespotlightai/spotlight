@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -18,7 +20,7 @@ export function AgentEffortMenu({
   efforts,
   effort,
   onEffort,
-}: AgentEffortMenuProps) {
+}: AgentEffortMenuProps): ReactElement | null {
   if (efforts.length === 0) {
     return null;
   }

@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import type { Server } from 'node:http';
 
 import {
   HocuspocusProvider,
@@ -8,6 +7,7 @@ import {
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
   LIVE_TASK_DRAFTS,
@@ -21,6 +21,7 @@ import { Doc } from 'yjs';
 
 import { openApp, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { httpServerOf, addressOf } from './support/http-server';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -32,19 +33,21 @@ const opened: { destroy(): void }[] = [];
 const signedInAs = (userId: string | null, origin?: string) =>
   class extends WebSocket {
     constructor(url: string | URL, protocols?: string | string[]) {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       super(url, {
         protocols,
         headers: {
-          ...(userId ? { [TEST_USER_HEADER]: userId } : {}),
-          ...(origin ? { origin } : {}),
+          ...(userId !== null && userId !== ''
+            ? { [TEST_USER_HEADER]: userId }
+            : {}),
+          ...(origin !== undefined && origin !== '' ? { origin } : {}),
         },
       } as never);
     }
   };
 
 const join = (userId: string | null, options: { origin?: string } = {}) => {
-  const port = ((app.getHttpServer() as Server).address() as { port: number })
-    .port;
+  const port = addressOf(httpServerOf(app)).port;
   const document = new Doc();
   const seen = { synced: false, refused: false };
   const websocketProvider = new HocuspocusProviderWebsocket({
@@ -83,21 +86,26 @@ afterAll(async () => {
   for (const each of opened) {
     each.destroy();
   }
-  await app?.close();
+  await app.close();
 });
 
 describe('the shared draft of a task', () => {
   it('lets two members of the workspace write it together', async () => {
     const ada = join(team.owner.value);
     const again = join(team.owner.value);
-    await eventually(async () => ada.seen.synced && again.seen.synced, 10_000);
+    await eventually(
+      () => Promise.resolve(ada.seen.synced && again.seen.synced),
+      10_000,
+    );
 
     ada.document.getText('t').insert(0, 'Cap the retries at 500.');
 
     await expect(
       eventually(
-        async () =>
-          again.document.getText('t').toJSON() === 'Cap the retries at 500.',
+        () =>
+          Promise.resolve(
+            again.document.getText('t').toJSON() === 'Cap the retries at 500.',
+          ),
         10_000,
       ),
     ).resolves.toBe(true);
@@ -106,7 +114,7 @@ describe('the shared draft of a task', () => {
   it('refuses a person who cannot see the workspace', async () => {
     const outsider = join(randomUUID());
 
-    await eventually(async () => outsider.seen.refused, 10_000);
+    await eventually(() => Promise.resolve(outsider.seen.refused), 10_000);
     expect(outsider.seen.synced).toBe(false);
   });
 
@@ -121,7 +129,7 @@ describe('the shared draft of a task', () => {
 
   it('knows who wrote, and tells every writer what was sent', async () => {
     const ada = join(team.owner.value);
-    await eventually(async () => ada.seen.synced, 10_000);
+    await eventually(() => Promise.resolve(ada.seen.synced), 10_000);
     ada.document.getMap('writers').set(team.owner.value, true);
     const live = app.get<LiveTaskDraftsPort>(LIVE_TASK_DRAFTS);
 
@@ -133,10 +141,12 @@ describe('the shared draft of a task', () => {
     await live.sent(team.list.id, DraftGeneration.of(1), 'Cap it.');
 
     await eventually(
-      async () =>
-        ada.document.getMap('meta').get('generation') === 1 &&
-        ada.document.getMap('meta').get('sent') === 'Cap it.' &&
-        ada.document.getMap('writers').size === 0,
+      () =>
+        Promise.resolve(
+          ada.document.getMap('meta').get('generation') === 1 &&
+            ada.document.getMap('meta').get('sent') === 'Cap it.' &&
+            ada.document.getMap('writers').size === 0,
+        ),
       10_000,
     );
     expect(await live.writers(team.list.id)).toEqual<UserId[]>([]);
@@ -149,10 +159,12 @@ describe('the shared draft of a task', () => {
 
     await expect(
       eventually(async () => {
-        const [row] = await db
-          .select()
-          .from(schema.taskDraftState)
-          .where(eq(schema.taskDraftState.taskId, team.list.id.value));
+        const row = firstOf(
+          await db
+            .select()
+            .from(schema.taskDraftState)
+            .where(eq(schema.taskDraftState.taskId, team.list.id.value)),
+        );
         return row !== undefined && row.state.byteLength > 0;
       }, 15_000),
     ).resolves.toBe(true);

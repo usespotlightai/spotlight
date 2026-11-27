@@ -34,7 +34,7 @@ const stretchesOf = (
       return stretches;
     }
 
-    const previous = visit[at - 1];
+    const previous = at > 0 ? visit.at(at - 1) : undefined;
 
     if (previous && !shown.has(previous.position)) {
       stretches.at(-1)?.push(note);
@@ -54,10 +54,10 @@ export const foldedAround = (
   const visits = visitsIn(trail);
 
   return visits.flatMap((visit, at) => {
-    const next = visits[at + 1]?.[0];
+    const next = visits.at(at + 1)?.at(0);
 
     return stretchesOf(visit, visible).flatMap((notes) => {
-      const first = notes[0];
+      const first = notes.at(0);
       const end = notes.at(-1);
 
       if (!first || !end) {

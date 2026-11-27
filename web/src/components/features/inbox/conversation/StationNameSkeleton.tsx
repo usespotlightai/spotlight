@@ -1,7 +1,9 @@
+import type { ReactElement } from 'react';
+
 import { StationIconSkeleton } from '@/components/features/board/column/StationIconSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
-export function StationNameSkeleton() {
+export function StationNameSkeleton(): ReactElement {
   return (
     <span className="flex items-center gap-1.5 text-xs">
       <StationIconSkeleton />

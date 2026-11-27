@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -56,25 +57,29 @@ const owning = (...pullRequests: PullRequestUrl[]) =>
 
 const tracking = (stored: readonly Task[]) => {
   const saved: Task[] = [];
-  const tasks = {
-    owningPullRequest: async (_at: WorkspaceId, pullRequest: PullRequestUrl) =>
-      stored.find((each) =>
-        each.pullRequests.some((owned) => owned.equals(pullRequest)),
-      ) ?? null,
-    save: async (each: Task) => {
+  const tasks = partial<TaskRepository>({
+    owningPullRequest: (_at: WorkspaceId, pullRequest: PullRequestUrl) =>
+      Promise.resolve(
+        stored.find((each) =>
+          each.pullRequests.some((owned) => owned.equals(pullRequest)),
+        ) ?? null,
+      ),
+    save: (each: Task) => {
       saved.push(each);
+
+      return Promise.resolve();
     },
-  } as unknown as TaskRepository;
+  });
 
   return {
     saved,
     handler: new TrackTaskPullRequests(
       tasks,
-      { findByStation: async () => line },
-      { placementsAt: async () => [] },
-      { runIdFor: async () => RunId.of('run_9') },
+      { findByStation: () => Promise.resolve(line) },
+      { placementsAt: () => Promise.resolve([]) },
+      { runIdFor: () => Promise.resolve(RunId.of('run_9')) },
       { inTransaction: (work) => work() },
-      { now: () => NOW, sleep: async () => undefined },
+      { now: () => NOW, sleep: () => Promise.resolve(undefined) },
     ),
   };
 };

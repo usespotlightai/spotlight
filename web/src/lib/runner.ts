@@ -73,9 +73,11 @@ export const withActivity = (
       const pooled = unhosted.filter(
         (runner) => poolKeyOf(runner.source) === key,
       );
-      const first = pooled[0];
+      const first = pooled.at(0);
 
-      return first ? [{ source: first.source, runners: pooled }] : [];
+      return first !== undefined
+        ? [{ source: first.source, runners: pooled }]
+        : [];
     }),
   };
 };
@@ -83,14 +85,15 @@ export const withActivity = (
 export const imageShortName = (image: string): string =>
   image.slice(image.lastIndexOf('/') + 1);
 
-export const runnersPath = (slug: string) => `${settingsPath(slug)}/runners`;
+export const runnersPath = (slug: string): string =>
+  `${settingsPath(slug)}/runners`;
 
-export const addHostPath = (slug: string) => `${runnersPath(slug)}/new`;
+export const addHostPath = (slug: string): string => `${runnersPath(slug)}/new`;
 
-export const installCommand = (token: string) =>
+export const installCommand = (token: string): string =>
   `curl -fsSL ${window.location.origin}/api/install.sh | sh -s -- --token ${token}`;
 
-export const onlineCount = (fleet: Fleet) =>
+export const onlineCount = (fleet: Fleet): number =>
   fleet.hosts.filter((host) => host.online).length;
 
 export const hostStatus = (host: Host): string => {
@@ -169,7 +172,10 @@ export const servedBy = (
 ): NamedHarness[] =>
   namedHarnesses(
     host.images
-      .filter((image) => !image.unavailableReason)
+      .filter(
+        (image) =>
+          image.unavailableReason === null || image.unavailableReason === '',
+      )
       .flatMap((image) => image.harnesses)
       .filter(
         (each, at, all) =>
@@ -199,9 +205,8 @@ export type RunnerFilter = (typeof RUNNER_FILTERS)[number]['id'];
 export const FALLBACK_RUNNER_FILTER: RunnerFilter = 'all';
 
 export const asRunnerFilter = (raw: string): RunnerFilter =>
-  RUNNER_FILTERS.some((filter) => filter.id === raw)
-    ? (raw as RunnerFilter)
-    : FALLBACK_RUNNER_FILTER;
+  RUNNER_FILTERS.find((filter) => filter.id === raw)?.id ??
+  FALLBACK_RUNNER_FILTER;
 
 export const hostInFilter = (filter: RunnerFilter, host: Host): boolean => {
   switch (filter) {
@@ -382,7 +387,9 @@ export const warmSandboxLabel = (
 ): string => {
   const what = count === 1 ? 'Warm sandbox' : `${count} warm sandboxes`;
 
-  return lineName ? `${what} for ${lineName}` : what;
+  return lineName !== undefined && lineName !== ''
+    ? `${what} for ${lineName}`
+    : what;
 };
 
 export const idleSandboxLabel = (sandbox: IdleSandbox): string =>
@@ -413,7 +420,7 @@ export const sandboxStatusTip = (
   }
 
   return isWarm(sandbox)
-    ? `Sandbox has ${lineName ? `${lineName}’s` : 'this line’s'} repositories set up. It takes the first run of a task on this line.`
+    ? `Sandbox has ${lineName !== undefined && lineName !== '' ? `${lineName}’s` : 'this line’s'} repositories set up. It takes the first run of a task on this line.`
     : 'Sandbox holds this task’s workspace for its next run.';
 };
 

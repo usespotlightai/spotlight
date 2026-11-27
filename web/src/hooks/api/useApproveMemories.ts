@@ -1,8 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { memoryReviewKeys } from '@/hooks/api/useMemoryReview';
-import { approveMemories } from '@/lib/api';
+import { approveMemories, type MemoryReviewResponseDto } from '@/lib/api';
 import { decidedMemories, type ProposedMemory } from '@/lib/memory';
 
 type ApproveMemoriesInput = {
@@ -13,7 +17,12 @@ type ApproveMemoriesInput = {
   memories: readonly { id: string; body?: string }[];
 };
 
-export function useApproveMemories() {
+export function useApproveMemories(): UseMutationResult<
+  MemoryReviewResponseDto,
+  Error,
+  ApproveMemoriesInput,
+  void
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

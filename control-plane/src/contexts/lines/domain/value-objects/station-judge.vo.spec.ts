@@ -93,6 +93,9 @@ describe('StationJudge', () => {
     const error = errorOf(over);
 
     expect(error).toBeInstanceOf(InvalidStationJudgeError);
-    expect((error as InvalidStationJudgeError).field).toBe(field);
+    if (!(error instanceof InvalidStationJudgeError)) {
+      throw new Error('expected InvalidStationJudgeError');
+    }
+    expect(error.field).toBe(field);
   });
 });

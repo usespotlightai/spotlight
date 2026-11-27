@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { FACT_LABEL, FactRow } from '@/components/shared/FactRow';
 import { RadioRow } from '@/components/shared/form/RadioRow';
 import {
@@ -18,7 +20,7 @@ export function ClaimAnswerRow({
   answer,
   pending,
   onAnswer,
-}: ClaimAnswerRowProps) {
+}: ClaimAnswerRowProps): ReactElement {
   return (
     <FactRow wide>
       <dt className={FACT_LABEL}>{ANSWER_LABEL}</dt>

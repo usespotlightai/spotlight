@@ -11,7 +11,19 @@ import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.conte
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { EventProjection } from '@shared-kernel/application/ports/event-projection.port';
 
-export const projectedInsights = (context: DrizzleContext) => {
+export interface ProjectedInsights {
+  readonly dispatcher: DomainEventDispatcher;
+  readonly records: DrizzleRunRecordRepository;
+  readonly taskActions: DrizzleTaskActionsRepository;
+  readonly pullRequests: DrizzlePullRequestRecordRepository;
+  readonly shapes: DrizzleTaskChangeShapeRepository;
+  readonly runFacts: ProjectRunFacts;
+  readonly pullRequestFacts: ProjectPullRequestFacts;
+}
+
+export const projectedInsights = (
+  context: DrizzleContext,
+): ProjectedInsights => {
   let projections: readonly EventProjection[] = [];
   const dispatcher: DomainEventDispatcher = {
     dispatch: async (events) => {

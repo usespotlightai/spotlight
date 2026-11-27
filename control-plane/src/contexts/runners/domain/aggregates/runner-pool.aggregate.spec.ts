@@ -69,7 +69,10 @@ describe('RunnerPool', () => {
     const [created] = aPullPool().pullEvents();
 
     expect(created).toBeInstanceOf(RunnerPoolCreated);
-    expect((created as RunnerPoolCreated).change.detail?.recorded()).toEqual({
+    if (!(created instanceof RunnerPoolCreated)) {
+      throw new Error('expected RunnerPoolCreated');
+    }
+    expect(created.change.detail?.recorded()).toEqual({
       mode: 'pull',
     });
   });
@@ -252,7 +255,10 @@ describe('RunnerPool', () => {
     const [deleted] = pool.delete(BY).pullEvents();
 
     expect(deleted).toBeInstanceOf(RunnerPoolDeleted);
-    expect((deleted as RunnerPoolDeleted).change.action).toBe('deleted');
+    if (!(deleted instanceof RunnerPoolDeleted)) {
+      throw new Error('expected RunnerPoolDeleted');
+    }
+    expect(deleted.change.action).toBe('deleted');
   });
 
   it('rejects a write from a version that is no longer current', () => {

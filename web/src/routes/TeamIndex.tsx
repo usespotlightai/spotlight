@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Navigate, useParams } from 'react-router';
 
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -11,11 +12,16 @@ import {
   teamSectionPath,
 } from '@/lib/team';
 
-export function TeamIndex() {
+export function TeamIndex(): ReactElement | null {
   const { slug, teamId } = useParams();
   const lines = useLines(teamId);
 
-  if (!slug || !teamId) {
+  if (
+    slug === undefined ||
+    slug === '' ||
+    teamId === undefined ||
+    teamId === ''
+  ) {
     return null;
   }
 
@@ -43,7 +49,7 @@ export function TeamIndex() {
     );
   }
 
-  const [first] = lines.data ?? [];
+  const first = lines.data?.at(0);
 
   return (
     <Navigate

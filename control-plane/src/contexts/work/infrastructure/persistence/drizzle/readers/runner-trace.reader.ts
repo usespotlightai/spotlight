@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import {
@@ -27,14 +28,18 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
   ) {}
 
   async teamOfTask(taskId: TaskId): Promise<TeamId | null> {
-    const [row] = await this.db
-      .select({ teamId: workStation.teamId })
-      .from(task)
-      .innerJoin(workStation, eq(workStation.stationId, task.stationId))
-      .where(eq(task.id, taskId.value))
-      .limit(1);
+    const row = firstOf(
+      await this.db
+        .select({ teamId: workStation.teamId })
+        .from(task)
+        .innerJoin(workStation, eq(workStation.stationId, task.stationId))
+        .where(eq(task.id, taskId.value))
+        .limit(1),
+    );
 
-    return row?.teamId ? TeamId.of(row.teamId) : null;
+    return row !== undefined && row.teamId !== ''
+      ? TeamId.of(row.teamId)
+      : null;
   }
 
   async runsForTask(taskId: TaskId): Promise<TaskRunSummary[]> {

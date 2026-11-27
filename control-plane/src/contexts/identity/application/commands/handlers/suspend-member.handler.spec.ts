@@ -7,6 +7,7 @@ import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo'
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -40,17 +41,18 @@ const acme = () =>
 
 const handling = (workspace: Workspace | null = acme()) => {
   const dispatched: DomainEvent[] = [];
-  const save = vi.fn(async (saved: Workspace) => {
+  const save = vi.fn((saved: Workspace) => {
     dispatched.push(...saved.pullEvents());
+    return Promise.resolve();
   });
   const info = vi.fn();
   const handler = new SuspendMemberHandler(
-    {
-      findBySlug: async () => workspace,
+    partial<WorkspaceRepository>({
+      findBySlug: () => Promise.resolve(workspace),
       save,
-    } as unknown as WorkspaceRepository,
+    }),
     { now: () => NOW, sleep: async () => {} },
-    { info } as unknown as LoggerPort,
+    partial<LoggerPort>({ info }),
   );
 
   return { handler, save, dispatched, info };

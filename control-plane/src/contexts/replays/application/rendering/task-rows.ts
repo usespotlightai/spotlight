@@ -12,6 +12,7 @@ import type {
 } from '@replays/domain/value-objects/entry-reason';
 import type { EntryOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 
 const MAX_REASON = 200;
@@ -101,15 +102,15 @@ const FALLBACKS: Readonly<Record<TaskResult, string>> = {
   absent: 'Not replayed.',
 };
 
-const lookup = <T extends string>(
-  table: Readonly<Record<T, string>>,
+const lookup = (
+  table: Readonly<Record<string, string>>,
   code: string,
-): string => (code in table ? table[code as T] : code);
+): string => (code in table ? table[code] : code);
 
 const detailOf = (reason: EntryReason): string | null => {
   const { detail } = reason;
 
-  if (!detail) {
+  if (detail === null || detail === '') {
     return null;
   }
 
@@ -146,9 +147,10 @@ const oneLine = (text: string): string => {
 
 const sentenceOf = (reason: EntryReason): string => {
   const detail = detailOf(reason);
-  const text = detail
-    ? `${REASONS[reason.code]}: ${detail}`
-    : REASONS[reason.code];
+  const text =
+    detail !== null && detail !== ''
+      ? `${REASONS[reason.code]}: ${detail}`
+      : REASONS[reason.code];
 
   return oneLine(/[.!?…]$/.test(text) ? text : `${text}.`);
 };
@@ -189,10 +191,11 @@ const sideOf = (
   success: number | null,
 ): TaskSide => {
   const result = resultOf(repeats, success);
-  const [reason] =
+  const reason = firstOf(
     result === 'pending'
       ? []
-      : (repeats.find(SHOWN_REPEAT[result])?.reasons ?? []);
+      : (repeats.find(SHOWN_REPEAT[result])?.reasons ?? []),
+  );
 
   return {
     result,

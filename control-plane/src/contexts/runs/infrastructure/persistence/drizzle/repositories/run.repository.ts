@@ -52,6 +52,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
@@ -274,15 +275,17 @@ export class DrizzleRunRepository implements RunRepository {
     workspaceId: WorkspaceId,
     key: WorkingCopyKey,
   ): Promise<Run | null> {
-    const [row] = await this.selected()
-      .where(
-        and(
-          eq(run.workspaceId, workspaceId.value),
-          eq(run.workingCopyKey, key.value),
-        ),
-      )
-      .orderBy(desc(run.createdAt), desc(run.id))
-      .limit(1);
+    const row = firstOf(
+      await this.selected()
+        .where(
+          and(
+            eq(run.workspaceId, workspaceId.value),
+            eq(run.workingCopyKey, key.value),
+          ),
+        )
+        .orderBy(desc(run.createdAt), desc(run.id))
+        .limit(1),
+    );
 
     return row ? toRun(row) : null;
   }
@@ -333,7 +336,9 @@ export class DrizzleRunRepository implements RunRepository {
   }
 
   async findById(id: RunId): Promise<Run | null> {
-    const [row] = await this.selected().where(eq(run.id, id.value)).limit(1);
+    const row = firstOf(
+      await this.selected().where(eq(run.id, id.value)).limit(1),
+    );
 
     return row ? toRun(row) : null;
   }
@@ -398,9 +403,11 @@ export class DrizzleRunRepository implements RunRepository {
   }
 
   async reservedFor(runner: RunnerId): Promise<Run | null> {
-    const [found] = await this.selected()
-      .where(and(eq(run.state, 'queued'), eq(run.reservedFor, runner.value)))
-      .limit(1);
+    const found = firstOf(
+      await this.selected()
+        .where(and(eq(run.state, 'queued'), eq(run.reservedFor, runner.value)))
+        .limit(1),
+    );
 
     return found ? toRun(found) : null;
   }
@@ -572,7 +579,11 @@ const reservationOf = (saving: Run) => ({
 });
 
 const reservationFrom = (row: Row): RunnerReservation | null =>
-  row.reservedFor && row.reservedPool && row.reservedUntil
+  row.reservedFor !== null &&
+  row.reservedFor !== '' &&
+  row.reservedPool !== null &&
+  row.reservedPool !== '' &&
+  row.reservedUntil
     ? RunnerReservation.of(
         RunnerId.of(row.reservedFor),
         PoolId.of(row.reservedPool),
@@ -665,7 +676,10 @@ const turnFrom = (row: Row): RunTurn | null => {
             ),
           })
         : null,
-      session: session ? HarnessSession.of(session) : null,
+      session:
+        typeof session === 'string' && session !== ''
+          ? HarnessSession.of(session)
+          : null,
       heads: heads.map((each) => CheckoutHead.rehydrate(each)),
     }),
     reportedBy: RunnerId.of(reportedBy),
@@ -696,7 +710,10 @@ export const toRun = ({ run: row }: Selected): Run =>
       kind: row.requesterKind,
       id: row.requesterId,
       token: row.requesterToken,
-      team: row.teamId ? TeamId.of(row.teamId) : null,
+      team:
+        row.teamId !== null && row.teamId !== ''
+          ? TeamId.of(row.teamId)
+          : null,
     }),
     policy: RunPolicy.of({
       holdsTurn: row.holdsTurn,
@@ -707,9 +724,10 @@ export const toRun = ({ run: row }: Selected): Run =>
       exclusive: row.exclusive,
     }),
     workingCopy: workingCopyFrom(row),
-    restore: row.restoreArchiveId
-      ? WorkingCopyArchiveId.of(row.restoreArchiveId)
-      : null,
+    restore:
+      row.restoreArchiveId !== null && row.restoreArchiveId !== ''
+        ? WorkingCopyArchiveId.of(row.restoreArchiveId)
+        : null,
     extensions: storedAs(row.id, () => RunExtensions.of(row.extensions)),
     tags: storedAs(row.id, () => RunTags.of(row.tags)),
     line: row.lineId === null ? null : LineId.of(row.lineId),
@@ -721,10 +739,15 @@ export const toRun = ({ run: row }: Selected): Run =>
     spec: RunSpecPersistence.fromRow(row.spec),
     placement: RunnerPlacement.ofLabelGroups(
       row.placement,
-      row.placementImage ? RunnerImage.of(row.placementImage) : null,
+      row.placementImage !== null && row.placementImage !== ''
+        ? RunnerImage.of(row.placementImage)
+        : null,
     ),
     state: row.state,
-    claimedBy: row.claimedBy ? RunnerId.of(row.claimedBy) : null,
+    claimedBy:
+      row.claimedBy !== null && row.claimedBy !== ''
+        ? RunnerId.of(row.claimedBy)
+        : null,
     leaseExpiresAt: row.leaseExpiresAt,
     stopRequestedAt: row.stopRequestedAt,
     reservation: reservationFrom(row),
@@ -737,14 +760,20 @@ export const toRun = ({ run: row }: Selected): Run =>
         ? null
         : RunOutcome.rehydrate({
             exitCode: ExitCode.of(row.exitCode),
-            failure: row.failure ? RunFailure.of(row.failure) : null,
+            failure:
+              row.failure !== null && row.failure !== ''
+                ? RunFailure.of(row.failure)
+                : null,
             detail: row.detail,
             attempts: row.failureAttempts,
             stopped: row.stopped,
           }),
     attempt: row.attempt,
     requeueCount: RequeueCount.rehydrate(row.requeueCount, row.claimableFrom),
-    ranIn: row.ranIn ? RunnerImage.of(row.ranIn) : null,
+    ranIn:
+      row.ranIn !== null && row.ranIn !== ''
+        ? RunnerImage.of(row.ranIn)
+        : null,
     suspendedAttempts: row.suspendedAttempts,
     startedAt: row.startedAt,
     startedFrom: startFrom(row),

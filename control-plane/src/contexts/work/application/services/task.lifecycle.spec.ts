@@ -1,6 +1,7 @@
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { itemAt } from '@shared-kernel/domain/item-at';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -344,13 +345,15 @@ interface World {
 
 const RANK = TaskRank.of('i');
 
-const placements: TaskPlacementsPort = { placementsAt: async () => [] };
-const facts: RunFactsPort = { of: async () => [] };
+const placements: TaskPlacementsPort = {
+  placementsAt: () => Promise.resolve([]),
+};
+const facts: RunFactsPort = { of: () => Promise.resolve([]) };
 
 const servicesOf = (world: World) => {
   const clock: ClockPort = { now: () => world.now, sleep: async () => {} };
   const dispatch: TaskDispatching = {
-    runIdFor: async () => RunId.of(`run_${++world.runs}`),
+    runIdFor: () => Promise.resolve(RunId.of(`run_${++world.runs}`)),
   };
 
   return {
@@ -381,7 +384,7 @@ const handoverOf = (task: Task, ending: Ending, choice: number) => {
 
   switch (ending) {
     case 'done':
-      return here?.ends
+      return here?.ends === true
         ? ResolvedHandover.done(body)
         : ResolvedHandover.review(body);
     case 'review':
@@ -389,7 +392,7 @@ const handoverOf = (task: Task, ending: Ending, choice: number) => {
     case 'failed':
       return ResolvedHandover.failed(body, TaskFailure.fromRun('runner-lost'));
     case 'pass': {
-      const to = routes[choice % Math.max(routes.length, 1)];
+      const to = itemAt(routes, choice % Math.max(routes.length, 1));
 
       return to
         ? ResolvedHandover.pass(to, body)
@@ -482,11 +485,12 @@ const answered = async (
 ): Promise<Task> => {
   const task = world.task;
   const from = openFrom(task);
-  const decision = task.openAsk?.approval?.open
-    ? each.approve
-      ? 'approved'
-      : 'dismissed'
-    : null;
+  const decision =
+    task.openAsk?.approval?.open === true
+      ? each.approve
+        ? 'approved'
+        : 'dismissed'
+      : null;
 
   return handedToRun(
     services.dispatch,
@@ -1207,7 +1211,7 @@ describe('a task under any order of runs, people and happenings on its line', ()
           : undefined;
         const connection = ask?.connectionAsk;
 
-        if (ask?.approval?.open) {
+        if (ask?.approval?.open === true) {
           return Object.values(PEOPLE).some((each) =>
             gives(() =>
               after.answerAs(

@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import type { ApiSpecViewResponseDto } from '@/lib/api';
 import { formatReadProblem } from '@/lib/api-spec';
@@ -6,10 +8,12 @@ type IntegrationReadProblemProps = {
   spec: ApiSpecViewResponseDto;
 };
 
-export function IntegrationReadProblem({ spec }: IntegrationReadProblemProps) {
+export function IntegrationReadProblem({
+  spec,
+}: IntegrationReadProblemProps): ReactElement | null {
   const problem = formatReadProblem(spec);
 
-  if (!problem) {
+  if (problem === null || problem === '') {
     return null;
   }
 

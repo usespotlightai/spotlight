@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
@@ -26,13 +27,13 @@ function OpenSpotlight() {
   );
 }
 
-export function VerifyEmail() {
+export function VerifyEmail(): ReactElement | null {
   const { token } = useParams();
   const { data: session, isPending: reading } = useSession();
   const signedIn = Boolean(session?.user);
   const verify = useVerifyOnSignIn(token, signedIn);
 
-  if (reading || !token) {
+  if (reading || token === undefined || token === '') {
     return null;
   }
 

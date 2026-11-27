@@ -5,15 +5,16 @@ import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { InboxItem } from '@/routes/InboxItem';
+import { htmlElement } from '@/test/elements';
 import { pressEnter, write } from '@/test/lexical';
 
 const answer = vi.fn();
 const markInboxItemRead = vi.fn();
-const waiting = vi.fn();
+const waiting = vi.fn<() => Waiting>();
 const viewer = vi.fn<(...args: unknown[]) => unknown>();
 const journal = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn();
-const journalFailing = vi.fn();
+const failing = vi.fn<() => boolean>();
+const journalFailing = vi.fn<() => boolean>();
 const closeTask = vi.fn();
 const taskStation = vi.fn<(...args: unknown[]) => unknown>();
 
@@ -24,12 +25,14 @@ vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: viewer() }),
 }));
 
-type Waiting = { id: string; notes?: unknown[] }[] | undefined;
+type Waiting =
+  | { id: string; notes?: unknown[]; [key: string]: unknown }[]
+  | undefined;
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
   useInboxItem: (_slug: string, itemId: string) => {
-    const found = (waiting() as Waiting)?.find((each) => each.id === itemId);
+    const found = waiting()?.find((each) => each.id === itemId);
 
     return {
       data: found && {
@@ -427,7 +430,7 @@ describe('InboxItem', () => {
       'Try again, the CI results are readable now.',
     );
     expect(
-      within(shown.closest('[data-note]') as HTMLElement).getByLabelText(
+      within(htmlElement(shown.closest('[data-note]'))).getByLabelText(
         'Maya wrote this',
       ),
     ).toBeInTheDocument();

@@ -1,17 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
-import type { TaskResponseDto } from '@/lib/api';
+import type { TaskHoldResponseDto, TaskResponseDto } from '@/lib/api';
 import { MAYA, SAM } from '@/mocks/world/people';
 import { reviewAnswered } from '@/mocks/world/waiting-for-you';
+import { partial } from '@/test/partial';
 
 const asked = (over: Partial<TaskResponseDto> = {}) =>
-  ({
+  partial<TaskResponseDto>({
     id: 'task_1',
     assignee: null,
     hold: null,
-    awaitingReview: { conversationId: 'task_1:0' },
+    awaitingReview: partial<NonNullable<TaskResponseDto['awaitingReview']>>({
+      conversationId: 'task_1:0',
+    }),
     ...over,
-  }) as TaskResponseDto;
+  });
 
 describe('reviewAnswered', () => {
   it('assigns a task with no assignee to the viewer who answers, as the server does', () => {
@@ -25,7 +28,9 @@ describe('reviewAnswered', () => {
 
   it('keeps the assignee of an assigned task, and assigns no task that a person holds', () => {
     const assigned = asked({ assignee: MAYA });
-    const held = asked({ hold: { chatId: null } as TaskResponseDto['hold'] });
+    const held = asked({
+      hold: partial<TaskHoldResponseDto>({ chatId: null }),
+    });
 
     reviewAnswered(assigned, [], 'task_1:0');
     reviewAnswered(held, [], 'task_1:0');

@@ -1,8 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { listRunChangeStacks } from '@/lib/api';
+import { listRunChangeStacks, type ChangeStacksResponseDto } from '@/lib/api';
 import { inProgress } from '@/lib/change-stack';
 import { notFound } from '@/lib/error';
+import { required } from '@/lib/required';
 
 export const changeStackKeys = {
   ofRuns: ['change-stacks', 'run'] as const,
@@ -18,16 +19,19 @@ export const changeStackKeys = {
 
 const POLL_MS = 5_000;
 
-export function useRunChangeStacks(teamId?: string, runId?: string) {
+export function useRunChangeStacks(
+  teamId?: string,
+  runId?: string,
+): UseQueryResult<ChangeStacksResponseDto> {
   return useQuery({
     queryKey: changeStackKeys.forRun(runId),
-    enabled: Boolean(teamId && runId),
+    enabled: Boolean(teamId) && Boolean(runId),
     retry: (failures, error) => !notFound(error) && failures < 3,
     refetchInterval: (query) =>
       query.state.data && inProgress(query.state.data.stacks) ? POLL_MS : false,
     queryFn: async () => {
       const { data } = await listRunChangeStacks({
-        path: { teamId: teamId as string, runId: runId as string },
+        path: { teamId: required(teamId), runId: required(runId) },
         throwOnError: true,
       });
       return data;

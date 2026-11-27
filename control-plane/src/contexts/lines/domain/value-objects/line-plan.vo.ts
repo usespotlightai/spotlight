@@ -84,13 +84,15 @@ const stationProblem = (station: StationPlan): InvalidStation => {
 
   const skills = skillsProblem(station.skills);
 
-  if (skills) {
+  if (skills !== null && skills !== '') {
     return { rule: 'skills', reason: skills };
   }
 
   const tools = toolsProblem(station.tools);
 
-  return tools ? { rule: 'tools', reason: tools } : null;
+  return tools !== null && tools !== ''
+    ? { rule: 'tools', reason: tools }
+    : null;
 };
 
 export interface ReactionPlan {

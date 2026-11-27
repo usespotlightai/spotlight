@@ -1,4 +1,5 @@
 import { MessageSquare } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
 import { usePrefetchChatJournal } from '@/hooks/api/useChatJournal';
@@ -11,7 +12,7 @@ type ChatRowProps = {
   chat: InboxChat;
 };
 
-export function ChatRow({ slug, chat }: ChatRowProps) {
+export function ChatRow({ slug, chat }: ChatRowProps): ReactElement {
   const resolve = useResolveAction(slug, chat);
   const markRead = useMarkInboxChatRead();
   const prefetch = usePrefetchChatJournal();

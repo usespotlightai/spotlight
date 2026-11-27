@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { LayerQuestionThread } from '@/components/features/changes/LayerQuestionThread';
 import type { ChangeStack, CitedPlace, StackLayer } from '@/lib/change-stack';
 
@@ -11,7 +13,7 @@ export function LayerQuestions({
   stack,
   layer,
   onReveal,
-}: LayerQuestionsProps) {
+}: LayerQuestionsProps): ReactElement | null {
   if (layer.questions.length === 0) {
     return null;
   }

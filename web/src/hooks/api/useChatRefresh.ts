@@ -7,13 +7,13 @@ import { journalKeys } from '@/hooks/api/useRunJournals';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import type { Chat } from '@/lib/chat';
 
-export function useChatRefresh(chatId: string | undefined, chat?: Chat) {
+export function useChatRefresh(chatId: string | undefined, chat?: Chat): void {
   const queryClient = useQueryClient();
   const runId = chat?.runId ?? undefined;
   const lastRunId = useRef(runId);
 
   useEffect(() => {
-    if (runId) {
+    if (runId !== undefined && runId !== '') {
       lastRunId.current = runId;
     }
   }, [runId]);
@@ -33,7 +33,7 @@ export function useChatRefresh(chatId: string | undefined, chat?: Chat) {
     void queryClient.invalidateQueries({
       queryKey: journalKeys.runsOfChat(chatId),
     });
-    if (lastRunId.current) {
+    if (lastRunId.current !== undefined && lastRunId.current !== '') {
       void queryClient.invalidateQueries({
         queryKey: journalKeys.ofRun(lastRunId.current),
       });

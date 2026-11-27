@@ -1,10 +1,11 @@
 import { SideBySideJudging } from '@replays/domain/aggregates/side-by-side-judging.aggregate';
-import type { SideBySideJudged } from '@replays/domain/events/side-by-side-judged.event';
-import type { SideBySideJudgingFailed } from '@replays/domain/events/side-by-side-judging-failed.event';
+import { SideBySideJudged } from '@replays/domain/events/side-by-side-judged.event';
+import { SideBySideJudgingFailed } from '@replays/domain/events/side-by-side-judging-failed.event';
 import { InvalidJudgingError } from '@replays/domain/exceptions/invalid-judging.error';
 import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { JudgedPair } from '@replays/domain/value-objects/pair-judgment';
 import type { PairOrder } from '@replays/domain/value-objects/pair-order';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { WAIT_MS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -75,15 +76,15 @@ describe('SideBySideJudging', () => {
       judged(judging.orders, ['win', 'win']),
       NOW,
     );
-    const [event] = done.pullEvents() as SideBySideJudged[];
+    const event = instanceOf(SideBySideJudged, done.pullEvents()[0]);
 
     expect(done.hasPendingJob).toBe(false);
-    expect(event?.verdict.outcome).toBe('win');
-    expect(event?.verdict.passes.map((each) => each.ownShownFirst)).toEqual([
+    expect(event.verdict.outcome).toBe('win');
+    expect(event.verdict.passes.map((each) => each.ownShownFirst)).toEqual([
       judging.order === 'run-first',
       judging.order !== 'run-first',
     ]);
-    expect(event?.verdict.passes[0]?.reasons[0]?.ownHunks).toEqual([
+    expect(event.verdict.passes[0]?.reasons[0].ownHunks).toEqual([
       'api/q.ts#1',
     ]);
   });
@@ -102,11 +103,14 @@ describe('SideBySideJudging', () => {
 
   it('calls the pair a tie where the two passes disagree', () => {
     const judging = queued().leaseJob(NOW);
-    const [event] = judging
-      .recordJudgment(judged(judging.orders, ['win', 'loss']), NOW)
-      .pullEvents() as SideBySideJudged[];
+    const event = instanceOf(
+      SideBySideJudged,
+      judging
+        .recordJudgment(judged(judging.orders, ['win', 'loss']), NOW)
+        .pullEvents()[0],
+    );
 
-    expect(event?.verdict.outcome).toBe('tie');
+    expect(event.verdict.outcome).toBe('tie');
   });
 
   it('refuses passes read in other orders than its own', () => {
@@ -128,21 +132,21 @@ describe('SideBySideJudging', () => {
     expect(once.pullEvents()).toEqual([]);
 
     const due = once.job?.nextAttemptAt ?? NOW;
-    const [event] = once
-      .leaseJob(due)
-      .recordJudgment(ungrounded, due)
-      .pullEvents() as SideBySideJudgingFailed[];
+    const event = instanceOf(
+      SideBySideJudgingFailed,
+      once.leaseJob(due).recordJudgment(ungrounded, due).pullEvents()[0],
+    );
 
-    expect(event?.failure.code).toBe('ungrounded');
+    expect(event.failure.code).toBe('ungrounded');
   });
 
   it('gives up at once when the judge has insufficient credits', () => {
     const broke = { judged: false, failure: 'insufficient-credits' } as const;
     const failed = queued().leaseJob(NOW).recordJudgment(broke, NOW);
-    const [event] = failed.pullEvents() as SideBySideJudgingFailed[];
+    const event = instanceOf(SideBySideJudgingFailed, failed.pullEvents()[0]);
 
     expect(failed.hasPendingJob).toBe(false);
-    expect(event?.failure.code).toBe('insufficient-credits');
+    expect(event.failure.code).toBe('insufficient-credits');
   });
 
   it('is deleted by itself, keeping its version for the versioned removal', () => {

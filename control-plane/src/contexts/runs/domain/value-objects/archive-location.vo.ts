@@ -104,7 +104,10 @@ export const archiveLocationOf = (
       ? restoring
       : null;
 
-  if (!SnapshotName.same(base, kept.base) && !restored?.descendsFrom(base)) {
+  if (
+    !SnapshotName.same(base, kept.base) &&
+    restored?.descendsFrom(base) !== true
+  ) {
     throw new InvalidWorkingCopyArchiveError(
       `descends from ${base ? `base ${base.value}` : 'no base'}, which is neither the base of store ${kept.store.value} nor the base of the working copy the run restored`,
     );

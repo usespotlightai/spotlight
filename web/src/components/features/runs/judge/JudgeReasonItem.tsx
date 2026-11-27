@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { type SeeLink, SeeLinks } from '@/components/shared/SeeLinks';
 import {
   MISSING_FILE,
@@ -20,14 +22,19 @@ type JudgeReasonItemProps = {
   reason: JudgeReason;
 };
 
-export function JudgeReasonItem({ reason }: JudgeReasonItemProps) {
+export function JudgeReasonItem({
+  reason,
+}: JudgeReasonItemProps): ReactElement {
   const targets = useCitationTargets();
 
   const linkOf = (citation: Citation): SeeLink => {
     const key = keyOf(citation);
 
     if (citation.hunk) {
-      const reveal = citation.hunk.path ? targets.hunk(citation.hunk) : null;
+      const reveal =
+        citation.hunk.path !== null && citation.hunk.path !== ''
+          ? targets.hunk(citation.hunk)
+          : null;
       const label = formatHunk(citation.hunk);
       const title = citation.hunk.path ?? undefined;
 

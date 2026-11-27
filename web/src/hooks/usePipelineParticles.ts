@@ -29,12 +29,18 @@ const resolved = (host: HTMLElement): Record<PullRequestType, string> => {
   const probe = document.createElement('span');
   host.appendChild(probe);
 
-  const colors = Object.fromEntries(
-    Object.entries(TYPE_COLORS).map(([type, color]) => {
-      probe.style.color = color;
-      return [type, getComputedStyle(probe).color];
-    }),
-  ) as Record<PullRequestType, string>;
+  const computed = (color: string) => {
+    probe.style.color = color;
+    return getComputedStyle(probe).color;
+  };
+  const colors: Record<PullRequestType, string> = {
+    feature: computed(TYPE_COLORS.feature),
+    fix: computed(TYPE_COLORS.fix),
+    refactor: computed(TYPE_COLORS.refactor),
+    tests: computed(TYPE_COLORS.tests),
+    chore: computed(TYPE_COLORS.chore),
+    other: computed(TYPE_COLORS.other),
+  };
 
   probe.remove();
   return colors;
@@ -93,7 +99,7 @@ export function usePipelineParticles({
   shares,
   focus,
   playing,
-}: Particles) {
+}: Particles): void {
   const width = geometry.width;
   const stages = geometry.centers.length;
   const dots = useRef<Dot[]>([]);
@@ -169,8 +175,8 @@ export function usePipelineParticles({
     let last: number | null = null;
     let visible = true;
 
-    const seen = new IntersectionObserver(([entry]) => {
-      visible = entry?.isIntersecting ?? true;
+    const seen = new IntersectionObserver((entries) => {
+      visible = entries.at(0)?.isIntersecting ?? true;
     });
     seen.observe(element);
 

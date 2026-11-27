@@ -27,7 +27,7 @@ export function useRunRefresh({
   state,
   progress = null,
   following,
-}: RunRefreshParams) {
+}: RunRefreshParams): void {
   const watchedId = following?.id ?? runId;
   const watchedState = following?.state ?? state;
   const watchedProgress = following ? following.progress : progress;
@@ -43,7 +43,12 @@ export function useRunRefresh({
     void queryClient.invalidateQueries({
       queryKey: changeStackKeys.forRun(runId),
     });
-    if (teamId && runId) {
+    if (
+      teamId !== undefined &&
+      teamId !== '' &&
+      runId !== undefined &&
+      runId !== ''
+    ) {
       void queryClient.invalidateQueries({
         queryKey: runMemoryKeys.forRun(teamId, runId),
       });

@@ -1,4 +1,5 @@
 import { LockKeyhole } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { PillButton } from '@/components/shared/PillButton';
@@ -21,7 +22,10 @@ type SecretRowProps = {
   onSetValue: () => void;
 };
 
-export function SecretRow({ secret, onSetValue }: SecretRowProps) {
+export function SecretRow({
+  secret,
+  onSetValue,
+}: SecretRowProps): ReactElement {
   return (
     <li data-slot="secret-row">
       <SettingsRow

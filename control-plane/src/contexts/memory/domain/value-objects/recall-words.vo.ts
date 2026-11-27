@@ -3,7 +3,7 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 const MAX_CHARACTERS = 500;
 
 export class RecallWords {
-  private readonly kind = 'recall-words';
+  private readonly kind: string = 'recall-words';
 
   private constructor(readonly value: string) {}
 

@@ -10,6 +10,7 @@ import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 const harnesses = new BuiltInHarnesses();
 
@@ -37,8 +38,14 @@ const prepared = (
   chosen: { model?: string; effort?: string } = {},
 ) => {
   const ready = harnesses.preparedFor(HarnessId.of(harness), {
-    model: chosen.model ? HarnessModel.of(chosen.model) : null,
-    effort: chosen.effort ? Effort.of(chosen.effort) : null,
+    model:
+      chosen.model !== undefined && chosen.model !== ''
+        ? HarnessModel.of(chosen.model)
+        : null,
+    effort:
+      chosen.effort !== undefined && chosen.effort !== ''
+        ? Effort.of(chosen.effort)
+        : null,
     profile: { ...shape, key: ProfileKey.of(shape.key), injectedSecrets: [] },
   });
 
@@ -54,15 +61,35 @@ const fileAt = (
   path: string,
 ) => setup.files.find((each) => each.path === path)?.text;
 
-interface PermissionSettings {
-  readonly permissions: {
-    readonly allow: readonly string[];
-    readonly deny: readonly string[];
-  };
-}
+const PERMISSION_SETTINGS = z.looseObject({
+  permissions: z.looseObject({
+    allow: z.array(z.string()).optional(),
+    deny: z.array(z.string()).optional(),
+  }),
+});
+
+const parsed = (text: string | undefined): unknown =>
+  JSON.parse(text ?? 'null');
 
 const json = (text: string | undefined) =>
-  JSON.parse(text ?? 'null') as PermissionSettings;
+  PERMISSION_SETTINGS.parse(parsed(text));
+
+const CLAUDE_CODE_SESSION = z.object({
+  claudeCode: z.object({
+    options: z.object({
+      managedSettings: z.object({
+        permissions: z.object({ ask: z.array(z.string()) }),
+      }),
+    }),
+  }),
+});
+
+const OPENCODE_CONFIG = z.looseObject({
+  instructions: z.array(z.string()).optional(),
+  permission: z.looseObject({
+    bash: z.union([z.record(z.string(), z.string()), z.string()]),
+  }),
+});
 
 const PUSHY = profile({ rules: [rule('ask', 'execute', 'git push *')] });
 
@@ -159,13 +186,8 @@ describe('one harness profile, told to each harness in its own terms', () => {
         json(fileAt(setup, 'claude/settings.json')).permissions.allow,
       ).toEqual(['Bash']);
       expect(
-        (
-          setup.session as {
-            claudeCode: {
-              options: { managedSettings: { permissions: { ask: string[] } } };
-            };
-          }
-        ).claudeCode.options.managedSettings.permissions.ask,
+        CLAUDE_CODE_SESSION.parse(setup.session).claudeCode.options
+          .managedSettings.permissions.ask,
       ).toEqual(['Bash(git push *)']);
     });
 
@@ -273,7 +295,7 @@ describe('one harness profile, told to each harness in its own terms', () => {
     it('writes MCP servers where it reads them, and says it may not load them', () => {
       const { setup } = prepared('cursor', CAREFUL);
 
-      expect(json(fileAt(setup, 'cursor/mcp.json'))).toEqual({
+      expect(parsed(fileAt(setup, 'cursor/mcp.json'))).toEqual({
         mcpServers: {
           linear: {
             command: 'npx',
@@ -370,12 +392,9 @@ describe('one harness profile, told to each harness in its own terms', () => {
 
   describe('OpenCode', () => {
     const configOf = (started: { env?: Readonly<Record<string, string>> }) =>
-      JSON.parse(started.env?.OPENCODE_CONFIG_CONTENT ?? '{}') as {
-        readonly instructions?: readonly string[];
-        readonly permission: {
-          readonly bash: Readonly<Record<string, string>> | string;
-        };
-      };
+      OPENCODE_CONFIG.parse(
+        parsed(started.env?.OPENCODE_CONFIG_CONTENT ?? '{}'),
+      );
 
     it('writes each kind as a permission whose last matching pattern wins, after the rest of the kind', () => {
       const { started, setup } = prepared('opencode', CAREFUL, {

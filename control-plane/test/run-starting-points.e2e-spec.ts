@@ -6,9 +6,9 @@ import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RestoredArchive } from '@runs/domain/value-objects/restored-archive.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
-import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { CheckoutHead } from '@shared-kernel/domain/value-objects/checkout-head.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -66,7 +66,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await database?.close();
+  await database.close();
 });
 
 const SCREENSHOT = Attachment.of({
@@ -156,10 +156,9 @@ describe('a task run’s starting point', () => {
     const run = aTaskRun();
     await runs.add(run);
 
-    const claimed = (await runs.findById(run.id))?.claim(
-      claimer(RUNNER),
-      NOW,
-    ) as Run;
+    const claimed = present(
+      (await runs.findById(run.id))?.claim(claimer(RUNNER), NOW),
+    );
     await runs.save(claimed);
 
     const archive = WorkingCopyArchiveId.of(randomUUID());
@@ -167,14 +166,14 @@ describe('a task run’s starting point', () => {
       CheckoutHead.of({ path: 'api', commit: 'e'.repeat(40) }),
     ];
     await runs.save(
-      ((await runs.findById(run.id)) as Run).startsFrom(
+      present(await runs.findById(run.id)).startsFrom(
         run.attempt,
         RUNNER,
         {
           restored: RestoredArchive.of(
             archive,
             run.workspaceId,
-            run.workingCopyKey as WorkingCopyKey,
+            present(run.workingCopyKey),
           ),
           checkouts,
         },
@@ -182,10 +181,10 @@ describe('a task run’s starting point', () => {
       ),
     );
 
-    const started = (await runs.findById(run.id)) as Run;
+    const started = present(await runs.findById(run.id));
     await runs.save(started.renewLease(RUNNER, new Date(NOW.getTime() + 1)));
 
-    const found = (await runs.findById(run.id)) as Run;
+    const found = present(await runs.findById(run.id));
 
     expect(found.startedFrom?.sameAs({ archive, checkouts })).toBe(true);
     expect(found.startedFrom?.attempt).toBe(1);

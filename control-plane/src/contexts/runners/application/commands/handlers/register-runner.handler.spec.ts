@@ -7,6 +7,7 @@ import type { RunnerRepository } from '@runners/domain/repositories/runner.repos
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const ID = '123e4567-e89b-42d3-a456-426614174000';
@@ -19,13 +20,13 @@ const registering = (
   } = {},
 ) => {
   const save = vi.fn(input.save ?? (async (_runner: Runner) => {}));
-  const find = vi.fn(async () =>
-    input.runner ? input.runner() : aRunner({ id: ID }),
+  const find = vi.fn(() =>
+    Promise.resolve(input.runner ? input.runner() : aRunner({ id: ID })),
   );
 
   const handler = new RegisterRunnerHandler(
-    { find, save } as unknown as RunnerRepository,
-    { now: () => NOW } as ClockPort,
+    partial<RunnerRepository>({ find, save }),
+    partial<ClockPort>({ now: () => NOW }),
   );
 
   return { handler, save, find };
@@ -89,11 +90,12 @@ describe('RegisterRunnerHandler', () => {
   it('reads the runner again when a heartbeat wrote it first', async () => {
     let raced = false;
     const { handler, save, find } = registering({
-      save: async () => {
+      save: () => {
         if (!raced) {
           raced = true;
-          throw new RunnerVersionConflictError(ID);
+          return Promise.reject(new RunnerVersionConflictError(ID));
         }
+        return Promise.resolve();
       },
     });
 

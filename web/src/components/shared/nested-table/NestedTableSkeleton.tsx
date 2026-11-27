@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   EDGE_INDENT,
   LEAD_CELL,
@@ -26,8 +28,9 @@ export function NestedTableSkeleton({
   compact = false,
   trailing = false,
   rowClassName,
-}: NestedTableSkeletonProps) {
-  const [lead, ...rest] = headings;
+}: NestedTableSkeletonProps): ReactElement {
+  const lead = headings.at(0);
+  const rest = headings.slice(1);
 
   return (
     <div role="status" aria-label={label}>
@@ -48,7 +51,12 @@ export function NestedTableSkeleton({
               rowClassName,
             )}
           >
-            <span className={cn(LEAD_CELL, lead?.indent && EDGE_INDENT)}>
+            <span
+              className={cn(
+                LEAD_CELL,
+                lead?.indent !== undefined && EDGE_INDENT,
+              )}
+            >
               <SkeletonLine className="w-24" />
             </span>
             {rest.map((heading) => (
@@ -58,7 +66,7 @@ export function NestedTableSkeleton({
                 numeric={heading.numeric ?? false}
               >
                 <SkeletonLine
-                  className={cn('w-12', heading.numeric && 'ml-auto')}
+                  className={cn('w-12', heading.numeric === true && 'ml-auto')}
                 />
               </NestedCell>
             ))}

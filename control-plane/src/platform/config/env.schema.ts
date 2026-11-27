@@ -236,7 +236,11 @@ export const envSchema = databaseSchema
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .refine(
-    (env) => env.SPOTLIGHT_SECRETS_KEY || env.SPOTLIGHT_SECRETS_KMS_KEY_ID,
+    (env) =>
+      (env.SPOTLIGHT_SECRETS_KEY !== undefined &&
+        env.SPOTLIGHT_SECRETS_KEY !== '') ||
+      (env.SPOTLIGHT_SECRETS_KMS_KEY_ID !== undefined &&
+        env.SPOTLIGHT_SECRETS_KMS_KEY_ID !== ''),
     {
       path: ['SPOTLIGHT_SECRETS_KEY'],
       message:

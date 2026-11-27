@@ -11,11 +11,11 @@ export const skillsProblem = (skills: readonly SkillKey[]): string | null => {
 
   const twice = repeatedIn(skills.map((each) => each.unversioned));
 
-  return twice ? `names skill ${twice} twice` : null;
+  return twice !== null && twice !== '' ? `names skill ${twice} twice` : null;
 };
 
 export const toolsProblem = (tools: readonly Tool[]): string | null => {
   const twice = repeatedIn(tools.map((each) => each.called));
 
-  return twice ? `names tool ${twice} twice` : null;
+  return twice !== null && twice !== '' ? `names tool ${twice} twice` : null;
 };

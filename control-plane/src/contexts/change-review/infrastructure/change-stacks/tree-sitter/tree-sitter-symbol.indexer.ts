@@ -115,8 +115,8 @@ const walk = (grammar: Grammar, root: Node): Walked => {
     [root, { inBody: false, inHost: false, inImport: false, prefix: '' }],
   ];
 
-  while (stack.length > 0) {
-    const [node, context] = stack.pop() as [Node, Context];
+  for (let top = stack.pop(); top !== undefined; top = stack.pop()) {
+    const [node, context] = top;
     let prefix = context.prefix;
     let inImport = context.inImport;
 
@@ -145,7 +145,7 @@ const walk = (grammar: Grammar, root: Node): Walked => {
         const kind =
           defined === 'function' && context.inHost
             ? 'method'
-            : grammar.components &&
+            : grammar.components === true &&
                 (defined === 'function' || defined === 'constant') &&
                 PASCAL_CASE.test(text)
               ? 'component'
@@ -168,7 +168,7 @@ const walk = (grammar: Grammar, root: Node): Walked => {
     const route = grammar.routeOf?.(node);
     if (route) {
       walked.symbols.push({
-        name: `${route.method} ${routePath(route.absolute ? '' : prefix, route.path)}`,
+        name: `${route.method} ${routePath(route.absolute === true ? '' : prefix, route.path)}`,
         kind: 'route',
         line: lineOf(node),
         endLine: node.endPosition.row + 1,
@@ -255,7 +255,8 @@ const walk = (grammar: Grammar, root: Node): Walked => {
       prefix,
     };
 
-    const children = grammar.opaque?.has(node.type) ? [] : node.children;
+    const children =
+      grammar.opaque?.has(node.type) === true ? [] : node.children;
     for (let at = children.length - 1; at >= 0; at -= 1) {
       const child = children[at];
       if (child) {

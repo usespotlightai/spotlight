@@ -7,6 +7,8 @@ import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
+import { optionalItems } from '@change-review/testing/optional-items.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -43,33 +45,36 @@ const receiving = (stored: ReviewComment[] = []) => {
   const comments = new Map(stored.map((each) => [each.id.value, each]));
   let generated = 0;
 
-  const repository = {
-    add: async (comment: ReviewComment) =>
-      void comments.set(comment.id.value, comment),
-    save: async (comment: ReviewComment) =>
-      void comments.set(comment.id.value, comment),
-    onGitHub: async (_: WorkspaceId, githubId: number) =>
-      [...comments.values()].find((each) => each.github?.id === githubId) ??
-      null,
-    ofTask: async () => [...comments.values()],
-  } as unknown as ReviewCommentRepository;
+  const repository = partial<ReviewCommentRepository>({
+    add: (comment: ReviewComment) =>
+      Promise.resolve(void comments.set(comment.id.value, comment)),
+    save: (comment: ReviewComment) =>
+      Promise.resolve(void comments.set(comment.id.value, comment)),
+    onGitHub: (_: WorkspaceId, githubId: number) =>
+      Promise.resolve(
+        [...comments.values()].find((each) => each.github?.id === githubId) ??
+          null,
+      ),
+    ofTask: () => Promise.resolve([...comments.values()]),
+  });
 
   const service = new ReceiveReviewComment(
     {
-      run: async () => null,
-      teamOfRun: async () => null,
-      repositoriesOfRun: async () => [],
-      task: async () => null,
-      taskWithPullRequest: async (workspaceId, pullRequest) => ({
-        id: TASK,
-        workspaceId,
-        teamId: null,
-        pullRequests: [pullRequest],
-        openPullRequests: [pullRequest],
-        reviewedPullRequest: null,
-        reviewing: false,
-        currentRunId: null,
-      }),
+      run: () => Promise.resolve(null),
+      teamOfRun: () => Promise.resolve(null),
+      repositoriesOfRun: () => Promise.resolve([]),
+      task: () => Promise.resolve(null),
+      taskWithPullRequest: (workspaceId, pullRequest) =>
+        Promise.resolve({
+          id: TASK,
+          workspaceId,
+          teamId: null,
+          pullRequests: [pullRequest],
+          openPullRequests: [pullRequest],
+          reviewedPullRequest: null,
+          reviewing: false,
+          currentRunId: null,
+        }),
     },
     repository,
     { inTransaction: (work) => work() },
@@ -99,7 +104,7 @@ describe('ReceiveReviewComment', () => {
 
     await service.receive(noticed({ side: 'old' }));
 
-    const [stored] = [...comments.values()];
+    const [stored] = optionalItems([...comments.values()]);
     expect(stored?.state).toBe('posted');
     expect(stored?.anchor.lines?.side).toBe('old');
     expect(stored?.anchor.lines?.line).toBe(12);
@@ -202,7 +207,7 @@ describe('ReceiveReviewComment', () => {
 
     await service.receive(noticed({ subject: 'file' }));
 
-    const [stored] = [...comments.values()];
+    const [stored] = optionalItems([...comments.values()]);
     expect(stored?.anchor.wholeFile).toBe(true);
   });
 

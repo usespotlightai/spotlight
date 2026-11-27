@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   AUTHOR_SERIES,
   SPOTLIGHT_SHARE_SERIES,
@@ -56,7 +58,7 @@ const TYPE_ROWS = ['w-full', 'w-3/5', 'w-2/5', 'w-1/3', 'w-1/4', 'w-1/5'];
 export function PullRequestsSkeleton({
   view,
   onView,
-}: PullRequestsSkeletonProps) {
+}: PullRequestsSkeletonProps): ReactElement {
   return (
     <div className="flex flex-col gap-3">
       <div

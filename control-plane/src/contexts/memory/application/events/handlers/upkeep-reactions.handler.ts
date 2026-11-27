@@ -18,6 +18,7 @@ import {
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { firstOf } from '@shared-kernel/domain/item-at';
 
 export class UpkeepReactions {
   constructor(
@@ -30,13 +31,13 @@ export class UpkeepReactions {
   ) {}
 
   async onSwept(event: MemoryUpkeepSwept): Promise<void> {
-    if (!(await this.upkeeps.find(event.upkeepId))?.awaitsDecision) {
+    if ((await this.upkeeps.find(event.upkeepId))?.awaitsDecision !== true) {
       return;
     }
 
     await this.notices.swept(event);
 
-    if (!(await this.upkeeps.find(event.upkeepId))?.awaitsDecision) {
+    if ((await this.upkeeps.find(event.upkeepId))?.awaitsDecision !== true) {
       await this.notices.settled(event.upkeepId, event.teamId);
     }
   }
@@ -70,20 +71,21 @@ export class UpkeepReactions {
       ]);
       const merged = locked.find((each) => each.id.equals(event.memoryId));
 
-      if (!merged?.isActive) {
+      if (merged?.isActive !== true) {
         return;
       }
 
       const replaced = locked.filter((each) => !each.id.equals(event.memoryId));
       const reason = whyMergeNoLongerApplies(
         event.replaces.filter(
-          (id) => !replaced.find((each) => each.id.equals(id))?.isActive,
+          (id) =>
+            replaced.find((each) => each.id.equals(id))?.isActive !== true,
         ),
         replaced,
         event.memoryId,
       );
 
-      if (reason) {
+      if (reason !== null && reason !== '') {
         await this.memories.save(
           merged.retire({
             by: event.decision.by,
@@ -108,7 +110,9 @@ export class UpkeepReactions {
     }
 
     await this.transaction.inTransaction(async () => {
-      const [created] = await this.memories.findAllLocked([event.memoryId]);
+      const created = firstOf(
+        await this.memories.findAllLocked([event.memoryId]),
+      );
 
       if (!created) {
         return;
@@ -149,19 +153,19 @@ export class UpkeepReactions {
   }
 
   private async retired(event: UpkeepProposalApproved): Promise<boolean> {
-    const [named] = await this.memories.findAll(event.memories);
+    const named = firstOf(await this.memories.findAll(event.memories));
 
     if (
       named?.retiredAs({
         by: event.decision.by,
         reason: event.reason,
         at: event.decision.at,
-      })
+      }) === true
     ) {
       return true;
     }
 
-    const [retired] = (await this.current(event)) ?? [];
+    const retired = firstOf((await this.current(event)) ?? []);
 
     if (!retired) {
       return false;

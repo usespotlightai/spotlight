@@ -49,9 +49,10 @@ export class IntegrationSpecs {
       integration: first.integration,
       spec: first.spec,
     };
-    const fetched = input.refreshingSpec
-      ? await this.read({ ...located, current: input.current })
-      : await this.forDefinition({ ...located, current: input.current });
+    const fetched =
+      input.refreshingSpec === true
+        ? await this.read({ ...located, current: input.current })
+        : await this.forDefinition({ ...located, current: input.current });
     const compiled = this.compiler.compile(
       input.definition,
       fetched.specOperations,
@@ -76,7 +77,7 @@ export class IntegrationSpecs {
   }): Promise<SpecForDefinition> {
     const stored = await this.storedFor(input.current, input.spec);
 
-    if (stored && input.current?.spareReadingFor(input.spec)) {
+    if (stored && input.current?.spareReadingFor(input.spec) === true) {
       return {
         reading: input.current.withSkipped(stored.skipped),
         specOperations: { hash: stored.hash, operations: stored.operations },

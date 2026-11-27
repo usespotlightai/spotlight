@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -175,7 +176,7 @@ const toIteration = (row: IterationRow, currency: string): SearchIteration =>
     ),
     attempts: row.attempts,
     agentSpent: optionalModelSpentOf(row.agentSpent),
-    incumbent: row.incumbent ? CandidateId.of(row.incumbent) : null,
+    incumbent: row.incumbent !== null && row.incumbent !== '' ? CandidateId.of(row.incumbent) : null,
     result: row.result,
     reflectedOn: row.reflectedOn.map(reflectedTaskOf),
     causes: row.causes.map(causeOf),
@@ -274,16 +275,16 @@ export class DrizzleSearchRepository implements SearchRepository {
   ) {}
 
   async find(id: SearchId): Promise<Search | null> {
-    const [found] = await this.withIterations(eq(replaySearch.id, id.value));
+    const found = firstOf(await this.withIterations(eq(replaySearch.id, id.value)));
 
     return found ?? null;
   }
 
   async locked(id: SearchId): Promise<Search | null> {
-    const [found] = await this.withIterations(
+    const found = firstOf(await this.withIterations(
       eq(replaySearch.id, id.value),
       true,
-    );
+    ));
 
     return found ?? null;
   }
@@ -303,12 +304,12 @@ export class DrizzleSearchRepository implements SearchRepository {
       and(
         eq(replaySearch.lineId, lineId.value),
         gte(replaySearch.startedAt, since),
-      ) as SQL,
+      ),
     );
   }
 
   async ranAs(run: RunId): Promise<Search | null> {
-    const [found] = await this.withIterations(
+    const found = firstOf(await this.withIterations(
       exists(
         this.context.db
           .select({ one: replaySearchIteration.number })
@@ -320,22 +321,22 @@ export class DrizzleSearchRepository implements SearchRepository {
             ),
           ),
       ),
-    );
+    ));
 
     return found ?? null;
   }
 
   async activeAtStation(stationId: StationId): Promise<Search | null> {
-    const [found] = await this.withIterations(
-      and(eq(replaySearch.stationId, stationId.value), active) as SQL,
-    );
+    const found = firstOf(await this.withIterations(
+      and(eq(replaySearch.stationId, stationId.value), active),
+    ));
 
     return found ?? null;
   }
 
   activeOfLine(lineId: LineId): Promise<readonly Search[]> {
     return this.withIterations(
-      and(eq(replaySearch.lineId, lineId.value), active) as SQL,
+      and(eq(replaySearch.lineId, lineId.value), active),
     );
   }
 
@@ -346,15 +347,15 @@ export class DrizzleSearchRepository implements SearchRepository {
       .where(eq(replaySearch.stationId, stationId.value))
       .orderBy(desc(replaySearch.startedAt), desc(replaySearch.id))
       .limit(1);
-    const [found] = await this.ofRows(rows);
+    const found = firstOf(await this.ofRows(rows));
 
     return found ?? null;
   }
 
   async activeOfSet(setId: ReplaySetId): Promise<Search | null> {
-    const [found] = await this.withIterations(
-      and(eq(replaySearch.setId, setId.value), active) as SQL,
-    );
+    const found = firstOf(await this.withIterations(
+      and(eq(replaySearch.setId, setId.value), active),
+    ));
 
     return found ?? null;
   }
@@ -373,7 +374,7 @@ export class DrizzleSearchRepository implements SearchRepository {
         active,
         eq(replaySearch.awaitsReplays, true),
         eq(replaySearch.awaitsAgentSpend, true),
-      ) as SQL,
+      ),
     );
   }
 
@@ -501,7 +502,7 @@ export class DrizzleSearchRepository implements SearchRepository {
   }
 
   private async withIterations(
-    where: SQL,
+    where: SQL | undefined,
     locked = false,
   ): Promise<readonly Search[]> {
     const query = this.context.db

@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { UsedTokensPort } from '@runners/application/ports/used-tokens.port';
@@ -14,7 +15,7 @@ export class DrizzleUsedTokens implements UsedTokensPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async wasUsed(kind: TokenHolderKind, token: TokenHash): Promise<boolean> {
-    const [used] = await this.context.db
+    const used = firstOf(await this.context.db
       .select({ tokenHash: usedToken.tokenHash })
       .from(usedToken)
       .where(
@@ -23,7 +24,7 @@ export class DrizzleUsedTokens implements UsedTokensPort {
           eq(usedToken.tokenHash, token.value),
         ),
       )
-      .limit(1);
+      .limit(1));
 
     return used !== undefined;
   }

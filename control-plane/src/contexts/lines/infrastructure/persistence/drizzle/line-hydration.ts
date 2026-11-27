@@ -66,15 +66,15 @@ const toStation = (row: StationRow, ways: Ways): Station =>
     name: StationName.of(row.name),
     position: row.position,
     color: StationColor.of(row.color),
-    description: row.description
+    description: row.description !== null && row.description !== ''
       ? StationDescription.of(row.description)
       : null,
-    harness: row.harness ? HarnessId.of(row.harness) : null,
-    model: row.model ? HarnessModel.of(row.model) : null,
-    effort: row.effort ? Effort.of(row.effort) : null,
-    profile: row.profile ? ProfileKey.of(row.profile) : null,
-    agentPrompt: row.agentPrompt ? AgentPrompt.of(row.agentPrompt) : null,
-    check: row.check ? StationCheck.of(row.check) : null,
+    harness: row.harness !== null && row.harness !== '' ? HarnessId.of(row.harness) : null,
+    model: row.model !== null && row.model !== '' ? HarnessModel.of(row.model) : null,
+    effort: row.effort !== null && row.effort !== '' ? Effort.of(row.effort) : null,
+    profile: row.profile !== null && row.profile !== '' ? ProfileKey.of(row.profile) : null,
+    agentPrompt: row.agentPrompt !== null && row.agentPrompt !== '' ? AgentPrompt.of(row.agentPrompt) : null,
+    check: row.check !== null && row.check !== '' ? StationCheck.of(row.check) : null,
     placement: RunnerPlacement.of(row.runners),
     diffs: row.diffs,
     decisions: row.decisions,
@@ -113,7 +113,7 @@ const toLine = (
     name: LineName.of(line.name),
     stations: stations.map((row) => toStation(row, ways)),
     reactions,
-    role: line.role ? LineRole.of(line.role) : null,
+    role: line.role !== null && line.role !== '' ? LineRole.of(line.role) : null,
     reviews: line.reviews ? ReviewPolicy.of(line.reviews) : null,
     replayCheck: line.replayCheck
       ? ReplayCheckPolicy.of(line.replayCheck)
@@ -122,7 +122,7 @@ const toLine = (
     source: line.source ? ConfigSource.of(line.source) : null,
     placement: RunnerPlacement.of(line.runners),
     warmSandboxes: WarmSandboxCount.of(line.warmSandboxes),
-    defaultAssignee: line.defaultAssignee
+    defaultAssignee: line.defaultAssignee !== null && line.defaultAssignee !== ''
       ? DefaultAssignee.of(line.defaultAssignee)
       : null,
     repositories,
@@ -215,7 +215,7 @@ const assembledLines = (
         .map((each) =>
           Reaction.of({
             happening: Happening.of(each.happening),
-            from: each.fromStationId ? StationId.of(each.fromStationId) : null,
+            from: each.fromStationId !== null && each.fromStationId !== '' ? StationId.of(each.fromStationId) : null,
             to: StationId.of(each.toStationId),
           }),
         ),
@@ -223,8 +223,8 @@ const assembledLines = (
         .filter((each) => each.lineId === row.id)
         .map((each) =>
           LineRepositoryConfig.of(Repository.of(each.repository), {
-            image: each.image ? RunnerImage.of(each.image) : null,
-            setup: each.setup ? RepositorySetup.of(each.setup) : null,
+            image: each.image !== null && each.image !== '' ? RunnerImage.of(each.image) : null,
+            setup: each.setup !== null && each.setup !== '' ? RepositorySetup.of(each.setup) : null,
           }),
         ),
     ),

@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import type { ReactElement, RefObject } from 'react';
 
 import { EditorSetup } from '@/components/features/editor/EditorSetup';
 import { Popover, PopoverContent } from '@/components/ui/popover';
@@ -9,7 +9,10 @@ type EditorSetupPopoverProps = {
   setup: EditorSetupState;
 };
 
-export function EditorSetupPopover({ anchor, setup }: EditorSetupPopoverProps) {
+export function EditorSetupPopover({
+  anchor,
+  setup,
+}: EditorSetupPopoverProps): ReactElement {
   return (
     <Popover
       open={setup.open}

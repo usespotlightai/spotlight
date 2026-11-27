@@ -36,7 +36,7 @@ export class RecordHostCallResponseHandler implements CommandHandlerPort<
 
       const call = await this.calls.find(NetworkCallId.of(command.callId));
 
-      if (!call?.belongsTo(authenticated.workspaceId)) {
+      if (call?.belongsTo(authenticated.workspaceId) !== true) {
         return { outcome: 'unknown' };
       }
 

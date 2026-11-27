@@ -157,7 +157,7 @@ export class HttpOutbound {
       headers: Object.fromEntries(reply.headers),
     };
 
-    if (!succeeded(request, beside)) {
+    if (!succeeded(request, beside, reply.status)) {
       await reply.body?.cancel();
 
       throw new UpstreamError(
@@ -229,7 +229,7 @@ export class HttpOutbound {
   rendered(request: RequestIR, against: CelVariables): PlainRequest | null {
     const url = this.templated(request.url, against);
 
-    if (!url) {
+    if (url === null || url === '') {
       return null;
     }
 
@@ -251,7 +251,7 @@ export class HttpOutbound {
     const target = query.size > 0 ? `${url}?${query.toString()}` : url;
 
     const body = this.body(request, against);
-    if (body?.json && !has(headers, 'content-type')) {
+    if (body?.json === true && !has(headers, 'content-type')) {
       headers['content-type'] = 'application/json';
     }
 
@@ -349,7 +349,7 @@ export class HttpOutbound {
     headers: Record<string, string>,
     credentials: Credentials,
   ): Promise<InjectedSecrets> {
-    if (auth?.kind === 'oauth2' && connection) {
+    if (auth?.kind === 'oauth2' && connection !== null && connection !== '') {
       if (!auth.hosts.includes(url.host)) {
         throw new TokenHostRefusedError(url.host);
       }
@@ -381,12 +381,14 @@ export const answeredWith = (
     capture[each.name] = value(each.value, beside);
   }
 
-  return { ok: succeeded(request, beside), status, response, capture };
+  return { ok: succeeded(request, beside, status), status, response, capture };
 };
 
-const succeeded = (request: RequestIR, beside: CelVariables): boolean => {
-  const status = beside.status as number;
-
+const succeeded = (
+  request: RequestIR,
+  beside: CelVariables,
+  status: number,
+): boolean => {
   return request.expect?.success
     ? isTrue(request.expect.success, beside)
     : request.expect?.status

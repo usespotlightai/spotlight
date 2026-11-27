@@ -3,8 +3,12 @@ import type { RunConnectionsPort } from '@runs/application/ports/run-connections
 import type { RunJournalEntryReaderPort } from '@runs/application/ports/run-journal-entry-reader.port';
 import { ReadRunNetworkHandler } from '@runs/application/queries/handlers/read-run-network.handler';
 import { ReadRunNetworkQuery } from '@runs/application/queries/read-run-network.query';
-import type { RunViewing } from '@runs/application/services/run-viewing.service';
+import type {
+  RunViewing,
+  WatchedRun,
+} from '@runs/application/services/run-viewing.service';
 import { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -29,35 +33,38 @@ const reading = (
   team: string | null = 'team_1',
 ) => {
   const read: number[] = [];
-  const runs = {
-    watchedBy: async (runId: RunId) =>
-      visible
-        ? {
-            runId,
-            attempt: 2,
-            requester: {
-              owner: 'work',
-              kind: 'task',
-              id: 'task_1',
-              token: null,
-              team,
-            },
-          }
-        : null,
-  } as unknown as RunViewing;
+  const runs = partial<RunViewing>({
+    watchedBy: (runId: RunId) =>
+      Promise.resolve(
+        visible
+          ? partial<WatchedRun>({
+              runId,
+              attempt: 2,
+              requester: {
+                owner: 'work',
+                kind: 'task',
+                id: 'task_1',
+                token: null,
+                team,
+              },
+            })
+          : null,
+      ),
+  });
   const events = {
-    entriesSince: async () => [],
-    egressEnforcementOf: async (_runId: RunId, attempt: number) => {
+    entriesSince: () => Promise.resolve([]),
+    egressEnforcementOf: (_runId: RunId, attempt: number) => {
       read.push(attempt);
-      return checked;
+      return Promise.resolve(checked);
     },
   } satisfies RunJournalEntryReaderPort;
   const connections = {
-    of: async () => [
-      { attempt: 1, connection: connection('old.example.com') },
-      { attempt: 2, connection: connection('registry.npmjs.org') },
-    ],
-    errorsIn: async () => [],
+    of: () =>
+      Promise.resolve([
+        { attempt: 1, connection: connection('old.example.com') },
+        { attempt: 2, connection: connection('registry.npmjs.org') },
+      ]),
+    errorsIn: () => Promise.resolve([]),
   } satisfies RunConnectionsPort;
 
   return {

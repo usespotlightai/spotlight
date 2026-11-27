@@ -1,7 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { listTaskPullRequests } from '@/lib/api';
+import {
+  listTaskPullRequests,
+  type TaskPullRequestResponseDto,
+} from '@/lib/api';
 import { useLivePoll } from '@/lib/live';
+import { required } from '@/lib/required';
 
 const taskPullRequestKeys = {
   forTask: (taskId?: string) =>
@@ -13,16 +17,16 @@ const POLL_MS = 30_000;
 export function useTaskPullRequests(
   teamId: string | undefined,
   taskId: string | null | undefined,
-) {
+): UseQueryResult<TaskPullRequestResponseDto[]> {
   const livePollMs = useLivePoll(POLL_MS);
 
   return useQuery({
     queryKey: taskPullRequestKeys.forTask(taskId ?? undefined),
-    enabled: Boolean(teamId && taskId),
+    enabled: Boolean(teamId) && Boolean(taskId),
     refetchInterval: livePollMs,
     queryFn: async () => {
       const { data } = await listTaskPullRequests({
-        path: { teamId: teamId as string, taskId: taskId as string },
+        path: { teamId: required(teamId), taskId: required(taskId) },
         throwOnError: true,
       });
       return data;

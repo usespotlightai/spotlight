@@ -1,30 +1,40 @@
-import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import type {
+  HarnessCatalogueEntry,
+  HarnessLaunchPort,
+} from '@runs/application/ports/harness-launch.port';
 import { HeldHarnessKeys } from '@runs/application/services/held-harness-keys.service';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 
-const launch = {
+const launch = partial<HarnessLaunchPort>({
   catalogue: () => [
-    {
+    partial<HarnessCatalogueEntry>({
       id: 'claude-code',
       harnessKeys: ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN'],
-    },
-    { id: 'codex', harnessKeys: ['CODEX_API_KEY', 'OPENAI_API_KEY'] },
-    { id: 'opencode', harnessKeys: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY'] },
+    }),
+    partial<HarnessCatalogueEntry>({
+      id: 'codex',
+      harnessKeys: ['CODEX_API_KEY', 'OPENAI_API_KEY'],
+    }),
+    partial<HarnessCatalogueEntry>({
+      id: 'opencode',
+      harnessKeys: ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY'],
+    }),
   ],
-} as unknown as HarnessLaunchPort;
+});
 
 const held = (names: readonly string[]) => {
-  const namesIn = vi.fn(async () => names);
+  const namesIn = vi.fn(() => Promise.resolve(names));
 
   return {
     namesIn,
     subject: new HeldHarnessKeys(launch, {
       namesIn,
-      sandboxSecrets: async () => [],
+      sandboxSecrets: () => Promise.resolve([]),
     }),
   };
 };

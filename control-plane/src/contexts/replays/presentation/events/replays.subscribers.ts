@@ -523,7 +523,10 @@ export const replaysSubscribers = (
         pullRequest: PullRequestUrl.of(event.pullRequest),
         hostId: event.gitHubId,
         merged: event.merged,
-        at: event.closedAt ? new Date(event.closedAt) : null,
+        at:
+          event.closedAt !== null && event.closedAt !== ''
+            ? new Date(event.closedAt)
+            : null,
       }),
   ),
   subscribing<PullRequestReopenedIntegrationEvent>(
@@ -535,7 +538,10 @@ export const replaysSubscribers = (
         repository: Repository.of(event.repository),
         pullRequest: PullRequestUrl.of(event.pullRequest),
         hostId: event.gitHubId,
-        at: event.reopenedAt ? new Date(event.reopenedAt) : null,
+        at:
+          event.reopenedAt !== null && event.reopenedAt !== ''
+            ? new Date(event.reopenedAt)
+            : null,
       }),
     { callsOut: true },
   ),

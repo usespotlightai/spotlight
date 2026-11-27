@@ -1,4 +1,5 @@
 import type { RunsPort } from '@runs/application/ports/runs.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -21,7 +22,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-08-31T09:00:00.000Z');
 
-const TASK = { id: TaskId.of('task_1') } as unknown as Task;
+const TASK = partial<Task>({ id: TaskId.of('task_1') });
 const ALICE = UserId.of('user_alice');
 
 const dispatched = Dispatch.ordered({
@@ -46,16 +47,16 @@ const stopping = (
   answers: Partial<RunsPort> = {},
 ) => {
   const runs = recordingRuns(answers);
-  const take = vi.fn(async () => undefined);
+  const take = vi.fn(() => Promise.resolve(undefined));
   const handler = new StopRunHandler(
     runs,
     {
-      find: async () => dispatched,
-      add: async () => undefined,
-      save: async () => undefined,
+      find: () => Promise.resolve(dispatched),
+      add: () => Promise.resolve(undefined),
+      save: () => Promise.resolve(undefined),
     } satisfies DispatchRepository,
-    { find: vi.fn(async () => task) } as unknown as TaskRepository,
-    { take } as unknown as TakeTurn,
+    partial<TaskRepository>({ find: vi.fn(() => Promise.resolve(task)) }),
+    partial<TakeTurn>({ take }),
     access,
   );
 
@@ -76,7 +77,7 @@ describe('StopRunHandler', () => {
     const { handler, take } = stopping(
       TASK,
       workAccessSeeing(() => true),
-      { requestStop: async () => ({ pendingTurn: 1 }) },
+      { requestStop: () => Promise.resolve({ pendingTurn: 1 }) },
     );
 
     await handler.execute(new StopRunCommand('run_1', 'user_1'));
@@ -134,8 +135,10 @@ describe('StopRunHandler', () => {
       TASK,
       workAccessSeeing(() => true),
       {
-        requestStop: async () => {
-          throw new Error('Run run_1 has ended. It cannot be stopped.');
+        requestStop: () => {
+          return Promise.reject(
+            new Error('Run run_1 has ended. It cannot be stopped.'),
+          );
         },
       },
     );

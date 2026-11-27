@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import type {
   HookRecord,
   HookResourcesPort,
@@ -49,11 +50,11 @@ export class DrizzleHookResources implements HookResourcesPort {
   }
 
   private async first(where: SQL | undefined): Promise<HookRecord | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(hookDefinition)
       .where(where)
-      .limit(1);
+      .limit(1));
 
     return found ? recordOf(found) : null;
   }

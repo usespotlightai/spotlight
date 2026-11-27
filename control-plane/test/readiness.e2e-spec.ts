@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served } from './support/app';
 
-const reachableS3 = { name: 's3', check: async () => undefined };
+const reachableS3 = { name: 's3', check: () => Promise.resolve(undefined) };
 
 describe('readiness', () => {
   describe('with Postgres and S3 reachable', () => {

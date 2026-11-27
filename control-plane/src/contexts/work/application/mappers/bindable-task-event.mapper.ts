@@ -10,9 +10,10 @@ const BOUND_AS: Readonly<Record<NoticedTaskEvent['kind'], BindableTaskEvent>> =
     'task.failed': 'task.failed',
   };
 
-export const NOTICED_TASK_EVENT_KINDS = Object.keys(
-  BOUND_AS,
-) as readonly NoticedTaskEvent['kind'][];
+export const NOTICED_TASK_EVENT_KINDS: readonly NoticedTaskEvent['kind'][] =
+  Object.keys(BOUND_AS).filter(
+    (kind): kind is NoticedTaskEvent['kind'] => kind in BOUND_AS,
+  );
 
 export const bindableTaskEventOf = (
   event: NoticedTaskEvent,

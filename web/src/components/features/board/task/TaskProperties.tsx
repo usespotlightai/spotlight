@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
 import { StationSelect } from '@/components/features/board/task/StationSelect';
 import { TASK_PROPERTIES } from '@/components/features/board/task/TaskLayout';
@@ -22,10 +24,13 @@ export function TaskProperties({
   teamId,
   task,
   line,
-}: TaskPropertiesProps) {
+}: TaskPropertiesProps): ReactElement {
   const moveTask = useMoveTask();
   const station = line?.stations.find((each) => each.id === task.stationId);
-  const linked = slug && teamId ? { slug, teamId } : null;
+  const linked =
+    slug !== undefined && slug !== '' && teamId !== undefined && teamId !== ''
+      ? { slug, teamId }
+      : null;
 
   return (
     <aside className={TASK_PROPERTIES}>
@@ -40,7 +45,8 @@ export function TaskProperties({
             value={station.id}
             held={task.hold}
             onChange={(stationId) =>
-              teamId &&
+              teamId !== undefined &&
+              teamId !== '' &&
               moveTask.mutate({
                 teamId,
                 lineId: line.id,
@@ -53,7 +59,9 @@ export function TaskProperties({
           />
         )}
 
-        {teamId && <AssigneePicker teamId={teamId} task={task} variant="row" />}
+        {teamId !== undefined && teamId !== '' && (
+          <AssigneePicker teamId={teamId} task={task} variant="row" />
+        )}
 
         {linked && (
           <TaskSourceLink

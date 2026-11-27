@@ -20,7 +20,7 @@ interface Stored extends State {
 const guardDistinct = (input: State): void => {
   const twice = repeatedIn(input.operations.map((each) => each.name));
 
-  if (twice) {
+  if (twice !== null && twice !== '') {
     throw new InvalidIntegrationPartError(
       input.kind,
       `was read with two operations called ${twice}`,

@@ -52,6 +52,7 @@ import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -125,47 +126,57 @@ const running = (
     ...(input.sandboxes ?? []),
   );
   const service = new Runners(
-    {
-      findForStart: vi.fn(async () => pool),
-    } as unknown as RunnerPoolRepository,
-    {
-      find: vi.fn(async () => input.trust ?? null),
-    } as unknown as RunnerTrustRepository,
+    partial<RunnerPoolRepository>({
+      findForStart: vi.fn(() => Promise.resolve(pool)),
+    }),
+    partial<RunnerTrustRepository>({
+      find: vi.fn(() => Promise.resolve(input.trust ?? null)),
+    }),
     hosts,
-    {
-      aliveIn: vi.fn(async () => input.alive ?? []),
-      add: vi.fn(async (runner: Runner) => {
+    partial<RunnerRepository>({
+      aliveIn: vi.fn(() => Promise.resolve(input.alive ?? [])),
+      add: vi.fn((runner: Runner) => {
         added.push(runner);
+        return Promise.resolve();
       }),
-      find: vi.fn(
-        async () => input.existing ?? added[added.length - 1] ?? null,
+      find: vi.fn(() =>
+        Promise.resolve(
+          input.existing ?? (added.length > 0 ? added[added.length - 1] : null),
+        ),
       ),
-      save: vi.fn(async (runner: Runner) => {
+      save: vi.fn((runner: Runner) => {
         if (input.unsaved) {
-          throw input.unsaved;
+          return Promise.reject(input.unsaved);
         }
         saved.push(runner);
+        return Promise.resolve();
       }),
-      findByWork: vi.fn(async () => (input.existing ? [input.existing] : [])),
-    } as unknown as RunnerRepository,
+      findByWork: vi.fn(() =>
+        Promise.resolve(input.existing ? [input.existing] : []),
+      ),
+    }),
     sandboxes,
     placements,
-    {
-      find: vi.fn(async () => input.egress ?? null),
-    } as unknown as EgressRepository,
-    {
-      call: vi.fn(async (call: ProvisionCall) => {
+    partial<EgressRepository>({
+      find: vi.fn(() => Promise.resolve(input.egress ?? null)),
+    }),
+    partial<ProvisionCallsPort>({
+      call: vi.fn((call: ProvisionCall) => {
         called.push(call);
-        return input.answer ?? { outcome: 'accepted' };
+        return Promise.resolve<ProvisionAnswer>(
+          input.answer ?? { outcome: 'accepted' },
+        );
       }),
-    } as ProvisionCallsPort,
+    }),
     {
       encrypt: vi.fn(),
-      decrypt: vi.fn(async () => {
-        if (input.decryptionFails) {
-          throw new ProvisionSecretDecryptionFailedError(POOL_ID.value);
+      decrypt: vi.fn(() => {
+        if (input.decryptionFails === true) {
+          return Promise.reject(
+            new ProvisionSecretDecryptionFailedError(POOL_ID.value),
+          );
         }
-        return secretOf('s');
+        return Promise.resolve(secretOf('s'));
       }),
     } satisfies ProvisionSecretsPort,
     {
@@ -181,15 +192,15 @@ const running = (
       hash: () => 'c'.repeat(64),
     },
     { generate: () => 'pooled_9' },
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
-    {
+    partial<TransactionPort>({
+      inTransaction: <T>(work: () => Promise<T>) => work(),
+    }),
+    partial<LoggerPort>({
       warn: () => undefined,
       error: (fields: unknown) => {
         logged.push(fields);
       },
-    } as unknown as LoggerPort,
+    }),
   );
 
   return { service, added, saved, called, logged, hosts };
@@ -231,7 +242,7 @@ describe('Runners', () => {
         CLAIM_BY,
       );
 
-      const offer = added[0]?.offer;
+      const offer = added.length > 0 ? added[0].offer : undefined;
 
       expect(offer?.supports(RunnerImage.of('ghcr.io/acme/widgets:1'))).toBe(
         true,

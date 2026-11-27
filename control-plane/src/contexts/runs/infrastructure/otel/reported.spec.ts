@@ -31,9 +31,9 @@ const call = {
 
 describe('Reported', () => {
   it('reads a span into something that can be laid against a clock', () => {
-    const [span] = read(call).spans();
+    const spans = read(call).spans();
 
-    expect(span).toEqual({
+    expect(spans[0]).toEqual({
       id: 'a1',
       parentId: 'root',
       name: 'claude_code.llm_request',
@@ -45,7 +45,7 @@ describe('Reported', () => {
   });
 
   it('keeps what a span said about itself, whatever it said', () => {
-    const [span] = read({
+    const spans = read({
       ...call,
       attributes: [
         {
@@ -57,7 +57,7 @@ describe('Reported', () => {
       ],
     }).spans();
 
-    expect(span?.attributes).toEqual([
+    expect(spans[0]?.attributes).toEqual([
       { name: 'gen_ai.request.model', value: 'claude-opus-5' },
       { name: 'gen_ai.usage.input_tokens', value: '1204' },
       { name: 'gen_ai.response.streaming', value: 'true' },
@@ -65,7 +65,7 @@ describe('Reported', () => {
   });
 
   it('keeps an attribute that is a shape of its own as it reads', () => {
-    const [span] = read({
+    const spans = read({
       ...call,
       attributes: [
         {
@@ -75,7 +75,7 @@ describe('Reported', () => {
       ],
     }).spans();
 
-    expect(span?.attributes[0]?.value).toContain('end_turn');
+    expect(spans[0]?.attributes[0]?.value).toContain('end_turn');
   });
 
   it('tells a span with an error from one without an error', () => {
@@ -87,15 +87,15 @@ describe('Reported', () => {
   });
 
   it('gives an unfinished span no length rather than a negative one', () => {
-    const [span] = read({ ...call, endTimeUnixNano: undefined }).spans();
+    const spans = read({ ...call, endTimeUnixNano: undefined }).spans();
 
-    expect(span?.ms).toBe(0);
+    expect(spans[0]?.ms).toBe(0);
   });
 
   it('leaves a span nowhere to hang if it has no parent', () => {
-    const [span] = read({ ...call, parentSpanId: '' }).spans();
+    const spans = read({ ...call, parentSpanId: '' }).spans();
 
-    expect(span?.parentId).toBeNull();
+    expect(spans[0]?.parentId).toBeNull();
   });
 
   it('passes over a span with no identity or no beginning', () => {
@@ -127,7 +127,7 @@ describe('Reported', () => {
   });
 
   it('reads the span a runner writes for an agent’s recall', () => {
-    const [span] = read({
+    const spans = read({
       traceId: '0af7651916cd43dd8448eb211c80319c',
       spanId: 'b7ad6b7169203331',
       name: 'spotlight.recall',
@@ -142,7 +142,7 @@ describe('Reported', () => {
       ],
     }).spans();
 
-    expect(span).toEqual({
+    expect(spans[0]).toEqual({
       id: 'b7ad6b7169203331',
       parentId: null,
       name: 'spotlight.recall',

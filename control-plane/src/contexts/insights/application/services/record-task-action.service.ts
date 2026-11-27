@@ -56,7 +56,7 @@ export class RecordTaskAction {
       teamId: TeamId.of(event.teamId),
       lineId: LineId.of(event.lineId),
       stationId: StationId.of(event.stationId),
-      by: event.by ? UserId.of(event.by) : null,
+      by: event.by !== null && event.by !== '' ? UserId.of(event.by) : null,
       at: new Date(event.at),
     });
 

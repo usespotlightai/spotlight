@@ -23,11 +23,15 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 export class TaskActionsInMemory implements TaskActionsRepository {
   readonly stored = new Map<string, TaskActions>();
 
-  async add(taskActions: TaskActions): Promise<void> {
+  add(taskActions: TaskActions): Promise<void> {
     if (this.stored.has(taskActions.taskId.value)) {
-      throw new TaskActionsVersionConflictError(taskActions.taskId.value);
+      return Promise.reject(
+        new TaskActionsVersionConflictError(taskActions.taskId.value),
+      );
     }
     this.stored.set(taskActions.taskId.value, taskActions);
+
+    return Promise.resolve();
   }
 
   async save(taskActions: TaskActions): Promise<void> {
@@ -49,51 +53,58 @@ export class TaskActionsInMemory implements TaskActionsRepository {
     );
   }
 
-  async of(taskId: TaskId): Promise<TaskActions | null> {
-    return this.stored.get(taskId.value) ?? null;
+  of(taskId: TaskId): Promise<TaskActions | null> {
+    return Promise.resolve(this.stored.get(taskId.value) ?? null);
   }
 
-  async ofTasks(taskIds: readonly TaskId[]): Promise<readonly TaskActions[]> {
-    return taskIds.flatMap((each) => {
-      const existing = this.stored.get(each.value);
-      return existing ? [existing] : [];
-    });
-  }
-
-  async ofScope(
-    scope: DeletionScope,
-    max: number,
-  ): Promise<readonly TaskActions[]> {
-    return inScope(
-      this.stored,
-      scope,
-      (each) => ({
-        workspaceId: each.workspaceId,
-        teamId: each.opening?.teamId ?? null,
-        taskId: each.taskId,
+  ofTasks(taskIds: readonly TaskId[]): Promise<readonly TaskActions[]> {
+    return Promise.resolve(
+      taskIds.flatMap((each) => {
+        const existing = this.stored.get(each.value);
+        return existing ? [existing] : [];
       }),
-      max,
     );
   }
 
-  private async removed(removed: TaskActions): Promise<void> {
+  ofScope(scope: DeletionScope, max: number): Promise<readonly TaskActions[]> {
+    return Promise.resolve(
+      inScope(
+        this.stored,
+        scope,
+        (each) => ({
+          workspaceId: each.workspaceId,
+          teamId: each.opening?.teamId ?? null,
+          taskId: each.taskId,
+        }),
+        max,
+      ),
+    );
+  }
+
+  private removed(removed: TaskActions): Promise<void> {
     removeVersioned(
       this.stored,
       removed.taskId.value,
       removed,
       () => new TaskActionsVersionConflictError(removed.taskId.value),
     );
+
+    return Promise.resolve();
   }
 }
 
 export class TaskFailuresInMemory implements TaskFailuresRepository {
   readonly stored = new Map<string, TaskFailures>();
 
-  async add(failures: TaskFailures): Promise<void> {
+  add(failures: TaskFailures): Promise<void> {
     if (this.stored.has(failures.taskId.value)) {
-      throw new TaskFailuresVersionConflictError(failures.taskId.value);
+      return Promise.reject(
+        new TaskFailuresVersionConflictError(failures.taskId.value),
+      );
     }
     this.stored.set(failures.taskId.value, failures);
+
+    return Promise.resolve();
   }
 
   async save(failures: TaskFailures): Promise<void> {
@@ -112,47 +123,50 @@ export class TaskFailuresInMemory implements TaskFailuresRepository {
     );
   }
 
-  async of(taskId: TaskId): Promise<TaskFailures | null> {
-    return this.stored.get(taskId.value) ?? null;
+  of(taskId: TaskId): Promise<TaskFailures | null> {
+    return Promise.resolve(this.stored.get(taskId.value) ?? null);
   }
 
-  async ofTeamBetween(
+  ofTeamBetween(
     window: TeamWindow,
     max: number,
   ): Promise<readonly TaskFailures[]> {
-    return [...this.stored.values()]
-      .filter(
-        (each) =>
-          each.workspaceId.equals(window.workspaceId) &&
-          each.teamId.equals(window.teamId) &&
-          (each.lastAt?.getTime() ?? 0) >= window.from.getTime(),
-      )
-      .slice(0, max);
-  }
-
-  async ofScope(
-    scope: DeletionScope,
-    max: number,
-  ): Promise<readonly TaskFailures[]> {
-    return inScope(
-      this.stored,
-      scope,
-      (each) => ({
-        workspaceId: each.workspaceId,
-        teamId: each.teamId,
-        taskId: each.taskId,
-      }),
-      max,
+    return Promise.resolve(
+      [...this.stored.values()]
+        .filter(
+          (each) =>
+            each.workspaceId.equals(window.workspaceId) &&
+            each.teamId.equals(window.teamId) &&
+            (each.lastAt?.getTime() ?? 0) >= window.from.getTime(),
+        )
+        .slice(0, max),
     );
   }
 
-  private async removed(removed: TaskFailures): Promise<void> {
+  ofScope(scope: DeletionScope, max: number): Promise<readonly TaskFailures[]> {
+    return Promise.resolve(
+      inScope(
+        this.stored,
+        scope,
+        (each) => ({
+          workspaceId: each.workspaceId,
+          teamId: each.teamId,
+          taskId: each.taskId,
+        }),
+        max,
+      ),
+    );
+  }
+
+  private removed(removed: TaskFailures): Promise<void> {
     removeVersioned(
       this.stored,
       removed.taskId.value,
       removed,
       () => new TaskFailuresVersionConflictError(removed.taskId.value),
     );
+
+    return Promise.resolve();
   }
 }
 

@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { TaskPullRequestPills } from '@/components/features/board/task/TaskPullRequestPills';
@@ -46,7 +47,7 @@ export function InboxItemConversation({
   item,
   worked,
   trail,
-}: InboxItemConversationProps) {
+}: InboxItemConversationProps): ReactElement {
   const [params] = useSearchParams();
   const answer = useAnswerInboxItem();
   const ownsItsBriefing = carriesItsOwn(item);
@@ -128,7 +129,7 @@ export function InboxItemConversation({
           openAt={shownAt(item.notes, params.get('run'))}
           prompt={promptOf(item)}
           live={
-            item.runId && progress ? (
+            item.runId !== null && item.runId !== '' && progress ? (
               <RunActivity
                 runId={item.runId}
                 journals={workedOn(worked, item.notes, item.runId)}

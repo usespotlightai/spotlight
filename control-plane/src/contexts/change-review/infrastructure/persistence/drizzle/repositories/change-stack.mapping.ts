@@ -84,7 +84,7 @@ const revisionOf = (
   if (stored.status === 'added') {
     return { status: 'added' };
   }
-  if (!stored.previous) {
+  if (typeof stored.previous !== 'string' || stored.previous === '') {
     throw new InconsistentStateError(
       'change stack',
       `has a layer ${stored.status} without the layer it follows`,

@@ -48,7 +48,10 @@ export const adoptionFrom = (
   const people = counts.people.map((each): PersonUse => {
     const earliest = firstSeen.get(each.personId)?.getTime();
     const firstSeenAt = new Date(
-      Math.min(each.firstAt.getTime(), ...(earliest ? [earliest] : [])),
+      Math.min(
+        each.firstAt.getTime(),
+        ...(earliest !== undefined && earliest !== 0 ? [earliest] : []),
+      ),
     );
 
     return {

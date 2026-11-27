@@ -50,7 +50,7 @@ export class ConfigFolder {
     const folder = input.folder.trim().replace(/^\/+|\/+$/g, '');
     const problem = folderProblem(folder);
 
-    if (problem) {
+    if (problem !== null && problem !== '') {
       throw new InvalidConfigFolderError('folder', problem);
     }
 

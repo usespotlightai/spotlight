@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ export function AcceptAsSignedIn({
   token,
   invitedEmail,
   signedInAs,
-}: AcceptAsSignedInProps) {
+}: AcceptAsSignedInProps): ReactElement {
   const navigate = useNavigate();
   const accept = useAcceptInvite(token);
   const asSomeoneElse =

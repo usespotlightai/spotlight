@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { bodyOf } from './support/body';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -32,13 +33,13 @@ const asOwner = <T extends { set: (key: string, value: string) => T }>(
 const teamPath = (path: string) => `/api/teams/${team.teamId.value}${path}`;
 
 const added = async (stationId: string): Promise<TaskBody> =>
-  (
+  bodyOf<TaskBody>(
     await asOwner(
       served(app).post(teamPath(`/lines/${LINE}/stations/${stationId}/tasks`)),
     )
       .send({ title: 'Drain the queue' })
-      .expect(201)
-  ).body as TaskBody;
+      .expect(201),
+  );
 
 beforeAll(async () => {
   app = await openApp();
@@ -90,7 +91,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await app?.close();
+  await app.close();
 });
 
 describe('a task whose agent does not start', () => {
@@ -104,7 +105,7 @@ describe('a task whose agent does not start', () => {
     )
       .send({ body: 'Use the new image.' })
       .expect(200);
-    expect((messaged.body as TaskBody).runNotStarted).toEqual({
+    expect(bodyOf<TaskBody>(messaged).runNotStarted).toEqual({
       harness: 'not-a-harness',
     });
 
@@ -117,7 +118,7 @@ describe('a task whose agent does not start', () => {
     const retried = await asOwner(
       served(app).post(teamPath(`/tasks/${task.id}/start`)),
     ).expect(200);
-    expect((retried.body as TaskBody).runNotStarted).toEqual({
+    expect(bodyOf<TaskBody>(retried).runNotStarted).toEqual({
       harness: 'not-a-harness',
     });
   });

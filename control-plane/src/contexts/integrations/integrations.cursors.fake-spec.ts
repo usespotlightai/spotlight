@@ -22,29 +22,26 @@ const keyOf = (teamId: TeamId, integration: string): string =>
   `${teamId.value}:${integration}`;
 
 class VersionedStore<S> {
-  private readonly stored = new Map<string, Versioned<S>>();
+  private readonly stored = new Map<
+    string,
+    { readonly state: S; readonly version: number }
+  >();
 
   stateOf(teamId: TeamId, integration: string): S | undefined {
-    const found = this.stored.get(keyOf(teamId, integration));
-
-    if (!found) {
-      return undefined;
-    }
-
-    const { version: _version, ...state } = found;
-
-    return state as unknown as S;
+    return this.stored.get(keyOf(teamId, integration))?.state;
   }
 
   versioned(teamId: TeamId, integration: string): Versioned<S> | undefined {
-    return this.stored.get(keyOf(teamId, integration));
+    const found = this.stored.get(keyOf(teamId, integration));
+
+    return found ? { ...found.state, version: found.version } : undefined;
   }
 
   setState(teamId: TeamId, integration: string, state: S): void {
     const current = this.stored.get(keyOf(teamId, integration));
 
     this.stored.set(keyOf(teamId, integration), {
-      ...state,
+      state,
       version: (current?.version ?? 0) + 1,
     });
   }
@@ -71,7 +68,7 @@ class VersionedStore<S> {
 export class FakePollCursors implements PollCursorRepository {
   private readonly store = new VersionedStore<PollState>();
 
-  readonly ofTeam = async (): Promise<readonly PollCursor[]> => [];
+  readonly ofTeam = (): Promise<readonly PollCursor[]> => Promise.resolve([]);
 
   readonly remove = async (): Promise<void> => {};
 
@@ -96,7 +93,7 @@ export class FakePollCursors implements PollCursorRepository {
       : PollCursor.start(teamId, integration);
   }
 
-  async save(cursor: PollCursor): Promise<void> {
+  save(cursor: PollCursor): Promise<void> {
     const saved = this.store.saved(
       cursor.teamId,
       cursor.integration.value,
@@ -106,15 +103,20 @@ export class FakePollCursors implements PollCursorRepository {
     );
 
     if (!saved) {
-      throw new PollCursorVersionConflictError(cursor.integration.value);
+      return Promise.reject(
+        new PollCursorVersionConflictError(cursor.integration.value),
+      );
     }
+
+    return Promise.resolve();
   }
 }
 
 export class FakeScheduleCursors implements ScheduleCursorRepository {
   private readonly store = new VersionedStore<ScheduleState>();
 
-  readonly ofTeam = async (): Promise<readonly ScheduleCursor[]> => [];
+  readonly ofTeam = (): Promise<readonly ScheduleCursor[]> =>
+    Promise.resolve([]);
 
   readonly remove = async (): Promise<void> => {};
 
@@ -142,7 +144,7 @@ export class FakeScheduleCursors implements ScheduleCursorRepository {
       : ScheduleCursor.start(teamId, integration);
   }
 
-  async save(cursor: ScheduleCursor): Promise<void> {
+  save(cursor: ScheduleCursor): Promise<void> {
     const ranAt = cursor.ranAt;
     const saved =
       ranAt !== null &&
@@ -155,7 +157,11 @@ export class FakeScheduleCursors implements ScheduleCursorRepository {
       );
 
     if (!saved) {
-      throw new ScheduleCursorVersionConflictError(cursor.integration.value);
+      return Promise.reject(
+        new ScheduleCursorVersionConflictError(cursor.integration.value),
+      );
     }
+
+    return Promise.resolve();
   }
 }

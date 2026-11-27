@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactElement, type ReactNode, useState } from 'react';
 import { NavLink, useLocation, useResolvedPath } from 'react-router';
 
 import { ResolveToggle } from '@/components/features/inbox/ResolveToggle';
@@ -37,7 +37,7 @@ export function InboxRowFrame({
   menuActions = [],
   onOpen,
   onIntent,
-}: InboxRowFrameProps) {
+}: InboxRowFrameProps): ReactElement {
   const intent = useOpenIntent(onIntent);
   const trail = useForwardTrail();
   const { focused, handlers } = useFocusWithin();

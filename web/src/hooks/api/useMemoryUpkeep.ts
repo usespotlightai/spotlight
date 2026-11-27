@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { teamMemoryKeys } from '@/hooks/api/useTeamMemories';
@@ -6,20 +12,29 @@ import {
   approveUpkeepProposal,
   readMemoryUpkeep,
   rejectUpkeepProposal,
+  type MemoryUpkeepResponseDto,
 } from '@/lib/api';
 import type { MemoryUpkeep, UpkeepDecision } from '@/lib/memory-upkeep';
+import { required } from '@/lib/required';
 
 const memoryUpkeepKeys = {
   one: (upkeepId?: string) => ['memory-upkeep', upkeepId ?? null] as const,
 };
 
-export function useMemoryUpkeep(teamId?: string, upkeepId?: string) {
+export function useMemoryUpkeep(
+  teamId?: string,
+  upkeepId?: string,
+): UseQueryResult<MemoryUpkeepResponseDto> {
   return useQuery({
     queryKey: memoryUpkeepKeys.one(upkeepId),
-    enabled: Boolean(teamId && upkeepId),
+    enabled:
+      teamId !== undefined &&
+      teamId !== '' &&
+      upkeepId !== undefined &&
+      upkeepId !== '',
     queryFn: async () => {
       const { data } = await readMemoryUpkeep({
-        path: { teamId: teamId as string, upkeepId: upkeepId as string },
+        path: { teamId: required(teamId), upkeepId: required(upkeepId) },
         throwOnError: true,
       });
       return data;
@@ -35,7 +50,11 @@ type DecideUpkeepInput = {
   decision: UpkeepDecision;
 };
 
-export function useDecideUpkeepProposal() {
+export function useDecideUpkeepProposal(): UseMutationResult<
+  MemoryUpkeepResponseDto,
+  Error,
+  DecideUpkeepInput
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

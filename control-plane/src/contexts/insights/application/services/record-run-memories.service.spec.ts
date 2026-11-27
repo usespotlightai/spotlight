@@ -9,6 +9,7 @@ import {
   RunRecordsInMemory,
   WORKSPACE,
 } from '@insights/runs.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -20,7 +21,7 @@ const recording = () => {
   const records = new RunRecordsInMemory();
   const deletions = deletionsInMemory();
   const service = new RecordRunMemories(
-    { endedRun: async () => null } as unknown as WorkPort,
+    partial<WorkPort>({ endedRun: () => Promise.resolve(null) }),
     records,
     new FactRecorder(deletions),
     inTransaction,
@@ -52,11 +53,12 @@ describe('RecordRunMemories', () => {
 
     await received('briefed', ['mem_2', 'mem_1']);
     const briefed = await records.of(RUN);
-    await records.save(
-      (briefed as NonNullable<typeof briefed>).recordEnd(
-        endOf({ taskId: 'task_1' }),
-      ),
-    );
+
+    if (briefed === null) {
+      throw new Error('expected the briefed run');
+    }
+
+    await records.save(briefed.recordEnd(endOf({ taskId: 'task_1' })));
     await received('recalled', ['mem_1']);
 
     const ended = await records.of(RUN);

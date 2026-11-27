@@ -83,7 +83,7 @@ describe('ApprovalCard', () => {
     expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '' });
   });
 
-  it('lets only the person it was asked of approve it, and anyone dismiss it', async () => {
+  it('lets only the person it was asked of approve it, and anyone dismiss it', () => {
     const onDecide = vi.fn();
     render(
       <ApprovalCard

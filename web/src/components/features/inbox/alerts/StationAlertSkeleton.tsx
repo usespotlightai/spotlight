@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { DecisionCard } from '@/components/shared/DecisionCard';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitleSkeleton } from '@/components/shared/skeleton/DecisionTitleSkeleton';
@@ -5,7 +7,7 @@ import { PillSkeleton } from '@/components/shared/skeleton/PillSkeleton';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 
-export function StationAlertSkeleton() {
+export function StationAlertSkeleton(): ReactElement {
   return (
     <DecisionCard role="status" aria-label="Loading the alert">
       <DecisionHeader

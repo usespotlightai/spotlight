@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { RowActionsTrigger } from '@/components/shared/RowActionsTrigger';
 import {
   DropdownMenu,
@@ -10,6 +12,7 @@ import {
   DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
 import { type MemberChange, rolesOffered } from '@/lib/members';
+import { isOneOf } from '@/lib/one-of';
 import { nameOfRole, type Role } from '@/lib/role';
 
 type MemberActionsProps = {
@@ -34,7 +37,7 @@ export function MemberActions({
   disabled,
   onChangeRole,
   onAsk,
-}: MemberActionsProps) {
+}: MemberActionsProps): ReactElement | null {
   const offered = rolesOffered(role, assignableRoles);
   const changesRole = offered.length >= 2;
 
@@ -55,8 +58,8 @@ export function MemberActions({
               <DropdownMenuRadioGroup
                 value={role}
                 onValueChange={(next) => {
-                  if (next !== role) {
-                    onChangeRole(next as Role);
+                  if (next !== role && isOneOf(offered, next)) {
+                    onChangeRole(next);
                   }
                 }}
               >

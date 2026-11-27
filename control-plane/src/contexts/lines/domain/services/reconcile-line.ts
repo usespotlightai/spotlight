@@ -63,11 +63,19 @@ const assemble = (
     ]),
   );
 
-  const at = (key: StationKey): StationId => idOf.get(key.value) as StationId;
+  const at = (key: StationKey): StationId => {
+    const id = idOf.get(key.value);
+
+    if (id === undefined) {
+      throw new Error(`the plan has no station ${key.value}`);
+    }
+
+    return id;
+  };
 
   const stations = plan.stations.map((planned, position) =>
     Station.of({
-      id: idOf.get(planned.key.value) as StationId,
+      id: at(planned.key),
       key: planned.key,
       name: planned.name,
       position,

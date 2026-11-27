@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ApprovalApproveButton } from '@/components/features/inbox/conversation/approval/ApprovalApproveButton';
 import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionControls } from '@/components/shared/DecisionControls';
@@ -19,7 +21,7 @@ export function ApprovalEditControls({
   keyed,
   onApprove,
   onCancel,
-}: ApprovalEditControlsProps) {
+}: ApprovalEditControlsProps): ReactElement {
   return (
     <DecisionControls>
       <DecisionButton disabled={pending} onClick={onCancel}>

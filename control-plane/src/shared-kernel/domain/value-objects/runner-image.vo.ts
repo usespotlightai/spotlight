@@ -23,7 +23,7 @@ export class RunnerImage {
   static of(raw: string): RunnerImage {
     const problem = problemOf(raw);
 
-    if (problem) {
+    if (problem !== null && problem !== '') {
       throw new InvalidRunnerImageError(problem);
     }
 

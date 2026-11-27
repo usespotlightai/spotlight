@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -80,29 +81,36 @@ const asked = () =>
   );
 
 const noteFiles = (task: Task | null) => {
-  const open = vi.fn(async () => ({
-    bytes: new Uint8Array([1, 2, 3]),
-    contentType: 'image/png',
-  }));
-  const find = vi.fn(async (id: string): Promise<AttachmentRecord | null> => {
+  const open = vi.fn(() =>
+    Promise.resolve({
+      bytes: new Uint8Array([1, 2, 3]),
+      contentType: 'image/png',
+    }),
+  );
+  const find = vi.fn((id: string): Promise<AttachmentRecord | null> => {
     const file = task?.allAttachments.find((each) => each.id.value === id);
 
-    return task && file
-      ? {
-          id: file.id.value,
-          name: file.name,
-          contentType: file.contentType,
-          size: file.size,
-          workspaceId: task.workspaceId.value,
-          holder: { kind: 'task', taskId: task.id.value },
-        }
-      : null;
+    return Promise.resolve(
+      task && file
+        ? {
+            id: file.id.value,
+            name: file.name,
+            contentType: file.contentType,
+            size: file.size,
+            workspaceId: task.workspaceId.value,
+            holder: { kind: 'task', taskId: task.id.value },
+          }
+        : null,
+    );
   });
 
   return {
-    files: new NoteFiles({ find } satisfies AttachmentReaderPort, {
-      open,
-    } as unknown as AttachmentStorePort),
+    files: new NoteFiles(
+      { find } satisfies AttachmentReaderPort,
+      partial<AttachmentStorePort>({
+        open,
+      }),
+    ),
     open,
     find,
   };

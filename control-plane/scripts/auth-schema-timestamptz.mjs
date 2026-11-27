@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const [, , file] = process.argv;
+/** @type {string} */
 const generated = readFileSync(file, 'utf8');
 
 if (!generated.includes('  timestamp,\n')) {

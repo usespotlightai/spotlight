@@ -96,7 +96,7 @@ const constructionsIn = (file: SourceFile): Violation[] => {
   ).flatMap((node) => {
     const built = builtEvent(node, events);
 
-    return built
+    return built !== null && built !== ''
       ? [
           {
             key: `${withoutExtension(file.path)}: ${built}`,

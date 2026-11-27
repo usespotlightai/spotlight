@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { Link } from 'react-router';
 
 import { OnHoldPill } from '@/components/features/hold/OnHoldPill';
@@ -10,7 +11,10 @@ type TaskStateProps = {
   stateTo?: string;
 };
 
-export function TaskState({ task, stateTo }: TaskStateProps) {
+export function TaskState({
+  task,
+  stateTo,
+}: TaskStateProps): ReactElement | null {
   if (task.hold) {
     return <OnHoldPill hold={task.hold} to={stateTo} />;
   }
@@ -18,7 +22,7 @@ export function TaskState({ task, stateTo }: TaskStateProps) {
   if (task.waitingForYou) {
     const asked = <WaitingForYouPill />;
 
-    return stateTo ? (
+    return stateTo !== undefined && stateTo !== '' ? (
       <Link to={stateTo} className="outline-none">
         {asked}
       </Link>

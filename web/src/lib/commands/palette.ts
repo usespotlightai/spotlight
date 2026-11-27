@@ -53,7 +53,11 @@ export const paletteActions = (
     .filter((command) => {
       const shortcut = shortcutOf(command.id);
 
-      return shortcut.inPalette !== false && !shortcut.focused && !command.to;
+      return (
+        shortcut.inPalette !== false &&
+        shortcut.focused !== true &&
+        (command.to === undefined || command.to === '')
+      );
     })
     .map((command) => ({
       id: command.id,

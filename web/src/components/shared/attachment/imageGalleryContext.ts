@@ -16,4 +16,4 @@ type GalleryContext = {
 
 export const Gallery = createContext<GalleryContext | null>(null);
 
-export const useImageGallery = () => useContext(Gallery);
+export const useImageGallery = (): GalleryContext | null => useContext(Gallery);

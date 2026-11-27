@@ -9,6 +9,7 @@ import {
   type ProposedQuestion,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { itemAt } from '@shared-kernel/domain/item-at';
 
 type Dependency = ProposedLayer['dependsOn'][number];
 
@@ -165,7 +166,7 @@ const withInheritedNotes = (
 
   for (const { note, leaves } of inherited) {
     const at = all.findIndex((each) => each.path === note.path);
-    const present = all[at];
+    const present = itemAt(all, at);
 
     if (!present) {
       all.push(note);
@@ -184,7 +185,7 @@ export const withHunksMovedInto = (
   target: number,
   definesOf?: (hunk: HunkId) => readonly string[],
 ): ProposedCohort | null => {
-  const targetLayer = cohort.layers[target];
+  const targetLayer = itemAt(cohort.layers, target);
 
   if (!targetLayer) {
     return null;
@@ -247,7 +248,7 @@ export const withHunksMovedInto = (
     dependsOn: ProposedLayer['dependsOn'],
   ): ProposedLayer['dependsOn'] =>
     dependsOn.flatMap((each) => {
-      const moved = movedSymbols[each.layer - 1];
+      const moved = itemAt(movedSymbols, each.layer - 1);
 
       if (!moved || moved.size === 0) {
         return [each];
@@ -283,7 +284,7 @@ export const withHunksMovedInto = (
   };
   const shown: Set<string>[] = [];
   const shownBy = (at: number): Set<string> => {
-    const cached = shown[at];
+    const cached = itemAt(shown, at);
 
     if (cached) {
       return cached;

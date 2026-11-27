@@ -1,5 +1,7 @@
+import type { SearchAgentRun } from '@replays/application/ports/runs.port';
 import { MovesOnWords } from '@replays/domain/value-objects/moves-on-words.vo';
 import { ReplaysRequester } from '@replays/domain/value-objects/replays-requester.vo';
+import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { Runs } from '@replays/infrastructure/acl/runs.adapter';
 import { WorkTrialRun } from '@replays/infrastructure/acl/work-trial-run';
@@ -7,6 +9,7 @@ import type { RunOrderContract } from '@runs/application/contracts/run-order.con
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import type { RunsPort as RunQueuePort } from '@runs/application/ports/runs.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -17,14 +20,14 @@ const RUN = RunId.of('run_trial');
 
 const runsWith = (enqueued: RunOrderContract[], command = true) =>
   new Runs(
-    {
-      enqueue: async (order: RunOrderContract) => {
+    partial<RunQueuePort>({
+      enqueue: (order: RunOrderContract) => {
         enqueued.push(order);
-        return { outcome: 'enqueued' };
+        return Promise.resolve({ outcome: 'enqueued' });
       },
-    } as unknown as RunQueuePort,
-    {} as RunFactsPort,
-    {} as RunLeasesPort,
+    }),
+    partial<RunFactsPort>({}),
+    partial<RunLeasesPort>({}),
     {
       problemOf: () => null,
       commandFor: () =>
@@ -63,14 +66,14 @@ describe('Runs (Replays ACL)', () => {
     ).toEqual({ outcome: 'enqueued' });
 
     const [order] = enqueued;
-    expect(order?.requester).toEqual({
+    expect(order.requester).toEqual({
       owner: 'replays',
       kind: 'replay',
       id: RUN.value,
       token: null,
       team: 'team_1',
     });
-    expect(order?.policy).toEqual({
+    expect(order.policy).toEqual({
       holdsTurn: false,
       gated: false,
       actsBeyondItself: false,
@@ -78,28 +81,32 @@ describe('Runs (Replays ACL)', () => {
       listed: false,
       exclusive: false,
     });
-    expect(order?.workingCopy?.key).toBe(`replays/replay-${RUN.value}`);
-    expect(order?.extensions.replay).toEqual({
+    expect(order.workingCopy?.key).toBe(`replays/replay-${RUN.value}`);
+    expect(order.extensions.replay).toEqual({
       archive: 'archive_1',
       checkouts: [{ path: 'api', commit: 'abc', repository: 'acme/api' }],
       movesOnAfter: ['ship', 'done'],
     });
-    expect(order?.restore).toEqual({ archive: 'archive_1' });
+    expect(order.restore).toEqual({ archive: 'archive_1' });
   });
 
   it('enqueues a search iteration with the station’s placement, or says no runner can start its harness', async () => {
     const enqueued: RunOrderContract[] = [];
-    const order = {
+    const order: SearchAgentRun = {
       run: RunId.of('run_search'),
       requester: ReplaysRequester.searchIteration(SearchId.of('search_1'), 3),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
-      agent: { harness: 'claude-code', model: null, effort: null },
+      agent: SearchAgent.of({
+        harness: 'claude-code',
+        model: null,
+        effort: null,
+      }),
       briefing: 'Search.',
       placement: RunnerPlacement.of(['gpu']),
-    } as const;
+    };
 
-    await runsWith(enqueued).enqueueSearch(order as never);
+    await runsWith(enqueued).enqueueSearch(order);
 
     expect(enqueued[0]?.requester).toEqual({
       owner: 'replays',
@@ -110,7 +117,7 @@ describe('Runs (Replays ACL)', () => {
     });
     expect(enqueued[0]?.workingCopy?.key).toBe('replays/search-run_search');
     expect(enqueued[0]?.placement.labelGroups).toEqual([['gpu']]);
-    expect(await runsWith([], false).enqueueSearch(order as never)).toEqual({
+    expect(await runsWith([], false).enqueueSearch(order)).toEqual({
       outcome: 'harness-unavailable',
     });
   });

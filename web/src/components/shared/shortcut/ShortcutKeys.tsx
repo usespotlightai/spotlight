@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, type ReactElement } from 'react';
 
 import { Kbd } from '@/components/shared/shortcut/Kbd';
 import { capsOf, type Keys, onMac, spokenOf } from '@/lib/commands/keys';
@@ -16,7 +16,7 @@ export function ShortcutKeys({
   size,
   className,
   ...shown
-}: ShortcutKeysProps) {
+}: ShortcutKeysProps): ReactElement {
   const keys = 'id' in shown ? shortcutOf(shown.id).keys : shown.keys;
   const mac = onMac();
 
@@ -25,7 +25,7 @@ export function ShortcutKeys({
       data-slot="shortcut-keys"
       className={cn(
         'inline-flex shrink-0 items-center text-muted-foreground',
-        plain ? 'gap-1' : 'gap-[3px]',
+        plain === true ? 'gap-1' : 'gap-[3px]',
         className,
       )}
     >

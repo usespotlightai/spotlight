@@ -13,7 +13,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it } from 'vitest';
 
 const registry = (taken: boolean): WorkspaceSlugRegistry => ({
-  isTaken: async () => taken,
+  isTaken: () => Promise.resolve(taken),
 });
 
 const register = (slugs: WorkspaceSlugRegistry, teamName = 'Platform') =>

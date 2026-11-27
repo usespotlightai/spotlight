@@ -1,4 +1,4 @@
-import { use } from 'react';
+import { type ReactElement, use } from 'react';
 
 import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
@@ -26,7 +26,7 @@ export function ApprovalApproveButton({
   disabledBecause = null,
   keyed = false,
   onApprove,
-}: ApprovalApproveButtonProps) {
+}: ApprovalApproveButtonProps): ReactElement {
   const docked = use(DockedContext) !== null;
 
   if (docked && !disabled) {

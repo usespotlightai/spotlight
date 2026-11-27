@@ -19,26 +19,26 @@ import { describe, expect, it, vi } from 'vitest';
 const ledger = () => {
   const kept = new Map<string, TokenHolder>();
   const usedTokens = {
-    wasUsed: vi.fn(async (kind, token: TokenHash) =>
-      kept.has(`${kind}:${token.value}`),
+    wasUsed: vi.fn((kind, token: TokenHash) =>
+      Promise.resolve(kept.has(`${kind}:${token.value}`)),
     ),
-    record: vi.fn(async (token: TokenHash, holder: TokenHolder) => {
+    record: vi.fn((token: TokenHash, holder: TokenHolder) => {
       const key = `${holder.kind}:${token.value}`;
 
       if (kept.has(key)) {
-        return false;
+        return Promise.resolve(false);
       }
 
       kept.set(key, holder);
 
-      return true;
+      return Promise.resolve(true);
     }),
   } satisfies UsedTokensPort;
 
   return { usedTokens, kept };
 };
 
-const nobody: TokenHolderLookup = async () => null;
+const nobody: TokenHolderLookup = () => Promise.resolve(null);
 
 describe('takeToken', () => {
   const pool = TokenHolder.pool(POOL_ID);
@@ -68,7 +68,12 @@ describe('takeToken', () => {
     usedTokens.record.mockClear();
 
     await expect(
-      takeToken(usedTokens, async () => otherPool, pool, hashOf('a')),
+      takeToken(
+        usedTokens,
+        () => Promise.resolve(otherPool),
+        pool,
+        hashOf('a'),
+      ),
     ).rejects.toThrow(PoolTokenInUseError);
     expect(usedTokens.record).not.toHaveBeenCalled();
   });
@@ -88,7 +93,7 @@ describe('takeToken', () => {
   it('counts the holder itself as no other holder', async () => {
     const { usedTokens } = ledger();
 
-    await takeToken(usedTokens, async () => pool, pool, hashOf('a'));
+    await takeToken(usedTokens, () => Promise.resolve(pool), pool, hashOf('a'));
 
     expect(usedTokens.record).toHaveBeenCalledWith(hashOf('a'), pool);
   });

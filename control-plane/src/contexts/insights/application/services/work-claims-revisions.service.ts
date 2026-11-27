@@ -43,6 +43,7 @@ import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-j
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { JobLoop } from '@shared-kernel/application/services/job-loop';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -110,7 +111,7 @@ const draftedFrom = (
     null,
   );
 
-  return newest?.runId ?? runs[0]?.runId ?? null;
+  return newest?.runId ?? firstOf(runs)?.runId ?? null;
 };
 
 const inBatches = async <T, R>(
@@ -330,11 +331,13 @@ export class WorkClaimsRevisions implements PendingJobsPort {
     const passes = candidates.map(() => new Map<string, boolean>());
 
     answers.forEach((answer, at) => {
-      const call = calls[at];
+      const call = itemAt(calls, at);
       const passed =
-        call && answer.status === 'judged' ? this.passes(call, answer) : null;
+        call !== undefined && answer.status === 'judged'
+          ? this.passes(call, answer)
+          : null;
 
-      if (call && passed !== null) {
+      if (call !== undefined && passed !== null) {
         passes[call.at]?.set(call.run.runId.value, passed);
       }
     });

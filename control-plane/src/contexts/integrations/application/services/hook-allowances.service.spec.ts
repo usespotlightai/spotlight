@@ -3,6 +3,7 @@ import type { WorkspaceHostsPort } from '@integrations/application/ports/workspa
 import { HookAllowancesService } from '@integrations/application/services/hook-allowances.service';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { onlyHosts } from '@integrations/infrastructure/outbound/workspace-hosts.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -10,8 +11,10 @@ import { describe, expect, it } from 'vitest';
 
 const allowances = (deployment: string, ...workspace: string[]) =>
   new HookAllowancesService(
-    { ofTeam: async () => [] } as unknown as IntegrationDefinitionRepository,
-    { signs: false } as unknown as HookTokensPort,
+    partial<IntegrationDefinitionRepository>({
+      ofTeam: () => Promise.resolve([]),
+    }),
+    partial<HookTokensPort>({ signs: false }),
     HostAllowList.listed(deployment),
     onlyHosts(...workspace),
   ).onTeam(TeamId.of('team_1'), WorkspaceId.of('ws_1'));
@@ -19,12 +22,14 @@ const allowances = (deployment: string, ...workspace: string[]) =>
 describe('HookAllowancesService', () => {
   it('checks against the workspace list as it is now, not as it was cached', async () => {
     const allowed = await new HookAllowancesService(
-      { ofTeam: async () => [] } as unknown as IntegrationDefinitionRepository,
-      { signs: false } as unknown as HookTokensPort,
+      partial<IntegrationDefinitionRepository>({
+        ofTeam: () => Promise.resolve([]),
+      }),
+      partial<HookTokensPort>({ signs: false }),
       HostAllowList.listed(''),
       {
-        of: async () => HostAllowList.of(['old.example.com']),
-        fresh: async () => HostAllowList.of(['new.example.com']),
+        of: () => Promise.resolve(HostAllowList.of(['old.example.com'])),
+        fresh: () => Promise.resolve(HostAllowList.of(['new.example.com'])),
       } as WorkspaceHostsPort,
     ).onTeam(TeamId.of('team_1'), WorkspaceId.of('ws_1'));
 

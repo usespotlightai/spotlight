@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ExpandableStep } from '@/components/features/inbox/conversation/ExpandableStep';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import type { JournalStep } from '@/lib/inbox';
@@ -10,7 +12,11 @@ type InboxStepProps = {
   className?: string;
 };
 
-export function InboxStep({ step, live = false, className }: InboxStepProps) {
+export function InboxStep({
+  step,
+  live = false,
+  className,
+}: InboxStepProps): ReactElement {
   const anchors = useStepAnchors();
   const anchor = anchors.anchorOf(step);
   const focused = anchor !== null && anchors.focused === anchor;

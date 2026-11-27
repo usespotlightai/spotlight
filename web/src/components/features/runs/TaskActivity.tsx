@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ReviewMarker } from '@/components/features/runs/ReviewMarker';
 import { RunRow } from '@/components/features/runs/RunRow';
 import { useTaskRuns } from '@/hooks/api/useTaskRuns';
@@ -16,7 +18,7 @@ export function TaskActivity({
   teamId,
   taskId,
   hold,
-}: TaskActivityProps) {
+}: TaskActivityProps): ReactElement | null {
   const { data: runs } = useTaskRuns(teamId, taskId);
 
   const worked = runs ?? [];
@@ -45,7 +47,14 @@ export function TaskActivity({
             key={run.id}
             run={run}
             teamId={teamId}
-            to={slug && teamId ? runPath(slug, teamId, run.id) : ''}
+            to={
+              slug !== undefined &&
+              slug !== '' &&
+              teamId !== undefined &&
+              teamId !== ''
+                ? runPath(slug, teamId, run.id)
+                : ''
+            }
             inTrail
             onHold={hold?.runId === run.id ? hold : null}
           />,

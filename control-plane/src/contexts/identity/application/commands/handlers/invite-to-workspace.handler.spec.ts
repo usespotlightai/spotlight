@@ -24,6 +24,7 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -108,44 +109,50 @@ const inviting = (
   let issued = 0;
   let generated = 0;
 
-  const administration = new WorkspaceAdministration({
-    findBySlug: async () => workspace(over.role),
-  } as unknown as WorkspaceRepository);
+  const administration = new WorkspaceAdministration(
+    partial<WorkspaceRepository>({
+      findBySlug: () => Promise.resolve(workspace(over.role)),
+    }),
+  );
   const handler = new InviteToWorkspaceHandler(
     administration,
-    {
+    partial<WorkspaceInviteRepository>({
       add,
       save,
-      latestTo: async (_: WorkspaceId, email: EmailAddress) =>
-        over.previous?.(email.value) ?? null,
-    } as unknown as WorkspaceInviteRepository,
-    { ofWorkspace: async () => TEAMS } as unknown as TeamRepository,
+      latestTo: (_: WorkspaceId, email: EmailAddress) =>
+        Promise.resolve(over.previous?.(email.value) ?? null),
+    }),
+    partial<TeamRepository>({ ofWorkspace: () => Promise.resolve(TEAMS) }),
     {
-      listedByEmail: async (_: WorkspaceId, email: string) =>
-        over.members?.includes(email) ? LEON : null,
-      emailsOf: async () => [],
+      listedByEmail: (_: WorkspaceId, email: string) =>
+        Promise.resolve(over.members?.includes(email) === true ? LEON : null),
+      emailsOf: () => Promise.resolve([]),
     },
     new InviteSending(
-      {
-        find: async () =>
-          over.sender === null ? null : { id: LEON, name: 'Leon', image: null },
-      } as unknown as PersonReaderPort,
+      partial<PersonReaderPort>({
+        find: () =>
+          Promise.resolve(
+            over.sender === null
+              ? null
+              : { id: LEON, name: 'Leon', image: null },
+          ),
+      }),
       { send },
-      { warn } as unknown as LoggerPort,
+      partial<LoggerPort>({ warn }),
     ),
-    {
+    partial<TokenIssuer>({
       issue: () => {
         issued += 1;
         return { token: `tok_${issued}`, hash: `${issued}`.repeat(64) };
       },
-    } as unknown as TokenIssuer,
+    }),
     {
       generate: () => {
         generated += 1;
         return `invite_${generated}`;
       },
     },
-    { now: () => NOW } as ClockPort,
+    partial<ClockPort>({ now: () => NOW }),
   );
 
   const execute = vi.spyOn(handler, 'execute');
@@ -250,10 +257,11 @@ describe('WorkspaceInviting', () => {
 
   it('stores the invite whose email could not be sent, says so, and carries on with the rest', async () => {
     const { batch, add, send, warn } = inviting({
-      mail: async (sending) => {
+      mail: (sending) => {
         if (sending.to === 'grace@example.com') {
-          throw new Error('mailbox unavailable');
+          return Promise.reject(new Error('mailbox unavailable'));
         }
+        return Promise.resolve();
       },
     });
 
@@ -349,11 +357,12 @@ describe('WorkspaceInviting', () => {
     const created = new Map<string, WorkspaceInvite>();
     const { batch, add, save, send } = inviting({
       previous: (email) => created.get(email) ?? null,
-      add: async (added) => {
+      add: (added) => {
         if (added.email.value === 'ada@example.com') {
           created.set('ada@example.com', pendingInvite());
-          throw new AlreadyInvitedError(added.email.value);
+          return Promise.reject(new AlreadyInvitedError(added.email.value));
         }
+        return Promise.resolve();
       },
     });
 
@@ -374,11 +383,12 @@ describe('WorkspaceInviting', () => {
     let saves = 0;
     const { batch, save, send } = inviting({
       previous: () => pendingInvite(),
-      save: async (saved) => {
+      save: (saved) => {
         saves += 1;
         if (saves === 1) {
-          throw new InviteVersionConflictError(saved.id.value);
+          return Promise.reject(new InviteVersionConflictError(saved.id.value));
         }
+        return Promise.resolve();
       },
     });
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { MemoryPlaceNode } from '@/components/features/memory/MemoryPlaceNode';
 import type { PlaceNode } from '@/lib/memory';
@@ -11,7 +11,7 @@ type MemoryPlaceProps = {
   open: boolean;
 };
 
-export function MemoryPlace({ tree, open }: MemoryPlaceProps) {
+export function MemoryPlace({ tree, open }: MemoryPlaceProps): ReactElement {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const toggle = (key: string) =>
     setCollapsed((was) => {

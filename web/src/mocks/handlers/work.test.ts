@@ -51,7 +51,7 @@ describe('the mock work area', () => {
 
     expect(data).toHaveLength(inWorld.length + past.length);
     expect(inWorld.every((run) => ids.has(run.id))).toBe(true);
-    expect(data.every((run) => run.taskTitle)).toBe(true);
+    expect(data.every((run) => (run.taskTitle ?? '') !== '')).toBe(true);
     expect(data[0]).toMatchObject({
       id: 'run_retries_3',
       taskId: 'task_retries',

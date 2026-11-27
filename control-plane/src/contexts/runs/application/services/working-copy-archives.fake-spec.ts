@@ -15,6 +15,7 @@ import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/wor
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -62,45 +63,49 @@ export const holding = (...owners: readonly string[]): ArchiveHolders => {
   const holders = new ArchiveHolders();
 
   for (const owner of owners) {
-    holders.register({ owner, heldOf: async () => new Map() });
+    holders.register({ owner, heldOf: () => Promise.resolve(new Map()) });
   }
 
   return holders;
 };
 
 export const runsOf = (...runs: readonly Run[]): RunRepository =>
-  ({
-    findById: async (id: RunId) =>
-      runs.find((each) => each.id.equals(id)) ?? null,
-  }) as unknown as RunRepository;
+  partial<RunRepository>({
+    findById: (id: RunId) =>
+      Promise.resolve(runs.find((each) => each.id.equals(id)) ?? null),
+  });
 
 export class InMemoryArchives implements WorkingCopyArchiveRepository {
   readonly stored = new Map<string, WorkingCopyArchive>();
 
-  async add(archive: WorkingCopyArchive): Promise<void> {
+  add(archive: WorkingCopyArchive): Promise<void> {
     this.stored.set(archive.id.value, archive);
+    return Promise.resolve();
   }
 
-  async save(archive: WorkingCopyArchive): Promise<void> {
+  save(archive: WorkingCopyArchive): Promise<void> {
     const existing = this.stored.get(archive.id.value);
 
     if (!existing || existing.version !== archive.version) {
-      throw new WorkingCopyArchiveVersionConflictError(archive.id.value);
+      return Promise.reject(
+        new WorkingCopyArchiveVersionConflictError(archive.id.value),
+      );
     }
 
     if (archive.isDiscarded) {
       this.stored.delete(archive.id.value);
-      return;
+      return Promise.resolve();
     }
 
     this.stored.set(archive.id.value, archive);
+    return Promise.resolve();
   }
 
-  async find(id: WorkingCopyArchiveId): Promise<WorkingCopyArchive | null> {
-    return this.stored.get(id.value) ?? null;
+  find(id: WorkingCopyArchiveId): Promise<WorkingCopyArchive | null> {
+    return Promise.resolve(this.stored.get(id.value) ?? null);
   }
 
-  async newestCompleted(
+  newestCompleted(
     workspaceId: WorkspaceId,
     workingCopyKey: WorkingCopyKey,
   ): Promise<WorkingCopyArchive | null> {
@@ -116,19 +121,21 @@ export class InMemoryArchives implements WorkingCopyArchiveRepository {
           (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0),
       );
 
-    return completed[0] ?? null;
+    return Promise.resolve(completed[0] ?? null);
   }
 
-  async completedKeysAmong(
+  completedKeysAmong(
     workspaceId: WorkspaceId,
     keys: readonly WorkingCopyKey[],
   ): Promise<readonly WorkingCopyKey[]> {
-    return keys.filter((key) =>
-      [...this.stored.values()].some(
-        (each) =>
-          each.isCompleted &&
-          each.workspaceId.equals(workspaceId) &&
-          each.workingCopyKey.equals(key),
+    return Promise.resolve(
+      keys.filter((key) =>
+        [...this.stored.values()].some(
+          (each) =>
+            each.isCompleted &&
+            each.workspaceId.equals(workspaceId) &&
+            each.workingCopyKey.equals(key),
+        ),
       ),
     );
   }
@@ -138,8 +145,8 @@ export class InMemoryArchiveStore implements WorkingCopyArchiveStorePort {
   readonly uploaded = new Map<string, StoredArchive>();
   readonly removed: string[] = [];
 
-  async grantUpload(archive: WorkingCopyArchive): Promise<ArchiveUpload> {
-    return {
+  grantUpload(archive: WorkingCopyArchive): Promise<ArchiveUpload> {
+    return Promise.resolve({
       url: `https://storage.test/put/${archive.id.value}`,
       headers: {
         'x-amz-checksum-sha256':
@@ -147,19 +154,20 @@ export class InMemoryArchiveStore implements WorkingCopyArchiveStorePort {
             ? archive.location.digest.sha256
             : '',
       },
-    };
+    });
   }
 
-  async stored(archive: WorkingCopyArchive): Promise<StoredArchive | null> {
-    return this.uploaded.get(archive.id.value) ?? null;
+  stored(archive: WorkingCopyArchive): Promise<StoredArchive | null> {
+    return Promise.resolve(this.uploaded.get(archive.id.value) ?? null);
   }
 
-  async grantDownload(archive: WorkingCopyArchive): Promise<string> {
-    return `https://storage.test/get/${archive.id.value}`;
+  grantDownload(archive: WorkingCopyArchive): Promise<string> {
+    return Promise.resolve(`https://storage.test/get/${archive.id.value}`);
   }
 
-  async remove(archive: WorkingCopyArchive): Promise<void> {
+  remove(archive: WorkingCopyArchive): Promise<void> {
     this.removed.push(archive.id.value);
     this.uploaded.delete(archive.id.value);
+    return Promise.resolve();
   }
 }

@@ -150,7 +150,7 @@ export class ChatController {
       ),
     );
 
-    if (!chatId) {
+    if (chatId === null || chatId === '') {
       throw new NotFoundException();
     }
 

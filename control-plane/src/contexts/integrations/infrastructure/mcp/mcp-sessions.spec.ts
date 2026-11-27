@@ -1,5 +1,4 @@
 import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
@@ -10,9 +9,12 @@ import {
 import {
   type FakeMcpServer,
   fakeMcpServer,
+  portOf,
 } from '@integrations/infrastructure/mcp/mcp-server.fake-spec';
 import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
+import { errorOf } from '@integrations/integrations.requests.fake-spec';
+import { fieldOf } from '@platform/json/field-of';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { injectedSecretsOf } from '@secrets/application/contracts/injected-secrets.fake-spec';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -22,11 +24,13 @@ const injectingKey = {
   connection: null,
   secrets: [SecretName.of('TRACKER_KEY')],
   credentials: {
-    injectedFor: async () =>
-      injectedSecretsOf([
-        { location: 'query', name: 'key', value: 'k/live', bare: 'k/live' },
-      ]),
-    standInsFor: async () => InjectedSecrets.none(),
+    injectedFor: () =>
+      Promise.resolve(
+        injectedSecretsOf([
+          { location: 'query', name: 'key', value: 'k/live', bare: 'k/live' },
+        ]),
+      ),
+    standInsFor: () => Promise.resolve(InjectedSecrets.none()),
   } as Credentials,
 };
 
@@ -37,7 +41,7 @@ const serving = async (
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
 
   return {
-    origin: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+    origin: `http://127.0.0.1:${portOf(server)}`,
     server,
   };
 };
@@ -46,8 +50,8 @@ const injectingNothing = {
   connection: null,
   secrets: [],
   credentials: {
-    injectedFor: async () => InjectedSecrets.none(),
-    standInsFor: async () => InjectedSecrets.none(),
+    injectedFor: () => Promise.resolve(InjectedSecrets.none()),
+    standInsFor: () => Promise.resolve(InjectedSecrets.none()),
   } as Credentials,
 };
 
@@ -255,15 +259,17 @@ describe('McpSessions', () => {
   });
 
   it('injects the connection and the secrets only for the server', async () => {
-    const injectedFor = vi.fn(async () =>
-      injectedSecretsOf([
-        {
-          location: 'header',
-          name: 'x-api-key',
-          value: 'tk_live',
-          bare: 'tk_live',
-        },
-      ]),
+    const injectedFor = vi.fn(() =>
+      Promise.resolve(
+        injectedSecretsOf([
+          {
+            location: 'header',
+            name: 'x-api-key',
+            value: 'tk_live',
+            bare: 'tk_live',
+          },
+        ]),
+      ),
     );
 
     await sessions.call(
@@ -278,7 +284,11 @@ describe('McpSessions', () => {
       },
     );
 
-    expect(server.received.every((each) => each.authorization)).toBe(true);
+    expect(
+      server.received.every(
+        (each) => each.authorization !== undefined && each.authorization !== '',
+      ),
+    ).toBe(true);
     expect(server.received[0]).toMatchObject({
       authorization: 'Bearer the-token',
       apiKey: 'tk_live',
@@ -298,15 +308,17 @@ describe('McpSessions', () => {
         connection: null,
         secrets: [SecretName.of('TRACKER_KEY')],
         credentials: {
-          injectedFor: async () =>
-            injectedSecretsOf([
-              {
-                location: 'query',
-                name: 'key',
-                value: 'tk/live',
-                bare: 'tk/live',
-              },
-            ]),
+          injectedFor: () =>
+            Promise.resolve(
+              injectedSecretsOf([
+                {
+                  location: 'query',
+                  name: 'key',
+                  value: 'tk/live',
+                  bare: 'tk/live',
+                },
+              ]),
+            ),
           standInsFor: vi.fn(),
         },
       },
@@ -353,7 +365,7 @@ describe('McpSessions', () => {
         body += chunk;
       });
       request.on('end', () => {
-        const id = (JSON.parse(body) as { id?: number }).id ?? null;
+        const id = fieldOf(JSON.parse(body), 'id') ?? null;
         reply.writeHead(200, { 'content-type': 'application/json' }).end(
           JSON.stringify({
             jsonrpc: '2.0',
@@ -371,11 +383,11 @@ describe('McpSessions', () => {
     try {
       const failure = await listing
         .tools(`${failing.origin}/mcp`, injectingKey)
-        .catch((error: unknown) => error as Error);
+        .catch((error: unknown) => error);
 
       expect(failure).toBeInstanceOf(Error);
-      expect((failure as Error).message).toContain('[secret]');
-      expect((failure as Error).message).not.toMatch(/k(%2F|\/)live/);
+      expect(errorOf(failure).message).toContain('[secret]');
+      expect(errorOf(failure).message).not.toMatch(/k(%2F|\/)live/);
     } finally {
       listing.onModuleDestroy();
       failing.server.close();

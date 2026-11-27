@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, type ReactElement } from 'react';
 
 import { AgentConfigRow } from '@/components/features/insights/changes/AgentConfigRow';
 import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
@@ -27,7 +27,7 @@ export function AgentConfigTable({
   measure,
   harnesses,
   judged,
-}: AgentConfigTableProps) {
+}: AgentConfigTableProps): ReactElement {
   const collapsibles = useCollapsibles();
 
   return (

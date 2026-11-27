@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiAccess } from '@/routes/ApiAccess';
 
 const listed = vi.fn<(...args: unknown[]) => unknown>();
-const failing = vi.fn();
+const failing = vi.fn<() => boolean>();
 const refetch = vi.fn();
 const workspace = vi.fn<(...args: unknown[]) => unknown>();
 const requested = vi.fn();
@@ -208,12 +208,13 @@ describe('ApiAccess', () => {
       within(dialog).getByRole('button', { name: 'Create token' }),
     );
 
+    const anIsoTime: unknown = expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/);
     expect(create).toHaveBeenCalledWith(
       {
         name: 'terraform-ci',
         description: '',
         scopes: ['configure'],
-        expiresAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) as string,
+        expiresAt: anIsoTime,
       },
       expect.anything(),
     );

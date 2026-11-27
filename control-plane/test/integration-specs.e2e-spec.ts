@@ -5,19 +5,19 @@ import {
   type Server,
   type ServerResponse,
 } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import { PETSTORE } from '@integrations/infrastructure/specs/openapi/petstore.fake-spec';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { firstOf } from '@shared-kernel/domain/item-at';
+import { present } from '@shared-kernel/domain/present.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import { ToolDeclarationMapper } from '@work/application/mappers/tool-declaration.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import {
   INTEGRATION_TOOL_CALLS,
-  type IntegrationTool,
   type IntegrationToolCallsPort,
 } from '@work/application/ports/integration-tool-calls.port';
 import {
@@ -38,6 +38,8 @@ import {
 } from 'vitest';
 
 import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
+import { parsedAs } from './support/body';
+import { addressOf } from './support/http-server';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -96,10 +98,10 @@ const fixture = () => {
         }
 
         if (url === '/graphql' && request.method === 'POST') {
-          const operation = JSON.parse(body) as {
+          const operation = parsedAs<{
             query: string;
             variables?: Record<string, unknown>;
-          };
+          }>(body);
 
           return answer(
             reply,
@@ -193,20 +195,17 @@ describe('an integration providing tools from an API spec (e2e)', () => {
   });
 
   const resolved = async (tool: string) =>
-    (await app
-      .get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS)
-      .resolve(
-        tool,
-        task(),
-        { runId: 'run_1', attempt: 1 },
-        null,
-      )) as IntegrationTool;
+    present(
+      await app
+        .get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS)
+        .resolve(tool, task(), { runId: 'run_1', attempt: 1 }, null),
+    );
 
   beforeAll(async () => {
     await new Promise<void>((resolve) =>
       upstream.server.listen(0, '127.0.0.1', resolve),
     );
-    origin = `http://127.0.0.1:${(upstream.server.address() as AddressInfo).port}`;
+    origin = `http://127.0.0.1:${addressOf(upstream.server).port}`;
     vi.stubEnv('SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS', new URL(origin).hostname);
     app = await openApp();
     db = app.get<DrizzleDatabase>(DRIZZLE);
@@ -361,9 +360,11 @@ describe('an integration providing tools from an API spec (e2e)', () => {
     const made = await create(petstore());
     hashes.push(made.body.spec.hash);
 
-    const [provided] = await app
-      .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-      .provided(TeamId.of(workspaceId), ['petstore.find-pets-by-tags']);
+    const provided = firstOf(
+      await app
+        .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
+        .provided(TeamId.of(workspaceId), ['petstore.find-pets-by-tags']),
+    );
     const manifest = toolManifestOf(
       ToolDeclarationMapper.toDeclared(provided ?? never()),
     );

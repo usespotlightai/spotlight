@@ -19,14 +19,23 @@ import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
-import type { WaitingHookStep } from '@integrations/domain/value-objects/hook-step-outcome.vo';
+import type {
+  HookStepOutcome,
+  WaitingHookStep,
+} from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
+import {
+  headersOf,
+  callAt,
+} from '@integrations/integrations.requests.fake-spec';
+import { fieldOf } from '@platform/json/field-of';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type { NetworkCallsPort } from '@runs/application/ports/network-calls.port';
 import { SigningSecret } from '@shared-kernel/domain/value-objects/signing-secret.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { Mock } from 'vitest';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T10:00:00.000Z');
@@ -72,18 +81,20 @@ const hookRequest = (overrides: Partial<HookRequest> = {}): HookRequest => ({
 const TOKEN = 'callback_token';
 
 const network = (): NetworkCallsPort => ({
-  queue: vi.fn(async () => 'call_1'),
-  stateOf: vi.fn(async () => ({ kind: 'waiting' as const })),
-  answered: vi.fn(async () => ({
-    kind: 'answered' as const,
-    response: {
-      status: 200,
-      headers: {},
-      body: new TextEncoder().encode('{"ok":true}'),
-      ms: 40,
-      error: null,
-    },
-  })),
+  queue: vi.fn(() => Promise.resolve('call_1')),
+  stateOf: vi.fn(() => Promise.resolve({ kind: 'waiting' as const })),
+  answered: vi.fn(() =>
+    Promise.resolve({
+      kind: 'answered' as const,
+      response: {
+        status: 200,
+        headers: {},
+        body: new TextEncoder().encode('{"ok":true}'),
+        ms: 40,
+        error: null,
+      },
+    }),
+  ),
 });
 
 const requests = (
@@ -95,8 +106,8 @@ const requests = (
   hosts: WorkspaceOutboundScopePort = unscoped,
   signs = true,
 ) => {
-  const fetch = vi.fn(reply);
-  const signed = vi.fn(async () => 'jwt');
+  const fetch = vi.fn<typeof globalThis.fetch>(reply);
+  const signed = vi.fn(() => Promise.resolve('jwt'));
 
   return {
     fetch,
@@ -107,12 +118,12 @@ const requests = (
         callbackUrl: 'https://spotlight.example.com/api/hook-callbacks',
         policy: allowingOutbound(allowed),
       },
-      { signingSecretOf: async () => secret },
+      { signingSecretOf: () => Promise.resolve(secret) },
       {
         signs,
         issuer: 'https://spotlight.example.com/api',
         signed,
-        keys: async () => ({ keys: [] }),
+        keys: () => Promise.resolve({ keys: [] }),
       },
       calls,
       limits,
@@ -123,16 +134,21 @@ const requests = (
   };
 };
 
-const sentHeaders = (fetch: ReturnType<typeof vi.fn>) =>
-  (fetch.mock.calls[0] as [string, RequestInit])[1].headers as Record<
-    string,
-    string
-  >;
+const sentHeaders = (fetch: Mock<typeof globalThis.fetch>) =>
+  headersOf(callAt(fetch)[1]);
+
+const waitingOf = (outcome: HookStepOutcome): WaitingHookStep => {
+  if (outcome.status !== 'waiting') {
+    throw new Error('expected a waiting step');
+  }
+
+  return outcome;
+};
 
 describe('HookRequests', () => {
   it('signs as Standard Webhooks do, with a callback token and a stable id', async () => {
-    const { fetch, requests: sending } = requests(
-      async () => new Response('{"ok":true}', { status: 200 }),
+    const { fetch, requests: sending } = requests(() =>
+      Promise.resolve(new Response('{"ok":true}', { status: 200 })),
     );
 
     const stepResult = await sending.sent(hookRequest(), TOKEN, NOW);
@@ -162,8 +178,8 @@ describe('HookRequests', () => {
   });
 
   it('keeps the signature and tokens out of the trace', async () => {
-    const { requests: sending } = requests(
-      async () => new Response('{}', { status: 200 }),
+    const { requests: sending } = requests(() =>
+      Promise.resolve(new Response('{}', { status: 200 })),
     );
 
     const stepResult = await sending.sent(hookRequest(), TOKEN, NOW);
@@ -175,7 +191,7 @@ describe('HookRequests', () => {
 
   it('sends nothing when a hook that signs with a secret has none', async () => {
     const { fetch, requests: sending } = requests(
-      async () => new Response('{}'),
+      () => Promise.resolve(new Response('{}')),
       network(),
       ['example.com'],
       null,
@@ -193,20 +209,18 @@ describe('HookRequests', () => {
   });
 
   it('stores no more of an answer than it can show', async () => {
-    const { requests: sending } = requests(
-      async () => new Response('x'.repeat(100_000), { status: 200 }),
+    const { requests: sending } = requests(() =>
+      Promise.resolve(new Response('x'.repeat(100_000), { status: 200 })),
     );
 
     const stepResult = await sending.sent(hookRequest(), TOKEN, NOW);
 
-    expect((stepResult.outcome as { output: string }).output).toHaveLength(
-      16 * 1024,
-    );
+    expect(fieldOf(stepResult.outcome, 'output')).toHaveLength(16 * 1024);
   });
 
   it('fails a call whose answer stops early, in place of keeping part of it', async () => {
-    const { requests: sending } = requests(
-      async () =>
+    const { requests: sending } = requests(() =>
+      Promise.resolve(
         new Response(
           new ReadableStream({
             start(controller) {
@@ -216,6 +230,7 @@ describe('HookRequests', () => {
           }),
           { status: 200 },
         ),
+      ),
     );
 
     const stepResult = await sending.sent(hookRequest(), TOKEN, NOW);
@@ -231,7 +246,7 @@ describe('HookRequests', () => {
       fetch,
       signed,
       requests: sending,
-    } = requests(async () => new Response('{}', { status: 200 }));
+    } = requests(() => Promise.resolve(new Response('{}', { status: 200 })));
 
     await sending.sent(
       hookRequest({ signing: { kind: 'oidc', audience: 'https://dba' } }),
@@ -252,9 +267,10 @@ describe('HookRequests', () => {
   });
 
   it('reads a deny reason from the answer', async () => {
-    const { requests: sending } = requests(
-      async () =>
+    const { requests: sending } = requests(() =>
+      Promise.resolve(
         new Response('{"deny":"drops a column in use"}', { status: 200 }),
+      ),
     );
 
     await expect(
@@ -265,8 +281,8 @@ describe('HookRequests', () => {
   });
 
   it('fails a step answered outside 2xx, saying so', async () => {
-    const { requests: sending } = requests(
-      async () => new Response('down', { status: 503 }),
+    const { requests: sending } = requests(() =>
+      Promise.resolve(new Response('down', { status: 503 })),
     );
 
     await expect(
@@ -288,8 +304,8 @@ describe('HookRequests', () => {
     [408, 'throttled'],
     [500, 'server-error'],
   ])('types an answer of %i as %s', async (status, code) => {
-    const { requests: sending } = requests(
-      async () => new Response('no', { status }),
+    const { requests: sending } = requests(() =>
+      Promise.resolve(new Response('no', { status })),
     );
 
     await expect(
@@ -300,8 +316,8 @@ describe('HookRequests', () => {
   });
 
   it('names the firing it was sent for, so a reply can carry the chain back', async () => {
-    const { fetch, requests: sending } = requests(
-      async () => new Response('{}', { status: 200 }),
+    const { fetch, requests: sending } = requests(() =>
+      Promise.resolve(new Response('{}', { status: 200 })),
     );
 
     await sending.sent(
@@ -317,7 +333,7 @@ describe('HookRequests', () => {
 
   it('sends nothing when a hook that signs with OIDC finds no key to sign with', async () => {
     const { fetch, requests: sending } = requests(
-      async () => new Response('{}'),
+      () => Promise.resolve(new Response('{}')),
       network(),
       undefined,
       SECRET,
@@ -343,8 +359,8 @@ describe('HookRequests', () => {
   });
 
   it('names no firing for a hook before an event', async () => {
-    const { fetch, requests: sending } = requests(
-      async () => new Response('{}', { status: 200 }),
+    const { fetch, requests: sending } = requests(() =>
+      Promise.resolve(new Response('{}', { status: 200 })),
     );
 
     await sending.sent(hookRequest(), TOKEN, NOW);
@@ -354,11 +370,11 @@ describe('HookRequests', () => {
 
   it('sends nothing when the workspace calls other services too often, and says so', async () => {
     const { requests: sending, fetch } = requests(
-      async () => new Response('{}'),
+      () => Promise.resolve(new Response('{}')),
       network(),
       undefined,
       SECRET,
-      { perSecond: 50, take: async () => false },
+      { perSecond: 50, take: () => Promise.resolve(false) },
     );
 
     await expect(
@@ -375,10 +391,12 @@ describe('HookRequests', () => {
   });
 
   it('fails a step it could not send, saying why', async () => {
-    const { requests: sending } = requests(async () => {
-      throw Object.assign(new TypeError('fetch failed'), {
-        cause: Object.assign(new Error(''), { code: 'ECONNREFUSED' }),
-      });
+    const { requests: sending } = requests(() => {
+      return Promise.reject(
+        Object.assign(new TypeError('fetch failed'), {
+          cause: Object.assign(new Error(''), { code: 'ECONNREFUSED' }),
+        }),
+      );
     });
 
     await expect(
@@ -395,7 +413,7 @@ describe('HookRequests', () => {
 
   it('never sends to a host the deployment does not allow', async () => {
     const { fetch, requests: sending } = requests(
-      async () => new Response('{}'),
+      () => Promise.resolve(new Response('{}')),
       network(),
       ['slack.com'],
     );
@@ -410,7 +428,7 @@ describe('HookRequests', () => {
 
   it('never sends to a host the workspace does not allow, and says so', async () => {
     const { fetch, requests: sending } = requests(
-      async () => new Response('{}'),
+      () => Promise.resolve(new Response('{}')),
       network(),
       undefined,
       SECRET,
@@ -433,17 +451,21 @@ describe('HookRequests', () => {
 
   it('fails the step, to try again, when it cannot read the workspace list', async () => {
     const { fetch, requests: sending } = requests(
-      async () => new Response('{}'),
+      () => Promise.resolve(new Response('{}')),
       network(),
       undefined,
       SECRET,
       unlimited,
       {
-        within: async () => {
-          throw new OutboundHostsUnreadError('ws_1', 'connection lost');
+        within: () => {
+          return Promise.reject(
+            new OutboundHostsUnreadError('ws_1', 'connection lost'),
+          );
         },
-        withinFresh: async () => {
-          throw new OutboundHostsUnreadError('ws_1', 'connection lost');
+        withinFresh: () => {
+          return Promise.reject(
+            new OutboundHostsUnreadError('ws_1', 'connection lost'),
+          );
         },
       },
     );
@@ -463,7 +485,7 @@ describe('HookRequests', () => {
 
   it('sends to a host the workspace allows', async () => {
     const { fetch, requests: sending } = requests(
-      async () => new Response('{}'),
+      () => Promise.resolve(new Response('{}')),
       network(),
       undefined,
       SECRET,
@@ -481,7 +503,7 @@ describe('HookRequests', () => {
       fetch,
       calls,
       requests: sending,
-    } = requests(async () => new Response('{}'));
+    } = requests(() => Promise.resolve(new Response('{}')));
 
     const stepResult = await sending.sent(
       hookRequest({ url: 'http://dba.acme.internal/', fromNetwork: true }),
@@ -510,7 +532,7 @@ describe('HookRequests', () => {
   it('suspends a request a host sends after an event, and resumes it', async () => {
     const calls = network();
     const { requests: sending } = requests(
-      async () => new Response('{}'),
+      () => Promise.resolve(new Response('{}')),
       calls,
     );
 
@@ -529,7 +551,7 @@ describe('HookRequests', () => {
     await expect(
       sending.resumed(
         hookRequest({ fromNetwork: true, waitMode: 'suspend' }),
-        first.outcome as WaitingHookStep,
+        waitingOf(first.outcome),
         NOW,
       ),
     ).resolves.toBeNull();
@@ -548,7 +570,7 @@ describe('HookRequests', () => {
     await expect(
       sending.resumed(
         hookRequest({ fromNetwork: true, waitMode: 'suspend' }),
-        first.outcome as WaitingHookStep,
+        waitingOf(first.outcome),
         NOW,
       ),
     ).resolves.toMatchObject({
@@ -564,7 +586,7 @@ describe('HookRequests', () => {
       claimed: false,
     });
     const { requests: sending } = requests(
-      async () => new Response('{}'),
+      () => Promise.resolve(new Response('{}')),
       calls,
     );
     const waiting: WaitingHookStep = {
@@ -597,7 +619,7 @@ describe('HookRequests', () => {
       claimed: false,
     });
     const { requests: sending } = requests(
-      async () => new Response('{}'),
+      () => Promise.resolve(new Response('{}')),
       calls,
     );
 

@@ -1,3 +1,4 @@
+import { entryOf } from '@/mocks/entry';
 import { api, json, notFound } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
 import { scenario } from '@/mocks/scenario';
@@ -26,7 +27,7 @@ const workspaceAs = () => ({
 const completedStationsOf = (teamId: string, lineId: string | null) =>
   new Set(
     (world().lines[teamId] ?? [])
-      .filter((line) => !lineId || line.id === lineId)
+      .filter((line) => lineId === null || lineId === '' || line.id === lineId)
       .flatMap((line) => line.stations)
       .filter((station) => station.kind === 'completed')
       .map((station) => station.id),
@@ -45,7 +46,7 @@ export const shellHandlers = [
   ),
 
   api.get('/teams/:teamId/lines', ({ params }) => {
-    const lines = world().lines[String(params.teamId)];
+    const lines = entryOf(world().lines, String(params.teamId));
     return lines ? json(lines) : notFound();
   }),
 

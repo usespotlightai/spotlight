@@ -12,6 +12,7 @@ import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -24,13 +25,15 @@ const claimants = (
   known: { pool?: RunnerPool | null; trust?: RunnerTrust | null } = {},
 ) =>
   new RunnerClaimants(
-    { find: vi.fn(async () => runner) } as unknown as RunnerRepository,
-    {
-      find: vi.fn(async () => known.pool ?? null),
-    } as unknown as RunnerPoolRepository,
-    {
-      find: vi.fn(async () => known.trust ?? null),
-    } as unknown as RunnerTrustRepository,
+    partial<RunnerRepository>({
+      find: vi.fn(() => Promise.resolve(runner)),
+    }),
+    partial<RunnerPoolRepository>({
+      find: vi.fn(() => Promise.resolve(known.pool ?? null)),
+    }),
+    partial<RunnerTrustRepository>({
+      find: vi.fn(() => Promise.resolve(known.trust ?? null)),
+    }),
   );
 
 describe('RunnerClaimants', () => {
@@ -89,12 +92,14 @@ describe('RunnerClaimants', () => {
   });
 
   it('reads no pool and no trust for a claimant on the hot routes, such as a lease renewal', async () => {
-    const pools = { find: vi.fn(async () => aPullPool()) };
-    const trusts = { find: vi.fn(async () => aTrust()) };
+    const pools = { find: vi.fn(() => Promise.resolve(aPullPool())) };
+    const trusts = { find: vi.fn(() => Promise.resolve(aTrust())) };
     const found = await new RunnerClaimants(
-      { find: vi.fn(async () => aRunner()) } as unknown as RunnerRepository,
-      pools as unknown as RunnerPoolRepository,
-      trusts as unknown as RunnerTrustRepository,
+      partial<RunnerRepository>({
+        find: vi.fn(() => Promise.resolve(aRunner())),
+      }),
+      partial<RunnerPoolRepository>(pools),
+      partial<RunnerTrustRepository>(trusts),
     ).claimantOf(ID, SOON);
 
     expect(found).not.toHaveProperty('source');

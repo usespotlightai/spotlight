@@ -1,10 +1,16 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 
 import { tokenKeys } from '@/hooks/api/useWorkspaceTokens';
 import { deleteWorkspaceToken } from '@/lib/api';
 import type { WorkspaceToken } from '@/lib/token';
 
-export function useRevokeWorkspaceToken(workspaceId: string | undefined) {
+export function useRevokeWorkspaceToken(
+  workspaceId: string | undefined,
+): UseMutationResult<void, Error, Pick<WorkspaceToken, 'id' | 'version'>> {
   const queryClient = useQueryClient();
 
   return useMutation({

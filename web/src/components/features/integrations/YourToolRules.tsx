@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ToolRuleSelect } from '@/components/features/integrations/ToolRuleSelect';
 import { useSetToolRule } from '@/hooks/api/useSetToolRule';
 import type { ConnectionToolRuleResponseDto } from '@/lib/api';
@@ -17,7 +19,7 @@ export function YourToolRules({
   teamId,
   integration,
   tools,
-}: YourToolRulesProps) {
+}: YourToolRulesProps): ReactElement {
   const setting = useSetToolRule(teamId);
 
   return (

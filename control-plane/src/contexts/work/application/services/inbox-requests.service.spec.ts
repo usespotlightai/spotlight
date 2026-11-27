@@ -1,3 +1,4 @@
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { InboxRequestOf } from '@work/application/ports/inbox-requests.port';
@@ -21,34 +22,42 @@ const asiding = (input: { task?: boolean } = {}) => {
   const stored: InboxRequest[] = [];
 
   const inboxRequests = new InboxRequests(
-    {
-      add: async (inboxRequest: InboxRequest) => {
+    partial<InboxRequestRepository>({
+      add: (inboxRequest: InboxRequest) => {
         stored.push(inboxRequest);
+
+        return Promise.resolve();
       },
-      save: async (inboxRequest: InboxRequest) => {
+      save: (inboxRequest: InboxRequest) => {
         stored.splice(
           stored.findIndex((each) => each.id.equals(inboxRequest.id)),
           1,
           inboxRequest,
         );
+
+        return Promise.resolve();
       },
-      about: async (taskId: TaskId, form: string, about: InboxRequestSubject) =>
-        stored.find(
-          (each) =>
-            each.taskId.equals(taskId) &&
-            each.form === form &&
-            each.about.equals(about),
-        ) ?? null,
-    } as unknown as InboxRequestRepository,
-    {
-      find: async () =>
-        (input.task ?? true)
-          ? ({ id: TASK, workspaceId: WorkspaceId.of('ws_1') } as Task)
-          : null,
-    } as unknown as TaskRepository,
+      about: (taskId: TaskId, form: string, about: InboxRequestSubject) =>
+        Promise.resolve(
+          stored.find(
+            (each) =>
+              each.taskId.equals(taskId) &&
+              each.form === form &&
+              each.about.equals(about),
+          ) ?? null,
+        ),
+    }),
+    partial<TaskRepository>({
+      find: () =>
+        Promise.resolve(
+          (input.task ?? true)
+            ? partial<Task>({ id: TASK, workspaceId: WorkspaceId.of('ws_1') })
+            : null,
+        ),
+    }),
     { inTransaction: <T>(work: () => Promise<T>) => work() },
     { generate: () => 'request_1' },
-    { now: () => NOW, sleep: async () => undefined },
+    { now: () => NOW, sleep: () => Promise.resolve(undefined) },
   );
 
   return { inboxRequests, stored };

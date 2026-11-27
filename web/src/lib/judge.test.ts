@@ -13,6 +13,7 @@ import {
   type RubricVersion,
   scoreVisibility,
 } from '@/lib/judge';
+import { partial } from '@/test/partial';
 
 const CALIBRATION = {
   qualified: false,
@@ -108,7 +109,7 @@ const QUALIFIED = {
 const version = (
   agreement: Partial<RubricVersion['agreement']> = {},
 ): RubricVersion =>
-  ({
+  partial<RubricVersion>({
     judged: 30,
     agreement: {
       pairs: 24,
@@ -121,10 +122,9 @@ const version = (
       kappa: null,
       reading: null,
       f1: null,
-      claims: [],
       ...agreement,
     },
-  }) as unknown as RubricVersion;
+  });
 
 describe('comparisonStats', () => {
   it('words the agreement on verdicts by the reading the server gives', () => {
@@ -154,7 +154,7 @@ describe('comparisonStats', () => {
       QUALIFIED,
     );
 
-    expect(same?.note.rows).toEqual([['F1 score', '0.91']]);
+    expect(same.note.rows).toEqual([['F1 score', '0.91']]);
   });
 
   it('marks the reading as failing when the server flags agreement below the minimum', () => {
@@ -202,8 +202,8 @@ describe('comparisonStats', () => {
   it('notes no reading where there is no figure, and gives the scale as rows', () => {
     const [kappa] = comparisonStats(version(), QUALIFIED);
 
-    expect(kappa?.detail).toBeNull();
-    expect(kappa?.note.rows?.map(([, word]) => word)).toEqual([
+    expect(kappa.detail).toBeNull();
+    expect(kappa.note.rows?.map(([, word]) => word)).toEqual([
       'Almost perfect',
       'Substantial',
       'Moderate',

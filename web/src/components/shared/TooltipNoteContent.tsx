@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import type { TooltipNote } from '@/lib/tooltip-note';
 
 export function TooltipNoteContent({
@@ -6,11 +8,13 @@ export function TooltipNoteContent({
 }: {
   note: TooltipNote;
   className?: string;
-}) {
+}): ReactElement {
   return (
     <span className={`flex flex-col gap-1 ${className}`}>
-      {note.title && <span className="font-medium">{note.title}</span>}
-      {note.body && <span>{note.body}</span>}
+      {note.title !== undefined && note.title !== '' && (
+        <span className="font-medium">{note.title}</span>
+      )}
+      {note.body !== undefined && note.body !== '' && <span>{note.body}</span>}
       {note.rows && note.rows.length > 0 && (
         <span className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5">
           {note.rows.map(([label, value]) => (

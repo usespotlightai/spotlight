@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -12,10 +12,17 @@ export function AuthoredText({
 }: {
   label?: string;
   children: ReactNode;
-}) {
+}): ReactElement {
   return (
-    <div className={cn('flex min-w-0 flex-col gap-2', label && 'pt-2')}>
-      {label && <p className="text-muted-foreground text-xs">{label}</p>}
+    <div
+      className={cn(
+        'flex min-w-0 flex-col gap-2',
+        label !== undefined && label !== '' && 'pt-2',
+      )}
+    >
+      {label !== undefined && label !== '' && (
+        <p className="text-muted-foreground text-xs">{label}</p>
+      )}
       <ScrollArea
         data-slot="authored-text"
         className="max-h-[min(60vh,36rem)] min-w-0 rounded-lg bg-background/60"

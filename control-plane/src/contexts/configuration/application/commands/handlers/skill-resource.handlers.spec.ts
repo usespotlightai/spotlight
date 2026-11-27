@@ -18,6 +18,7 @@ import { teamAccess } from '@identity/application/ports/workspace-access.fake-sp
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -40,14 +41,16 @@ const GRAFANA = {
 const access = (isAdmin = true) => teamAccess(TEAM, isAdmin);
 
 const teams = {
-  find: vi.fn(async () => ({
-    id: TEAM,
-    workspaceId: WorkspaceId.of('ws_1'),
-    key: 'core',
-    name: 'Core',
-    members: [],
-  })),
-  inWorkspace: vi.fn(async () => []),
+  find: vi.fn(() =>
+    Promise.resolve({
+      id: TEAM,
+      workspaceId: WorkspaceId.of('ws_1'),
+      key: 'core',
+      name: 'Core',
+      members: [],
+    }),
+  ),
+  inWorkspace: vi.fn(() => Promise.resolve([])),
 } satisfies TeamDirectoryPort;
 
 const transaction: TransactionPort = { inTransaction: (work) => work() };
@@ -64,15 +67,16 @@ const storedAt = (version: number) =>
 const definitions = (
   over: { stored?: SkillDefinition | null; throwing?: Error } = {},
 ) => {
-  const read = vi.fn(async () => over.stored ?? null);
+  const read = vi.fn(() => Promise.resolve(over.stored ?? null));
 
   return {
     withId: read,
-    ofTeam: vi.fn(async () => []),
-    save: vi.fn<SkillDefinitionRepository['save']>(async () => {
+    ofTeam: vi.fn(() => Promise.resolve([])),
+    save: vi.fn<SkillDefinitionRepository['save']>(() => {
       if (over.throwing) {
-        throw over.throwing;
+        return Promise.reject(over.throwing);
       }
+      return Promise.resolve();
     }),
   } satisfies SkillDefinitionRepository;
 };
@@ -86,7 +90,7 @@ describe('CreateSkillHandler', () => {
       new SkillCompiler(),
       repository,
       {
-        reserve: vi.fn(async () => ({ kind: 'new' as const })),
+        reserve: vi.fn(() => Promise.resolve({ kind: 'new' as const })),
         recordCreated: vi.fn(async () => {}),
       } satisfies IdempotentCreatesPort,
       { generate: () => 'skill_new' },
@@ -208,7 +212,9 @@ describe('DeleteSkillHandler', () => {
     const handler = new DeleteSkillHandler(
       access(),
       repository,
-      { skillsOn: vi.fn(async () => uses) } as unknown as StationReferences,
+      partial<StationReferences>({
+        skillsOn: vi.fn(() => Promise.resolve(uses)),
+      }),
       transaction,
     );
 

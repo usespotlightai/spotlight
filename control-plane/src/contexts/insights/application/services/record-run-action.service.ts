@@ -49,14 +49,18 @@ export class RecordRunAction {
     const tool = { tool: event.tool, server: event.server };
     const workspaceId = WorkspaceId.of(event.workspaceId);
     const taskId = TaskId.of(event.taskId);
-    const run = event.afterRunId
-      ? await this.work.endedRun(RunId.of(event.afterRunId))
-      : null;
+    const run =
+      event.afterRunId !== null && event.afterRunId !== ''
+        ? await this.work.endedRun(RunId.of(event.afterRunId))
+        : null;
     const owner = FactOwner.of(workspaceId, {
       teamId: run?.teamId ?? null,
       taskId,
     });
-    const afterRunId = event.afterRunId ? RunId.of(event.afterRunId) : null;
+    const afterRunId =
+      event.afterRunId !== null && event.afterRunId !== ''
+        ? RunId.of(event.afterRunId)
+        : null;
 
     await this.transaction.inTransaction(() =>
       this.recorder.record(this.records, {

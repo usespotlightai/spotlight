@@ -77,7 +77,9 @@ export const JAVA_GRAMMAR: Grammar = {
         ?.text ?? '';
     const local = specifier.split('.').pop();
 
-    return local ? [{ local, imported: local, specifier }] : [];
+    return local !== undefined && local !== ''
+      ? [{ local, imported: local, specifier }]
+      : [];
   },
   resolve: (specifier, _from, paths) => {
     const parts = specifier.split('.');

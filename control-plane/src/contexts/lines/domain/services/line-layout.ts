@@ -59,7 +59,7 @@ export const stationsProblem = <R extends Reference<R>>(
 
   const twice = repeatedIn(stations.map((each) => each.key.value));
 
-  if (twice) {
+  if (twice !== null && twice !== '') {
     return {
       reason: `must have unique keys, but ${twice} repeats`,
       flaw: STATIONS,

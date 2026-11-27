@@ -1,6 +1,12 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import type {
+  TeamWorkspaceMembership,
+  WorkspaceAccessPort,
+} from '@identity/application/ports/workspace-access.port';
+import type {
+  DefinedIntegration,
+  DefinedIntegrationsPort,
+} from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationConnectionRosterPort } from '@integrations/application/ports/integration-connection-roster.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import { ListIntegrationConnectionsHandler } from '@integrations/application/queries/handlers/list-integration-connections.handler';
@@ -18,6 +24,7 @@ import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.v
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InMemoryPersonToolPolicies } from '@integrations/integrations.policies.fake-spec';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -26,45 +33,55 @@ const AT = new Date('2026-10-05T10:00:00.000Z');
 
 const policies = new InMemoryPersonToolPolicies();
 
-const listing = (membership: { isAdmin: boolean } | null) =>
+const listing = (membership: Partial<TeamWorkspaceMembership> | null) =>
   new ListIntegrationConnectionsHandler(
+    partial<WorkspaceAccessPort>({
+      inWorkspaceOfTeam: vi.fn(() =>
+        Promise.resolve(
+          membership === null
+            ? null
+            : partial<TeamWorkspaceMembership>(membership),
+        ),
+      ),
+    }),
     {
-      inWorkspaceOfTeam: vi.fn(async () => membership),
-    } as unknown as WorkspaceAccessPort,
-    {
-      ofTeam: async () => [
-        {
-          integration: IntegrationKey.of('linear'),
-          personId: UserId.of('user_1'),
-          linkedAccount: '@me',
-          connectedAt: AT,
-        },
-        {
-          integration: IntegrationKey.of('linear'),
-          personId: UserId.of('user_2'),
-          linkedAccount: '@bob',
-          connectedAt: AT,
-        },
-      ],
+      ofTeam: () =>
+        Promise.resolve([
+          {
+            integration: IntegrationKey.of('linear'),
+            personId: UserId.of('user_1'),
+            linkedAccount: '@me',
+            connectedAt: AT,
+          },
+          {
+            integration: IntegrationKey.of('linear'),
+            personId: UserId.of('user_2'),
+            linkedAccount: '@bob',
+            connectedAt: AT,
+          },
+        ]),
     } satisfies IntegrationConnectionRosterPort,
     {
       find: vi.fn(),
-      findMany: async () =>
-        new Map([
-          ['user_1', { id: UserId.of('user_1'), name: 'Me', image: null }],
-          ['user_2', { id: UserId.of('user_2'), name: 'Bob', image: null }],
-        ]),
+      findMany: () =>
+        Promise.resolve(
+          new Map([
+            ['user_1', { id: UserId.of('user_1'), name: 'Me', image: null }],
+            ['user_2', { id: UserId.of('user_2'), name: 'Bob', image: null }],
+          ]),
+        ),
     } satisfies PersonReaderPort,
-    {
-      ofTeam: async () => [
-        {
-          integration: 'linear',
-          tools: ['linear.comment', 'linear.issue-create'],
-        },
-      ],
-    } as unknown as DefinedIntegrationsPort,
+    partial<DefinedIntegrationsPort>({
+      ofTeam: () =>
+        Promise.resolve([
+          partial<DefinedIntegration>({
+            integration: 'linear',
+            tools: ['linear.comment', 'linear.issue-create'],
+          }),
+        ]),
+    }),
     policies,
-    {
+    partial<IntegrationRuntimePort>({
       offered: () => [
         OfferedTools.listed(
           Integration.of({
@@ -87,7 +104,7 @@ const listing = (membership: { isAdmin: boolean } | null) =>
           ContentHash.of('a'.repeat(64)),
         ),
       ],
-    } as unknown as IntegrationRuntimePort,
+    }),
   );
 
 const query = () => new ListIntegrationConnectionsQuery('team_1', 'user_1');

@@ -27,6 +27,7 @@ import {
   served,
   TEST_USER_HEADER,
 } from './support/app';
+import { bodyOf } from './support/body';
 import { eventually } from './support/eventually';
 import {
   conformsAsResource,
@@ -161,7 +162,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
 
     expect(made.status).toBe(201);
 
-    return made.body as { id: string; version: number };
+    return bodyOf<{ id: string; version: number }>(made);
   };
 
   const exchange = (trust: string, token: string) =>
@@ -184,13 +185,13 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
 
     expect(answer.status).toBe(200);
 
-    return answer.body as {
+    return bodyOf<{
       token: string;
       tokenId: string;
       workspaceId: string;
       scopes: string[];
       expiresAt: string;
-    };
+    }>(answer);
   };
 
   const as = (token: string) => ({
@@ -211,18 +212,20 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
   const teams = () => `/api/v1/resources/workspaces/${seat.workspaceId}/teams`;
 
   const audit = async () =>
-    (
+    bodyOf<
+      {
+        resource: string;
+        key: string;
+        action: string;
+        by: { kind: string; tokenId: string; userId: string; trust: string };
+        client: string;
+        details: Record<string, unknown>;
+      }[]
+    >(
       await http()
         .get(`/api/workspaces/${seat.workspaceId}/configuration-changes`)
-        .set(TEST_USER_HEADER, seat.owner)
-    ).body as {
-      resource: string;
-      key: string;
-      action: string;
-      by: { kind: string; tokenId: string; userId: string; trust: string };
-      client: string;
-      details: Record<string, unknown>;
-    }[];
+        .set(TEST_USER_HEADER, seat.owner),
+    );
 
   beforeAll(async () => {
     app = await openApp();

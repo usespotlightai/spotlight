@@ -1,8 +1,10 @@
+import type { ReactElement } from 'react';
+
 import { OutcomeIcon } from '@/components/shared/OutcomeIcon';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatMark, JUDGE_LABEL } from '@/lib/judge';
 
-export function ClaimMark({ met }: { met: boolean }) {
+export function ClaimMark({ met }: { met: boolean }): ReactElement {
   const label = formatMark(met);
 
   return (

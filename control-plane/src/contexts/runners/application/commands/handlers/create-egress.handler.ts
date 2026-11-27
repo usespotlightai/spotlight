@@ -121,7 +121,10 @@ export class CreateEgressHandler implements CommandHandlerPort<
         return {
           created,
           token:
-            issued.token && created.outcome === 'created' && !created.replayed
+            issued.token !== null &&
+            issued.token !== '' &&
+            created.outcome === 'created' &&
+            !created.replayed
               ? issued.token
               : null,
         };

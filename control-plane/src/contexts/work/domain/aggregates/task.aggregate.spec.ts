@@ -1,4 +1,6 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { instanceOf } from '@shared-kernel/domain/instance-of.fake-spec';
+import { firstOf, itemAt } from '@shared-kernel/domain/item-at';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -22,7 +24,7 @@ import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
-import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
+import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import { AssignedToAnotherPersonError } from '@work/domain/exceptions/assigned-to-another-person.error';
 import { DraftAlreadySentError } from '@work/domain/exceptions/draft-already-sent.error';
 import { InvalidTaskRevisionError } from '@work/domain/exceptions/invalid-task-revision.error';
@@ -183,7 +185,7 @@ const newNote = {
 
 const ownersNote = { ...newNote, voice: Voice.person(OWNER.person) };
 
-const lastOf = (task: Task) => task.notes[task.notes.length - 1];
+const lastOf = (task: Task) => itemAt(task.notes, task.notes.length - 1);
 
 const happenedOn = (
   task: Task,
@@ -1730,7 +1732,7 @@ describe('Task, what it is doing', () => {
       task
         .pullEvents()
         .filter((each) => each.kind === 'task.run-detached')
-        .map((each) => (each as TaskRunDetached).runId);
+        .map((each) => instanceOf(TaskRunDetached, each).runId);
 
     const assigned = () => {
       const task = added().assignRun(RUN, LINE);
@@ -2490,13 +2492,15 @@ describe('Task, what it is doing', () => {
       const assigned = added().assignRun(RUN, LINE);
       assigned.pullEvents();
 
-      const [moved] = movedEvents(
-        assigned.passedOn(
-          RUN,
-          LINE,
-          StationId.of('station_2'),
-          TaskRank.of('m'),
-          newNote,
+      const moved = firstOf(
+        movedEvents(
+          assigned.passedOn(
+            RUN,
+            LINE,
+            StationId.of('station_2'),
+            TaskRank.of('m'),
+            newNote,
+          ),
         ),
       );
 
@@ -2676,10 +2680,12 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('says which team’s line the failed task is on', () => {
-    const [raised] = withRun()
-      .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
-      .pullEvents()
-      .filter((each) => each instanceof TaskFailed);
+    const raised = firstOf(
+      withRun()
+        .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
+        .pullEvents()
+        .filter((each) => each instanceof TaskFailed),
+    );
 
     expect(raised?.teamId).toEqual(LINE.teamId);
   });
@@ -2697,28 +2703,36 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('says which run raised a failure, and when', () => {
-    const [raised] = withRun()
-      .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
-      .pullEvents()
-      .filter((each) => each instanceof TaskFailed);
+    const raised = firstOf(
+      withRun()
+        .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
+        .pullEvents()
+        .filter((each) => each instanceof TaskFailed),
+    );
 
     expect(raised?.by).toEqual(RUN);
     expect(raised?.at).toEqual(NOW);
   });
 
   it('says when it put the failure to a person, and that only a question of the run itself is the run asking', () => {
-    const [asked] = withRun()
-      .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
-      .pullEvents()
-      .filter((each) => each instanceof TaskAsked);
-    const [routed] = withRun()
-      .askedAbout(failure('A person stopped the run.'), RUN)
-      .pullEvents()
-      .filter((each) => each instanceof TaskAsked);
-    const [question] = withRun()
-      .askedBy(failure('Which bucket?'), RUN)
-      .pullEvents()
-      .filter((each) => each instanceof TaskAsked);
+    const asked = firstOf(
+      withRun()
+        .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
+        .pullEvents()
+        .filter((each) => each instanceof TaskAsked),
+    );
+    const routed = firstOf(
+      withRun()
+        .askedAbout(failure('A person stopped the run.'), RUN)
+        .pullEvents()
+        .filter((each) => each instanceof TaskAsked),
+    );
+    const question = firstOf(
+      withRun()
+        .askedBy(failure('Which bucket?'), RUN)
+        .pullEvents()
+        .filter((each) => each instanceof TaskAsked),
+    );
 
     expect(asked?.at).toEqual(NOW);
     expect(asked?.runAsked).toBe(false);
@@ -2783,7 +2797,7 @@ describe('Task and the happenings received while it has a current run', () => {
     task
       .pullEvents()
       .filter((each) => each.kind === 'task.run-detached')
-      .map((each) => (each as TaskRunDetached).runId);
+      .map((each) => instanceOf(TaskRunDetached, each).runId);
 
   it('cannot be moved by a happening while it has a current run', () => {
     expect(() => assigned().react(LINE, SPEC, TaskRank.of('m'), world)).toThrow(
@@ -2943,7 +2957,7 @@ describe('Task and the happenings received while it has a current run', () => {
         ),
       );
 
-    const [, passed] = moved.notes;
+    const passed = itemAt(moved.notes, 1);
 
     expect(moved.stationId).toEqual(SPEC);
     expect(moved.currentRunId).toBeNull();
@@ -2971,7 +2985,7 @@ describe('Task and the happenings received while it has a current run', () => {
         ),
       );
 
-    const [, passed] = moved.notes;
+    const passed = itemAt(moved.notes, 1);
 
     expect(passed?.form).toBe('failure');
     expect(passed?.failure).toEqual(failure);
@@ -3166,15 +3180,18 @@ describe('Task and the happenings received while it has a current run', () => {
       expect(finished.currentRunId).toBeNull();
       expect(finished.awaitingReview).toBe(false);
       expect(finished.decisionPending).toBe(false);
+
+      const asked = approving.openConversation?.from;
+
+      if (asked === undefined) {
+        throw new Error('expected an open conversation');
+      }
+
       expect(() =>
-        finished.answerAs(
-          OWNER,
-          approving.openConversation?.from as NotePosition,
-          {
-            ...newNote,
-            voice: Voice.person(UserId.of('user_1')),
-          },
-        ),
+        finished.answerAs(OWNER, asked, {
+          ...newNote,
+          voice: Voice.person(UserId.of('user_1')),
+        }),
       ).toThrow(InvalidTaskTransitionError);
     });
 

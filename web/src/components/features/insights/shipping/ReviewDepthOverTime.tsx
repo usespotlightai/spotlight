@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import { ROUND_FILLS } from '@/components/features/insights/chart-series';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import {
@@ -48,7 +50,7 @@ export function ReviewDepthOverTime({
 }: {
   weeks: readonly DepthWeek[];
   totals: readonly RoundsCount[];
-}) {
+}): ReactElement {
   return (
     <InsightsCard
       flat

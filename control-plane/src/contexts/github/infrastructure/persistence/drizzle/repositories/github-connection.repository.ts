@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
 import { GitHubConnectionVersionConflictError } from '@github/domain/exceptions/github-connection-version-conflict.error';
 import { InstallationAlreadyConnectedError } from '@github/domain/exceptions/installation-already-connected.error';
@@ -26,11 +27,11 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
   ) {}
 
   async of(workspaceId: WorkspaceId): Promise<GitHubConnection> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select()
       .from(githubConnection)
       .where(eq(githubConnection.workspaceId, workspaceId.value))
-      .limit(1);
+      .limit(1));
 
     return found
       ? GitHubConnection.rehydrate({
@@ -44,11 +45,11 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
   async connectedWorkspaceOf(
     installation: GitHubInstallation,
   ): Promise<WorkspaceId | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select({ workspaceId: githubConnection.workspaceId })
       .from(githubConnection)
       .where(eq(githubConnection.installationId, installation.value))
-      .limit(1);
+      .limit(1));
 
     return found ? WorkspaceId.of(found.workspaceId) : null;
   }
@@ -56,12 +57,12 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
   async lockedConnectedWorkspaceOf(
     installation: GitHubInstallation,
   ): Promise<WorkspaceId | null> {
-    const [found] = await this.context.db
+    const found = firstOf(await this.context.db
       .select({ workspaceId: githubConnection.workspaceId })
       .from(githubConnection)
       .where(eq(githubConnection.installationId, installation.value))
       .limit(1)
-      .for('share');
+      .for('share'));
 
     return found ? WorkspaceId.of(found.workspaceId) : null;
   }

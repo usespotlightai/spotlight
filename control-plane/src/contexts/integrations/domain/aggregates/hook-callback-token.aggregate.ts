@@ -102,7 +102,7 @@ export class HookCallbackToken {
   noteIdempotencyKey(idempotencyKey: string | null): string | null {
     const { taskId, firing, hook } = this.issued;
 
-    return idempotencyKey
+    return idempotencyKey !== null && idempotencyKey !== ''
       ? `callback:${taskId.value}:${firing?.value ?? hook.value}:${idempotencyKey}`
       : null;
   }

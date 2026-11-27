@@ -22,7 +22,8 @@ export class SearchNotices implements SearchNoticesPort {
       link: `lines/${notice.lineId.value}/stations/${notice.stationId.value}`,
       linkLabel: OPENS_STATION,
       externalLink:
-        notice.pullRequest &&
+        notice.pullRequest !== null &&
+        notice.pullRequest !== '' &&
         this.notices.allowsExternalLink(notice.pullRequest)
           ? { url: notice.pullRequest, label: REVIEWS_PULL_REQUEST }
           : null,

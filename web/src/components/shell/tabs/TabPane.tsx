@@ -1,4 +1,10 @@
-import { type ReactNode, Suspense, use, useMemo } from 'react';
+import {
+  type ReactNode,
+  Suspense,
+  use,
+  useMemo,
+  type ReactElement,
+} from 'react';
 import {
   createPath,
   type Navigator,
@@ -26,6 +32,7 @@ type TabPaneProps = {
   onTitle: ReportTitle;
 };
 
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const OUTSIDE_ANY_ROUTER = null as never;
 
 const OUTSIDE_ANY_ROUTE = { outlet: null, matches: [], isDataRoute: false };
@@ -39,7 +46,7 @@ export function TabPane({
   onFocus,
   onVisit,
   onTitle,
-}: TabPaneProps) {
+}: TabPaneProps): ReactElement {
   const windowNavigator = use(UNSAFE_NavigationContext).navigator;
   const inPane = useMemo<Navigator>(() => {
     const visit = (to: To, state?: unknown) =>

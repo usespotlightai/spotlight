@@ -18,7 +18,7 @@ const fitToContent = (textarea: HTMLTextAreaElement) => {
 export function useAutoGrow(
   textarea: RefObject<HTMLTextAreaElement | null>,
   value: string,
-) {
+): void {
   useLayoutEffect(() => {
     if (textarea.current) {
       fitToContent(textarea.current);

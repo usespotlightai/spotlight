@@ -1,4 +1,5 @@
 import { FlaskConical } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -13,7 +14,11 @@ type NoCandidatesProps = {
   lineId: string | null;
 };
 
-export function NoCandidates({ slug, teamId, lineId }: NoCandidatesProps) {
+export function NoCandidates({
+  slug,
+  teamId,
+  lineId,
+}: NoCandidatesProps): ReactElement {
   return (
     <EmptyFrame>
       <EmptyState
@@ -22,14 +27,18 @@ export function NoCandidates({ slug, teamId, lineId }: NoCandidatesProps) {
         action={
           <TrailLink
             to={
-              lineId ? linePath(slug, teamId, lineId) : teamPath(slug, teamId)
+              lineId !== null && lineId !== ''
+                ? linePath(slug, teamId, lineId)
+                : teamPath(slug, teamId)
             }
             className={cn(
               buttonVariants({ variant: 'outline', size: 'sm' }),
               'rounded-full bg-card shadow-none',
             )}
           >
-            {lineId ? 'Open the line' : 'Open the team’s lines'}
+            {lineId !== null && lineId !== ''
+              ? 'Open the line'
+              : 'Open the team’s lines'}
           </TrailLink>
         }
       >

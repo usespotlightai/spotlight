@@ -1,3 +1,4 @@
+import { firstOf } from '@shared-kernel/domain/item-at';
 import { MemoryProposalSet } from '@memory/domain/aggregates/memory-proposal-set.aggregate';
 import {
   MemoryProposal,
@@ -45,7 +46,7 @@ const retiringOf = (row: ProposalRow): Retiring | null => {
     );
   }
 
-  return row.retires && row.retireReason
+  return row.retires !== null && row.retires !== '' && row.retireReason !== null && row.retireReason !== ''
     ? { memory: MemoryId.of(row.retires), reason: row.retireReason }
     : null;
 };
@@ -59,7 +60,7 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
       teamId: TeamId.of(row.teamId),
       lineId: row.lineId === null ? null : LineId.of(row.lineId),
       stationId: row.stationId === null ? null : StationId.of(row.stationId),
-      repository: row.repository ? Repository.of(row.repository) : null,
+      repository: row.repository !== null && row.repository !== '' ? Repository.of(row.repository) : null,
       paths: row.paths.map(MemoryPath.of),
     }),
     provenance: MemoryProvenance.of({
@@ -69,12 +70,12 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
       notes: row.notes,
     }),
     source: row.source,
-    supersedes: row.supersedes ? MemoryId.of(row.supersedes) : null,
+    supersedes: row.supersedes !== null && row.supersedes !== '' ? MemoryId.of(row.supersedes) : null,
     retires: retiringOf(row),
     recordedAt: row.recordedAt,
     state: row.state,
     decision:
-      row.decidedById && row.decidedAt
+      row.decidedById !== null && row.decidedById !== '' && row.decidedAt
         ? MemoryDecision.of({
             by: UserId.of(row.decidedById),
             at: row.decidedAt,
@@ -194,22 +195,22 @@ export class DrizzleMemoryProposalSetRepository implements MemoryProposalSetRepo
   }
 
   async forTask(taskId: TaskId): Promise<MemoryProposalSet | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(memoryProposalSet)
       .where(eq(memoryProposalSet.taskId, taskId.value))
-      .limit(1);
+      .limit(1));
 
     return row ? this.withProposals(row) : null;
   }
 
   async forTaskLocked(taskId: TaskId): Promise<MemoryProposalSet | null> {
-    const [row] = await this.context.db
+    const row = firstOf(await this.context.db
       .select()
       .from(memoryProposalSet)
       .where(eq(memoryProposalSet.taskId, taskId.value))
       .limit(1)
-      .for('update');
+      .for('update'));
 
     return row ? this.withProposals(row) : null;
   }

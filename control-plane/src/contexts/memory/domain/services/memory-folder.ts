@@ -45,7 +45,11 @@ export const handlesRead = (referenced: readonly string[]): MemoryHandle[] => {
     const within = each.slice(each.indexOf(MEMORY_FOLDER));
     const named = FILE.exec(within)?.[1];
 
-    if (within.startsWith(MEMORY_FOLDER) && named) {
+    if (
+      within.startsWith(MEMORY_FOLDER) &&
+      named !== undefined &&
+      named !== ''
+    ) {
       try {
         numbers.add(MemoryHandle.parse(named).number);
       } catch (error) {

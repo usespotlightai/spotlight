@@ -2,7 +2,7 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import { COMMAND_PRIORITY_HIGH, KEY_ENTER_COMMAND } from 'lexical';
 import { useEffect, useEffectEvent } from 'react';
 
-export function useSendOnEnter(send: () => void, blank = false) {
+export function useSendOnEnter(send: () => void, blank = false): void {
   const [editor] = useLexicalComposerContext();
   const sent = useEffectEvent(send);
   const empty = useEffectEvent(() => blank);
@@ -12,7 +12,7 @@ export function useSendOnEnter(send: () => void, blank = false) {
       editor.registerCommand(
         KEY_ENTER_COMMAND,
         (event) => {
-          if (event?.shiftKey) {
+          if (event?.shiftKey === true) {
             return false;
           }
           const leavesToPage =

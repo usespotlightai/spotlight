@@ -1,4 +1,5 @@
 import { CircleAlert, LoaderCircle } from 'lucide-react';
+import type { ReactElement } from 'react';
 
 import { AttachmentChip } from '@/components/shared/attachment/AttachmentChip';
 import { ChipRemoveButton } from '@/components/shared/attachment/ChipRemoveButton';
@@ -14,7 +15,7 @@ type PendingAttachmentChipProps = {
 export function PendingAttachmentChip({
   attachment,
   onRemove,
-}: PendingAttachmentChipProps) {
+}: PendingAttachmentChipProps): ReactElement {
   const failed = attachment.state === 'failed';
 
   const lead =

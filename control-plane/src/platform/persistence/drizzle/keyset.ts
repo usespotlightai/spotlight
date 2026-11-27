@@ -1,3 +1,4 @@
+import { itemAt } from '@shared-kernel/domain/item-at';
 import { type SQL, type SQLWrapper, sql } from 'drizzle-orm';
 
 export interface Cursor {
@@ -39,11 +40,14 @@ export const pageOf = <T>(
   cursorOf: (row: T) => Cursor,
 ): { items: readonly T[]; next: string | null } => {
   const items = rows.slice(0, limit);
-  const last = items[items.length - 1];
+  const last = itemAt(items, items.length - 1);
 
   return {
     items,
-    next: rows.length > limit && last ? encodeCursor(cursorOf(last)) : null,
+    next:
+      rows.length > limit && last !== undefined
+        ? encodeCursor(cursorOf(last))
+        : null,
   };
 };
 

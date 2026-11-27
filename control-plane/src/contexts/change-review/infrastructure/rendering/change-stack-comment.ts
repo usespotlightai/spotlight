@@ -35,7 +35,7 @@ export const ChangeStackComment = {
         ? `Incidental: ${incidental.map((each) => each.title).join(', ')}.`
         : null,
       stack.check
-        ? `Each layer is checked on its own with \`${stack.check.command}\`.${reason ? ` ${reason}` : ''}`
+        ? `Each layer is checked on its own with \`${stack.check.command}\`.${reason !== null && reason !== '' ? ` ${reason}` : ''}`
         : null,
     ]
       .filter(Boolean)

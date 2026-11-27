@@ -45,7 +45,9 @@ export const skillsReadBy = (
 ): readonly string[] => [
   ...new Set(
     [
-      ...(step.requestedSkill ? [step.requestedSkill] : []),
+      ...(step.requestedSkill !== null && step.requestedSkill !== ''
+        ? [step.requestedSkill]
+        : []),
       ...step.paths.flatMap((text) => readUnder(text, homes)),
     ].filter(teamSkill),
   ),
