@@ -1,4 +1,4 @@
-import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -72,7 +72,7 @@ const starting = ({
     } satisfies AccessibleRepositoriesPort,
     {
       hasEgressCapableRunner: vi.fn(async () => hosted),
-    } as unknown as RunnerReaderPort,
+    } as unknown as RunnerReadinessPort,
     { setUp } as unknown as CiSetups,
     { generate: () => 'chat_1' },
     { now: () => NOW } as ClockPort,

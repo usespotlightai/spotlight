@@ -79,6 +79,7 @@ type Fleet = {
   idleSandboxes?: IdleSandboxSummary[];
   alive?: Runner[];
   lastRanIn?: ReadonlyMap<string, string>;
+  readyToRun?: boolean;
 };
 
 const HOST = '01J8ZQ4Y7N3K5V2W9X6RTBHCDE';
@@ -112,6 +113,7 @@ const listing = (
         (input.runners ?? []).map((each) => working(each.id, each.hostId)),
     );
   const lastRanIn = vi.fn().mockResolvedValue(input.lastRanIn ?? new Map());
+  const readyToRun = vi.fn().mockResolvedValue(input.readyToRun ?? false);
 
   const handler = new ListRunnersHandler(
     {
@@ -121,10 +123,12 @@ const listing = (
       inWorkspace,
       hostsIn,
       idleSandboxesOn,
-      readyToRun: vi.fn(),
+      supportedModels: vi.fn(),
+    },
+    {
+      readyToRun,
       hasPlatformRunners: vi.fn(),
       hasEgressCapableRunner: vi.fn(),
-      supportedModels: vi.fn(),
     },
     { aliveInWorkspace } as unknown as RunnerRepository,
     { lastRanIn },
@@ -138,6 +142,7 @@ const listing = (
     idleSandboxesOn,
     aliveInWorkspace,
     lastRanIn,
+    readyToRun,
   };
 };
 
@@ -166,6 +171,18 @@ describe('ListRunnersHandler', () => {
         online: true,
       }),
     ]);
+  });
+
+  it('says whether a runner can start work in the workspace', async () => {
+    const { handler, readyToRun } = listing({
+      hosts: [host()],
+      readyToRun: true,
+    });
+
+    const fleet = await handler.execute(new ListRunnersQuery('acme', 'user_1'));
+
+    expect(fleet?.readyToRun).toBe(true);
+    expect(readyToRun).toHaveBeenCalledWith(MEMBER.workspaceId);
   });
 
   it('keeps a host online across a missed heartbeat', async () => {
@@ -484,6 +501,10 @@ describe('ListRunnersHandler', () => {
   });
 
   it('answers an empty fleet with empty lists rather than absence', async () => {
-    await expect(handle()).resolves.toEqual({ hosts: [], runners: [] });
+    await expect(handle()).resolves.toEqual({
+      hosts: [],
+      runners: [],
+      readyToRun: false,
+    });
   });
 });

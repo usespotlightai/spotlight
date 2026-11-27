@@ -72,13 +72,6 @@ export interface RunnerReaderPort {
 
   idleSandboxesOn(hostIds: readonly string[]): Promise<IdleSandboxSummary[]>;
 
-  readyToRun(workspaceId: WorkspaceId): Promise<boolean>;
-
-  // The deployment gives the workspace its platform runners: it sets the platform provisioner, and the operator did not disable the workspace's platform pool. The pool can still be on its way, as for a workspace created a moment ago.
-  hasPlatformRunners(workspaceId: WorkspaceId): Promise<boolean>;
-
-  hasEgressCapableRunner(workspaceId: WorkspaceId): Promise<boolean>;
-
   supportedModels(
     workspaceId: WorkspaceId,
   ): Promise<ReadonlyMap<string, readonly string[]>>;

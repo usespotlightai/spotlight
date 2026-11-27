@@ -1,5 +1,5 @@
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
-import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { RunnerReadinessPort } from '@runners/application/ports/runner-readiness.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
@@ -31,7 +31,7 @@ const read = (options: Options = {}) => {
     readyToRun: vi.fn().mockResolvedValue(options.harness ?? false),
     hasEgressCapableRunner: vi.fn().mockResolvedValue(options.hosted ?? false),
     hasPlatformRunners: vi.fn().mockResolvedValue(options.platform ?? false),
-  } as unknown as RunnerReaderPort;
+  } as unknown as RunnerReadinessPort;
 
   const chats = {
     setupChatsOf: vi.fn().mockResolvedValue(options.chats ?? []),

@@ -63,4 +63,5 @@ export interface LiveRunnerDto {
 export interface RunnerFleetDto {
   readonly hosts: readonly HostDto[];
   readonly runners: readonly LiveRunnerDto[];
+  readonly readyToRun: boolean;
 }

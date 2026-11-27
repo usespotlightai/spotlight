@@ -76,8 +76,6 @@ beforeAll(async () => {
   db = database.db;
   reader = new DrizzleRunnerReader(db, { now: () => NOW } as never, {
     platformEgressSet: false,
-    platformPoolSet: false,
-    platformImages: null,
   });
   runners = new DrizzleRunnerRepository(new DrizzleContext(db), {
     dispatch: async () => {},

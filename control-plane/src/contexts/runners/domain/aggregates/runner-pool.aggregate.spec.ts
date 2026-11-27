@@ -362,6 +362,41 @@ describe('RunnerPool for the platform', () => {
     expect(aPullPool().canProvision(true)).toBe(false);
   });
 
+  it('provisions for work that needs egress only with an egress the deployment can use, and the platform pool only once the operator allows it secrets', () => {
+    const both = { poolSet: true, egressSet: true };
+
+    expect(
+      aPushPool({ egress: EgressReference.to(EGRESS_ID) }).provisionsWithEgress(
+        { poolSet: false, egressSet: false },
+      ),
+    ).toBe(true);
+    expect(aPushPool().provisionsWithEgress(both)).toBe(false);
+    expect(
+      aPushPool({ egress: EgressReference.platform() }).provisionsWithEgress({
+        poolSet: true,
+        egressSet: false,
+      }),
+    ).toBe(false);
+    expect(aPullPool().provisionsWithEgress(both)).toBe(false);
+    expect(
+      aPlatformPool({
+        egress: EgressReference.platform(),
+      }).provisionsWithEgress(both),
+    ).toBe(false);
+    expect(
+      aPlatformPool({
+        egress: EgressReference.platform(),
+        allows: { allowsSecrets: true },
+      }).provisionsWithEgress(both),
+    ).toBe(true);
+    expect(
+      aPlatformPool({
+        egress: EgressReference.platform(),
+        allows: { allowsSecrets: true },
+      }).provisionsWithEgress({ poolSet: false, egressSet: true }),
+    ).toBe(false);
+  });
+
   it('keeps the platform key for the platform pool', () => {
     expect(() =>
       RunnerPool.create({
