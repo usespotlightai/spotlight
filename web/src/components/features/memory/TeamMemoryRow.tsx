@@ -90,8 +90,8 @@ export function TeamMemoryRow({
 
         <span
           className={cn(
-            'relative z-10 min-w-0 truncate text-muted-foreground text-sm leading-5',
-            !changing && MEMORY_KIND_CELL,
+            'relative z-10 min-w-0 text-muted-foreground text-sm leading-5',
+            !changing && cn('truncate', MEMORY_KIND_CELL),
           )}
         >
           {changing ? (
