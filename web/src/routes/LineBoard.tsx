@@ -35,7 +35,7 @@ export function LineBoard() {
   const { data: workspace } = useWorkspace(slug);
   const lines = useLines(teamId);
   const [selected, setSelected] = useState<readonly string[]>([]);
-  const [view, showView] = useBoardView();
+  const [view, showView] = useBoardView(lineId);
   const [adding, setAdding] = useState<string | null>(null);
   const { tasks, completed, shown } = useBoardTasks(teamId, lineId, view);
 

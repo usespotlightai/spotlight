@@ -445,8 +445,10 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
+    const workspaceLines = await this.lines.ofWorkspace(workspaceId);
     const answer = ReactionFor.reviewRequested({
-      lines: await this.linesOf(workspaceId, teamId),
+      lines: teamId ? await this.lines.ofTeam(teamId) : workspaceLines,
+      workspaceLines,
       opens: happened.opens,
       request,
       anchor: happened.anchor,
@@ -463,6 +465,14 @@ export class ReactToHappenings implements HappeningReactionsPort {
         happened.correlationKeys,
       ),
     });
+
+    if (answer.kind === 'unconnected') {
+      this.skipped('repository-not-connected', happened, {
+        workspaceId: workspaceId.value,
+        teamId: teamId?.value,
+        pullRequest: request.pullRequest.value,
+      });
+    }
 
     if (answer.kind === 'nothing') {
       this.skipped('no-review-policy-takes-it', happened, {

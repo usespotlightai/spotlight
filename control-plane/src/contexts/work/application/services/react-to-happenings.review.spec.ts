@@ -158,9 +158,14 @@ const requested = (
 
 const world = (input: {
   lines: readonly LineMap[];
+  connected?: readonly string[];
   findByCorrelation?: (correlationKeys: CorrelationKeys) => Task | null;
   owning?: Task | null;
 }) => {
+  const workspaceLines = [
+    ...input.lines,
+    created(LineRole.DELIVERY, {}, input.connected ?? ['acme/api']),
+  ];
   const added: Task[] = [];
   const saved: Task[] = [];
   const dispatched: Task[] = [];
@@ -199,7 +204,7 @@ const world = (input: {
       async (stationId) =>
         input.lines.find((line) => line.stationAt(stationId)) ?? null,
     ),
-    ofWorkspace: vi.fn(async () => input.lines),
+    ofWorkspace: vi.fn(async () => workspaceLines),
     ofTeam: vi.fn(async () => input.lines),
     candidate: vi.fn(),
   } satisfies LineMapsPort;
@@ -344,6 +349,37 @@ describe('ReactToHappenings, with a review request', () => {
     });
     await here.react(requested('opened'));
     expect(here.added).toHaveLength(1);
+  });
+
+  it('opens nothing for a pull request in a repository that no line of the workspace names', async () => {
+    vi.mocked(logger.info).mockClear();
+    const { react, added } = world({
+      lines: [reviewing({ reviews: policy('opened') })],
+      connected: ['acme/web'],
+    });
+
+    await react(requested('opened'));
+    await react(requested('mentioned', { body: '@spotlight please review' }));
+
+    expect(added).toHaveLength(0);
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'repository-not-connected',
+        pullRequest: PULL,
+      }),
+      'Did not act on a happening',
+    );
+  });
+
+  it('reviews, on a line that names no repositories, the repositories other lines of the workspace name', async () => {
+    const { react, added } = world({
+      lines: [reviewing({ reviews: policy('opened') })],
+      connected: ['acme/api'],
+    });
+
+    await react(requested('opened'));
+
+    expect(added).toHaveLength(1);
   });
 
   it('skips a pull request from a branch a task of Spotlight’s holds, unless told not to', async () => {

@@ -6,6 +6,7 @@ import { inaccessibleOf } from '@/lib/github';
 import { nonEmpty } from '@/lib/non-empty';
 
 type GitHubDetailsProps = {
+  slug: string;
   installed: boolean;
   href: string | null;
   accessible: readonly string[];
@@ -13,6 +14,7 @@ type GitHubDetailsProps = {
 };
 
 export function GitHubDetails({
+  slug,
   installed,
   href,
   accessible,
@@ -39,7 +41,7 @@ export function GitHubDetails({
               </span>
             </div>
             {nonEmpty(href) && (
-              <GitHubAppLink href={href} installed={installed} />
+              <GitHubAppLink slug={slug} href={href} installed={installed} />
             )}
           </div>
         </dd>

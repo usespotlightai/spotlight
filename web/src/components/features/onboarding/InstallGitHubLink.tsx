@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router';
 
+import { ConnectGitHub } from '@/components/features/integrations/ConnectGitHub';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { useGitHub } from '@/hooks/api/useGitHub';
 import { installUrlFor } from '@/lib/github';
@@ -24,22 +25,32 @@ export function InstallGitHubLink({
     return null;
   }
 
+  const installUrl = installUrlFor(github.installUrl, {
+    slug,
+    teamId,
+    from: `${here.pathname}${here.search}`,
+  });
+
+  if (!github.connected) {
+    return (
+      <ConnectGitHub
+        slug={slug}
+        installUrl={installUrl}
+        className={cn(buttonVariants({ size: 'sm' }), className)}
+      />
+    );
+  }
+
   return (
     <a
-      href={installUrlFor(github.installUrl, {
-        slug,
-        teamId,
-        from: `${here.pathname}${here.search}`,
-      })}
+      href={installUrl}
       className={cn(
-        github.connected
-          ? buttonVariants({ variant: 'outline', size: 'sm' })
-          : buttonVariants({ size: 'sm' }),
+        buttonVariants({ variant: 'outline', size: 'sm' }),
         className,
-        github.connected && 'bg-card',
+        'bg-card',
       )}
     >
-      {github.connected ? 'Configure on GitHub' : 'Install on GitHub'}
+      Configure on GitHub
     </a>
   );
 }

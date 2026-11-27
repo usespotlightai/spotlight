@@ -13,19 +13,19 @@ const FALLBACK_BOARD_VIEW: BoardView = 'active';
 export const asBoardView = (raw: string | null): BoardView =>
   BOARD_VIEWS.find((view) => view.id === raw)?.id ?? FALLBACK_BOARD_VIEW;
 
-const BOARD_VIEW_STORAGE_KEY = 'spotlight.board-view';
+const boardViewKey = (lineId: string) => `spotlight.board-view.${lineId}`;
 
-export const storedBoardView = (): BoardView => {
+export const storedBoardView = (lineId: string): BoardView => {
   try {
-    return asBoardView(localStorage.getItem(BOARD_VIEW_STORAGE_KEY));
+    return asBoardView(localStorage.getItem(boardViewKey(lineId)));
   } catch {
     return FALLBACK_BOARD_VIEW;
   }
 };
 
-export const storeBoardView = (view: BoardView): void => {
+export const storeBoardView = (lineId: string, view: BoardView): void => {
   try {
-    localStorage.setItem(BOARD_VIEW_STORAGE_KEY, view);
+    localStorage.setItem(boardViewKey(lineId), view);
   } catch {}
 };
 

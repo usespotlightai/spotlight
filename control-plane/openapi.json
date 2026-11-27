@@ -15653,6 +15653,47 @@
         ]
       }
     },
+    "/workspaces/{slug}/github/installations": {
+      "get": {
+        "operationId": "listGitHubInstallations",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GitHubInstallationResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "List the installations of the App that the caller can reach on GitHub",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/me/notifications/push-key": {
       "get": {
         "operationId": "getPushKey",
@@ -34645,13 +34686,32 @@
           "installUrl"
         ]
       },
+      "GitHubInstallationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "81234567",
+            "description": "The installation id that GitHub assigned"
+          },
+          "account": {
+            "type": "string",
+            "example": "acme",
+            "description": "The GitHub organisation or user the App is installed on"
+          }
+        },
+        "required": [
+          "id",
+          "account"
+        ]
+      },
       "ConnectGitHubRequestDto": {
         "type": "object",
         "properties": {
           "installationId": {
             "type": "string",
             "example": "81234567",
-            "description": "The installation GitHub named when it sent you back"
+            "description": "The installation GitHub named when it sent you back, or one from the installations list"
           }
         },
         "required": [

@@ -10,6 +10,7 @@ import {
 } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
+import { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
 import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -20,6 +21,7 @@ import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -95,8 +97,13 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
       by: changeActorIn(),
       workspaceId: WorkspaceId.of(workspaceId),
       teamId: TeamId.of(workspaceId),
-      // oxlint-disable-next-line typescript/no-non-null-assertion -- Spotlight has a built-in review line
-      line: opening!,
+      line: {
+        // oxlint-disable-next-line typescript/no-non-null-assertion -- Spotlight has a built-in review line
+        ...opening!,
+        repositories: [
+          LineRepositoryConfig.of(Repository.of(`acme/${workspaceId}`)),
+        ],
+      },
       harness: HarnessId.of('claude-code'),
       newId: () => `${workspaceId}_${++next}`,
     });

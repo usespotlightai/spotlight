@@ -71,10 +71,13 @@ export function GitHubRow({
       }
       need={
         !connected &&
-        nonEmpty(href) && <GitHubAppLink href={href} installed={false} />
+        nonEmpty(href) && (
+          <GitHubAppLink slug={slug} href={href} installed={false} />
+        )
       }
     >
       <GitHubDetails
+        slug={slug}
         installed={connected}
         href={href}
         accessible={accessible}

@@ -413,6 +413,12 @@ const workspaceHandlers = [
       : notFound(),
   ),
 
+  api.get('/workspaces/:slug/github/installations', ({ params }) =>
+    ofWorkspace(params.slug)
+      ? json([{ id: '58213907', account: params.slug }])
+      : notFound(),
+  ),
+
   api.post<ConnectGitHubRequestDto>(
     '/workspaces/:slug/github',
     async ({ params, request }) => {

@@ -50,18 +50,24 @@ describe('the view a board is left on', () => {
   afterEach(() => localStorage.clear());
 
   it('opens on the active board until one is stored', () => {
-    expect(storedBoardView()).toBe('active');
+    expect(storedBoardView('line_1')).toBe('active');
   });
 
   it('stores the last view looked at', () => {
-    storeBoardView('backlog');
+    storeBoardView('line_1', 'backlog');
 
-    expect(storedBoardView()).toBe('backlog');
+    expect(storedBoardView('line_1')).toBe('backlog');
+  });
+
+  it('keeps the view of each line apart', () => {
+    storeBoardView('line_1', 'backlog');
+
+    expect(storedBoardView('line_2')).toBe('active');
   });
 
   it('falls back to active when what was stored makes no sense', () => {
-    localStorage.setItem('spotlight.board-view', 'nonsense');
+    localStorage.setItem('spotlight.board-view.line_1', 'nonsense');
 
-    expect(storedBoardView()).toBe('active');
+    expect(storedBoardView('line_1')).toBe('active');
   });
 });
