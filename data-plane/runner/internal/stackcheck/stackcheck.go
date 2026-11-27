@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	BaseRef = "refs/spotlight/base"
+	BaseRef       = "refs/spotlight/base"
+	BaseBranchRef = "refs/spotlight/base-branch"
 
 	sh           = "/bin/sh"
 	defaultStep  = 5 * time.Minute

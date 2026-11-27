@@ -133,6 +133,9 @@ func TestMarkBasesRecordsWhereTheBranchLeftItsBaseBranch(t *testing.T) {
 	if marked["widgets"] != released {
 		t.Fatalf("base is %q, want where the branch left release/1.x, %s", marked["widgets"], released)
 	}
+	if got := git(t, repository, "symbolic-ref", stackcheck.BaseBranchRef); got != "refs/remotes/origin/release/1.x" {
+		t.Fatalf("base branch is %q, want refs/remotes/origin/release/1.x", got)
+	}
 }
 
 func TestCheckBranchesNotesACheckoutThatEndsOffTheTasksBranch(t *testing.T) {
