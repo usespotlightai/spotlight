@@ -57,6 +57,7 @@ const DENIALS: Record<Denial, string> = {
   'between-work-stations': 'Only runs move it here',
   'out-of-completed': 'A completed task stays completed',
   'on-hold': 'On hold for someone else',
+  blocked: 'Waits for the tasks it is blocked by',
 };
 
 const NAMES = new Intl.ListFormat('en', { type: 'conjunction' });
@@ -97,6 +98,36 @@ export const handMoveDenial = (task: {
 
   return first && denials.every(Boolean) ? DENIALS[first] : null;
 };
+
+type Blocker = Task['blockedBy'][number];
+
+export const blockerTitle = (blocker: Pick<Blocker, 'title'>): string =>
+  blocker.title ?? 'A task on another team';
+
+export const blockersNamed = (
+  task: Pick<Task, 'blockedBy'>,
+  prefix: string,
+): string | null => {
+  const titles = task.blockedBy.map((each) =>
+    each.title === null ? 'a task on another team' : each.title,
+  );
+
+  if (titles.length === 0) {
+    return null;
+  }
+
+  return titles.length === 1
+    ? `${prefix} ${titles.join('')}`
+    : `${prefix} ${titles.length} tasks`;
+};
+
+export const waitingFor = (task: Pick<Task, 'blockedBy'>): string | null =>
+  blockersNamed(task, 'Waiting for');
+
+export const blockerCandidates = (
+  task: Pick<Task, 'id'>,
+  board: readonly Task[],
+): Task[] => board.filter((each) => each.id !== task.id);
 
 export const stopsRun = (
   stations: readonly Placed[],

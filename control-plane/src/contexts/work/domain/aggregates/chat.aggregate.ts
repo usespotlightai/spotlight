@@ -855,13 +855,15 @@ export class Chat extends EventRecorder {
     base: Branch | null;
     attachments?: readonly Attachment[];
     replaces?: readonly number[];
+    blockedBy?: readonly number[];
     at: Date;
   }): Chat {
+    const replaced = this.replacedBy(input.replaces ?? [], input.at);
     const message = ChatMessage.propose({
       ...input,
       position: this.proposalPositionFor(input.runId),
+      blockedBy: replaced.chat.proposalPositionsOf(input.blockedBy ?? []),
     });
-    const replaced = this.replacedBy(input.replaces ?? [], input.at);
     const proposed = replaced.chat.with({
       messages: [...replaced.chat.messages, message],
       resolvedAt: null,
@@ -918,6 +920,50 @@ export class Chat extends EventRecorder {
     };
   }
 
+  private proposalPositionsOf(
+    numbers: readonly number[],
+  ): readonly MessagePosition[] {
+    return [...new Set(numbers)].map((number) => {
+      const found = this.proposals.find((each) => each.number === number);
+
+      if (!found) {
+        throw new InvalidChatTransitionError(
+          `Chat ${this.id.value} has no proposal ${number} to wait for.`,
+        );
+      }
+
+      if (!found.proposal.blocks) {
+        throw new InvalidChatTransitionError(
+          `Proposal ${number} is ${found.proposal.state}. A proposal cannot wait for it.`,
+        );
+      }
+
+      return found.proposal.position;
+    });
+  }
+
+  private blockersOf(proposal: TaskProposal): readonly TaskId[] {
+    return proposal.blockedBy.flatMap((position) => {
+      const earlier = this.proposalAt(position);
+
+      if (earlier.taskId) {
+        return [earlier.taskId];
+      }
+
+      if (earlier.blocks) {
+        const number =
+          this.proposals.find((each) => each.proposal.equals(earlier))
+            ?.number ?? position.value;
+
+        throw new InvalidChatTransitionError(
+          `This proposal waits for proposal ${number}. Create that task first.`,
+        );
+      }
+
+      return [];
+    });
+  }
+
   proposalPositionFor(runId: RunId): MessagePosition {
     if (!this.currentRunId?.equals(runId)) {
       throw new InvalidChatTransitionError(
@@ -944,6 +990,7 @@ export class Chat extends EventRecorder {
     this.assertStarter(by);
 
     const proposal = this.proposalAt(position).accept(at);
+    const blockedBy = this.blockersOf(proposal);
     const next = this.replaceProposal(proposal);
 
     next.record(
@@ -957,6 +1004,7 @@ export class Chat extends EventRecorder {
         proposal.base,
         this.messages[position.value]?.attachments ?? [],
         by,
+        blockedBy,
       ),
     );
 

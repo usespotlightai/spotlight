@@ -17,6 +17,21 @@ export const PROPOSAL_STATES = [
 
 export type ProposalState = (typeof PROPOSAL_STATES)[number];
 
+export const proposalBlocks = (state: ProposalState): boolean =>
+  state !== 'dismissed' && state !== 'replaced';
+
+const assertEarlier = (
+  position: MessagePosition,
+  blockedBy: readonly MessagePosition[],
+): void => {
+  if (blockedBy.some((each) => each.value >= position.value)) {
+    throw new InconsistentStateError(
+      'task proposal',
+      'waits for a proposal that comes after it',
+    );
+  }
+};
+
 export class TaskProposal {
   private constructor(
     readonly position: MessagePosition,
@@ -27,6 +42,7 @@ export class TaskProposal {
     readonly state: ProposalState,
     readonly taskId: TaskId | null,
     readonly decidedAt: Date | null,
+    readonly blockedBy: readonly MessagePosition[] = [],
   ) {}
 
   static open(input: {
@@ -35,7 +51,10 @@ export class TaskProposal {
     title: TaskTitle;
     description: TaskDescription | null;
     base: Branch | null;
+    blockedBy?: readonly MessagePosition[];
   }): TaskProposal {
+    assertEarlier(input.position, input.blockedBy ?? []);
+
     return new TaskProposal(
       input.position,
       input.placement,
@@ -45,6 +64,7 @@ export class TaskProposal {
       'open',
       null,
       null,
+      input.blockedBy ?? [],
     );
   }
 
@@ -57,6 +77,7 @@ export class TaskProposal {
     state: ProposalState;
     taskId: TaskId | null;
     decidedAt: Date | null;
+    blockedBy?: readonly MessagePosition[];
   }): TaskProposal {
     if ((input.state === 'created') !== (input.taskId !== null)) {
       throw new InconsistentStateError(
@@ -64,6 +85,10 @@ export class TaskProposal {
         `is ${input.state} ${input.taskId ? 'with' : 'without'} a task`,
       );
     }
+
+    const blockedBy = input.blockedBy ?? [];
+
+    assertEarlier(input.position, blockedBy);
 
     return new TaskProposal(
       input.position,
@@ -74,11 +99,16 @@ export class TaskProposal {
       input.state,
       input.taskId,
       input.decidedAt,
+      blockedBy,
     );
   }
 
   get isOpen(): boolean {
     return this.state === 'open';
+  }
+
+  get blocks(): boolean {
+    return proposalBlocks(this.state);
   }
 
   get becameTask(): boolean {
@@ -151,6 +181,7 @@ export class TaskProposal {
       part.state,
       part.taskId !== undefined ? part.taskId : this.taskId,
       part.decidedAt,
+      this.blockedBy,
     );
   }
 }

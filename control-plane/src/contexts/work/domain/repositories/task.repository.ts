@@ -34,6 +34,13 @@ export interface TaskRepository {
 
   onBranch(workspaceId: WorkspaceId, branch: Branch): Promise<Task | null>;
 
+  waitingFor(
+    workspaceId: WorkspaceId,
+    blocker: TaskId,
+  ): Promise<readonly Task[]>;
+
+  blockersAmong(ids: readonly TaskId[]): Promise<readonly Task[]>;
+
   startingFrom(
     workspaceId: WorkspaceId,
     base: Branch,

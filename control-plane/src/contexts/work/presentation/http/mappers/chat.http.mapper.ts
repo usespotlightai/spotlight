@@ -71,6 +71,7 @@ export const ChatHttpMapper = {
                   message.proposal.description,
                   message.proposal.state,
                   message.proposal.taskId,
+                  message.proposal.blockedBy,
                 )
               : null,
             message.pullRequest

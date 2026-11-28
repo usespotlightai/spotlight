@@ -980,6 +980,83 @@ describe('Chat', () => {
     ).toThrow(InvalidChatTransitionError);
   });
 
+  describe('a plan of tasks that wait for each other', () => {
+    const THIRD = MessagePosition.of(2);
+    const waiting = (chat: Chat, blockedBy: readonly number[]) =>
+      chat.propose({
+        runId: RunId.of('run_1'),
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Back off with jitter'),
+        description: null,
+        base: null,
+        blockedBy,
+        at: LATER,
+      });
+
+    it('names, by number, the earlier proposals a proposal waits for', () => {
+      expect(waiting(proposing(), [1]).proposalAt(THIRD).blockedBy).toEqual([
+        SECOND,
+      ]);
+      expect(() => waiting(proposing(), [2])).toThrow(
+        InvalidChatTransitionError,
+      );
+    });
+
+    it('creates a waiting task only once the task it waits for exists, and blocks it by that task', () => {
+      const planned = waiting(proposing(), [1]);
+
+      expect(() => planned.accept(THIRD, LEON, LATER)).toThrow(
+        'This proposal waits for proposal 1. Create that task first.',
+      );
+
+      const first = planned
+        .accept(SECOND, LEON, LATER)
+        .proposalBecame(SECOND, TaskId.of('task_1'), LATER);
+      first.pullEvents();
+
+      const accepted = first
+        .accept(THIRD, LEON, LATER)
+        .pullEvents()
+        .find((each) => each instanceof ProposalAccepted);
+
+      expect(accepted?.blockedBy).toEqual([TaskId.of('task_1')]);
+    });
+
+    it('cannot wait for a proposal the person dismissed, nor for one it replaces', () => {
+      expect(() =>
+        waiting(proposing().dismiss(SECOND, LEON, LATER), [1]),
+      ).toThrow('Proposal 1 is dismissed. A proposal cannot wait for it.');
+      expect(() =>
+        proposing().propose({
+          runId: RunId.of('run_1'),
+          placement: ProposalPlacement.of({
+            lineId: LineId.of('line_1'),
+            stationId: StationId.of('station_1'),
+          }),
+          title: TaskTitle.of('Back off with jitter'),
+          description: null,
+          base: null,
+          replaces: [1],
+          blockedBy: [1],
+          at: LATER,
+        }),
+      ).toThrow('Proposal 1 is replaced. A proposal cannot wait for it.');
+    });
+
+    it('stops waiting for a proposal the person dismisses later', () => {
+      const accepted = waiting(proposing(), [1])
+        .dismiss(SECOND, LEON, LATER)
+        .accept(THIRD, LEON, LATER)
+        .pullEvents()
+        .find((each) => each instanceof ProposalAccepted);
+
+      expect(accepted?.blockedBy).toEqual([]);
+    });
+  });
+
   it('never creates a task from a proposal nobody accepted', () => {
     expect(() =>
       proposing().proposalBecame(SECOND, TaskId.of('task_1'), LATER),

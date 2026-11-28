@@ -43,6 +43,7 @@ import type { TaskApprovalReturned } from '@work/domain/events/task-approval-ret
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskAssigned } from '@work/domain/events/task-assigned.event';
 import type { TaskBaseMoved } from '@work/domain/events/task-base-moved.event';
+import type { TaskBlockersChanged } from '@work/domain/events/task-blockers-changed.event';
 import type { TaskConversationRead } from '@work/domain/events/task-conversation-read.event';
 import type { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
@@ -92,6 +93,7 @@ type TaskEvent =
   | TaskReordered
   | TaskPullRequestClosed
   | TaskBaseMoved
+  | TaskBlockersChanged
   | TaskPullRequestReopened
   | TaskConversationRead
   | TaskNotesAcknowledged
@@ -157,6 +159,7 @@ const TASK_KINDS = [
   'task.reordered',
   'task.pull-request-closed',
   'task.base-moved',
+  'task.blockers-changed',
   'task.pull-request-reopened',
   'task.conversation-read',
   'task.notes-acknowledged',

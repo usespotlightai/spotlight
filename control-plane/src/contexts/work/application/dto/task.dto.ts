@@ -63,6 +63,14 @@ export interface TaskDto {
   readonly hold: TaskHoldDto | null;
   readonly runNotStarted: TaskRunNotStartedDto | null;
   readonly handMoves: readonly TaskHandMoveDto[];
+  readonly blockedBy: readonly TaskBlockerDto[];
+  readonly blockable: boolean;
+}
+
+interface TaskBlockerDto {
+  readonly id: string;
+  readonly title: string | null;
+  readonly teamId: string;
 }
 
 interface TaskHandMoveDto {

@@ -212,6 +212,43 @@ describe('ProposeTaskToolUse', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  it('makes a proposal wait for the earlier ones it names by number, and says so', async () => {
+    const { tool, context, save } = using({ proposed: true });
+
+    const answer = await tool.call(
+      context,
+      ToolInputs.of({
+        line: 'delivery',
+        station: 'backlog',
+        title: 'Web 2/4',
+        'blocked-by': ['1'],
+      }),
+    );
+
+    const saved = firstOf(save.mock.calls)?.[0];
+    expect(saved?.proposalAt(MessagePosition.of(2)).blockedBy).toEqual([
+      MessagePosition.of(1),
+    ]);
+    expect(answer).toMatchObject({ number: 2, blockedBy: [1] });
+  });
+
+  it('proposes nothing where a proposal it waits for is not named by its number', async () => {
+    const { tool, context, save } = using({ proposed: true });
+
+    await expect(
+      tool.call(
+        context,
+        ToolInputs.of({
+          line: 'delivery',
+          station: 'backlog',
+          title: 'Web 2/4',
+          'blocked-by': ['the first one'],
+        }),
+      ),
+    ).rejects.toThrow(InvalidToolInputError);
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it('puts a copy of each file named on the proposal, from the path the run sees', async () => {
     const { tool, context, save, copy } = using();
 

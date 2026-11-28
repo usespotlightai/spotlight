@@ -130,6 +130,10 @@ export const task = pgTable(
     draftGeneration: integer('draft_generation').notNull().default(0),
     awaitedTurnAttempt: integer('awaited_turn_attempt'),
     answeredTurnAt: timestamptz('answered_turn_at'),
+    blockedBy: text('blocked_by')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     version: integer('version').notNull().default(0),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
     updatedAt: timestamptz('updated_at')
@@ -151,6 +155,9 @@ export const task = pgTable(
     index('task_station_idx').on(table.stationId, table.rank),
     index('task_origin_station_idx').on(table.originStationId),
     index('task_workspace_idx').on(table.workspaceId),
+    index('task_blocked_by_idx')
+      .using('gin', table.blockedBy)
+      .where(sql`cardinality(${table.blockedBy}) > 0`),
     index('task_workspace_assignee_idx').on(
       table.workspaceId,
       table.assigneeId,

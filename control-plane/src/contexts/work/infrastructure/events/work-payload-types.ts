@@ -39,6 +39,8 @@ import { TaskApprovalReturned } from '@work/domain/events/task-approval-returned
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskAssigned } from '@work/domain/events/task-assigned.event';
 import { TaskBaseMoved } from '@work/domain/events/task-base-moved.event';
+import { TaskBlockersChanged } from '@work/domain/events/task-blockers-changed.event';
+import { TaskCompleted } from '@work/domain/events/task-completed.event';
 import { TaskConversationRead } from '@work/domain/events/task-conversation-read.event';
 import { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
@@ -300,6 +302,8 @@ export const WORK_PAYLOAD_TYPES = [
   TaskReordered,
   TaskPullRequestClosed,
   TaskBaseMoved,
+  TaskBlockersChanged,
+  TaskCompleted,
   TaskPullRequestReopened,
   TaskConversationRead,
   TaskNotesAcknowledged,

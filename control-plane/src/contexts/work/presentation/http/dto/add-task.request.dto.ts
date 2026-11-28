@@ -28,4 +28,12 @@ export class AddTaskRequestDto {
       'The branch the task starts from and opens its pull request into. Left out or blank for the default branch of each repository.',
   })
   readonly base?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    isArray: true,
+    description:
+      'Tasks this one waits for, by id. A task that waits for open tasks opens in Backlog and moves to the first station of its line when they are completed.',
+  })
+  readonly blockedBy?: string[];
 }

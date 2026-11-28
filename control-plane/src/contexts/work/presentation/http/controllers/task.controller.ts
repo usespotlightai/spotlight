@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
+  ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
@@ -33,6 +34,7 @@ import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
+import { BlockTaskCommand } from '@work/application/commands/block-task.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import { ResumeLineCommand } from '@work/application/commands/resume-line.command';
@@ -68,6 +70,7 @@ import { ReadTaskNotesQuery } from '@work/application/queries/read-task-notes.qu
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { AddTaskRequestDto } from '@work/presentation/http/dto/add-task.request.dto';
 import { AssignTaskRequestDto } from '@work/presentation/http/dto/assign-task.request.dto';
+import { BlockTaskRequestDto } from '@work/presentation/http/dto/block-task.request.dto';
 import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { ResumeLineRequestDto } from '@work/presentation/http/dto/resume-line.request.dto';
@@ -92,6 +95,7 @@ import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment
 import { draftGenerationInput } from '@work/presentation/http/mappers/draft-generation-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { NoteHttpMapper } from '@work/presentation/http/mappers/note.http.mapper';
+import { requiredIdsInput } from '@work/presentation/http/mappers/required-ids-input';
 import { TaskRunHttpMapper } from '@work/presentation/http/mappers/task-run.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
 import { TaskHttpMapper } from '@work/presentation/http/mappers/task.http.mapper';
@@ -553,6 +557,9 @@ export class TaskController {
         user.id,
         idsInput(body.attachments),
         body.base ?? null,
+        body.blockedBy === undefined
+          ? []
+          : requiredIdsInput(body.blockedBy, 'blockedBy'),
       ),
     );
 
@@ -629,6 +636,53 @@ export class TaskController {
   ): Promise<TaskResponseDto> {
     await this.commandBus.execute<AssignTaskCommand, void>(
       new AssignTaskCommand(teamId, taskId, body.assigneeId ?? null, user.id),
+    );
+
+    return this.readBack(teamId, taskId, user);
+  }
+
+  @Put('tasks/:taskId/blocked-by')
+  @ApiOperation({
+    operationId: 'blockTask',
+    summary: 'Set the tasks a task waits for, or clear them',
+    description:
+      'Only a task in Backlog can wait for other tasks. While it waits, it stays in Backlog or is completed. When the last task it waits for is completed, Spotlight moves it to the first station of its line, where its run starts. A task cannot wait for a task that waits for it.',
+  })
+  @ApiParam({
+    name: 'taskId',
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
+  })
+  @ApiOkResponse({ type: TaskResponseDto })
+  @ApiNotFoundResponse({
+    description:
+      'No such task for this caller, or a blocking task on a team the caller does not see',
+  })
+  @ApiBadRequestResponse({ description: 'blockedBy is not a list of ids' })
+  @ApiUnprocessableEntityResponse({
+    description: 'The task would wait for itself',
+  })
+  @ApiConflictResponse({
+    description:
+      'The task has left Backlog, or a blocking task already waits for it',
+  })
+  @HttpCode(HttpStatus.OK)
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
+  async block(
+    @Param('teamId') teamId: string,
+    @Param('taskId') taskId: string,
+    @Body() body: BlockTaskRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskResponseDto> {
+    await this.commandBus.execute<BlockTaskCommand, void>(
+      new BlockTaskCommand(
+        teamId,
+        taskId,
+        requiredIdsInput(body.blockedBy, 'blockedBy'),
+        user.id,
+      ),
     );
 
     return this.readBack(teamId, taskId, user);

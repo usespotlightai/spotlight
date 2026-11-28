@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 
+import { WaitingForPill } from '@/components/features/board/task/WaitingForPill';
 import { OnHoldPill } from '@/components/features/hold/OnHoldPill';
 import { ProgressState } from '@/components/shared/ProgressState';
 import { WaitingForYouPill } from '@/components/shared/WaitingForYouPill';
@@ -26,6 +27,10 @@ export function TaskState({ task, stateTo }: TaskStateProps) {
     ) : (
       asked
     );
+  }
+
+  if (task.blockedBy.length > 0) {
+    return <WaitingForPill task={task} />;
   }
 
   if (task.progress) {

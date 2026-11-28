@@ -3795,9 +3795,9 @@ export type TaskRunNotStartedResponseDto = {
 export type TaskHandMoveResponseDto = {
   stationId: string;
   /**
-   * Why a person may not move the task to this station: a completed task stays completed, only runs move a task between work stations, or the task is on hold for someone else. Null where the person may move it there.
+   * Why a person may not move the task to this station: a completed task stays completed, only runs move a task between work stations, the task is on hold for someone else, or it waits for the tasks it is blocked by. Null where the person may move it there.
    */
-  denial: 'out-of-completed' | 'between-work-stations' | 'on-hold' | null;
+  denial: 'out-of-completed' | 'between-work-stations' | 'on-hold' | 'blocked' | null;
   /**
    * The work stations that the move skips: the ones before this station, when the task starts from the backlog
    */
@@ -3806,6 +3806,18 @@ export type TaskHandMoveResponseDto = {
    * Whether the move sends the finished task back to this station, with a reason that the next run reads: an earlier work station, or one its station passes to
    */
   sendsBack: boolean;
+};
+
+export type TaskBlockerResponseDto = {
+  id: string;
+  /**
+   * Null for a task on a team the caller does not see
+   */
+  title: string | null;
+  /**
+   * The team whose line the blocking task is on
+   */
+  teamId: string;
 };
 
 export type TaskResponseDto = {
@@ -3877,6 +3889,14 @@ export type TaskResponseDto = {
    * Each station of the line, and whether the caller may move the task there by hand. While the task waits on a question, the stations its station passes work to are open too, as they are to its agent. Empty where the task is on no line the caller reads.
    */
   handMoves: Array<TaskHandMoveResponseDto>;
+  /**
+   * The open tasks this task waits for. It waits in Backlog until each is completed, then Spotlight moves it to the first station of its line. Empty for a task that waits for nothing
+   */
+  blockedBy: Array<TaskBlockerResponseDto>;
+  /**
+   * Whether the task can start to wait for other tasks: only a task that has not started can
+   */
+  blockable: boolean;
 };
 
 export type TaskPageResponseDto = {
@@ -4222,6 +4242,10 @@ export type AddTaskRequestDto = {
    * The branch the task starts from and opens its pull request into. Left out or blank for the default branch of each repository.
    */
   base?: string | null;
+  /**
+   * Tasks this one waits for, by id. A task that waits for open tasks opens in Backlog and moves to the first station of its line when they are completed.
+   */
+  blockedBy?: Array<string>;
 };
 
 export type MoveTaskRequestDto = {
@@ -4248,6 +4272,13 @@ export type AssignTaskRequestDto = {
    * The team member to assign it to, or null to leave it unclaimed
    */
   assigneeId: string | null;
+};
+
+export type BlockTaskRequestDto = {
+  /**
+   * The tasks this task waits for, all of them. An empty list clears them.
+   */
+  blockedBy: Array<string>;
 };
 
 /**
@@ -4408,6 +4439,10 @@ export type ChatProposalResponseDto = {
    * The task it became, once created
    */
   taskId: string | null;
+  /**
+   * The messages of the proposals in this chat that it waits for. Each must become a task before this one can
+   */
+  blockedBy: Array<number>;
 };
 
 export type ChatPullRequestResponseDto = {
@@ -17928,6 +17963,49 @@ export type AssignTaskResponses = {
 };
 
 export type AssignTaskResponse = AssignTaskResponses[keyof AssignTaskResponses];
+
+export type BlockTaskData = {
+  body: BlockTaskRequestDto;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/blocked-by';
+};
+
+export type BlockTaskErrors = {
+  /**
+   * blockedBy is not a list of ids
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller is not a member of the team, nor a workspace admin
+   */
+  403: unknown;
+  /**
+   * No such task for this caller, or a blocking task on a team the caller does not see
+   */
+  404: unknown;
+  /**
+   * The task has left Backlog, or a blocking task already waits for it
+   */
+  409: unknown;
+  /**
+   * The task would wait for itself
+   */
+  422: unknown;
+};
+
+export type BlockTaskResponses = {
+  200: TaskResponseDto;
+};
+
+export type BlockTaskResponse = BlockTaskResponses[keyof BlockTaskResponses];
 
 export type ResumeLineData = {
   body: ResumeLineRequestDto;

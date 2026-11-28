@@ -241,6 +241,8 @@ const task = (
   hold: null,
   runNotStarted: null,
   handMoves: [],
+  blockedBy: [],
+  blockable: false,
   createdBy: SAM,
   assignee: null,
   note: null,

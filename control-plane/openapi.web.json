@@ -3497,6 +3497,76 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks/{taskId}/blocked-by": {
+      "put": {
+        "description": "Only a task in Backlog can wait for other tasks. While it waits, it stays in Backlog or is completed. When the last task it waits for is completed, Spotlight moves it to the first station of its line, where its run starts. A task cannot wait for a task that waits for it.",
+        "operationId": "blockTask",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlockTaskRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "blockedBy is not a list of ids"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "The caller is not a member of the team, nor a workspace admin"
+          },
+          "404": {
+            "description": "No such task for this caller, or a blocking task on a team the caller does not see"
+          },
+          "409": {
+            "description": "The task has left Backlog, or a blocking task already waits for it"
+          },
+          "422": {
+            "description": "The task would wait for itself"
+          }
+        },
+        "summary": "Set the tasks a task waits for, or clear them",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/teams/{teamId}/tasks/{taskId}/resume": {
       "post": {
         "description": "Sending a message to a station run that is not an answer puts the task on hold. While it is on hold, every member of the team can send the agent turns. The line waits until a member resumes it here, until a member moves the task, or until the agent resumes it because a member asked it to. A task that an agent chat holds resumes only for the person whose chat it is.",
@@ -11736,11 +11806,12 @@
               "out-of-completed",
               "between-work-stations",
               "on-hold",
+              "blocked",
               null
             ],
             "nullable": true,
             "example": "between-work-stations",
-            "description": "Why a person may not move the task to this station: a completed task stays completed, only runs move a task between work stations, or the task is on hold for someone else. Null where the person may move it there."
+            "description": "Why a person may not move the task to this station: a completed task stays completed, only runs move a task between work stations, the task is on hold for someone else, or it waits for the tasks it is blocked by. Null where the person may move it there."
           },
           "skips": {
             "example": [
@@ -11763,6 +11834,31 @@
           "denial",
           "skips",
           "sendsBack"
+        ]
+      },
+      "TaskBlockerResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "title": {
+            "type": "string",
+            "example": "Web 1/4: add the timeline API",
+            "nullable": true,
+            "description": "Null for a task on a team the caller does not see"
+          },
+          "teamId": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+            "description": "The team whose line the blocking task is on"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "teamId"
         ]
       },
       "TaskResponseDto": {
@@ -11921,6 +12017,18 @@
             "items": {
               "$ref": "#/components/schemas/TaskHandMoveResponseDto"
             }
+          },
+          "blockedBy": {
+            "description": "The open tasks this task waits for. It waits in Backlog until each is completed, then Spotlight moves it to the first station of its line. Empty for a task that waits for nothing",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskBlockerResponseDto"
+            }
+          },
+          "blockable": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether the task can start to wait for other tasks: only a task that has not started can"
           }
         },
         "required": [
@@ -11943,7 +12051,9 @@
           "source",
           "hold",
           "runNotStarted",
-          "handMoves"
+          "handMoves",
+          "blockedBy",
+          "blockable"
         ]
       },
       "TaskPageResponseDto": {
@@ -12896,6 +13006,13 @@
             "example": "release/1.x",
             "nullable": true,
             "description": "The branch the task starts from and opens its pull request into. Left out or blank for the default branch of each repository."
+          },
+          "blockedBy": {
+            "description": "Tasks this one waits for, by id. A task that waits for open tasks opens in Backlog and moves to the first station of its line when they are completed.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -12945,6 +13062,24 @@
         },
         "required": [
           "assigneeId"
+        ]
+      },
+      "BlockTaskRequestDto": {
+        "type": "object",
+        "properties": {
+          "blockedBy": {
+            "example": [
+              "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+            ],
+            "description": "The tasks this task waits for, all of them. An empty list clears them.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "blockedBy"
         ]
       },
       "HoldEnd": {
@@ -13336,6 +13471,16 @@
             "type": "string",
             "nullable": true,
             "description": "The task it became, once created"
+          },
+          "blockedBy": {
+            "example": [
+              3
+            ],
+            "description": "The messages of the proposals in this chat that it waits for. Each must become a task before this one can",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
           }
         },
         "required": [
@@ -13349,7 +13494,8 @@
           "title",
           "description",
           "state",
-          "taskId"
+          "taskId",
+          "blockedBy"
         ]
       },
       "ChatPullRequestResponseDto": {

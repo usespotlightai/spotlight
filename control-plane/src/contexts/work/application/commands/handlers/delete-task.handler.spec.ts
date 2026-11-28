@@ -83,6 +83,8 @@ const tasks = (found: Task | null = existing()) =>
     withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
     startingFrom: vi.fn(async () => []),
+    waitingFor: vi.fn(async () => []),
+    blockersAmong: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
   }) satisfies TaskRepository & TaskPlacementsPort;
 

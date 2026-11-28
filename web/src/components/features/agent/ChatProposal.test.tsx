@@ -35,6 +35,7 @@ const OPEN: Proposal = {
   description: null,
   state: 'open',
   taskId: null,
+  blockedBy: [],
 };
 
 const MOCKUP: Attachment = {
@@ -49,6 +50,7 @@ const awaiting = { current: new Set<number>() };
 const proposing = (
   proposal: Proposal,
   attachments: readonly Attachment[] = [],
+  waitsFor: readonly string[] = [],
 ) => (
   <MemoryRouter initialEntries={['/w/acme/agent']}>
     <Routes>
@@ -61,6 +63,7 @@ const proposing = (
             chatId="chat_1"
             position={3}
             proposal={proposal}
+            waitsFor={waitsFor}
             attachments={attachments}
             awaiting={awaiting}
           />
@@ -105,6 +108,13 @@ describe('ChatProposal', () => {
     expect(
       screen.getByRole('button', { name: 'View mockup.png' }),
     ).toBeInTheDocument();
+  });
+
+  it('names the proposals the task waits for', () => {
+    render(proposing({ ...OPEN, blockedBy: [1] }, [], ['Web 1/4']));
+
+    expect(screen.getByText('Waits for')).toBeInTheDocument();
+    expect(screen.getByText('Web 1/4')).toBeInTheDocument();
   });
 
   it('shows no files where the proposal has none', () => {

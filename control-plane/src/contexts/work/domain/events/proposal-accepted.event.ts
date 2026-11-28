@@ -1,4 +1,5 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -22,5 +23,6 @@ export class ProposalAccepted implements DomainEvent {
     readonly base: Branch | null,
     readonly attachments: readonly Attachment[],
     readonly acceptedBy: UserId,
+    readonly blockedBy: readonly TaskId[] = [],
   ) {}
 }

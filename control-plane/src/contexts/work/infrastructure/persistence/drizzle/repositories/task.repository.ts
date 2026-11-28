@@ -85,6 +85,7 @@ import {
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import {
   and,
+  arrayContains,
   asc,
   desc,
   eq,
@@ -310,6 +311,7 @@ const toTask = (
         each.holdsOthersCommits,
       ),
     ),
+    blockedBy: row.blockedBy.map((each) => TaskId.of(each)),
   });
 
 interface PushedHeadRow {
@@ -409,6 +411,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         setupOpen: added.setupOpen,
         unreadAsk: added.hasUnreadAsk,
         draftGeneration: added.draftGeneration.value,
+        blockedBy: added.blockedBy.map((each) => each.value),
       }),
     );
 
@@ -484,6 +487,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           draftGeneration: saved.draftGeneration.value,
           awaitedTurnAttempt: saved.awaitedTurn?.attempt ?? null,
           answeredTurnAt: saved.answeredTurnAt,
+          blockedBy: saved.blockedBy.map((each) => each.value),
         })
         .where(
           and(eq(task.id, saved.id.value), eq(task.version, saved.version)),
@@ -811,6 +815,45 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(
         and(eq(task.workspaceId, workspaceId.value), eq(task.base, base.value)),
       );
+
+    return this.whole(found);
+  }
+
+  async waitingFor(
+    workspaceId: WorkspaceId,
+    blocker: TaskId,
+  ): Promise<readonly Task[]> {
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        and(
+          eq(task.workspaceId, workspaceId.value),
+          sql`cardinality(${task.blockedBy}) > 0`,
+          arrayContains(task.blockedBy, [blocker.value]),
+        ),
+      )
+      .orderBy(asc(task.id));
+
+    return this.whole(found);
+  }
+
+  async blockersAmong(ids: readonly TaskId[]): Promise<readonly Task[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        inArray(
+          task.id,
+          ids.map((each) => each.value),
+        ),
+      )
+      .orderBy(asc(task.id))
+      .for('share');
 
     return this.whole(found);
   }

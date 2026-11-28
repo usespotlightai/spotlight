@@ -1,5 +1,6 @@
 import type { TaskDto } from '@work/application/dto/task.dto';
 import {
+  TaskBlockerResponseDto,
   TaskHandMoveResponseDto,
   TaskNoteResponseDto,
   TaskPersonResponseDto,
@@ -78,6 +79,10 @@ export const TaskHttpMapper = {
             each.sendsBack,
           ),
       ),
+      dto.blockedBy.map(
+        (each) => new TaskBlockerResponseDto(each.id, each.title, each.teamId),
+      ),
+      dto.blockable,
     );
   },
 };

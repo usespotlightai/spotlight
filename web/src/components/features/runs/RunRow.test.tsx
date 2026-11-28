@@ -48,7 +48,11 @@ describe('RunRow, what a run is doing', () => {
     const inRuns = shown(<RunRow run={run('claimed')} to="/runs/run_1" />);
     const onBoard = shown(
       <TaskState
-        task={partial<Task>({ progress: 'in-progress', awaitingReview: null })}
+        task={partial<Task>({
+          progress: 'in-progress',
+          awaitingReview: null,
+          blockedBy: [],
+        })}
       />,
     );
 
@@ -68,6 +72,7 @@ describe('RunRow, what a run is doing', () => {
         task={partial<Task>({
           progress: 'queued',
           awaitingReview: null,
+          blockedBy: [],
         })}
       />,
     );

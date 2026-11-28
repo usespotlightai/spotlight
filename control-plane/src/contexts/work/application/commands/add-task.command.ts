@@ -8,5 +8,6 @@ export class AddTaskCommand {
     readonly createdBy: string,
     readonly attachments: readonly string[] = [],
     readonly base: string | null = null,
+    readonly blockedBy: readonly string[] = [],
   ) {}
 }

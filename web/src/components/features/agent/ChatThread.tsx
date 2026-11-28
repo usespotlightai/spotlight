@@ -30,6 +30,7 @@ import {
   momentsOf,
   phaseOf,
   type Proposal,
+  proposalsWaitedFor,
   runsOfTurn,
   turnsOf,
 } from '@/lib/chat';
@@ -89,6 +90,7 @@ export function ChatThread({
       chatId={chat.id}
       position={moment.message.position}
       proposal={moment.proposal}
+      waitsFor={proposalsWaitedFor(chat.messages, moment.proposal)}
       attachments={moment.message.attachments}
       awaiting={awaiting}
     />

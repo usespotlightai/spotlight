@@ -14,6 +14,7 @@ import { anOutboxRecord } from '@shared-kernel/application/ports/domain-event-su
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -22,6 +23,7 @@ import { requestedBy } from '@work/application/ports/runs.fake-spec';
 import { ChatResolved } from '@work/domain/events/chat-resolved.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
+import { TaskCompleted } from '@work/domain/events/task-completed.event';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
 import { describe, expect, it, vi } from 'vitest';
@@ -75,6 +77,35 @@ describe('workSubscribers', () => {
       'chat.deleted',
     ]);
     expect(chatSandbox.on).toHaveBeenCalledWith(resolved);
+  });
+
+  it('starts the tasks blocked by a task when it is completed, and not when it only finished at the end of its line', async () => {
+    const onCompleted = vi.fn(async () => undefined);
+    const subscribers = workSubscribers(
+      partial<Reactions>({
+        blockedTasks: partial<Reactions['blockedTasks']>({ onCompleted }),
+      }),
+    );
+    const starting = subscribers.find(
+      (each) => each.name === 'work.start-tasks-blocked-by-completed-task',
+    );
+    const completed = new TaskCompleted(
+      TaskId.of('task_1'),
+      WorkspaceId.of('ws_1'),
+      StationId.of('station_completed'),
+      new Date('2026-11-28T09:00:00.000Z'),
+    );
+
+    await starting?.handle(completed, anOutboxRecord());
+
+    expect(starting?.kinds).toEqual(['task.completed']);
+    expect(onCompleted).toHaveBeenCalledWith(completed);
+    expect(
+      subscribers
+        .filter((each) => each.kinds.includes('task.finished'))
+        .map((each) => each.name)
+        .filter((name) => name.includes('blocked')),
+    ).toEqual([]);
   });
 
   it('takes up the run a person answered, whichever way the answer came', async () => {

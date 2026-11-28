@@ -14,6 +14,7 @@ import {
   promptHandedOver,
   proposalStatusOf,
   type Proposal,
+  proposalsWaitedFor,
   sentTo,
   withoutMessage,
   runsOfTurn,
@@ -140,6 +141,7 @@ describe('momentsOf', () => {
         description: null,
         state: 'open',
         taskId: null,
+        blockedBy: [],
       },
     });
     const running = (ms: number) =>
@@ -233,6 +235,7 @@ describe('momentsOf', () => {
             description: null,
             state: 'open',
             taskId: null,
+            blockedBy: [],
           },
         }),
       ],
@@ -671,5 +674,45 @@ describe('phaseOf', () => {
     expect(phaseOf([journal([...steps, step({})])], 'run_1').key).toBe(
       'run_1:working:3',
     );
+  });
+});
+
+describe('a proposal that waits for others', () => {
+  const proposed = (
+    position: number,
+    title: string,
+    blockedBy: number[] = [],
+  ): ChatMessage =>
+    message({
+      position,
+      kind: 'proposed',
+      body: title,
+      proposal: {
+        lineId: 'line_1',
+        lineName: 'Default',
+        stationId: 'station_1',
+        stationName: 'Backlog',
+        stationColor: '#a3a8b0',
+        stationPosition: 0,
+        stationCount: 4,
+        title,
+        description: null,
+        state: 'open',
+        taskId: null,
+        blockedBy,
+      },
+    });
+
+  it('names the earlier proposals it waits for', () => {
+    const first = proposed(1, 'Web 1/4');
+    const second = proposed(2, 'Web 2/4', [1]);
+    const messages = [message({}), first, second];
+
+    expect(
+      second.proposal && proposalsWaitedFor(messages, second.proposal),
+    ).toEqual(['Web 1/4']);
+    expect(
+      first.proposal && proposalsWaitedFor(messages, first.proposal),
+    ).toEqual([]);
   });
 });

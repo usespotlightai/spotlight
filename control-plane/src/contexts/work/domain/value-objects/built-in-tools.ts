@@ -240,6 +240,15 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           defaulted: false,
           stdin: false,
         },
+        {
+          name: 'blocked-by',
+          schema: InputSchema.of({ type: 'array', items: { type: 'string' } }),
+          description:
+            'The number of an earlier proposal that must be completed before this task starts, as in a plan where each task builds on the one before. The task waits in Backlog and starts by itself when they are completed. Repeat for each proposal.',
+          required: false,
+          defaulted: false,
+          stdin: false,
+        },
       ],
     }),
   },

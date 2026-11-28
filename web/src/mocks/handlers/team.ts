@@ -638,6 +638,8 @@ const chatHandlers = [
           hold: null,
           runNotStarted: null,
           handMoves: [],
+          blockedBy: [],
+          blockable: false,
         },
       ];
       seenAgain(teamId, taskId);

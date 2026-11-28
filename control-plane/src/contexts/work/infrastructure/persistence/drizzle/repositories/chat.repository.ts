@@ -86,6 +86,9 @@ const toProposal = (
         state: row.state,
         taskId: nonEmpty(row.taskId) ? TaskId.of(row.taskId) : null,
         decidedAt: nonEmpty(row.decidedAt) ? new Date(row.decidedAt) : null,
+        blockedBy: (row.blockedBy ?? []).map((each) =>
+          MessagePosition.of(each),
+        ),
       })
     : null;
 
@@ -100,6 +103,7 @@ const fromProposal = (proposal: TaskProposal | null): ProposalRow | null =>
         state: proposal.state,
         taskId: proposal.taskId?.value ?? null,
         decidedAt: proposal.decidedAt?.toISOString() ?? null,
+        blockedBy: proposal.blockedBy.map((each) => each.value),
       }
     : null;
 

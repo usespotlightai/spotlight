@@ -1,9 +1,11 @@
 import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { AttachmentCopies } from '@work/application/services/attachment-copies';
+import { blockersOf } from '@work/application/services/blockers';
 import type { CreateTask } from '@work/application/services/create-task';
 import { requestedBase } from '@work/application/services/requested-base';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -11,6 +13,8 @@ import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.eve
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import { ProposalAlreadyOpenedError } from '@work/domain/exceptions/proposal-already-opened.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
+import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { Blocking } from '@work/domain/services/blocking';
 import { Placement } from '@work/domain/services/placement';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 
@@ -33,6 +37,8 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
       RepositorySettingsPort,
       'defaultBranchNameOf'
     >,
+    private readonly tasks: Pick<TaskRepository, 'blockersAmong'>,
+    private readonly transaction: TransactionPort,
   ) {}
 
   async onProposalAccepted(event: ProposalAccepted): Promise<void> {
@@ -60,29 +66,39 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
     const base = await requestedBase(this.settings, line, event.base);
 
     try {
-      await this.createTask.create({
-        task: Task.add({
-          line,
-          at: station.id,
-          title: event.title,
-          description: event.description,
-          base,
-          attachments,
-          rank: Placement.entering(
-            'opened',
-            (await this.placements.placementsAt(station.id)).map(
-              (each) => each.rank,
-            ),
+      await this.transaction.inTransaction(async () => {
+        const blockedBy = Blocking.forNewTask(
+          line.workspaceId,
+          await blockersOf(
+            this.lines,
+            await this.tasks.blockersAmong(event.blockedBy),
           ),
-          createdBy: event.acceptedBy,
-          proposedIn: ProposalOrigin.of({
-            chatId: event.chatId,
-            position: event.position,
+        );
+        const at = Task.opensAt(line, station.id, blockedBy);
+
+        await this.createTask.create({
+          task: Task.add({
+            line,
+            at,
+            blockedBy,
+            title: event.title,
+            description: event.description,
+            base,
+            attachments,
+            rank: Placement.entering(
+              'opened',
+              (await this.placements.placementsAt(at)).map((each) => each.rank),
+            ),
+            createdBy: event.acceptedBy,
+            proposedIn: ProposalOrigin.of({
+              chatId: event.chatId,
+              position: event.position,
+            }),
+            now: this.clock.now(),
+            newId: () => this.ids.generate(),
           }),
-          now: this.clock.now(),
-          newId: () => this.ids.generate(),
-        }),
-        line,
+          line,
+        });
       });
     } catch (error) {
       if (!(error instanceof ProposalAlreadyOpenedError)) {

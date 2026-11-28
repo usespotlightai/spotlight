@@ -57,6 +57,7 @@ const at = (key: string, finished = false): HandMovedTask => ({
   hold: null,
   awaiting: null,
   finished,
+  blocked: false,
 });
 
 const QUESTION = { ask: { approval: null, connectionAsk: null } };
@@ -231,6 +232,7 @@ describe('HandMoves', () => {
           hold: null,
           awaiting: QUESTION,
           finished: false,
+          blocked: false,
         },
         odd,
         present(work),
@@ -273,6 +275,7 @@ describe('HandMoves', () => {
           hold: null,
           awaiting: null,
           finished: false,
+          blocked: false,
         },
         line,
         keyed('backlog'),
@@ -318,7 +321,13 @@ describe('HandMoves', () => {
     for (const finished of [false, true]) {
       for (const from of line.stations) {
         for (const move of HandMoves.of(
-          { stationId: from.id, hold: null, awaiting: null, finished },
+          {
+            stationId: from.id,
+            hold: null,
+            awaiting: null,
+            finished,
+            blocked: false,
+          },
           line,
           viewer(),
         ).filter((each) => !each.to.id.equals(from.id))) {

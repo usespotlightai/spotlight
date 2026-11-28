@@ -27,6 +27,8 @@ import { TaskApprovalReturned } from '@work/domain/events/task-approval-returned
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskAssigned } from '@work/domain/events/task-assigned.event';
 import { TaskBaseMoved } from '@work/domain/events/task-base-moved.event';
+import { TaskBlockersChanged } from '@work/domain/events/task-blockers-changed.event';
+import { TaskCompleted } from '@work/domain/events/task-completed.event';
 import { TaskConversationRead } from '@work/domain/events/task-conversation-read.event';
 import { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
@@ -54,6 +56,7 @@ import { AssignedToAnotherPersonError } from '@work/domain/exceptions/assigned-t
 import { DraftAlreadySentError } from '@work/domain/exceptions/draft-already-sent.error';
 import { HeldForAgentChatError } from '@work/domain/exceptions/held-for-agent-chat.error';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
+import { InvalidTaskBlockerError } from '@work/domain/exceptions/invalid-task-blocker.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
@@ -65,6 +68,7 @@ import {
 import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
 import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
+import { TaskBlockedError } from '@work/domain/exceptions/task-blocked.error';
 import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
 import { TaskOnHoldError } from '@work/domain/exceptions/task-on-hold.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -84,7 +88,11 @@ import {
   worksOn,
 } from '@work/domain/services/conversations';
 import { deferralIn } from '@work/domain/services/deferred-moves';
-import { HandMoves } from '@work/domain/services/hand-moves';
+import {
+  blockedMoveTo,
+  HandMoves,
+  mayWaitAt,
+} from '@work/domain/services/hand-moves';
 import { handsOverOnWait } from '@work/domain/services/hand-over';
 import {
   type MessageAddress,
@@ -254,6 +262,7 @@ export class Task extends EventRecorder {
     readonly runNotStarted: RunNotStarted | null = null,
     readonly base: Branch | null = null,
     readonly pushedHeads: readonly PushedHead[] = [],
+    readonly blockedBy: readonly TaskId[] = [],
   ) {
     super();
   }
@@ -270,11 +279,16 @@ export class Task extends EventRecorder {
     proposedIn?: ProposalOrigin | null;
     branch?: Branch | null;
     base?: RequestedBase | null;
+    blockedBy?: readonly TaskId[];
     now: Date;
     newId: () => string;
   }): Task {
-    const station = Task.stationOn(input.line, input.at);
     const id = TaskId.of(input.newId());
+    const blockers = Task.distinct(input.blockedBy ?? []);
+    const station = Task.stationOn(
+      input.line,
+      Task.opensAt(input.line, input.at, blockers),
+    );
     const branch = input.branch ?? Branch.for(id, input.title);
     const base = input.base?.taskBase ?? null;
 
@@ -327,6 +341,8 @@ export class Task extends EventRecorder {
       [],
       null,
       base,
+      [],
+      blockers,
     );
 
     task.record(
@@ -405,6 +421,14 @@ export class Task extends EventRecorder {
     });
   }
 
+  static opensAt(
+    line: LineMap,
+    at: StationId,
+    blockedBy: readonly TaskId[],
+  ): StationId {
+    return blockedBy.length > 0 ? line.backlog.id : at;
+  }
+
   static revisionsOfLatestRunHere(
     revision: TaskRevision,
   ): readonly TaskRevision[] {
@@ -446,6 +470,7 @@ export class Task extends EventRecorder {
     runNotStarted?: RunNotStarted | null;
     base?: Branch | null;
     pushedHeads?: readonly PushedHead[];
+    blockedBy?: readonly TaskId[];
   }): Task {
     if (input.version < 0) {
       throw new InconsistentStateError('task', 'has a negative version');
@@ -521,6 +546,31 @@ export class Task extends EventRecorder {
       );
     }
 
+    const blockedBy = input.blockedBy ?? [];
+
+    if (
+      blockedBy.some(
+        (each, at) =>
+          each.equals(input.id) ||
+          blockedBy.findIndex((other) => other.equals(each)) !== at,
+      )
+    ) {
+      throw new InconsistentStateError(
+        'task',
+        'waits for itself, or for one task twice',
+      );
+    }
+
+    if (
+      blockedBy.length > 0 &&
+      (input.finishedAt !== null || input.currentRunId !== null)
+    ) {
+      throw new InconsistentStateError(
+        'task',
+        'waits for other tasks yet runs or is finished',
+      );
+    }
+
     const held = firstOf(open);
 
     if (
@@ -582,6 +632,7 @@ export class Task extends EventRecorder {
       input.runNotStarted ?? null,
       input.base ?? null,
       input.pushedHeads ?? [],
+      blockedBy,
     );
 
     if (
@@ -857,6 +908,7 @@ export class Task extends EventRecorder {
 
     this.assertNotAtStation(into.id);
     this.assertNotOnHold('move it');
+    this.assertNotBlockedFrom(into);
 
     const takesOwnership =
       handMove !== null &&
@@ -887,13 +939,18 @@ export class Task extends EventRecorder {
       ),
     );
 
-    if (into.isCompleted) {
-      moved.record(
-        new TaskFinished(moved.id, moved.workspaceId, into.id, newNote.at),
-      );
+    if (!into.isCompleted) {
+      return moved;
     }
 
-    return moved;
+    moved.record(
+      new TaskFinished(moved.id, moved.workspaceId, into.id, newNote.at),
+    );
+    moved.record(
+      new TaskCompleted(moved.id, moved.workspaceId, into.id, newNote.at),
+    );
+
+    return moved.blockedOnlyBy([], handMove?.mover ?? null);
   }
 
   reorderTo(rank: TaskRank): Task {
@@ -1538,6 +1595,10 @@ export class Task extends EventRecorder {
     return this.finishedAt !== null;
   }
 
+  completedOn(line: LineMap): boolean {
+    return line.completed.id.equals(this.stationId);
+  }
+
   get reopensOnMention(): boolean {
     return this.finished;
   }
@@ -1997,6 +2058,7 @@ export class Task extends EventRecorder {
 
     return (
       this.idle &&
+      !this.blocked &&
       Boolean(line.stationAt(this.stationId)?.harness) &&
       (hold === null || this.hasMessageToDrive(hold))
     );
@@ -3285,6 +3347,7 @@ export class Task extends EventRecorder {
         hold,
         awaiting: this.awaitingReview ? { ask: this.openAsk } : null,
         finished: this.finished,
+        blocked: this.blocked,
       },
       line,
       into,
@@ -3294,8 +3357,20 @@ export class Task extends EventRecorder {
     if (hold && denial === 'on-hold') {
       throw new HeldForAgentChatError(this.id, hold.by);
     }
-    if (denial && denial !== 'on-hold') {
+    if (denial === 'blocked') {
+      this.assertNotBlockedFrom(into);
+    }
+    if (denial && denial !== 'on-hold' && denial !== 'blocked') {
       throw new MoveDeniedError(denial, from.name.value, into.name.value);
+    }
+  }
+
+  private assertNotBlockedFrom(into: Station): void {
+    if (blockedMoveTo(this, into)) {
+      throw new TaskBlockedError(
+        this.id,
+        'waits for the tasks it is blocked by. It starts when they are completed.',
+      );
     }
   }
 
@@ -3386,6 +3461,7 @@ export class Task extends EventRecorder {
     runNotStarted?: RunNotStarted | null;
     pushedHeads?: readonly PushedHead[];
     base?: Branch | null;
+    blockedBy?: readonly TaskId[];
   }): Task {
     const next = new Task(
       this.id,
@@ -3426,6 +3502,7 @@ export class Task extends EventRecorder {
         : this.runNotStarted,
       part.base !== undefined ? part.base : this.base,
       part.pushedHeads ?? this.pushedHeads,
+      part.blockedBy ?? this.blockedBy,
     );
 
     next.inheritEvents(this);
@@ -3530,6 +3607,139 @@ export class Task extends EventRecorder {
         PushedHead.of(repository, own.to, at, holdsOthersCommits),
       ],
     });
+  }
+
+  get blocked(): boolean {
+    return this.blockedBy.length > 0;
+  }
+
+  waitsFor(blocker: TaskId): boolean {
+    return this.blockedBy.some((each) => each.equals(blocker));
+  }
+
+  blocksMoveTo(line: LineMap, to: StationId): boolean {
+    return blockedMoveTo(this, Task.stationOn(line, to));
+  }
+
+  blockBy(
+    line: LineMap,
+    blockedBy: readonly TaskId[],
+    by: UserId,
+    at: Date,
+  ): Task {
+    const blockers = Task.distinct(blockedBy);
+
+    if (blockers.some((each) => each.equals(this.id))) {
+      throw new InvalidTaskBlockerError('A task cannot wait for itself.');
+    }
+
+    if (
+      blockers.length > 0 &&
+      !mayWaitAt(Task.stationOn(line, this.stationId))
+    ) {
+      throw new TaskBlockedError(
+        this.id,
+        'has left Backlog. Only a task that has not started can wait for other tasks.',
+      );
+    }
+
+    const blocked = this.blockedOnlyBy(blockers, by);
+
+    return blocked === this
+      ? this
+      : blocked.noted(
+          {
+            line,
+            body: TaskNoteBody.blockedBy(blockers.length),
+            at,
+            voice: Voice.person(by),
+          },
+          'message',
+        );
+  }
+
+  blockerCompleted(
+    blocker: TaskId,
+    line: LineMap,
+    ranksAtRelease: readonly TaskRank[],
+    at: Date,
+  ): Task {
+    if (!this.waitsFor(blocker)) {
+      return this;
+    }
+
+    const unblocked = this.blockedOnlyBy(
+      this.blockedBy.filter((each) => !each.equals(blocker)),
+      null,
+    );
+    const entry = line.entry;
+
+    if (
+      unblocked.blocked ||
+      !entry ||
+      this.finished ||
+      !Task.stationOn(line, this.stationId).isBacklog
+    ) {
+      return unblocked;
+    }
+
+    return unblocked.relocated(
+      line,
+      entry.id,
+      Placement.entering('passed-on', ranksAtRelease),
+      {
+        line,
+        body: TaskNoteBody.unblocked(entry.name),
+        at,
+        voice: Voice.station(),
+      },
+      null,
+    );
+  }
+
+  blockerDeleted(blocker: TaskId, line: LineMap, at: Date): Task {
+    if (!this.waitsFor(blocker)) {
+      return this;
+    }
+
+    const unblocked = this.blockedOnlyBy(
+      this.blockedBy.filter((each) => !each.equals(blocker)),
+      null,
+    );
+
+    return unblocked.noted(
+      {
+        line,
+        body: TaskNoteBody.blockerDeleted(unblocked.blocked),
+        at,
+        voice: Voice.station(),
+      },
+      'message',
+    );
+  }
+
+  private blockedOnlyBy(blockers: readonly TaskId[], by: UserId | null): Task {
+    const same =
+      blockers.length === this.blockedBy.length &&
+      blockers.every((each) => this.waitsFor(each));
+
+    if (same) {
+      return this;
+    }
+
+    const changed = this.with({ blockedBy: blockers });
+
+    changed.record(
+      new TaskBlockersChanged(this.id, this.workspaceId, blockers, by),
+    );
+
+    return changed;
+  }
+
+  private static distinct(ids: readonly TaskId[]): readonly TaskId[] {
+    return ids.filter(
+      (each, at) => ids.findIndex((other) => other.equals(each)) === at,
+    );
   }
 
   deleted(): Task {

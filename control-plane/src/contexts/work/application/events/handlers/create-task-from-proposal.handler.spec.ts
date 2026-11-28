@@ -21,7 +21,7 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { AttachmentCopies } from '@work/application/services/attachment-copies';
 import type { CreateTask } from '@work/application/services/create-task';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import type { Task } from '@work/domain/aggregates/task.aggregate';
+import { Task } from '@work/domain/aggregates/task.aggregate';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -38,6 +38,7 @@ import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
+import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -107,6 +108,7 @@ const accepted = () =>
 const acceptedWith = (
   attachments: readonly Attachment[],
   base: Branch | null = null,
+  blockedBy: readonly TaskId[] = [],
 ) =>
   new ProposalAccepted(
     accepted().id,
@@ -118,11 +120,12 @@ const acceptedWith = (
     base,
     attachments,
     LEON,
+    blockedBy,
   );
 
 const event = acceptedWith([]);
 
-const creating = (line: LineMap | null) => {
+const creating = (line: LineMap | null, stored: readonly Task[] = []) => {
   const save = vi.fn(async (_saved: Chat) => undefined);
   const create = vi.fn(async ({ task }: { task: Task }) => task);
   const copy = vi.fn(async () => undefined);
@@ -131,13 +134,22 @@ const creating = (line: LineMap | null) => {
       find: vi.fn(async () => accepted()),
       save,
     }),
-    partial<LineMapsPort>({ find: vi.fn(async () => line) }),
+    partial<LineMapsPort>({
+      find: vi.fn(async () => line),
+      findByStation: vi.fn(async () => line),
+    }),
     { placementsAt: vi.fn(async () => []) },
     partial<CreateTask>({ create }),
     new AttachmentCopies(partial<AttachmentStorePort>({ copy })),
     { generate: () => 'task_9' },
     partial<ClockPort>({ now: () => NOW }),
     { defaultBranchNameOf: async () => 'main' },
+    {
+      blockersAmong: vi.fn(async (ids: readonly TaskId[]) =>
+        stored.filter((each) => ids.some((id) => id.equals(each.id))),
+      ),
+    },
+    { inTransaction: (work) => work() },
   );
 
   return { handler, save, create, copy };
@@ -161,6 +173,24 @@ describe('CreateTaskFromProposal', () => {
         ProposalOrigin.of({ chatId: ChatId.of('chat_1'), position: SECOND }),
       ),
     ).toBe(true);
+  });
+
+  it('blocks the task by the tasks its proposal waits for, skipping one deleted since', async () => {
+    const first = Task.add({
+      line: LINE,
+      at: StationId.of('station_1'),
+      title: TaskTitle.of('Web 1/4'),
+      rank: TaskRank.of('i'),
+      now: NOW,
+      newId: () => 'task_1',
+    });
+    const { handler, create } = creating(LINE, [first]);
+
+    await handler.onProposalAccepted(
+      acceptedWith([], null, [first.id, TaskId.of('task_gone')]),
+    );
+
+    expect(create.mock.calls[0]?.[0].task.blockedBy).toEqual([first.id]);
   });
 
   it('starts the task from the base branch the proposal names', async () => {

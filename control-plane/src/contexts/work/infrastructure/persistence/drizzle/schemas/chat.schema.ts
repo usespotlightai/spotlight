@@ -26,6 +26,7 @@ export interface ProposalRow {
   readonly state: ProposalState;
   readonly taskId: string | null;
   readonly decidedAt: string | null;
+  readonly blockedBy?: readonly number[];
 }
 
 export interface TraceRow {

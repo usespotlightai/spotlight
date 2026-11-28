@@ -270,6 +270,8 @@ const carrying = (
   const tasks = {
     find: vi.fn(async () => existing),
     startingFrom: vi.fn(async () => []),
+    waitingFor: vi.fn(async () => []),
+    blockersAmong: vi.fn(async () => []),
     onBranch: vi.fn(async () => null),
     save: vi.fn(async (_task: Task) => {}),
   };

@@ -36,6 +36,8 @@ const task: TaskSummary = {
   source: null,
   hold: null,
   runNotStarted: null,
+  blocked: false,
+  blockedBy: [],
 };
 
 const reader = (found: TaskSummary | null): TaskReaderPort => ({

@@ -27,6 +27,7 @@ type ProposedTaskCardProps = {
   slug: string;
   teamId: string;
   proposal: Proposal;
+  waitsFor?: readonly string[];
   attachments: readonly Attachment[];
   pending: boolean;
   onCreate: () => void;
@@ -39,6 +40,7 @@ export function ProposedTaskCard({
   slug,
   teamId,
   proposal,
+  waitsFor = [],
   attachments,
   pending,
   onCreate,
@@ -57,6 +59,7 @@ export function ProposedTaskCard({
       slug={slug}
       teamId={teamId}
       proposal={proposal}
+      waitsFor={waitsFor}
       attachments={attachments}
       titleId={titleId}
     />

@@ -130,7 +130,7 @@ export class TaskHandMoveResponseDto {
     type: String,
     example: 'between-work-stations',
     description:
-      'Why a person may not move the task to this station: a completed task stays completed, only runs move a task between work stations, or the task is on hold for someone else. Null where the person may move it there.',
+      'Why a person may not move the task to this station: a completed task stays completed, only runs move a task between work stations, the task is on hold for someone else, or it waits for the tasks it is blocked by. Null where the person may move it there.',
   })
   readonly denial: string | null;
 
@@ -159,6 +159,31 @@ export class TaskHandMoveResponseDto {
     this.denial = denial;
     this.skips = skips;
     this.sendsBack = sendsBack;
+  }
+}
+
+export class TaskBlockerResponseDto {
+  @ApiProperty({ example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13' })
+  readonly id: string;
+
+  @ApiProperty({
+    example: 'Web 1/4: add the timeline API',
+    nullable: true,
+    type: String,
+    description: 'Null for a task on a team the caller does not see',
+  })
+  readonly title: string | null;
+
+  @ApiProperty({
+    example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84',
+    description: 'The team whose line the blocking task is on',
+  })
+  readonly teamId: string;
+
+  constructor(id: string, title: string | null, teamId: string) {
+    this.id = id;
+    this.title = title;
+    this.teamId = teamId;
   }
 }
 
@@ -309,6 +334,20 @@ export class TaskResponseDto {
   })
   readonly handMoves: readonly TaskHandMoveResponseDto[];
 
+  @ApiProperty({
+    type: [TaskBlockerResponseDto],
+    description:
+      'The open tasks this task waits for. It waits in Backlog until each is completed, then Spotlight moves it to the first station of its line. Empty for a task that waits for nothing',
+  })
+  readonly blockedBy: readonly TaskBlockerResponseDto[];
+
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether the task can start to wait for other tasks: only a task that has not started can',
+  })
+  readonly blockable: boolean;
+
   constructor(
     id: string,
     stationId: string,
@@ -330,6 +369,8 @@ export class TaskResponseDto {
     hold: TaskHoldResponseDto | null,
     runNotStarted: TaskRunNotStartedResponseDto | null,
     handMoves: readonly TaskHandMoveResponseDto[],
+    blockedBy: readonly TaskBlockerResponseDto[],
+    blockable: boolean,
   ) {
     this.id = id;
     this.stationId = stationId;
@@ -351,6 +392,8 @@ export class TaskResponseDto {
     this.hold = hold;
     this.runNotStarted = runNotStarted;
     this.handMoves = handMoves;
+    this.blockedBy = blockedBy;
+    this.blockable = blockable;
   }
 }
 

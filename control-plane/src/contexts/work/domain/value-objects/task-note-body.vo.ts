@@ -243,6 +243,30 @@ export class TaskNoteBody {
     );
   }
 
+  static blockedBy(count: number): TaskNoteBody {
+    if (count === 0) {
+      return TaskNoteBody.of('No longer blocked by other tasks.');
+    }
+
+    return TaskNoteBody.of(
+      `Blocked by ${count === 1 ? '1 task' : `${count} tasks`}. It waits in Backlog and starts when ${count === 1 ? 'it is' : 'they are'} completed.`,
+    );
+  }
+
+  static unblocked(to: StationName): TaskNoteBody {
+    return TaskNoteBody.of(
+      `Moved to ${to.value}. Every task it waited for is completed.`,
+    );
+  }
+
+  static blockerDeleted(stillBlocked: boolean): TaskNoteBody {
+    return TaskNoteBody.of(
+      stillBlocked
+        ? 'A task it waited for was deleted. It still waits for the others.'
+        : 'A task it waited for was deleted. It waits for nothing now: move it on when it is ready.',
+    );
+  }
+
   static connected(providedBy: string): TaskNoteBody {
     return TaskNoteBody.of(`Connected ${providedBy}.`);
   }

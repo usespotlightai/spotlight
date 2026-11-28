@@ -76,6 +76,7 @@ const tasks = [
     description: null,
     createdAt: '2026-08-04T09:15:00.000Z',
     handMoves: AT_WORK('station_1'),
+    blockedBy: [],
   },
   {
     id: 'task_2',
@@ -84,6 +85,7 @@ const tasks = [
     description: null,
     createdAt: '2026-08-05T09:15:00.000Z',
     handMoves: AT_WORK('station_2'),
+    blockedBy: [],
   },
   {
     id: 'task_3',
@@ -92,6 +94,7 @@ const tasks = [
     description: null,
     createdAt: '2026-08-06T09:15:00.000Z',
     handMoves: AT_WORK('station_1'),
+    blockedBy: [],
   },
   {
     id: 'task_4',
@@ -100,6 +103,7 @@ const tasks = [
     description: null,
     createdAt: '2026-08-07T09:15:00.000Z',
     handMoves: opens(line.stations.map(({ id }) => id)),
+    blockedBy: [],
   },
 ];
 
@@ -443,6 +447,7 @@ describe('LineBoard', () => {
         description: null,
         createdAt: '2026-08-08T09:15:00.000Z',
         handMoves: opens(['station_5'], 'out-of-completed'),
+        blockedBy: [],
       },
     ]);
     renderAt('line_1');

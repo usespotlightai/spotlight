@@ -45,6 +45,8 @@ const summaries: TaskSummary[] = [
     source: null,
     hold: null,
     runNotStarted: null,
+    blocked: false,
+    blockedBy: [],
   },
   {
     id: 'task_2',
@@ -65,10 +67,16 @@ const summaries: TaskSummary[] = [
     source: null,
     hold: null,
     runNotStarted: null,
+    blocked: false,
+    blockedBy: [],
   },
 ];
 
-const asDto = ({ running: _running, ...summary }: TaskSummary) => ({
+const asDto = ({
+  running: _running,
+  blocked: _blocked,
+  ...summary
+}: TaskSummary) => ({
   ...summary,
   handMoves: [],
   createdAt: summary.createdAt.toISOString(),
@@ -178,6 +186,37 @@ describe('ListTasksHandler', () => {
       items: summaries.map(asDto),
       next: null,
     });
+  });
+
+  it('keeps the title of a blocking task to the people who see its team', async () => {
+    const blocked = {
+      ...summaries[1],
+      blocked: true,
+      blockedBy: [
+        { id: 'task_8', title: 'Ours', teamId: 'team_1' },
+        { id: 'task_9', title: 'Theirs', teamId: 'team_2' },
+      ],
+    } as TaskSummary;
+    const access = partial<WorkAccess>({
+      standingOn: vi.fn(async () =>
+        TeamStanding.of({
+          seesTeam: true,
+          actsOnTeam: true,
+          memberOfTeam: true,
+        }),
+      ),
+      seesTeam: vi.fn(async (teamId: TeamId) => teamId.value === 'team_1'),
+    });
+
+    const page = await handle(
+      reader([...summaries.slice(0, 1), blocked]),
+      access,
+    );
+
+    expect(page?.items[1]?.blockedBy).toEqual([
+      { id: 'task_8', title: 'Ours', teamId: 'team_1' },
+      { id: 'task_9', title: null, teamId: 'team_2' },
+    ]);
   });
 
   it('answers with nothing for a team the caller cannot see', async () => {
