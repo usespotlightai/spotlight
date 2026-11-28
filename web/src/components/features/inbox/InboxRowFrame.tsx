@@ -27,6 +27,36 @@ type InboxRowFrameProps = {
   onIntent?: () => void;
 };
 
+// "3 new" when more than one thing waits, otherwise a dot.
+function UnreadMarker({ count, loud }: { count: number; loud: boolean }) {
+  if (count > 1) {
+    return (
+      <span
+        data-slot="unread-count"
+        className={cn(
+          'shrink-0 text-xs tabular-nums',
+          loud ? 'font-medium text-primary' : 'text-muted-foreground',
+        )}
+      >
+        {count} new
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <span className="sr-only">Unread</span>
+      <span
+        aria-hidden
+        className={cn(
+          'size-1.5 shrink-0 rounded-full',
+          loud ? 'bg-primary' : 'bg-muted-foreground',
+        )}
+      />
+    </>
+  );
+}
+
 export function InboxRowFrame({
   to,
   icon,
@@ -93,30 +123,7 @@ export function InboxRowFrame({
 
           {badge}
 
-          {unread && unreadCount > 1 && (
-            <span
-              data-slot="unread-count"
-              className={cn(
-                'shrink-0 text-xs tabular-nums',
-                loud ? 'font-medium text-primary' : 'text-muted-foreground',
-              )}
-            >
-              {unreadCount} new
-            </span>
-          )}
-
-          {unread && unreadCount <= 1 && (
-            <>
-              <span className="sr-only">Unread</span>
-              <span
-                aria-hidden
-                className={cn(
-                  'size-1.5 shrink-0 rounded-full',
-                  loud ? 'bg-primary' : 'bg-muted-foreground',
-                )}
-              />
-            </>
-          )}
+          {unread && <UnreadMarker count={unreadCount} loud={loud} />}
         </span>
 
         <span

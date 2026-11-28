@@ -33,6 +33,23 @@ type InboxPartKind = InboxPart['kind'];
 
 export type InboxEntry = InboxItem | InboxNotice | InboxRun | InboxChat;
 
+// Acts on each part of a task's item. The task's conversations all write the
+// one task, so they go one after another; requests go at the same time.
+export const actOnParts = async (
+  parts: readonly InboxPart[],
+  act: (part: InboxPart) => Promise<unknown>,
+): Promise<void> => {
+  const conversations = parts.filter((part) => part.form === null);
+  const requests = parts.filter((part) => part.form !== null);
+  const inTurn = async () => {
+    for (const part of conversations) {
+      await act(part);
+    }
+  };
+
+  await Promise.all([inTurn(), ...requests.map(act)]);
+};
+
 export type ResolvableEntry = InboxItem | InboxNotice | InboxChat;
 
 export type Note = NoteResponseDto;

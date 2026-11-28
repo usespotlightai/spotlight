@@ -12,7 +12,7 @@ import {
   reopenInboxNotice,
   reopenInboxRequest,
 } from '@/lib/api';
-import type { InboxPart, ResolvableEntry } from '@/lib/inbox';
+import { actOnParts, type InboxPart, type ResolvableEntry } from '@/lib/inbox';
 
 type ReopenInboxEntryInput = {
   slug: string;
@@ -43,10 +43,9 @@ const reopening = async ({ slug, entry }: ReopenInboxEntryInput) => {
   }
 
   // Reopening a task's item reopens what its last resolve closed.
-  await Promise.all(
-    entry.parts
-      .filter((part) => part.reopenable)
-      .map((part) => reopeningPart(slug, part)),
+  await actOnParts(
+    entry.parts.filter((part) => part.reopenable),
+    (part) => reopeningPart(slug, part),
   );
 };
 

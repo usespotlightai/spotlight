@@ -11,6 +11,7 @@ import type {
   RunJournal,
 } from '@/lib/inbox';
 import {
+  actOnParts,
   chatPreviewOf,
   counted,
   entryKey,
@@ -635,5 +636,47 @@ describe('resolvable', () => {
   it('follows the server for a notice', () => {
     expect(resolvable(notice())).toBe(true);
     expect(resolvable(notice({ resolvable: false }))).toBe(false);
+  });
+});
+
+describe('actOnParts', () => {
+  const part = (id: string, form: InboxPart['form']) =>
+    partial<InboxPart>({ id, form });
+
+  it('acts on a task’s conversations one after another, and on its requests at once', async () => {
+    const started: string[] = [];
+    const finished: string[] = [];
+    const releases = new Map<string, () => void>();
+    const act = (each: InboxPart) => {
+      started.push(each.id);
+      return new Promise<void>((resolve) => {
+        releases.set(each.id, () => {
+          finished.push(each.id);
+          resolve();
+        });
+      });
+    };
+    const done = actOnParts(
+      [
+        part('task_1:1', null),
+        part('request_1', 'judge-disagreement'),
+        part('task_1:2', null),
+        part('request_2', 'memories'),
+      ],
+      act,
+    );
+
+    await Promise.resolve();
+    expect(started).toEqual(['task_1:1', 'request_1', 'request_2']);
+
+    releases.get('task_1:1')?.();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(started).toContain('task_1:2');
+
+    for (const id of ['request_1', 'request_2', 'task_1:2']) {
+      releases.get(id)?.();
+    }
+    await done;
+    expect(finished).toHaveLength(4);
   });
 });

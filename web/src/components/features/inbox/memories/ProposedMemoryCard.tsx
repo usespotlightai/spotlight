@@ -32,6 +32,29 @@ type ProposedMemoryCardProps = {
   onRestore: () => void;
 };
 
+// A proposal still open on a resolved inbox item was not decided. A folded,
+// rejected one shows its words beside the title.
+function ProposedMemoryTitle({
+  memory,
+  folded,
+}: {
+  memory: ProposedMemory;
+  folded: boolean;
+}) {
+  const settled = use(SettledPartContext);
+
+  return (
+    <DecisionTitle status={proposalStatusOf(memory)}>
+      {settled && undecided(memory) ? NOT_DECIDED : proposalTitleOf(memory)}
+      {folded && (
+        <span className="ml-2 font-normal text-muted-foreground">
+          {memory.body}
+        </span>
+      )}
+    </DecisionTitle>
+  );
+}
+
 export function ProposedMemoryCard({
   memory,
   position,
@@ -48,7 +71,6 @@ export function ProposedMemoryCard({
   const folded = rejected && !unfolded;
   const [body, setBody] = useState(memory.body);
   const open = undecided(memory);
-  const settled = use(SettledPartContext);
   const editing = editingOpen && open;
   const bodyId = useId();
   const written = body.trim();
@@ -67,16 +89,7 @@ export function ProposedMemoryCard({
     >
       <DecisionHeader
         className={cn(folded && 'mb-0')}
-        title={
-          <DecisionTitle status={proposalStatusOf(memory)}>
-            {settled && open ? NOT_DECIDED : proposalTitleOf(memory)}
-            {folded && (
-              <span className="ml-2 font-normal text-muted-foreground">
-                {memory.body}
-              </span>
-            )}
-          </DecisionTitle>
-        }
+        title={<ProposedMemoryTitle memory={memory} folded={folded} />}
         trailing={
           !editing && (
             <span className="flex shrink-0 items-center gap-1">

@@ -21,6 +21,7 @@ import { notFound } from '@/lib/error';
 import {
   firstUnreadNoteOf,
   type InboxItem as InboxItemData,
+  type InboxItemView,
   inboxPath,
   requestPartsOf,
   runsShownFirst,
@@ -70,56 +71,43 @@ const useOpenedAt = (
   return opened;
 };
 
-export function InboxItem() {
-  const { slug, itemId } = useParams();
-  useClearedParam('connected');
-  const found = useInboxItem(slug, itemId);
-  const item = found.data;
-  const conversing = item?.conversationId !== null;
-  const journal = useTaskJournal(
-    slug,
-    conversing ? item?.taskId : undefined,
-    item ? runsShownFirst(item) : [],
+function InboxItemNotLoaded({
+  slug,
+  found,
+}: {
+  slug: string;
+  found: ReturnType<typeof useInboxItem>;
+}) {
+  return (
+    <PageNotice
+      title={
+        <Breadcrumbs segments={[{ label: 'Inbox', to: inboxPath(slug) }]} />
+      }
+    >
+      <CouldNotLoad
+        what="The message"
+        retrying={found.isFetching}
+        onRetry={() => void found.refetch()}
+      />
+    </PageNotice>
   );
-  const opened = useOpenedAt(itemId, item);
+}
 
-  useInboxItemRefresh(slug, itemId, item);
-  useCanonicalInboxItem(slug, itemId, item);
-  useMarkReadOnView(slug, item);
-
-  const { trail } = useTrail(useInboxItemTrail(slug, item));
-
-  const footerLoading = useTaskFooterLoading(
-    item?.teamId,
-    conversing ? item?.taskId : undefined,
-  );
-
-  if (itemLoading(found, item, journal, footerLoading)) {
-    return <InboxItemSkeleton />;
-  }
-
-  if (failed(found) && !notFound(found.error)) {
-    return (
-      <PageNotice
-        title={
-          <Breadcrumbs
-            segments={[{ label: 'Inbox', to: inboxPath(slug ?? '') }]}
-          />
-        }
-      >
-        <CouldNotLoad
-          what="The message"
-          retrying={found.isFetching}
-          onRetry={() => void found.refetch()}
-        />
-      </PageNotice>
-    );
-  }
-
-  if (!item || !nonEmpty(slug)) {
-    return <InboxGone />;
-  }
-
+// A task's item opens on its conversation; without one, on its only request
+// or on the list of its parts.
+function InboxItemShown({
+  slug,
+  item,
+  opened,
+  trail,
+  journal,
+}: {
+  slug: string;
+  item: InboxItemView;
+  opened: OpenedAt | null;
+  trail: ReturnType<typeof useTrail>['trail'];
+  journal: ReturnType<typeof useTaskJournal>;
+}) {
   const requests = requestPartsOf(item);
   const only = requests.length === 1 ? requests.at(0) : undefined;
 
@@ -157,5 +145,52 @@ export function InboxItem() {
         trail={trail}
       />
     </JournalDemandContext>
+  );
+}
+
+export function InboxItem() {
+  const { slug, itemId } = useParams();
+  useClearedParam('connected');
+  const found = useInboxItem(slug, itemId);
+  const item = found.data;
+  const conversing = item?.conversationId !== null;
+  const journal = useTaskJournal(
+    slug,
+    conversing ? item?.taskId : undefined,
+    item ? runsShownFirst(item) : [],
+  );
+  const opened = useOpenedAt(itemId, item);
+
+  useInboxItemRefresh(slug, itemId, item);
+  useCanonicalInboxItem(slug, itemId, item);
+  useMarkReadOnView(slug, item);
+
+  const { trail } = useTrail(useInboxItemTrail(slug, item));
+
+  const footerLoading = useTaskFooterLoading(
+    item?.teamId,
+    conversing ? item?.taskId : undefined,
+  );
+
+  if (itemLoading(found, item, journal, footerLoading)) {
+    return <InboxItemSkeleton />;
+  }
+
+  if (failed(found) && !notFound(found.error)) {
+    return <InboxItemNotLoaded slug={slug ?? ''} found={found} />;
+  }
+
+  if (!item || !nonEmpty(slug)) {
+    return <InboxGone />;
+  }
+
+  return (
+    <InboxItemShown
+      slug={slug}
+      item={item}
+      opened={opened}
+      trail={trail}
+      journal={journal}
+    />
   );
 }

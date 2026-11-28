@@ -12,7 +12,7 @@ import {
   resolveInboxNotice,
   resolveInboxRequest,
 } from '@/lib/api';
-import type { InboxPart, ResolvableEntry } from '@/lib/inbox';
+import { actOnParts, type InboxPart, type ResolvableEntry } from '@/lib/inbox';
 
 type ResolveInboxEntryInput = {
   slug: string;
@@ -43,10 +43,9 @@ const resolving = async ({ slug, entry }: ResolveInboxEntryInput) => {
   }
 
   // Resolving a task's item resolves each part the server says it covers.
-  await Promise.all(
-    entry.parts
-      .filter((part) => part.resolvable)
-      .map((part) => resolvingPart(slug, part)),
+  await actOnParts(
+    entry.parts.filter((part) => part.resolvable),
+    (part) => resolvingPart(slug, part),
   );
 };
 
