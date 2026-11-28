@@ -44,6 +44,11 @@ export interface TaskRepository {
     pullRequest: PullRequestUrl,
   ): Promise<Task | null>;
 
+  reviewsOf(
+    workspaceId: WorkspaceId,
+    pullRequest: PullRequestUrl,
+  ): Promise<readonly Task[]>;
+
   holdingMark(workspaceId: WorkspaceId, mark: Mark): Promise<readonly Task[]>;
 
   settingUpFor(teamId: TeamId): Promise<Task | null>;

@@ -40,7 +40,10 @@ interface Payload {
   readonly installation?: { readonly id?: unknown };
   readonly pull_request?: Pull;
   readonly issue?: DetailsPayload & {
-    readonly pull_request?: { readonly html_url?: unknown };
+    readonly pull_request?: {
+      readonly html_url?: unknown;
+      readonly merged_at?: unknown;
+    };
   };
   readonly comment?: CommentPayload & ReviewComment;
   readonly review?: CommentPayload & {
@@ -182,8 +185,14 @@ const reviewCommentOf = (
       }
     : null;
 
+const mergedIn = (payload: Payload): boolean =>
+  payload.pull_request?.merged === true ||
+  nonEmpty(text(payload.pull_request?.merged_at)) ||
+  nonEmpty(text(payload.issue?.pull_request?.merged_at));
+
 const detailsOf = (
   pull: DetailsPayload | undefined,
+  merged: boolean,
 ): PullRequestDetails | null => {
   const title = text(pull?.title);
 
@@ -194,6 +203,7 @@ const detailsOf = (
         author: text(pull.user?.login),
         authorAssociation: text(pull.author_association),
         draft: pull.draft === true,
+        merged,
       }
     : null;
 };
@@ -242,7 +252,9 @@ const pullRequestActivity = (
       activity === 'labelled'
         ? (text(payload.label?.name)?.trim() ?? null)
         : null,
-    details: detailsOf(payload.pull_request) ?? detailsOf(payload.issue),
+    details:
+      detailsOf(payload.pull_request, mergedIn(payload)) ??
+      detailsOf(payload.issue, mergedIn(payload)),
     reviewComment:
       reviewCommentOf(payload.comment) ?? reviewCommentOf(payload.review),
     ignoredAsBot: ignoredAsBot(activity, sentByBot(payload)),

@@ -21,6 +21,7 @@ export interface PullRequestDetails {
   readonly author: string | null;
   readonly authorAssociation: string | null;
   readonly draft: boolean;
+  readonly merged: boolean;
 }
 
 export interface CheckSuite {

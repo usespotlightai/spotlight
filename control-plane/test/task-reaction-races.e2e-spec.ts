@@ -44,6 +44,7 @@ import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
+import { DrizzlePullRequestReviewLocks } from '@work/infrastructure/persistence/drizzle/pull-request-review-locks';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import fc from 'fast-check';
 import { afterAll, beforeAll, describe, it } from 'vitest';
@@ -171,6 +172,7 @@ const reactions = (): ReactToHappenings =>
     }),
     { of: async () => [] },
     { membersOf: async () => TeamMembers.of([owner]) },
+    new DrizzlePullRequestReviewLocks(context),
   );
 
 const stationAt = (key: string): Station => {

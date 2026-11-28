@@ -344,6 +344,10 @@ import {
   type ProcessedEventsPort,
 } from '@work/application/ports/processed-events.port';
 import {
+  PULL_REQUEST_REVIEW_LOCKS,
+  type PullRequestReviewLocksPort,
+} from '@work/application/ports/pull-request-review-locks.port';
+import {
   PULL_REQUEST_REVIEWING,
   type PullRequestReviewingPort,
 } from '@work/application/ports/pull-request-reviewing.port';
@@ -647,6 +651,7 @@ import { DrizzleTeamWelcomes } from '@work/infrastructure/persistence/drizzle/le
 import { DrizzleToolUses } from '@work/infrastructure/persistence/drizzle/ledgers/tool-uses.ledger';
 import { DrizzleTurnRetakes } from '@work/infrastructure/persistence/drizzle/ledgers/turn-retakes.ledger';
 import { DrizzleWorkStations } from '@work/infrastructure/persistence/drizzle/projections/work-stations.projection';
+import { DrizzlePullRequestReviewLocks } from '@work/infrastructure/persistence/drizzle/pull-request-review-locks';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleChatMarks } from '@work/infrastructure/persistence/drizzle/readers/chat-marks.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
@@ -864,6 +869,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   { provide: PROCESSED_EVENTS, useClass: DrizzleProcessedEvents },
+  {
+    provide: PULL_REQUEST_REVIEW_LOCKS,
+    useClass: DrizzlePullRequestReviewLocks,
+  },
 
   DrizzleDispatchRepository,
 
@@ -1363,6 +1372,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DispatchChat,
       CHANNEL_NOTICES,
       RUN_FACTS,
+      PULL_REQUEST_REVIEW_LOCKS,
     ],
     useFactory: (
       tasks: TaskRepository,
@@ -1382,6 +1392,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       chatDispatch: DispatchChat,
       channelNotices: ChannelNoticesPort,
       runFacts: RunFactsPort,
+      reviewLocks: PullRequestReviewLocksPort,
     ) =>
       new ReactToHappenings(
         tasks,
@@ -1410,6 +1421,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         ),
         runFacts,
         access,
+        reviewLocks,
       ),
   },
 

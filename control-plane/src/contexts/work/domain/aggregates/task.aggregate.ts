@@ -1254,6 +1254,14 @@ export class Task extends EventRecorder {
     return reviewing;
   }
 
+  reviewsOpenOn(line: LineMap, url: PullRequestUrl): boolean {
+    return (
+      (this.reviewedPullRequest?.url.equals(url) ?? false) &&
+      line.stationAt(this.stationId) !== null &&
+      !line.completed.id.equals(this.stationId)
+    );
+  }
+
   get pullRequests(): readonly PullRequestUrl[] {
     return this.ownedPullRequests.map((each) => each.url);
   }

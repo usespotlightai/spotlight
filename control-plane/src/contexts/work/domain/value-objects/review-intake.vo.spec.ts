@@ -14,6 +14,7 @@ const requested = (
   author: 'octocat',
   outside: false,
   draft: false,
+  merged: false,
   branch: Branch.of('fix-uploads'),
   anchor: null,
   ours: false,

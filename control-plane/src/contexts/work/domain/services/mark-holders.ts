@@ -1,7 +1,8 @@
 import { firstOf } from '@shared-kernel/domain/item-at';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
-import type { Mark } from '@work/domain/value-objects/mark.vo';
+import { Mark } from '@work/domain/value-objects/mark.vo';
 
 const heldSince = (task: Task, marks: readonly Mark[]): number | null =>
   marks.reduce<number | null>((latest, mark) => {
@@ -44,3 +45,18 @@ export const correlatedTaskAmong = (
 
   return named ?? newestHolderOf(keys.marks, tasks) ?? firstOf(tasks) ?? null;
 };
+
+export const closesReviewsOf = (
+  keys: CorrelationKeys,
+  closed: PullRequestUrl,
+): boolean => {
+  const mark = Mark.review(closed);
+
+  return keys.marks.some((each) => each.equals(mark));
+};
+
+export const otherReviewsOf = (
+  heard: Task | null,
+  reviews: readonly Task[],
+): readonly Task[] =>
+  reviews.filter((each) => !(heard?.id.equals(each.id) ?? false));

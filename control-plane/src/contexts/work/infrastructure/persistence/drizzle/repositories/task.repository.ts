@@ -862,6 +862,25 @@ export class DrizzleTaskRepository implements TaskRepository {
     return (await this.whole(found))[0] ?? null;
   }
 
+  async reviewsOf(
+    workspaceId: WorkspaceId,
+    pullRequest: PullRequestUrl,
+  ): Promise<readonly Task[]> {
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        and(
+          eq(task.workspaceId, workspaceId.value),
+          eq(task.reviewedPullRequest, pullRequest.value),
+        ),
+      )
+      .orderBy(task.id)
+      .for('update');
+
+    return this.whole(found);
+  }
+
   async holdingMark(
     workspaceId: WorkspaceId,
     mark: Mark,

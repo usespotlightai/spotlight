@@ -60,7 +60,13 @@ export interface OpenedOn {
 export type ReviewAnswer =
   | { readonly kind: 'nothing' }
   | { readonly kind: 'unconnected' }
-  | { readonly kind: 'received'; readonly by: Task }
+  | { readonly kind: 'merged' }
+  | {
+      readonly kind: 'reviewsAgain';
+      readonly by: Task;
+      readonly line: LineMap;
+      readonly outcome: Outcome;
+    }
   | { readonly kind: 'opens'; readonly on: OpenedOn };
 
 const spotlights = (
@@ -71,6 +77,18 @@ const spotlights = (
   (request.branch?.isSpotlights ?? false) ||
   branchTask !== null ||
   (pullRequestTask !== null && !pullRequestTask.reviewing);
+
+const newestOpenedOf = (tasks: readonly Task[]): Task | null =>
+  tasks.reduce<Task | null>(
+    (newest, each) =>
+      newest === null ||
+      each.createdAt.getTime() > newest.createdAt.getTime() ||
+      (each.createdAt.getTime() === newest.createdAt.getTime() &&
+        each.id.value > newest.id.value)
+        ? each
+        : newest,
+    null,
+  );
 
 export const movedTo = (outcome: Outcome): StationId | null =>
   outcome.kind === 'moves' ? outcome.to.id : null;
@@ -196,18 +214,20 @@ export const ReactionFor = {
     return null;
   },
 
-  // pullRequestTask has the mark of the pull request. reviewTask has the mark of a review of the pull request.
   reviewRequested(input: {
     lines: readonly LineMap[];
     workspaceLines: readonly LineMap[];
     opens: OpensWith;
     request: ReviewRequest;
-    anchor: Anchor | null;
+    payload: HappeningPayload;
+    requestAnchor: Anchor | null;
+    noteAnchor: Anchor | null;
     branchTask: Task | null;
     pullRequestTask: Task | null;
-    reviewTask: Task | null;
+    reviews: readonly Task[];
   }): ReviewAnswer {
-    const repository = input.request.pullRequest.repository;
+    const { pullRequest } = input.request;
+    const repository = pullRequest.repository;
 
     if (
       !repository ||
@@ -216,12 +236,16 @@ export const ReactionFor = {
       return { kind: 'unconnected' };
     }
 
+    if (input.request.merged) {
+      return { kind: 'merged' };
+    }
+
     const on = ReactionFor.reviewOn({
       lines: input.lines,
       opens: input.opens,
       request: {
         ...input.request.parts,
-        anchor: input.anchor,
+        anchor: input.requestAnchor,
         ours: spotlights(
           input.request,
           input.branchTask,
@@ -234,9 +258,44 @@ export const ReactionFor = {
       return { kind: 'nothing' };
     }
 
-    return input.reviewTask && input.reviewTask.finishedAt === null
-      ? { kind: 'received', by: input.reviewTask }
+    const open = newestOpenedOf(
+      input.reviews.filter((each) => each.reviewsOpenOn(on.line, pullRequest)),
+    );
+
+    return open
+      ? {
+          kind: 'reviewsAgain',
+          by: open,
+          line: on.line,
+          outcome: ReactionFor.reviewAgain({
+            task: open,
+            line: on.line,
+            payload: input.payload,
+            anchor: input.noteAnchor,
+          }),
+        }
       : { kind: 'opens', on };
+  },
+
+  reviewAgain(input: {
+    task: Task;
+    line: LineMap;
+    payload: HappeningPayload;
+    anchor: Anchor | null;
+  }): Outcome {
+    const outcome = ReactionFor.happened(input);
+
+    return outcome.kind === 'nothing'
+      ? {
+          kind: 'stays',
+          line: input.line,
+          body: TaskNoteBody.receivedHappening(
+            input.payload.summary,
+            input.anchor,
+          ),
+          anchor: input.anchor,
+        }
+      : outcome;
   },
 
   reviewOn(input: {

@@ -28,6 +28,7 @@ export interface ReviewRequestParts {
   readonly author: string | null;
   readonly outside: boolean;
   readonly draft: boolean;
+  readonly merged: boolean;
   readonly branch: Branch | null;
 }
 
@@ -39,6 +40,7 @@ export class ReviewRequest implements ReviewRequestParts {
     readonly author: string | null,
     readonly outside: boolean,
     readonly draft: boolean,
+    readonly merged: boolean,
     readonly branch: Branch | null,
   ) {}
 
@@ -58,6 +60,7 @@ export class ReviewRequest implements ReviewRequestParts {
       parts.author,
       parts.outside,
       parts.draft,
+      parts.merged,
       parts.branch,
     );
   }
@@ -74,6 +77,7 @@ export class ReviewRequest implements ReviewRequestParts {
       author: this.author,
       outside: this.outside,
       draft: this.draft,
+      merged: this.merged,
       branch: this.branch,
     };
   }

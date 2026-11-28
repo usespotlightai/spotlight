@@ -176,6 +176,7 @@ const reviewRequested = (
         author: details.author,
         outside: isOutsideAuthor(details.authorAssociation),
         draft: details.draft,
+        ...(details.merged ? { merged: true } : {}),
         branch: event.branch,
       },
     },
