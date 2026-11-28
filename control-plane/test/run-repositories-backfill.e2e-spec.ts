@@ -10,7 +10,7 @@ const BACKFILL = join(
   __dirname,
   '..',
   'drizzle',
-  '20261128101827_backfill_run_repositories_in_full.sql',
+  '20261128164009_backfill_run_repositories_in_full.sql',
 );
 
 let database: TestDatabase;
