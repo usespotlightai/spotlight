@@ -8,6 +8,16 @@ export const RUNS = Symbol('ASSIST_RUNS');
 
 export const ASSIST_OWNER = 'assist';
 
+/** The kind of requester a session's run names, with the session's id. */
+export const ASSIST_REQUESTER_KIND = 'session';
+
+/** The task a run worked on and the station it ran at, by their names; null where it had none. */
+export interface RunWork {
+  readonly runId: RunId;
+  readonly task: string | null;
+  readonly station: string | null;
+}
+
 export interface AssistRunOrder {
   readonly run: RunId;
   readonly session: AssistSessionId;
@@ -29,4 +39,7 @@ export interface RunsPort {
   enqueue(order: AssistRunOrder): Promise<AssistRunEnqueueing>;
 
   isLeasedBy(run: RunId, runnerId: string): Promise<boolean>;
+
+  /** The task and station each run worked on, where work dispatched it. */
+  workOf(runs: readonly RunId[]): Promise<readonly RunWork[]>;
 }

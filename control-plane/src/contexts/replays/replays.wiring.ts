@@ -175,6 +175,7 @@ import { RecordSearchProgress } from '@replays/application/services/record-searc
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { ReplayRunDispatch } from '@replays/application/services/replay-run-dispatch.service';
 import { ReplaysAccess } from '@replays/application/services/replays-access.service';
+import { ReplaysRunLabels } from '@replays/application/services/replays-run-labels.service';
 import { ReportJudgeClaimsPullRequests } from '@replays/application/services/report-judge-claims-pull-requests.service';
 import { RequestChangeJudging } from '@replays/application/services/request-change-judging.service';
 import { RequestJudgeClaimsPullRequests } from '@replays/application/services/request-judge-claims-pull-requests.service';
@@ -259,6 +260,10 @@ import {
   type RunLeasesPort,
 } from '@runs/application/ports/run-leases.port';
 import {
+  RUN_REQUESTER_LABELS,
+  type RunRequesterLabelsPort,
+} from '@runs/application/ports/run-requester-labels.port';
+import {
   RUNS as WORK_RUNS,
   type RunsPort as WorkRunsPort,
 } from '@runs/application/ports/runs.port';
@@ -336,6 +341,17 @@ export const REPLAYS_CONTROLLERS: readonly Type[] = [
 ];
 
 export const REPLAYS_PROVIDERS: readonly Provider[] = [
+  {
+    provide: ReplaysRunLabels,
+    inject: [RUN_REQUESTER_LABELS],
+    useFactory: (labels: RunRequesterLabelsPort) => {
+      const source = new ReplaysRunLabels();
+
+      labels.register(source);
+
+      return source;
+    },
+  },
   {
     provide: SearchVisibilities,
     inject: [

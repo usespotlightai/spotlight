@@ -12,11 +12,11 @@ import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo'
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const JUDGE_PURPOSE = 'insights.judge';
+export const JUDGE_PURPOSE = 'insights.judge';
 
-const PAIR_JUDGE_PURPOSE = 'insights.pair-judge';
+export const PAIR_JUDGE_PURPOSE = 'insights.pair-judge';
 
-const CLAIMS_PURPOSE = 'insights.claims';
+export const CLAIMS_PURPOSE = 'insights.claims';
 
 /** What a round decides of the session it orders: its purpose, its key, and the run it is based on. */
 export interface RoundSession {

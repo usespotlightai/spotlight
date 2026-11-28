@@ -309,8 +309,9 @@ const leasedRun = (
   state: 'claimed',
   kind: 'task',
   teamId,
-  readable: true,
   title,
+  hiddenReason: null,
+  link: { runId: id, teamId },
 });
 
 const BUSY_RUNNERS: RunnerActivityResponseDto['runners'] = [

@@ -461,6 +461,10 @@ import {
 } from '@work/application/ports/work-stations.port';
 import { WORK_TASK_LOOKUP } from '@work/application/ports/work-task-lookup.port';
 import {
+  WORK_TITLES_READER,
+  type WorkTitlesReaderPort,
+} from '@work/application/ports/work-titles-reader.port';
+import {
   ListChatJournalRunsQuery,
   ListChatsQuery,
   ReadChatJournalQuery,
@@ -605,6 +609,7 @@ import { TracesLoader } from '@work/application/services/traces-loader.service';
 import { TrialableRuns } from '@work/application/services/trialable-runs.service';
 import { Turns } from '@work/application/services/turns.service';
 import { WorkAccess } from '@work/application/services/work-access.service';
+import { WorkRunLabels } from '@work/application/services/work-run-labels';
 import { WorkRunLookup } from '@work/application/services/work-run-lookup.service';
 import { WorkTaskLookup } from '@work/application/services/work-task-lookup.service';
 import {
@@ -658,7 +663,7 @@ import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/read
 import { DrizzleTracedTaskReader } from '@work/infrastructure/persistence/drizzle/readers/traced-task.reader';
 import { DrizzleTrialFacts } from '@work/infrastructure/persistence/drizzle/readers/trial-facts.reader';
 import { DrizzleWorkArchiveHolders } from '@work/infrastructure/persistence/drizzle/readers/work-archive-holders.reader';
-import { DrizzleWorkRequesterLabels } from '@work/infrastructure/persistence/drizzle/readers/work-requester-labels.reader';
+import { DrizzleWorkTitlesReader } from '@work/infrastructure/persistence/drizzle/readers/work-titles.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/drizzle/repositories/dispatch.repository';
 import { DrizzleInboxRequestRepository } from '@work/infrastructure/persistence/drizzle/repositories/inbox-request.repository';
@@ -1064,11 +1069,16 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   { provide: INBOX_READER, useClass: DrizzleInboxReader },
 
+  { provide: WORK_TITLES_READER, useClass: DrizzleWorkTitlesReader },
+
   {
-    provide: DrizzleWorkRequesterLabels,
-    inject: [DRIZZLE, RUN_REQUESTER_LABELS],
-    useFactory: (db: DrizzleDatabase, labels: RunRequesterLabelsPort) => {
-      const source = new DrizzleWorkRequesterLabels(db);
+    provide: WorkRunLabels,
+    inject: [WORK_TITLES_READER, RUN_REQUESTER_LABELS],
+    useFactory: (
+      titles: WorkTitlesReaderPort,
+      labels: RunRequesterLabelsPort,
+    ) => {
+      const source = new WorkRunLabels(titles);
 
       labels.register(source);
 

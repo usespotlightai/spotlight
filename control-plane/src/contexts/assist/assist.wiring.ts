@@ -1,12 +1,18 @@
 import { SubmitAssistResultHandler } from '@assist/application/commands/handlers/submit-assist-result.handler';
 import { SubmitAssistResultCommand } from '@assist/application/commands/submit-assist-result.command';
 import { ASSIST_EVENT_MAPPERS } from '@assist/application/integration-events/assist.event-mappers';
+import { ASSIST_SESSION_LABELS } from '@assist/application/ports/assist-session-labels.port';
+import {
+  ASSIST_SESSION_READER,
+  type AssistSessionReaderPort,
+} from '@assist/application/ports/assist-session-reader.port';
 import { ASSIST_SESSIONS } from '@assist/application/ports/assist-sessions.port';
 import {
   RESULT_CHECKS,
   type ResultChecksPort,
 } from '@assist/application/ports/result-checks.port';
 import { RUNS, type RunsPort } from '@assist/application/ports/runs.port';
+import { AssistSessionLabels } from '@assist/application/services/assist-session-labels.service';
 import { AssistSessions } from '@assist/application/services/assist-sessions.service';
 import {
   ASSIST_SESSION_REPOSITORY,
@@ -15,6 +21,7 @@ import {
 import { Runs } from '@assist/infrastructure/acl/runs.adapter';
 import { ASSIST_PAYLOAD_TYPES } from '@assist/infrastructure/events/assist-payload-types';
 import { JsonSchemaResultChecks } from '@assist/infrastructure/json/json-schema-result-checks';
+import { DrizzleAssistSessionReader } from '@assist/infrastructure/persistence/drizzle/readers/assist-session.reader';
 import { DrizzleAssistSessionRepository } from '@assist/infrastructure/persistence/drizzle/repositories/assist-session.repository';
 import { assistSubscribers } from '@assist/presentation/events/assist.subscribers';
 import { RunnerAssistResultController } from '@assist/presentation/http/controllers/runner-assist-result.controller';
@@ -39,6 +46,10 @@ import {
   RUN_LEASES,
   type RunLeasesPort,
 } from '@runs/application/ports/run-leases.port';
+import {
+  RUN_REQUESTER_LABELS,
+  type RunRequesterLabelsPort,
+} from '@runs/application/ports/run-requester-labels.port';
 import {
   RUNS as RUN_QUEUE,
   type RunsPort as RunQueuePort,
@@ -109,6 +120,26 @@ export const ASSIST_PROVIDERS: readonly Provider[] = [
   },
 
   { provide: ASSIST_SESSIONS, useExisting: AssistSessions },
+
+  { provide: ASSIST_SESSION_READER, useClass: DrizzleAssistSessionReader },
+
+  {
+    provide: AssistSessionLabels,
+    inject: [ASSIST_SESSION_READER, RUNS, RUN_REQUESTER_LABELS],
+    useFactory: (
+      sessions: AssistSessionReaderPort,
+      runs: RunsPort,
+      labels: RunRequesterLabelsPort,
+    ) => {
+      const source = new AssistSessionLabels(sessions, runs);
+
+      labels.register(source);
+
+      return source;
+    },
+  },
+
+  { provide: ASSIST_SESSION_LABELS, useExisting: AssistSessionLabels },
 
   {
     provide: ASSIST_EVENTS,

@@ -98,6 +98,12 @@ export interface TracedWanted {
   readonly stationIds: readonly string[];
 }
 
+export interface WorkedRunRow {
+  readonly runId: string;
+  readonly task: string | null;
+  readonly station: string | null;
+}
+
 export interface StationRunReaderPort {
   endedRun(runId: string): Promise<EndedRunRow | null>;
 
@@ -124,4 +130,6 @@ export interface StationRunReaderPort {
   journalsOf(runIds: readonly string[]): Promise<readonly RunJournal[]>;
 
   traced(wanted: TracedWanted): Promise<TracedRows>;
+
+  workedOn(runIds: readonly string[]): Promise<readonly WorkedRunRow[]>;
 }

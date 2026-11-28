@@ -3,9 +3,11 @@ import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { requesterRefOf } from '@runs/application/ports/run-requester-labels.port';
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
+import { SpecRunLabels } from '@runs/application/services/spec-run-labels';
 import { DrizzleRunnerActivityReader } from '@runs/infrastructure/persistence/drizzle/readers/runner-activity.reader';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { DrizzleWorkRequesterLabels } from '@work/infrastructure/persistence/drizzle/readers/work-requester-labels.reader';
+import { WorkRunLabels } from '@work/application/services/work-run-labels';
+import { DrizzleWorkTitlesReader } from '@work/infrastructure/persistence/drizzle/readers/work-titles.reader';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
@@ -28,7 +30,8 @@ beforeAll(async () => {
   db = database.db;
   reader = new DrizzleRunnerActivityReader(db);
   labels = new RunRequesterLabels();
-  labels.register(new DrizzleWorkRequesterLabels(db));
+  labels.register(new WorkRunLabels(new DrizzleWorkTitlesReader(db)));
+  labels.register(new SpecRunLabels());
 }, 60_000);
 
 afterAll(async () => {
@@ -137,7 +140,7 @@ describe('which run each busy runner is working on', () => {
         runnerId: 'runner_spec',
         kind: 'spec',
         teamId: null,
-        title: null,
+        title: 'A run queued by hand',
       },
       {
         runnerId: 'runner_task',

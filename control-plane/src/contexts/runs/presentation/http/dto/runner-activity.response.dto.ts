@@ -4,6 +4,19 @@ import type {
   RunnerActivityDto,
 } from '@runs/application/dto/runner-activity.dto';
 
+export class RunLinkResponseDto {
+  @ApiProperty({ example: '3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63' })
+  readonly runId: string;
+
+  @ApiProperty({ example: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P' })
+  readonly teamId: string;
+
+  constructor(runId: string, teamId: string) {
+    this.runId = runId;
+    this.teamId = teamId;
+  }
+}
+
 export class LeasedRunResponseDto {
   @ApiProperty({ example: '3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63' })
   readonly id: string;
@@ -14,7 +27,7 @@ export class LeasedRunResponseDto {
   @ApiProperty({
     example: 'task',
     description:
-      'The kind of work the run is for, as the requester that ordered it names it, for example task, chat or spec',
+      'The kind of work the run is for, as the requester that ordered it names it, for example task, chat or session',
   })
   readonly kind: string;
 
@@ -26,26 +39,41 @@ export class LeasedRunResponseDto {
   readonly teamId: string | null;
 
   @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'Judging Implementation on “Incident owners 2/5”',
     description:
-      'Whether the caller reads the run’s team, and so may see its title and open it; false where the run is for no team',
+      'What the run does, in plain words: the title of its task or chat, or what the work for that task does. Null where it is hidden from the caller',
   })
-  readonly readable: boolean;
+  readonly title: string | null;
 
   @ApiProperty({
     type: String,
     nullable: true,
+    example: null,
     description:
-      'The title the run’s requester gives it; null where the requester gives none, or where the caller cannot read the run’s team',
+      'What the caller sees in place of the title they may not read, such as that the work belongs to a team they are not on. Null where the title shows',
   })
-  readonly title: string | null;
+  readonly hiddenReason: string | null;
+
+  @ApiProperty({
+    type: RunLinkResponseDto,
+    nullable: true,
+    description:
+      'The run the title links to: the run itself, or the task run its work is for. Null where it links to none',
+  })
+  readonly link: RunLinkResponseDto | null;
 
   constructor(run: LeasedRunDto) {
     this.id = run.id;
     this.state = run.state;
     this.kind = run.kind;
     this.teamId = run.teamId;
-    this.readable = run.readable;
     this.title = run.title;
+    this.hiddenReason = run.hiddenReason;
+    this.link = run.link
+      ? new RunLinkResponseDto(run.link.runId, run.link.teamId)
+      : null;
   }
 }
 

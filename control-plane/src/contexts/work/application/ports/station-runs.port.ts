@@ -77,6 +77,13 @@ export interface TracedWork {
   readonly outputs: ReadonlyMap<string, string>;
 }
 
+/** The task a run worked on and the station it ran at, by their names; null where the run had none, or it is gone. */
+export interface WorkedRun {
+  readonly runId: string;
+  readonly task: string | null;
+  readonly station: string | null;
+}
+
 export interface StationRunsPort {
   ended(runId: string): Promise<EndedStationRun | null>;
 
@@ -92,4 +99,7 @@ export interface StationRunsPort {
   ): Promise<readonly FingerprintedConfig[]>;
 
   traced(wanted: TracedRunsWanted): Promise<TracedWork>;
+
+  /** The task and station each run worked on, for the runs work dispatched. */
+  workedOn(runIds: readonly string[]): Promise<readonly WorkedRun[]>;
 }

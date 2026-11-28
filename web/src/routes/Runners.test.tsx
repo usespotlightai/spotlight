@@ -96,8 +96,9 @@ const LEASED_RUN = {
   state: 'running',
   kind: 'task',
   teamId: 'team_1',
-  readable: true,
   title: 'Drain the stuck retry queues',
+  hiddenReason: null,
+  link: { runId: 'run_1', teamId: 'team_1' },
 };
 
 const provisioned = (over: Record<string, unknown> = {}) => ({
@@ -434,6 +435,39 @@ describe('Runners', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
   });
 
+  it('says what work for a task does, linking to the run it is for, and hides nothing the viewer reads', () => {
+    listing([
+      host({
+        slotsTaken: 1,
+        runners: [
+          provisioned({
+            id: 'runner_1',
+            hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
+            currentRun: {
+              ...LEASED_RUN,
+              id: 'run_judge',
+              kind: 'session',
+              title: 'Judging Implementation on “Incident owners 2/5”',
+              link: { runId: 'run_1', teamId: 'team_1' },
+            },
+          }),
+        ],
+      }),
+    ]);
+
+    renderPage();
+
+    const nested = within(
+      screen.getByRole('list', { name: 'Runners on build-box-1' }),
+    );
+    expect(
+      nested.getByRole('link', {
+        name: 'Judging Implementation on “Incident owners 2/5”',
+      }),
+    ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
+    expect(nested.queryByText(/Title hidden/)).not.toBeInTheDocument();
+  });
+
   it('nests the idle sandboxes under their host: a task’s one by its last run, a warm one by its line', () => {
     listing([
       host({
@@ -552,7 +586,13 @@ describe('Runners', () => {
           provisioned({
             id: 'runner_1',
             hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
-            currentRun: { ...LEASED_RUN, readable: false, title: null },
+            currentRun: {
+              ...LEASED_RUN,
+              title: null,
+              hiddenReason:
+                'Title hidden. This run belongs to a team you’re not on.',
+              link: null,
+            },
           }),
         ],
       }),
@@ -579,7 +619,12 @@ describe('Runners', () => {
       [host()],
       [
         pushPool({
-          currentRun: { ...LEASED_RUN, kind: 'search', title: null },
+          currentRun: {
+            ...LEASED_RUN,
+            kind: 'session',
+            title: 'Checking proposed memories',
+            link: null,
+          },
         }),
       ],
     );
@@ -591,7 +636,7 @@ describe('Runners', () => {
     const nested = within(
       screen.getByRole('list', { name: 'Runners on ephemeral' }),
     );
-    expect(nested.getByText('A search run')).toBeInTheDocument();
+    expect(nested.getByText('Checking proposed memories')).toBeInTheDocument();
     expect(nested.queryByRole('link')).not.toBeInTheDocument();
   });
 

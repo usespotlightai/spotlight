@@ -1,11 +1,26 @@
-export interface LeasedRunDto {
+interface RunLinkDto {
+  readonly runId: string;
+  readonly teamId: string;
+}
+
+type ShownTitleDto =
+  | {
+      readonly title: string;
+      readonly hiddenReason: null;
+      readonly link: RunLinkDto | null;
+    }
+  | {
+      readonly title: null;
+      readonly hiddenReason: string;
+      readonly link: null;
+    };
+
+export type LeasedRunDto = {
   readonly id: string;
   readonly state: string;
   readonly kind: string;
   readonly teamId: string | null;
-  readonly readable: boolean;
-  readonly title: string | null;
-}
+} & ShownTitleDto;
 
 interface BusyRunnerDto {
   readonly runnerId: string;

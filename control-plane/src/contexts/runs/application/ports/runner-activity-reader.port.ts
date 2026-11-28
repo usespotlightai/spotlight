@@ -27,6 +27,12 @@ export interface WorkingCopyRunRow extends ActivityRunRow {
 export interface RunnerActivityReaderPort {
   leasedIn(workspaceId: WorkspaceId): Promise<readonly RunnerActivityRow[]>;
 
+  /** The runs of the workspace found among these, as the activity lists them. */
+  runsOf(
+    workspaceId: WorkspaceId,
+    runIds: readonly RunId[],
+  ): Promise<readonly ActivityRunRow[]>;
+
   lastRunsOf(
     workspaceId: WorkspaceId,
     keys: readonly string[],

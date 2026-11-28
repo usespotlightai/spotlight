@@ -20,6 +20,13 @@ describe('AssistPurpose', () => {
     expect(() => AssistPurpose.of(purpose)).toThrow(InvalidAssistSessionError);
   });
 
+  it.each([
+    ['insights.judge', 'insights'],
+    ['change-review.change-stack', 'change-review'],
+  ])('names the context that orders %s', (purpose, context) => {
+    expect(AssistPurpose.of(purpose).context).toBe(context);
+  });
+
   it('is equal to a purpose of the same name', () => {
     expect(
       AssistPurpose.of('insights.judge').equals(

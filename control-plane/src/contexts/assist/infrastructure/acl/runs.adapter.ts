@@ -1,8 +1,10 @@
 import {
   ASSIST_OWNER,
+  ASSIST_REQUESTER_KIND,
   type AssistRunEnqueueing,
   type AssistRunOrder,
   type RunsPort,
+  type RunWork,
 } from '@assist/application/ports/runs.port';
 import {
   type RunPolicyContract,
@@ -22,7 +24,7 @@ import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import type { RunsPort as RunQueuePort } from '@runs/application/ports/runs.port';
 import { firstOf } from '@shared-kernel/domain/item-at';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { StationRunsPort } from '@work/application/ports/station-runs.port';
 
@@ -37,8 +39,6 @@ const RUN_POLICY: RunPolicyContract = {
 
 /** After task runs, ahead of searches and trials. */
 const ASSIST_PRIORITY = 0;
-
-const REQUESTER_KIND = 'session';
 
 export class Runs implements RunsPort {
   constructor(
@@ -59,7 +59,7 @@ export class Runs implements RunsPort {
 
     const requester: RunRequesterContract = {
       owner: ASSIST_OWNER,
-      kind: REQUESTER_KIND,
+      kind: ASSIST_REQUESTER_KIND,
       id: order.session.value,
       token: null,
       team: basedOn.team?.value ?? null,
@@ -119,6 +119,16 @@ export class Runs implements RunsPort {
 
   async isLeasedBy(run: RunId, runnerId: string): Promise<boolean> {
     return (await this.leases.leasedBy(run, RunnerId.of(runnerId))) !== null;
+  }
+
+  async workOf(runs: readonly RunId[]): Promise<readonly RunWork[]> {
+    const worked = await this.stations.workedOn(runs.map((each) => each.value));
+
+    return worked.map((each) => ({
+      runId: RunId.of(each.runId),
+      task: each.task,
+      station: each.station,
+    }));
   }
 
   private async choiceOf(run: RunFacts): Promise<HarnessChoice> {

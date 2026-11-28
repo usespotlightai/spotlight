@@ -124,6 +124,7 @@ const servicing = ({
       return enqueueing;
     },
     isLeasedBy: async () => leased,
+    workOf: async () => [],
   };
   let next = 0;
 

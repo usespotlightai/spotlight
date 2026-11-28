@@ -133,6 +133,7 @@ const reading = ({
   const stations: StationRunReaderPort = {
     unfinishedOfTeam: async () => [],
     traced: async () => ({ tasks: [], stations: [], notes: new Map() }),
+    workedOn: async () => [],
     endedRun: vi.fn(),
     configsNamed: async (fingerprints) =>
       fingerprints.map((fingerprint) => ({ fingerprint, parts: PARTS })),
