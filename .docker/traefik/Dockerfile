@@ -1,3 +1,3 @@
-FROM traefik:v3.7
+FROM traefik:v3.8
 
 EXPOSE 80 443
