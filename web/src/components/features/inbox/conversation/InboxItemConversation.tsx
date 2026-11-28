@@ -64,7 +64,6 @@ export function InboxItemConversation({
   const reported = useRunProgress(item.runId, item.progress);
   const progress = shownProgress(reported, item.runId, worked);
   const closable = useClosableTask(item.teamId, item.taskId);
-
   const { data: pullRequests = [] } = useTaskPullRequests(
     item.teamId,
     item.taskId,
