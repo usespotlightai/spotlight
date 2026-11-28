@@ -49,16 +49,47 @@ FROM (
 WHERE "dispatch"."id" = "checked_out"."id"
   AND "dispatch"."repositories" IS DISTINCT FROM "checked_out"."repositories";
 --> statement-breakpoint
--- Insights recorded a task run's repositories as its config named them. Record them as its dispatch now does.
+-- Insights recorded a task run's repositories as its config named them. Name each as its dispatch now does, and keep a name the dispatch could not resolve, so its spend stays attributed. A record left empty, by a run ordered on a pod without the dispatch's repositories, takes the dispatch's.
 UPDATE "run_record"
 SET
-  "repositories" = "dispatch"."repositories",
+  "repositories" = "named"."repositories",
   "version" = "run_record"."version" + 1
-FROM "dispatch"
-WHERE "dispatch"."id" = "run_record"."run_id"
-  AND "dispatch"."kind" = 'task'
-  AND jsonb_typeof("run_record"."repositories") = 'array'
-  AND "run_record"."repositories" IS DISTINCT FROM "dispatch"."repositories";
+FROM (
+  SELECT
+    "kept"."run_id",
+    jsonb_agg("kept"."repository" ORDER BY "kept"."position") AS "repositories"
+  FROM (
+    SELECT DISTINCT ON ("recorded"."run_id", lower(coalesce("checked_out"."repository", "each"."name")))
+      "recorded"."run_id",
+      coalesce("checked_out"."repository", "each"."name") AS "repository",
+      "each"."position"
+    FROM "run_record" AS "recorded"
+    JOIN "dispatch" ON "dispatch"."id" = "recorded"."run_id" AND "dispatch"."kind" = 'task'
+    CROSS JOIN LATERAL jsonb_array_elements_text(
+      CASE
+        WHEN jsonb_typeof("recorded"."repositories") <> 'array' THEN '[]'::jsonb
+        WHEN jsonb_array_length("recorded"."repositories") = 0 THEN "dispatch"."repositories"
+        ELSE "recorded"."repositories"
+      END
+    ) WITH ORDINALITY AS "each"("name", "position")
+    LEFT JOIN LATERAL (
+      SELECT "listed"."repository"
+      FROM jsonb_array_elements_text("dispatch"."repositories") AS "listed"("repository")
+      WHERE CASE
+        WHEN strpos("each"."name", '/') = 0
+          THEN lower(split_part("listed"."repository", '/', 2)) = lower("each"."name")
+        ELSE lower("listed"."repository") = lower("each"."name")
+      END
+      ORDER BY "listed"."repository"
+      LIMIT 1
+    ) AS "checked_out" ON true
+    WHERE jsonb_typeof("recorded"."repositories") = 'array'
+    ORDER BY "recorded"."run_id", lower(coalesce("checked_out"."repository", "each"."name")), "each"."position"
+  ) AS "kept"
+  GROUP BY "kept"."run_id"
+) AS "named"
+WHERE "run_record"."run_id" = "named"."run_id"
+  AND "run_record"."repositories" IS DISTINCT FROM "named"."repositories";
 --> statement-breakpoint
 -- A run's fact copies its record's repositories, so it follows them here as a facts rebuild would.
 UPDATE "run_fact"
