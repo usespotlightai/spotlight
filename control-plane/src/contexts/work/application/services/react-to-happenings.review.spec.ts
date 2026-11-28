@@ -167,8 +167,7 @@ const requested = (
   };
 };
 
-// Holds a lock until the transaction that took it ends, and undoes what a failed transaction marked processed, as the database does.
-const locking = () => {
+const transactionScopedLocks = () => {
   const held = new Map<string, Promise<void>>();
   interface Scope {
     readonly releases: (() => void)[];
@@ -257,7 +256,7 @@ const world = (input: {
   const stored = new Map<string, Task>(
     (input.tasks ?? []).map((each) => [each.id.value, each]),
   );
-  const { transaction, lock, processed } = locking();
+  const { transaction, lock, processed } = transactionScopedLocks();
   let failing = input.failsToSaveOnce ?? null;
   const reviewLocks: PullRequestReviewLocksPort = {
     lock: (at, pullRequest) => lock(`${at.value}:${pullRequest.value}`),
@@ -709,6 +708,32 @@ describe('ReactToHappenings, with a review request', () => {
     expect(dispatched.map((each) => each.id.value)).toEqual(['task_review']);
   });
 
+  it('keeps the files that came with a request in the note of the review that runs again', async () => {
+    const line = reviewing({ reviews: policy('mentioned') });
+    const { react, saved } = world({
+      lines: [line],
+      tasks: [finishedReview(line, 'task_review')],
+    });
+
+    await react({
+      ...requested('labelled', { label: 'spotlight' }),
+      attachments: [
+        {
+          name: 'failing-upload.png',
+          contentType: 'image/png',
+          size: 3,
+          fetch: async () => new Uint8Array([1, 2, 3]),
+        },
+      ],
+    });
+
+    expect(saved.map((each) => each.id.value)).toEqual(['task_review']);
+    const notes = saved[0]?.notes ?? [];
+    expect(notes[notes.length - 1]?.anchor?.body).toContain(
+      'failing-upload.png',
+    );
+  });
+
   it('reviews again in the task a label opened when Spotlight is mentioned after it finished', async () => {
     const line = reviewing({ reviews: policy('mentioned') });
     const { react, added, saved, stored, put } = world({ lines: [line] });
@@ -783,7 +808,6 @@ describe('ReactToHappenings, with a review request', () => {
 
   it('completes every review of a pull request closed without a merge, also an older one opened twice', async () => {
     const line = reviewing({ reviews: policy('mentioned') });
-    // The newer review took the review mark from the older one, as ReleaseTakenMarks does.
     const older = finishedReview(line, 'task_older', new Date(0)).releaseMark(
       Mark.review(PullRequestUrl.of(PULL)),
     );

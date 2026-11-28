@@ -188,7 +188,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
           continue;
         }
 
-        // Fetch outside the transaction, so that a slow service does not lock the task during the download.
         const attachments = await this.storedAttachments(
           workspaceId,
           happened.attachments,
@@ -210,7 +209,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
         }
       }
 
-      // Also after the correlated task reacted, so that a redelivery reaches a review that a failure left open.
       if (await this.closeOtherReviews(workspaceId, happened, key)) {
         held = true;
       }
@@ -219,7 +217,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
     return held;
   }
 
-  // A close of the reviews of a pull request waits for a review request of it, and a request waits for the close, so that neither acts on reviews the other is changing.
   private async lockReviewsClosedBy(
     workspaceId: WorkspaceId,
     happened: ReceivedHappening,
@@ -231,7 +228,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
     }
   }
 
-  // Each other review hears the close in a transaction of its own, under a key of its own.
   private async closeOtherReviews(
     workspaceId: WorkspaceId,
     happened: ReceivedHappening,
@@ -287,7 +283,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
           (each) => each.id.equals(other.id),
         );
 
-        // A close carries no files.
         if (task) {
           await this.receivedBy(task, happened, []);
         }
@@ -559,7 +554,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
-    // Before any other lock, so that two requests for the pull request take their locks in one order.
     await this.reviewLocks.lock(workspaceId, request.pullRequest);
 
     const workspaceLines = await this.lines.ofWorkspace(workspaceId);
@@ -569,7 +563,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       opens: happened.opens,
       request,
       payload: happened.payload,
-      anchor: happened.anchor,
+      requestAnchor: happened.anchor,
       noteAnchor: anchorOf(happened, attachments),
       branchTask: request.branch
         ? await this.findByBranch(workspaceId, request.branch)

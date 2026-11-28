@@ -176,7 +176,6 @@ const reviewRequested = (
         author: details.author,
         outside: isOutsideAuthor(details.authorAssociation),
         draft: details.draft,
-        // Only when true, so that a delivery read again keeps the identity it had before Spotlight read merges.
         ...(details.merged ? { merged: true } : {}),
         branch: event.branch,
       },

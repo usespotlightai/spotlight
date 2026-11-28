@@ -78,8 +78,7 @@ const spotlights = (
   branchTask !== null ||
   (pullRequestTask !== null && !pullRequestTask.reviewing);
 
-// By when it opened, not by its mark: a review of the pull request on another line can take the mark.
-const newestOf = (tasks: readonly Task[]): Task | null =>
+const newestOpenedOf = (tasks: readonly Task[]): Task | null =>
   tasks.reduce<Task | null>(
     (newest, each) =>
       newest === null ||
@@ -215,17 +214,13 @@ export const ReactionFor = {
     return null;
   },
 
-  // pullRequestTask has the mark of the pull request. reviews are every task that reviews the pull request, on any line.
-  // A line keeps at most one open review of a pull request: a request for another review goes to it.
   reviewRequested(input: {
     lines: readonly LineMap[];
     workspaceLines: readonly LineMap[];
     opens: OpensWith;
     request: ReviewRequest;
     payload: HappeningPayload;
-    // What the request says, which the line reads for a mention.
-    anchor: Anchor | null;
-    // What the note of a review that takes the request carries: also the files that came with it.
+    requestAnchor: Anchor | null;
     noteAnchor: Anchor | null;
     branchTask: Task | null;
     pullRequestTask: Task | null;
@@ -250,7 +245,7 @@ export const ReactionFor = {
       opens: input.opens,
       request: {
         ...input.request.parts,
-        anchor: input.anchor,
+        anchor: input.requestAnchor,
         ours: spotlights(
           input.request,
           input.branchTask,
@@ -263,7 +258,7 @@ export const ReactionFor = {
       return { kind: 'nothing' };
     }
 
-    const open = newestOf(
+    const open = newestOpenedOf(
       input.reviews.filter((each) => each.reviewsOpenOn(on.line, pullRequest)),
     );
 
@@ -282,7 +277,6 @@ export const ReactionFor = {
       : { kind: 'opens', on };
   },
 
-  // The line took the request, so the review takes it also where the line has no reaction to it. A review that finished at its station reviews again.
   reviewAgain(input: {
     task: Task;
     line: LineMap;

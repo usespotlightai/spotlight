@@ -123,7 +123,7 @@ const requested = (
       answers: false,
       state: 'raised',
     },
-    anchor: over.anchor ?? null,
+    requestAnchor: over.anchor ?? null,
     noteAnchor: over.anchor ?? null,
     branchTask: over.branchTask ?? null,
     pullRequestTask: over.pullRequestTask ?? null,

@@ -46,7 +46,6 @@ export const correlatedTaskAmong = (
   return named ?? newestHolderOf(keys.marks, tasks) ?? firstOf(tasks) ?? null;
 };
 
-// A pull request that closes ends every review of it, not only the one that holds its review mark.
 export const closesReviewsOf = (
   keys: CorrelationKeys,
   closed: PullRequestUrl,
@@ -56,7 +55,6 @@ export const closesReviewsOf = (
   return keys.marks.some((each) => each.equals(mark));
 };
 
-// The reviews of a closed pull request other than the one that heard the close. A review that another review took the mark from is one of them.
 export const otherReviewsOf = (
   heard: Task | null,
   reviews: readonly Task[],
