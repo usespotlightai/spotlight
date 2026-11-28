@@ -7,9 +7,8 @@ const EXACTLY_SLUG = new RegExp(`^${SLUG_SHAPE}$`);
 export const isSlug = (named: string): boolean =>
   EXACTLY_SLUG.test(named) && named.length <= MAX_SLUG_LENGTH;
 
-// What to write instead of a name that is not a slug, as a sentence a person can follow, without its full stop. The example is a name of the kind asked for, and otherwise another shape the name may take.
-export const slugAdvice = (example: string, otherwise?: string): string =>
-  `Use lowercase letters and digits, with single dashes between words, such as ${example} (at most ${MAX_SLUG_LENGTH} characters)${otherwise === undefined ? '' : `, or ${otherwise}`}`;
+export const slugAdvice = (example: string, otherShape?: string): string =>
+  `Use lowercase letters and digits, with single dashes between words, such as ${example} (at most ${MAX_SLUG_LENGTH} characters)${otherShape === undefined ? '' : `, or ${otherShape}`}`;
 
 export const slugify = (name: string): string =>
   name

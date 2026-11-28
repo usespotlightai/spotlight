@@ -30,7 +30,6 @@ export function messageOf(
   return fallback;
 }
 
-// A refusal about one field of a form, said without the field name, for the form to show beside that field.
 export class FieldRefusal extends Error {
   readonly field: string;
 
@@ -54,7 +53,6 @@ const reasonOf = (error: unknown): Reason | null => {
     : null;
 };
 
-// What Spotlight found wrong. When all of it is about one of the fields a form shows, it is that field's reasons without the field name. Otherwise it is the detail, which names each field.
 export function refusalOf(
   thrown: unknown,
   fields: readonly string[],

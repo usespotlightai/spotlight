@@ -14,7 +14,6 @@ export class InvalidHookError extends DomainError {
     this.name = 'InvalidHookError';
   }
 
-  // A name in the hook that its own value object refuses, with that refusal as the reason.
   static naming(
     at: FieldPath,
     refusal: InvalidIdentifierError,

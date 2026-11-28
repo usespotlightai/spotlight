@@ -14,13 +14,12 @@ export class InvalidIdentifierError extends DomainError {
     this.name = 'InvalidIdentifierError';
   }
 
-  // A name that is not a slug. Its reason is advice, so that it reads on its own under the field it is about.
   static notSlug(
     identifierKind: string,
     example: string,
-    otherwise?: string,
+    otherShape?: string,
   ): InvalidIdentifierError {
-    const advice = `${slugAdvice(example, otherwise)}.`;
+    const advice = `${slugAdvice(example, otherShape)}.`;
 
     return new InvalidIdentifierError(
       identifierKind,
