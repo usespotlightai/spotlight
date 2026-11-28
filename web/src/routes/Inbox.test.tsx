@@ -86,6 +86,7 @@ const item = (over: Record<string, unknown> = {}) =>
     lastNote: {
       position: 0,
       kind: 'asked',
+      voice: 'station',
       station: 'Implementation',
       stationColor: '#5c66d9',
       stationPosition: 2,

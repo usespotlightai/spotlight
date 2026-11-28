@@ -144,18 +144,44 @@ describe('previewOf', () => {
     expect(
       previewOf(
         item(
-          { form: 'words', body: 'Which queue?' },
+          { form: 'words', body: 'Which queue?', voice: 'station' },
           { latest: { kind: 'question', count: 1 } },
         ),
       ),
     ).toBe('Planning asks: Which queue?');
   });
 
+  it('shows a person’s answer to the open question as it is, not as the station’s question', () => {
+    expect(
+      previewOf(
+        item(
+          { form: 'words', body: 'Leave it for now.', voice: 'person' },
+          { latest: { kind: 'question', count: 1 } },
+        ),
+      ),
+    ).toBe('Leave it for now.');
+  });
+
+  it('shows a note from GitHub as it is, not as the station’s question', () => {
+    expect(
+      previewOf(
+        item(
+          {
+            form: 'words',
+            body: 'The pull request was closed without being merged.',
+            voice: 'world',
+          },
+          { latest: { kind: 'question', count: 1 } },
+        ),
+      ),
+    ).toBe('The pull request was closed without being merged.');
+  });
+
   it('says a run stopped, when a failed run waits for an answer', () => {
     expect(
       previewOf(
         item(
-          { form: 'failure', body: 'The run exited.' },
+          { form: 'failure', body: 'The run exited.', voice: 'station' },
           { latest: { kind: 'failure', count: 1 } },
         ),
       ),
