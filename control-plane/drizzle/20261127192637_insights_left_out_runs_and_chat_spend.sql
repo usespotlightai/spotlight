@@ -14,14 +14,4 @@ CREATE TABLE "chat_run_spend" (
 );
 --> statement-breakpoint
 ALTER TABLE "run_fact" ADD COLUMN "left_out" "run_left_out";--> statement-breakpoint
-CREATE INDEX "chat_run_spend_team_idx" ON "chat_run_spend" USING btree ("workspace_id","team_id","spent_at");--> statement-breakpoint
-UPDATE "run_fact" SET "left_out" = CASE
-	WHEN "ended_as" = 'cancelled' THEN 'cancelled'
-	WHEN "failure" = 'refused' THEN 'refused'
-	WHEN "failure" = 'unprepared' THEN 'setup'
-	WHEN "failure" = 'unprovisioned' THEN 'infrastructure'
-	WHEN "failure" = 'start-gate-unanswered' THEN 'infrastructure'
-	WHEN "failure" = 'runner-lost' THEN 'infrastructure'
-	WHEN "failure" = 'cancelled' THEN 'cancelled'
-END::"run_left_out"
-WHERE "left_out" IS NULL;
+CREATE INDEX "chat_run_spend_team_idx" ON "chat_run_spend" USING btree ("workspace_id","team_id","spent_at");
