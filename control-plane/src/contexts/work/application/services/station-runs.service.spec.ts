@@ -1,4 +1,5 @@
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -32,7 +33,7 @@ const row = (change: Partial<EndedRunRow> = {}): EndedRunRow => ({
   earlier: ['completed'],
   harness: 'claude-code',
   config: null,
-  reviewing: null,
+  repositories: [],
   queuedAt: QUEUED,
   startedAt: STARTED,
   endedAt: ENDED,
@@ -40,6 +41,9 @@ const row = (change: Partial<EndedRunRow> = {}): EndedRunRow => ({
   runningMs: 300_000,
   ...change,
 });
+
+const API = Repository.of('acme/api');
+const WEB = Repository.of('acme/web');
 
 const NO_DISPATCHES: DispatchRepository = {
   add: async () => {},
@@ -65,8 +69,8 @@ describe('StationRuns.ended', () => {
             profile: { key: 'careful', settings: {} },
             image: null,
             repositories: [
-              { name: 'acme/api', setup: null },
-              { name: 'acme/web', setup: 'npm ci' },
+              { name: 'api', setup: null },
+              { name: 'web', setup: 'npm ci' },
             ],
             skills: [
               { key: 'grafana', hash: 'd'.repeat(64) },
@@ -76,6 +80,7 @@ describe('StationRuns.ended', () => {
             decisions: false,
             memories: false,
           },
+          repositories: [API, WEB],
         }),
       ),
       NO_DISPATCHES,
@@ -94,7 +99,7 @@ describe('StationRuns.ended', () => {
       model: 'gpt-5',
       effort: 'high',
       profileKey: 'careful',
-      repositories: ['acme/api', 'acme/web'],
+      repositories: [API, WEB],
       skills: ['grafana', 'our-migrations'],
       queuedAt: QUEUED,
       startedAt: STARTED,
@@ -117,11 +122,10 @@ describe('StationRuns.ended', () => {
     });
   });
 
-  it('names only the repository under review when the run reviewed a pull request', async () => {
+  it('names the repositories its dispatch checked out in full, not as its station config names them', async () => {
     const stations = new StationRuns(
       readingOnly(
         row({
-          reviewing: 'acme/web',
           config: {
             prompt: null,
             harness: 'claude-code',
@@ -130,33 +134,23 @@ describe('StationRuns.ended', () => {
             profile: null,
             image: null,
             repositories: [
-              { name: 'acme/api', setup: null },
-              { name: 'acme/web', setup: null },
+              { name: 'api', setup: null },
+              { name: 'web', setup: null },
             ],
             skills: [],
             tools: [],
             decisions: false,
             memories: false,
           },
+          repositories: [WEB],
         }),
       ),
       NO_DISPATCHES,
     );
 
-    expect(await stations.ended('run_1')).toMatchObject({
-      repositories: ['acme/web'],
-    });
-  });
-
-  it('names the repository under review on a line that declares none', async () => {
-    const stations = new StationRuns(
-      readingOnly(row({ reviewing: 'acme/web' })),
-      NO_DISPATCHES,
-    );
-
-    expect(await stations.ended('run_1')).toMatchObject({
-      repositories: ['acme/web'],
-    });
+    expect(
+      (await stations.ended('run_1'))?.repositories.map((each) => each.value),
+    ).toEqual(['acme/web']);
   });
 });
 

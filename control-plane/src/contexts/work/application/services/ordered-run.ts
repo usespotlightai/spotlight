@@ -8,6 +8,7 @@ import type {
 import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
@@ -23,6 +24,7 @@ export interface OrderedRun {
   readonly briefedTask: BriefedTask | null;
   readonly briefedMemories: BriefedMemories;
   readonly configuredAs: StationConfig | null;
+  readonly repositories: readonly Repository[];
   readonly toolsOnMarks: readonly Tool[];
 }
 

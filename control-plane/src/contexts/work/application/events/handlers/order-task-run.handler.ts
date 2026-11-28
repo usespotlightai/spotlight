@@ -43,6 +43,7 @@ export class OrderTaskRun {
         driver: task.driverOf(event.runId),
       },
       configuredAs: ordered?.configuredAs ?? null,
+      repositories: ordered?.repositories ?? [],
       toolsOnMarks: ordered?.toolsOnMarks ?? [],
       briefedTask: ordered?.briefedTask ?? null,
       briefing: ordered?.order.spec.briefing ?? null,

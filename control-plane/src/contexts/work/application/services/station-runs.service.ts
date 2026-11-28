@@ -14,7 +14,6 @@ import type {
 } from '@work/application/ports/station-runs.port';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import { runNumberAfter } from '@work/domain/services/station-run-number';
-import { reviewedOrAll } from '@work/domain/services/task-checkouts';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 const PREVIEW_LIMIT = 300;
@@ -60,7 +59,7 @@ export class StationRuns implements StationRunsPort {
       return null;
     }
 
-    const { earlier, config, reviewing, ...run } = found;
+    const { earlier, config, ...run } = found;
 
     return {
       ...run,
@@ -69,10 +68,6 @@ export class StationRuns implements StationRunsPort {
       model: config?.model ?? null,
       effort: config?.effort ?? null,
       profileKey: config?.profile?.key ?? null,
-      repositories: reviewedOrAll(
-        reviewing,
-        config?.repositories.map((each) => each.name) ?? [],
-      ),
       skills: config?.skills.map((each) => each.key) ?? [],
     };
   }

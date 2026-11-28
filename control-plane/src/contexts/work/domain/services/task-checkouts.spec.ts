@@ -182,3 +182,44 @@ describe('the repositories a task works on', () => {
     ).toEqual(WEB);
   });
 });
+
+describe('the repositories a run checks out, by owner and name', () => {
+  it('name a repository the same way for a run that reviews it and a run that works on it', () => {
+    expect(
+      names(
+        repositoriesForTask(
+          reviewing('https://github.com/acme/api/pull/42'),
+          LINE,
+        ),
+      ),
+    ).toEqual(names(repositoriesForTask(added(), LINE)).slice(0, 1));
+  });
+
+  it('spell the reviewed repository as the line does, and check it out so', () => {
+    const review = reviewing('https://github.com/ACME/Api/pull/42');
+
+    expect(names(repositoriesForTask(review, LINE))).toEqual(['acme/api']);
+    expect(
+      checkoutsOf(review, LINE).map((each) => each.repository.value),
+    ).toEqual(['acme/api']);
+  });
+
+  it('are the reviewed repository, as the pull request spells it, on a line that declares none', () => {
+    const bare = lineMapOf({
+      id: LINE.id,
+      workspaceId: LINE.workspaceId,
+      teamId: LINE.teamId,
+      key: LINE.key,
+      name: LINE.name,
+      stations: LINE.stations,
+    });
+    const review = added().reviews(
+      PullRequestUrl.of('https://github.com/Acme/Other/pull/7'),
+      { outside: false },
+      bare,
+      new Date(0),
+    );
+
+    expect(names(repositoriesForTask(review, bare))).toEqual(['Acme/Other']);
+  });
+});

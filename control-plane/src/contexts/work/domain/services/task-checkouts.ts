@@ -15,15 +15,23 @@ export interface TaskCheckout {
   readonly setup: string | null;
 }
 
-export const reviewedOrAll = <T extends object | string>(
+const reviewedOrAll = <T extends object | string>(
   reviewing: T | null,
   all: readonly T[],
 ): readonly T[] => (reviewing !== null && reviewing !== '' ? [reviewing] : all);
 
+// A run works in each repository by its full owner/name, spelled as its line spells it, whatever case the pull request it reviews spells it in.
 export const repositoriesReviewedOrAll = (
   reviewing: Repository | null,
   line: LineMap,
-): readonly Repository[] => reviewedOrAll(reviewing, line.repositories.all);
+): readonly Repository[] =>
+  reviewedOrAll(
+    reviewing
+      ? (line.repositories.all.find((each) => each.equals(reviewing)) ??
+          reviewing)
+      : null,
+    line.repositories.all,
+  );
 
 export const repositoriesForTask = (
   task: Task | null,

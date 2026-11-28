@@ -1,3 +1,4 @@
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { FingerprintedConfig } from '@work/application/contracts/station-config.contract';
 
 export const STATION_RUNS = Symbol('STATION_RUNS');
@@ -15,7 +16,7 @@ export interface EndedStationRun {
   readonly model: string | null;
   readonly effort: string | null;
   readonly profileKey: string | null;
-  readonly repositories: readonly string[];
+  readonly repositories: readonly Repository[];
   readonly skills: readonly string[];
   readonly queuedAt: Date;
   readonly startedAt: Date | null;

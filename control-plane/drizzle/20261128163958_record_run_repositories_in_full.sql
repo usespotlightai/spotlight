@@ -1,0 +1,1 @@
+ALTER TABLE "dispatch" ADD COLUMN "repositories" jsonb DEFAULT '[]'::jsonb NOT NULL;

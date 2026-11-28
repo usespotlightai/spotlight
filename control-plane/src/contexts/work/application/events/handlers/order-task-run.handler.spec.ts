@@ -3,6 +3,7 @@ import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -112,6 +113,7 @@ const ORDERED: OrderedRun = {
   briefedTask: null,
   briefedMemories: BriefedMemories.none(),
   configuredAs: null,
+  repositories: [],
   toolsOnMarks: [],
 };
 
@@ -177,6 +179,17 @@ describe('OrderTaskRun', () => {
     expect(
       added.mock.calls[0]?.[0]?.toolsOnMarks.map((each) => each.value),
     ).toEqual(['sentry.get-issue']);
+  });
+
+  it('records the repositories the run’s order checks out', async () => {
+    const API = Repository.of('acme/api');
+    const { handler, task, added } = ordering({
+      ordered: { ...ORDERED, repositories: [API] },
+    });
+
+    await handler.on(handed(task));
+
+    expect(added.mock.calls[0]?.[0]?.repositories).toEqual([API]);
   });
 
   it('orders nothing twice', async () => {

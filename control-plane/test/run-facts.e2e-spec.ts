@@ -7,6 +7,7 @@ import type { ScopedRemoval } from '@insights/domain/repositories/scoped-removal
 import { runFilterOf } from '@insights/domain/services/run-filter';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
+import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
 import { PersonAction } from '@insights/domain/value-objects/person-action.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
@@ -73,6 +74,7 @@ const ended = (
     workspaceId?: WorkspaceId;
     teamId?: TeamId;
     endedHoursAgo?: number;
+    repositories?: readonly string[];
   } = {},
 ): RunRecord =>
   RunRecord.empty(RunId.of(runId), options.workspaceId ?? WORKSPACE).recordEnd(
@@ -89,7 +91,7 @@ const ended = (
         model: 'opus',
         effort: null,
         profileKey: null,
-        repositories: ['acme/api'],
+        repositories: options.repositories ?? ['acme/api'],
         skills: ['grafana'],
       }),
       queuedAt: at((options.endedHoursAgo ?? 1) + 0.5),
@@ -567,6 +569,88 @@ describe('run facts', () => {
     expect(rebuilt).toBe(1_205);
     expect(await factOf('run_gone')).toBeNull();
     expect(await allFacts()).toHaveLength(1_205);
+  });
+
+  it('counts the spend of the runs on one repository in one slice and one link, whatever case each run names it in, and drills down to them all', async () => {
+    await records.add(
+      withUsageRecorded(
+        ended('run_1', 'task_1', {
+          endedHoursAgo: 2,
+          repositories: ['acme/api'],
+        }),
+      ),
+    );
+    await records.add(
+      withUsageRecorded(
+        ended('run_2', 'task_2', {
+          endedHoursAgo: 1,
+          repositories: ['Acme/API'],
+        }),
+      ),
+    );
+    const reader = new DrizzleInsightsReader(
+      new DrizzleReading(
+        database.db,
+        partial<Env>({
+          DATABASE_READ_TIMEOUT_MS: 15_000,
+        }),
+      ),
+    );
+    const window = { from: at(24), to: at(0) };
+
+    const { current } = await reader.costCounts({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      period: InsightsPeriod.of('7d', new Date(NOW)),
+    });
+    const listed = await reader.runPage({
+      window: { workspaceId: WORKSPACE, teamId: TEAM, ...window },
+      filter: runFilterOf(
+        {
+          lineId: null,
+          stationId: null,
+          outcome: null,
+          harness: null,
+          model: { kind: 'any' },
+          repository: { kind: 'is', value: 'acme/api' },
+          fingerprint: null,
+          taskId: null,
+          taskIds: null,
+          personId: null,
+          day: null,
+          week: null,
+          skillEnabled: null,
+          skillUsed: null,
+          server: null,
+          serverFailed: null,
+          failedAfter: null,
+          dismissedTool: null,
+          dismissedServer: { kind: 'any' },
+          pullRequestState: null,
+          humanAction: null,
+          resolution: null,
+          asked: false,
+        },
+        window,
+      ),
+      offset: 0,
+      limit: 10,
+    });
+
+    expect(
+      current.shares
+        .filter((each) => each.part === 'repository')
+        .map(({ key, amount, runs }) => ({ key, amount, runs })),
+    ).toEqual([{ key: 'acme/api', amount: 2.5, runs: 2 }]);
+    expect(
+      current.links
+        .filter((each) => each.target.kind === 'repository')
+        .map((each) => [each.target.key, each.amount]),
+    ).toEqual([['acme/api', 2.5]]);
+    expect(listed.runs.map((each) => each.runId).sort()).toEqual([
+      'run_1',
+      'run_2',
+    ]);
   });
 
   it('stores how the run ended as its rules say, the size of its change, and whether it ran its config', async () => {

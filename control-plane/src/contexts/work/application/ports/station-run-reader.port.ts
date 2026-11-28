@@ -1,4 +1,5 @@
 import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { Progress } from '@work/domain/value-objects/progress';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
@@ -17,7 +18,7 @@ export interface EndedRunRow {
   readonly earlier: readonly TaskRunState[];
   readonly harness: string;
   readonly config: StationConfigParts | null;
-  readonly reviewing: string | null;
+  readonly repositories: readonly Repository[];
   readonly queuedAt: Date;
   readonly startedAt: Date | null;
   readonly endedAt: Date;
