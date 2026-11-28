@@ -3,13 +3,19 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
+import type { TaskMoveResponseDto } from '@/lib/api';
 import type { Run } from '@/lib/run';
 import { partial } from '@/test/partial';
 
 const runs = vi.fn<() => Run[]>();
+const moves = vi.fn<() => TaskMoveResponseDto[]>(() => []);
 
 vi.mock('@/hooks/api/useTaskRuns', () => ({
   useTaskRuns: () => ({ data: runs() }),
+}));
+
+vi.mock('@/hooks/api/useTaskMoves', () => ({
+  useTaskMoves: () => ({ data: moves() }),
 }));
 
 vi.mock('@/hooks/api/useStopRun', () => ({
@@ -17,7 +23,11 @@ vi.mock('@/hooks/api/useStopRun', () => ({
   useStopInFlight: () => false,
 }));
 
-const run = (review: Run['review'], waitingForYou: boolean) =>
+const run = (
+  review: Run['review'],
+  waitingForYou: boolean,
+  startedAt = new Date().toISOString(),
+) =>
   partial<Run>({
     id: 'run_1',
     driver: 'line',
@@ -25,7 +35,7 @@ const run = (review: Run['review'], waitingForYou: boolean) =>
     progress: null,
     attempt: 1,
     exitCode: 0,
-    startedAt: new Date().toISOString(),
+    startedAt,
     updatedAt: new Date().toISOString(),
     harness: 'claude-code',
     image: null,
@@ -77,5 +87,70 @@ describe('TaskActivity', () => {
 
     expect(screen.getByText('Moved on without an answer')).toBeInTheDocument();
     expect(screen.queryByText('Answered')).not.toBeInTheDocument();
+  });
+
+  it('shows why the line moved a task that no run took up', () => {
+    runs.mockReturnValue([run(null, false)]);
+    moves.mockReturnValue([
+      {
+        position: 4,
+        at: new Date(Date.now() + 1000).toISOString(),
+        station: 'Backlog',
+        by: 'line',
+        person: null,
+        why: 'The pull request was closed without being merged.',
+      },
+    ]);
+    shown();
+
+    const rows = screen.getAllByRole('listitem');
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent('Moved to Backlog');
+    expect(rows[0]).toHaveTextContent(
+      'The pull request was closed without being merged.',
+    );
+  });
+
+  it('shows a move under the run that started at the same instant, as the move came first', () => {
+    const at = new Date().toISOString();
+    runs.mockReturnValue([run(null, false, at)]);
+    moves.mockReturnValue([
+      {
+        position: 2,
+        at,
+        station: 'Implementation',
+        by: 'line',
+        person: null,
+        why: 'The pull request was reopened.',
+      },
+    ]);
+    shown();
+
+    const rows = screen.getAllByRole('listitem');
+
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toHaveTextContent('Moved to Implementation');
+  });
+
+  it('names the person who moved a task that has no runs', () => {
+    runs.mockReturnValue([]);
+    moves.mockReturnValue([
+      {
+        position: 1,
+        at: new Date().toISOString(),
+        station: 'Implementation',
+        by: 'person',
+        person: { id: 'user_1', name: 'Ada Lovelace', image: null },
+        why: 'Rebase it.',
+      },
+    ]);
+    shown();
+
+    expect(screen.getByText('Activity')).toBeInTheDocument();
+    expect(
+      screen.getByText('Moved to Implementation by Ada Lovelace'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Rebase it.')).toBeInTheDocument();
   });
 });

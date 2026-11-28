@@ -12,6 +12,7 @@ import type {
 } from '@/lib/inbox';
 import {
   actOnParts,
+  answerPlaceholder,
   chatPreviewOf,
   counted,
   entryKey,
@@ -704,5 +705,30 @@ describe('actOnParts', () => {
     }
     await done;
     expect(finished).toHaveLength(4);
+  });
+});
+
+describe('answerPlaceholder', () => {
+  const stations = [
+    { name: 'Backlog', harness: null },
+    { name: 'Triage', harness: 'claude-code' },
+  ];
+
+  it('says the station reads the answer when it has an agent', () => {
+    expect(answerPlaceholder('Triage', stations)).toBe(
+      'Triage reads your answer and decides the next step…',
+    );
+  });
+
+  it('says nobody reads it at a station without an agent, and how to continue', () => {
+    expect(answerPlaceholder('Backlog', stations)).toBe(
+      'Backlog has no agent to read your answer. To continue, move the task to a station with an agent…',
+    );
+  });
+
+  it('says the station reads the answer until the line loads', () => {
+    expect(answerPlaceholder('Backlog', undefined)).toBe(
+      'Backlog reads your answer and decides the next step…',
+    );
   });
 });

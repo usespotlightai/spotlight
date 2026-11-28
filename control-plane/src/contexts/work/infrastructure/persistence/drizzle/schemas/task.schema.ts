@@ -72,6 +72,13 @@ export interface DeferredMoveRow {
   readonly to: string;
 }
 
+export interface NoteMoveRow {
+  readonly to: string;
+  readonly by: string;
+  readonly who: string | null;
+  readonly why: string | null;
+}
+
 export interface ConnectionAskRow {
   readonly teamId: string;
   readonly integration: string;
@@ -188,6 +195,7 @@ export const taskNote = pgTable(
     approval: jsonb('approval').$type<ApprovalRow>(),
     failure: jsonb('failure').$type<FailureRow>(),
     deferredMove: jsonb('deferred_move').$type<DeferredMoveRow>(),
+    move: jsonb('move').$type<NoteMoveRow>(),
     connectionAsk: jsonb('connection_ask').$type<ConnectionAskRow>(),
     resumption: jsonb('resumption').$type<ResumptionRow>(),
     suggestsClosing: boolean('suggests_closing').notNull().default(false),

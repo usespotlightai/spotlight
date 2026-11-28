@@ -71,6 +71,13 @@
       "when": 1795859343416,
       "tag": "20261128094903_backfill_inbox_request_asks",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795883768002,
+      "tag": "20261128163607_task_note_move",
+      "breakpoints": true
     }
   ]
 }

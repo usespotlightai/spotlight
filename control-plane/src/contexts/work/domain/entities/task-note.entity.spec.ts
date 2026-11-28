@@ -14,6 +14,7 @@ import {
   lineMapOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
+import { byTheLine, NoteMove } from '@work/domain/value-objects/note-move.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -143,6 +144,15 @@ describe('TaskNote', () => {
         deferredMove: DeferredMove.moveTo(StationId.of('station_build')),
       }),
     ).toThrow(InconsistentStateError);
+  });
+
+  it('records a move only on the note that passes the task on', () => {
+    const move = NoteMove.to(StationId.of('station_build'), byTheLine());
+
+    expect(aNote({ move }).move).toBe(move);
+    expect(() => aNote({ kind: 'message', move })).toThrow(
+      InconsistentStateError,
+    );
   });
 
   it('tells a run where the task moves when a deferred move waits', () => {

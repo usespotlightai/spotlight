@@ -114,6 +114,7 @@ import { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
+import { NoteMove } from '@work/domain/value-objects/note-move.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
@@ -207,6 +208,7 @@ export const WORK_PAYLOAD_TYPES = [
   HarnessSession,
   TargetStation,
   DeferredMove,
+  NoteMove,
   ReviewedPullRequest,
   OwnedPullRequest,
   PushedHead,

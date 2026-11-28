@@ -14,7 +14,10 @@ import type {
   InboxFoldedVisit,
   InboxNote,
 } from '@work/application/ports/inbox-reader.port';
-import type { RunReview } from '@work/application/ports/run-reader.port';
+import type {
+  RunReview,
+  TaskMoveSummary,
+} from '@work/application/ports/run-reader.port';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import type { OpenAsk } from '@work/domain/services/conversation-audience';
@@ -400,6 +403,50 @@ export const notesBetween = async (
   return (await inboxNotesOf(db, people, rows)).map(
     ({ taskId: _task, ...note }) => note,
   );
+};
+
+const movedTo = alias(workStation, 'moved_to');
+
+export const movesOf = async (
+  db: DrizzleDatabase,
+  people: PersonReaderPort,
+  taskId: string,
+): Promise<TaskMoveSummary[]> => {
+  const rows = await db
+    .select({
+      position: taskNote.position,
+      at: taskNote.at,
+      move: taskNote.move,
+      station: movedTo.name,
+    })
+    .from(taskNote)
+    .leftJoin(movedTo, eq(movedTo.stationId, sql`${taskNote.move} ->> 'to'`))
+    .where(and(eq(taskNote.taskId, taskId), isNotNull(taskNote.move)))
+    .orderBy(asc(taskNote.position));
+  const persons = await people.findMany(
+    rows.flatMap((row) =>
+      nonEmpty(row.move?.who) ? [UserId.of(row.move.who)] : [],
+    ),
+  );
+
+  return rows.flatMap(({ move, ...row }) => {
+    if (!move) {
+      return [];
+    }
+
+    const who = move.who;
+    const found = nonEmpty(who) ? persons.get(who) : undefined;
+
+    return [
+      {
+        ...row,
+        move,
+        person: nonEmpty(who)
+          ? { id: who, name: found?.name ?? '', image: found?.image ?? null }
+          : null,
+      },
+    ];
+  });
 };
 
 export const newestNotesFor = async (

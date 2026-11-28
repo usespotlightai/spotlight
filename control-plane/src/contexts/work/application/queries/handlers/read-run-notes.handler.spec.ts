@@ -71,6 +71,7 @@ const reading = (
       findForTeam: vi.fn(),
       notesFor: vi.fn().mockResolvedValue(found && inWorkspace(found)),
       taskNotesBetween: vi.fn(),
+      taskMoves: vi.fn(),
       configFor: vi.fn(),
     } satisfies RunReaderPort,
     { forRuns: async () => new Map(usages) },

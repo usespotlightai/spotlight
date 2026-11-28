@@ -79,6 +79,29 @@ export class TaskNoteBody {
     );
   }
 
+  static closedUnmergedAndMoved(
+    to: StationName,
+    account: TaskNoteBody,
+  ): TaskNoteBody {
+    return TaskNoteBody.of(
+      `${account.value}\n\nThe line moved the task to ${to.value} for this. To continue, reopen the pull request, move the task to a station, or complete the task.`,
+    );
+  }
+
+  static movedByHappening(
+    to: StationName,
+    summary: string,
+    anchor: Anchor | null,
+  ): TaskNoteBody {
+    const moved = `Moved to ${to.value}.`;
+
+    return TaskNoteBody.of(
+      anchor
+        ? `${moved}\n\n${TaskNoteBody.receivedHappening(summary, anchor).value}`
+        : `${moved} ${summary.trim()}`,
+    );
+  }
+
   static branchPullRequest(pullRequest: PullRequestUrl): TaskNoteBody {
     return TaskNoteBody.of(
       `Pull request ${pullRequest.value} is open from the branch of this task. It is now the pull request of the task.`,

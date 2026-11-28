@@ -8,6 +8,7 @@ import { useEffect, useEffectEvent } from 'react';
 import { chatKeys } from '@/hooks/api/useChats';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { journalKeys } from '@/hooks/api/useRunJournals';
+import { taskMoveKeys } from '@/hooks/api/useTaskMoves';
 import { taskRunKeys } from '@/hooks/api/useTaskRuns';
 import { taskKeys } from '@/hooks/api/useTasks';
 import { taskTraceKeys } from '@/hooks/api/useTaskTrace';
@@ -59,6 +60,7 @@ export const queriesTouchedBy = (change: LiveChange): QueryKey[] => {
         ...(taskId
           ? [
               taskRunKeys.forTask(taskId),
+              taskMoveKeys.forTask(taskId),
               taskTraceKeys.forTask(taskId),
               journalKeys.runsOfTask(taskId),
             ]

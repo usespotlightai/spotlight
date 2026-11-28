@@ -39,6 +39,7 @@ import type {
   RunNotesSummary,
   RunReaderPort,
   RunStationSummary,
+  TaskMoveSummary,
   TaskRunSummary,
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
@@ -60,6 +61,7 @@ import {
   awaitedReviewsFor,
   foldedAround,
   LATEST_RUN_FIRST,
+  movesOf,
   notesBetween,
   openHoldsFor,
   reviewsBy,
@@ -504,17 +506,11 @@ export class DrizzleRunReader implements RunReaderPort {
     from: number,
     to: number,
   ): Promise<RunsInWorkspace<InboxNote[]> | null> {
-    const owner = firstOf(
-      await this.db
-        .select({ workspaceId: task.workspaceId })
-        .from(task)
-        .where(eq(task.id, taskId.value))
-        .limit(1),
-    );
+    const workspaceId = await this.workspaceOfTask(taskId);
 
-    return owner
+    return workspaceId
       ? {
-          workspaceId: WorkspaceId.of(owner.workspaceId),
+          workspaceId,
           found: await notesBetween(
             this.db,
             this.people,
@@ -524,6 +520,31 @@ export class DrizzleRunReader implements RunReaderPort {
           ),
         }
       : null;
+  }
+
+  async taskMoves(
+    taskId: TaskId,
+  ): Promise<RunsInWorkspace<TaskMoveSummary[]> | null> {
+    const workspaceId = await this.workspaceOfTask(taskId);
+
+    return workspaceId
+      ? {
+          workspaceId,
+          found: await movesOf(this.db, this.people, taskId.value),
+        }
+      : null;
+  }
+
+  private async workspaceOfTask(taskId: TaskId): Promise<WorkspaceId | null> {
+    const owner = firstOf(
+      await this.db
+        .select({ workspaceId: task.workspaceId })
+        .from(task)
+        .where(eq(task.id, taskId.value))
+        .limit(1),
+    );
+
+    return owner ? WorkspaceId.of(owner.workspaceId) : null;
   }
 
   async configFor(

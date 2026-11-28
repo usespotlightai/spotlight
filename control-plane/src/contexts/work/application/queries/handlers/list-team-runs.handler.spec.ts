@@ -75,6 +75,7 @@ const reading = (found: TeamRunSummary): RunReaderPort => ({
   findForTeam: vi.fn().mockResolvedValue(found),
   notesFor: vi.fn(),
   taskNotesBetween: vi.fn(),
+  taskMoves: vi.fn(),
   configFor: vi.fn(),
 });
 

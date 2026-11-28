@@ -18,7 +18,8 @@ export function InboxItemFooter({
   conversationId,
   progress,
 }: InboxItemFooterProps) {
-  const { station, task } = useTaskStation(item.teamId, item.taskId);
+  const { line, station, task } = useTaskStation(item.teamId, item.taskId);
+  const placeholder = answerPlaceholder(item.station, line?.stations);
 
   if (!item.resolved && !item.answerable && followed(item)) {
     return (
@@ -28,7 +29,7 @@ export function InboxItemFooter({
         taskId={item.taskId}
         station={item.station}
         label={`Answer ${item.station}`}
-        placeholder={answerPlaceholder(item.station)}
+        placeholder={placeholder}
         because="You follow this task. Its assignee answers here."
         stopRunId={stoppable({ ...item, progress }) ? item.runId : null}
       />
@@ -78,7 +79,7 @@ export function InboxItemFooter({
       taskId={item.taskId}
       station={item.station}
       label={`Answer ${item.station}`}
-      placeholder={answerPlaceholder(item.station)}
+      placeholder={placeholder}
       because={
         currentStation.name === item.station
           ? 'The conversation is closed here. Nothing is left to answer.'

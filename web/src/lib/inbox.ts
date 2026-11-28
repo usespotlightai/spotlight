@@ -9,6 +9,7 @@ import type {
   JournalledRunResponseDto,
   NoteResponseDto,
   RunJournalResponseDto,
+  StationResponseDto,
 } from '@/lib/api';
 import { formatDate } from '@/lib/date-format';
 import { OPEN_PREVIEW, RESOLVED_PREVIEW } from '@/lib/judge-disagreement';
@@ -537,5 +538,15 @@ export const firstUnreadNoteOf = (item: InboxItem): number | null =>
     ? item.firstUnread.position
     : null;
 
-export const answerPlaceholder = (station: string): string =>
-  `${station} reads your answer and decides the next step…`;
+type AnsweredStation = Pick<StationResponseDto, 'name' | 'harness'>;
+
+export const answerPlaceholder = (
+  station: string,
+  stations: readonly AnsweredStation[] | undefined,
+): string => {
+  const at = stations?.find((each) => each.name === station);
+
+  return at && !nonEmpty(at.harness)
+    ? `${station} has no agent to read your answer. To continue, move the task to a station with an agent…`
+    : `${station} reads your answer and decides the next step…`;
+};
