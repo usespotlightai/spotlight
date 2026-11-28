@@ -9,6 +9,13 @@ import type { InboxItem } from '@/lib/inbox';
 import { partial } from '@/test/partial';
 
 const taskStation = {
+  line: {
+    repositories: [],
+    stations: [
+      { name: 'Backlog', harness: null },
+      { name: 'Build', harness: 'codex' },
+    ],
+  },
   station: { id: 'station_build', name: 'Build' },
   task: { id: 'task_1', runNotStarted: null } as {
     id: string;
@@ -38,6 +45,10 @@ vi.mock('@/hooks/api/useStartTaskRun', () => ({
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
   useHarnesses: () => ({ data: [{ id: 'codex', name: 'Codex' }] }),
+}));
+
+vi.mock('@/components/features/stations/FixedAgent', () => ({
+  FixedAgent: () => null,
 }));
 
 vi.mock('@/components/features/inbox/conversation/InboxComposer', () => ({
@@ -111,6 +122,35 @@ describe('InboxItemFooter', () => {
     );
 
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
+  });
+
+  it('says to a follower that a station without an agent reads no answer, and how to continue', () => {
+    showing({
+      ...ITEM,
+      kind: 'task',
+      station: 'Backlog',
+      standing: 'following',
+      answerable: false,
+    });
+
+    expect(screen.getByRole('textbox')).toHaveAttribute(
+      'aria-placeholder',
+      'Backlog has no agent to read your answer. To continue, move the task to a station with an agent…',
+    );
+  });
+
+  it('says to a follower that a station with an agent reads the answer', () => {
+    showing({
+      ...ITEM,
+      kind: 'task',
+      standing: 'following',
+      answerable: false,
+    });
+
+    expect(screen.getByRole('textbox')).toHaveAttribute(
+      'aria-placeholder',
+      'Build reads your answer and decides the next step…',
+    );
   });
 
   it('shows only the text bar while the run of the station can start', () => {
