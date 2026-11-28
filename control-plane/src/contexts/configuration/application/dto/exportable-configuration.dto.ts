@@ -159,9 +159,16 @@ export type ExportableResourceDto =
       readonly secretReferences: readonly SecretReferenceAt[];
     });
 
+export interface ExportableProviderDto {
+  readonly source: string;
+  readonly version: string;
+  readonly url: string;
+}
+
 export interface ExportableConfigurationDto {
   readonly workspaceId: string;
   readonly workspaceSlug: string;
+  readonly provider: ExportableProviderDto;
   readonly resources: readonly ExportableResourceDto[];
 }
 

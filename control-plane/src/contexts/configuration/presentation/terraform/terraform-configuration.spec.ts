@@ -248,9 +248,15 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('requires the Spotlight provider', () => {
+  it('requires the pinned Spotlight provider', () => {
     expect(fileOf(CONFIGURATION, 'terraform.tf')).toMatch(
-      /^terraform {\n {2}required_providers {\n {4}spotlight = {\n {6}source {2}= "usespotlightai\/spotlight"\n {6}version = "0\.1\.0-rc\.4"\n/,
+      /^terraform {\n {2}required_providers {\n {4}spotlight = {\n {6}source {2}= "usespotlightai\/spotlight"\n {6}version = "0\.1\.0-rc\.11"\n/,
+    );
+  });
+
+  it('names the Spotlight it was exported from, so it plans with no SPOTLIGHT_URL', () => {
+    expect(fileOf(CONFIGURATION, 'terraform.tf')).toMatch(
+      /\n}\n\nprovider "spotlight" {\n {2}url = "https:\/\/spotlight\.acme\.dev"\n}\n$/,
     );
   });
 

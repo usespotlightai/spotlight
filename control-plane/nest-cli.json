@@ -11,6 +11,9 @@
       },
       {
         "include": "platform/hcl/grammar/*"
+      },
+      {
+        "include": "contexts/configuration/infrastructure/terraform/provider.tf"
       }
     ]
   }

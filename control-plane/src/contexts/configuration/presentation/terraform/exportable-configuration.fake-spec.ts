@@ -231,6 +231,11 @@ const LINEAR = {
 export const CONFIGURATION: ExportableConfigurationDto = {
   workspaceId: WORKSPACE_ID,
   workspaceSlug: 'acme',
+  provider: {
+    source: 'usespotlightai/spotlight',
+    version: '0.1.0-rc.11',
+    url: 'https://spotlight.acme.dev',
+  },
   resources: [
     {
       kind: 'workspace',

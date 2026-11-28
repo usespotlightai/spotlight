@@ -7,6 +7,7 @@ import type { HarnessProfileResourcesPort } from '@configuration/application/por
 import type { HookConfigsPort } from '@configuration/application/ports/hook-configs.port';
 import type { IntegrationConfigsPort } from '@configuration/application/ports/integration-configs.port';
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
+import type { TerraformProviderPinPort } from '@configuration/application/ports/terraform-provider-pin.port';
 import type { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
 import type { OidcTrustConfigurationPort } from '@identity/application/ports/oidc-trust-configuration.port';
 import type {
@@ -31,6 +32,8 @@ export class ExportableConfigurations {
     private readonly secrets: SecretConfigurationPort,
     private readonly runners: RunnerConfigurationPort,
     private readonly oidcTrusts: OidcTrustConfigurationPort,
+    private readonly pin: TerraformProviderPinPort,
+    private readonly spotlightUrl: string,
   ) {}
 
   async of(workspace: WorkspaceProfile): Promise<ExportableConfigurationDto> {
@@ -48,6 +51,11 @@ export class ExportableConfigurations {
     return {
       workspaceId: workspace.id,
       workspaceSlug: workspace.slug,
+      provider: {
+        source: this.pin.source,
+        version: this.pin.version,
+        url: this.spotlightUrl,
+      },
       resources: [
         ExportableResourceMapper.workspace(workspace),
         ...secrets.map((each) => ExportableResourceMapper.secret(each)),

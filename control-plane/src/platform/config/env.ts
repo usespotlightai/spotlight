@@ -22,7 +22,7 @@ export function parseEnv(): Env {
 }
 
 export const publicUrlOf = (env: Env): string =>
-  env.SPOTLIGHT_PUBLIC_URL ?? env.BETTER_AUTH_URL;
+  (env.SPOTLIGHT_PUBLIC_URL ?? env.BETTER_AUTH_URL).replace(/\/+$/, '');
 
 export function parseDatabaseEnv(): DatabaseEnv {
   return parsed(databaseSchema.safeParse(process.env));

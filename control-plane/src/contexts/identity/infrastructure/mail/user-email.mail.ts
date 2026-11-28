@@ -2,9 +2,10 @@ import type {
   UserEmailMailPort,
   VerificationToSend,
 } from '@identity/application/ports/user-email-mail.port';
-import { appUrl, escaped } from '@identity/infrastructure/mail/mail.format';
+import { escaped } from '@identity/infrastructure/mail/mail.format';
 import { mailLayout } from '@identity/infrastructure/mail/mail.layout';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
+import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 
 const SUBJECT = 'Verify your email for Spotlight';
@@ -16,7 +17,7 @@ export class UserEmailVerificationByMail implements UserEmailMailPort {
   ) {}
 
   linkTo(token: string): string {
-    return `${appUrl(this.env)}/verify-email/${token}`;
+    return `${publicUrlOf(this.env)}/verify-email/${token}`;
   }
 
   async send(verification: VerificationToSend): Promise<void> {
@@ -41,7 +42,7 @@ export class UserEmailVerificationByMail implements UserEmailMailPort {
 
   private body(verification: VerificationToSend, link: string): string {
     return mailLayout({
-      appUrl: appUrl(this.env),
+      appUrl: publicUrlOf(this.env),
       heading: 'Verify your email',
       lead: `The Spotlight account ${escaped(verification.signInEmail)} added this email address.`,
       detail:

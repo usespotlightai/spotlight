@@ -18,11 +18,11 @@ import (
 
 var homeHelp = help.Command{
 	Path:    "status",
-	Summary: "Show what is set up on this computer: the login, the editors and the host.",
+	Summary: "Show what is set up on this computer: your logins, editors, host and version.",
 	Usage:   []string{"spotlight status [--json]"},
 	Flags:   []help.Flag{{Name: "json", Usage: "Print JSON."}},
 	Notes: []string{
-		"In a terminal, spotlight without a command shows the same in a dashboard.",
+		"spotlight without a command shows the same. In a terminal, it opens them in a dashboard.",
 		"Run as root, it shows only the host, because the login and the editors belong to a person.",
 	},
 	Docs: docs + "#spotlight-status",
@@ -34,6 +34,7 @@ type homeLogin struct {
 }
 
 type homeReport struct {
+	Version    string      `json:"version"`
 	Logins     []homeLogin `json:"logins"`
 	Editors    *ssh.Setup  `json:"editors"`
 	Host       *report     `json:"host"`
@@ -53,28 +54,35 @@ func Home(args []string, version string) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*timeout)
 	defer cancel()
 
-	home, err := inspectHome(ctx, version)
+	home, err := inspectHome(ctx, version, true)
+	if err == nil && *asJSON {
+		err = json.NewEncoder(os.Stdout).Encode(home)
+	} else if err == nil {
+		home.print(os.Stdout)
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "spotlight status:", err)
 		return 1
 	}
-	if *asJSON {
-		if err := json.NewEncoder(os.Stdout).Encode(home); err != nil {
-			fmt.Fprintln(os.Stderr, "spotlight status:", err)
-			return 1
-		}
-		return 0
-	}
-	home.print(os.Stdout)
 	return 0
+}
+
+// Overview prints what is set up on this computer, for spotlight without a command outside a terminal.
+func Overview(out io.Writer, version string) error {
+	home, err := inspectHome(context.Background(), version, false)
+	if err != nil {
+		return err
+	}
+	home.print(out)
+	return nil
 }
 
 func personal() bool {
 	return os.Geteuid() != 0
 }
 
-func inspectHome(ctx context.Context, version string) (homeReport, error) {
-	var home homeReport
+func inspectHome(ctx context.Context, version string, reach bool) (homeReport, error) {
+	home := homeReport{Version: version}
 	if personal() {
 		logins, err := savedLogins()
 		if err != nil {
@@ -85,7 +93,7 @@ func inspectHome(ctx context.Context, version string) (homeReport, error) {
 		home.Editors = &editors
 	}
 
-	r := inspect(ctx, version)
+	r := inspected(ctx, version, reach)
 	if hostSetUp(r) {
 		home.Host = &r
 	} else {
@@ -159,7 +167,14 @@ func (h homeReport) print(out io.Writer) {
 				level = console.Failed
 			}
 		}
-		text := "The host is " + r.service() + "."
+		text := "The host"
+		if r.Name != "" {
+			text += " " + r.Name
+		}
+		if url := r.setting("url"); url != "" {
+			text += " for " + url
+		}
+		text += " is " + r.service() + "."
 		if r.Sandboxes.Running != nil {
 			text += fmt.Sprintf(" %d of %d sandboxes run.", *r.Sandboxes.Running, r.Sandboxes.Capacity)
 		}
@@ -169,4 +184,17 @@ func (h homeReport) print(out io.Writer) {
 	default:
 		line("", "This computer has no host.", "to run agents here: spotlight host init")
 	}
+
+	if h.Version != "" {
+		line(console.Passed, "spotlight "+h.Version+" is installed.", "")
+	}
+}
+
+func (r report) setting(key string) string {
+	for _, each := range r.Settings {
+		if each.Key == key {
+			return each.Value
+		}
+	}
+	return ""
 }

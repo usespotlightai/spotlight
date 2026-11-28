@@ -81,6 +81,10 @@ func status(version string, args []string) error {
 }
 
 func inspect(ctx context.Context, version string) report {
+	return inspected(ctx, version, true)
+}
+
+func inspected(ctx context.Context, version string, reach bool) report {
 	var r report
 	r.Config = config.Path()
 	r.Settings = []listed{}
@@ -125,6 +129,15 @@ func inspect(ctx context.Context, version string) report {
 		add(checkService, failed, "The host does not run, and it is not installed as a service.", "spotlight host init")
 	}
 
+	if strings.HasPrefix(cfg.Images.Default, config.Image+":") {
+		add(checkImage, warned, "The default image "+cfg.Images.Default+" holds no harness, so this host runs checks but no agent run.",
+			"build an image FROM it with a harness, then: spotlight host config set image=IMAGE")
+	}
+
+	if !reach {
+		return r
+	}
+
 	if invalid == nil {
 		id := readHostID(cfg.State)
 		if id == "" {
@@ -154,11 +167,6 @@ func inspect(ctx context.Context, version string) report {
 				r.Sandboxes.Running = &running
 			}
 		}
-	}
-
-	if strings.HasPrefix(cfg.Images.Default, config.Image+":") {
-		add(checkImage, warned, "The default image "+cfg.Images.Default+" holds no harness, so this host runs checks but no agent run.",
-			"build an image FROM it with a harness, then: spotlight host config set image=IMAGE")
 	}
 
 	return r

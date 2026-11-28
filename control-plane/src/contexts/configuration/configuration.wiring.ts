@@ -61,6 +61,10 @@ import { STATION_SOURCE_EDITS } from '@configuration/application/ports/station-s
 import { TEAM_CONFIGURATION } from '@configuration/application/ports/team-configuration.port';
 import { TEAM_SKILL_KEYS } from '@configuration/application/ports/team-skill-keys.port';
 import {
+  TERRAFORM_PROVIDER_PIN,
+  type TerraformProviderPinPort,
+} from '@configuration/application/ports/terraform-provider-pin.port';
+import {
   TERRAFORM_STATE_BODIES,
   type TerraformStateBodiesPort,
 } from '@configuration/application/ports/terraform-state-bodies.port';
@@ -132,6 +136,7 @@ import { BuiltInSkillFiles } from '@configuration/infrastructure/skills/built-in
 import { SkillCompiler } from '@configuration/infrastructure/skills/skill.compile';
 import { S3TerraformStateBodies } from '@configuration/infrastructure/storage/s3-terraform-state-bodies';
 import { HclStationSourceEdits } from '@configuration/infrastructure/terraform/hcl-station-source-edits';
+import { PinnedTerraformProvider } from '@configuration/infrastructure/terraform/pinned-terraform-provider';
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
 import { HarnessProfileResourceController } from '@configuration/presentation/http/controllers/harness-profile-resource.controller';
 import { SkillResourceController } from '@configuration/presentation/http/controllers/skill-resource.controller';
@@ -163,6 +168,7 @@ import {
 import { SKILL_TOOLS } from '@lines/application/ports/skill-tools.port';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
+import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
@@ -315,6 +321,8 @@ const adapters: Provider[] = [
       SECRET_CONFIGURATION,
       RUNNER_CONFIGURATION,
       OIDC_TRUST_CONFIGURATION,
+      TERRAFORM_PROVIDER_PIN,
+      ENV,
     ],
     useFactory: (
       teams: TeamDirectoryPort,
@@ -327,6 +335,8 @@ const adapters: Provider[] = [
       secrets: SecretConfigurationPort,
       runners: RunnerConfigurationPort,
       oidcTrusts: OidcTrustConfigurationPort,
+      pin: TerraformProviderPinPort,
+      env: Env,
     ) =>
       new ExportableConfigurations(
         teams,
@@ -339,7 +349,13 @@ const adapters: Provider[] = [
         secrets,
         runners,
         oidcTrusts,
+        pin,
+        publicUrlOf(env),
       ),
+  },
+  {
+    provide: TERRAFORM_PROVIDER_PIN,
+    useFactory: (): TerraformProviderPinPort => new PinnedTerraformProvider(),
   },
   {
     provide: SkillViews,

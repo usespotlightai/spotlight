@@ -86,7 +86,7 @@ const brief = (
     lines,
     memories,
     memoryFolder,
-    spotlightUrl: 'https://app.usespotlight.ai/',
+    spotlightUrl: 'https://app.usespotlight.ai',
     release,
     extensions,
   });
@@ -411,6 +411,9 @@ describe('ChatBriefing', () => {
         'lock_address   = "https://app.usespotlight.ai/api/terraform/workspaces/<slug>/states/default/lock"',
       );
       expect(briefing).toContain('username       = "spotlight"');
+      expect(briefing).toContain(
+        'keep the `provider "spotlight"` block in `terraform.tf` as the export wrote it',
+      );
       expect(briefing).toContain('TF_HTTP_PASSWORD=$(spotlight token)');
       expect(briefing).toContain(
         'export TF_HTTP_PASSWORD=$SPOTLIGHT_API_TOKEN',

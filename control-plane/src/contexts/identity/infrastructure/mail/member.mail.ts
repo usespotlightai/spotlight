@@ -3,9 +3,10 @@ import type {
   MemberMailPort,
   MemberMailToSend,
 } from '@identity/application/ports/member-mail.port';
-import { appUrl, escaped } from '@identity/infrastructure/mail/mail.format';
+import { escaped } from '@identity/infrastructure/mail/mail.format';
 import { mailLayout } from '@identity/infrastructure/mail/mail.layout';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
+import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 
 const FOOTNOTE =
@@ -48,11 +49,11 @@ export class MemberByMail implements MemberMailPort {
       subject,
       text: [`${subject}.`, '', detail, '', FOOTNOTE].join('\n'),
       html: mailLayout({
-        appUrl: appUrl(this.env),
+        appUrl: publicUrlOf(this.env),
         heading: escaped(subject),
         lead: escaped(detail),
         detail: escaped(`Workspace: ${mail.workspaceName}`),
-        action: { label: 'Open Spotlight', href: appUrl(this.env) },
+        action: { label: 'Open Spotlight', href: publicUrlOf(this.env) },
         footnote: escaped(FOOTNOTE),
       }),
     });
