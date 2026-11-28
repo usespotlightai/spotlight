@@ -64,6 +64,7 @@ const piece = (
     about: kind === 'judge-question' ? `disagreement_${id}` : null,
     asks: 1,
     open: true,
+    waits: overrides.open ?? true,
     unread: true,
     unreadSince: at(minute),
     arrivedAt: at(minute),
@@ -232,6 +233,30 @@ describe('groupOf', () => {
       runId: 'run_1',
       stoppableByYou: true,
       section: 'resolved',
+    });
+  });
+
+  it('previews the memories that wait on a read row, not the conversation its run works on', () => {
+    const working = piece(
+      'task_1:2',
+      'question',
+      1,
+      { unread: false, unreadSince: null, waits: false },
+      { progress: 'in-progress', runId: 'run_1' },
+    );
+    const memories = piece('request_5', 'memories', 5, {
+      unread: false,
+      unreadSince: null,
+    });
+
+    expect(
+      groupOf({ pieces: [working, memories], run: null, newestAt: null })?.item,
+    ).toMatchObject({
+      unread: false,
+      unreadCount: 0,
+      conversationId: 'task_1:2',
+      latest: { kind: 'memories', count: 1 },
+      section: 'running',
     });
   });
 

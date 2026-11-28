@@ -16,6 +16,7 @@ const part = (
   kind,
   asks: 1,
   open: true,
+  waits: true,
   unread: true,
   unreadSince: at(minute),
   arrivedAt: at(minute),
@@ -29,6 +30,7 @@ const part = (
 const answered = (each: InboxPart, minute: number): InboxPart => ({
   ...each,
   open: false,
+  waits: false,
   unread: false,
   unreadSince: null,
   resolvedAt: at(minute),
@@ -122,10 +124,45 @@ describe('TaskInbox.standingOf', () => {
     });
   });
 
-  it('is not quiet once nothing is unread', () => {
+  it('is not quiet once nothing waits', () => {
     expect(
       TaskInbox.standingOf(disagreements.map((each) => answered(each, 9))),
     ).toMatchObject({ latest: null, quiet: false });
+  });
+
+  it('previews what still waits once everything is read, not a conversation whose run works on the answer', () => {
+    const working = part('question', 1, {
+      unread: false,
+      unreadSince: null,
+      waits: false,
+    });
+    const memories = part('memories', 5, { unread: false, unreadSince: null });
+
+    expect(TaskInbox.standingOf([working, memories])).toMatchObject({
+      unreadCount: 0,
+      latest: { kind: 'memories', count: 1 },
+      quiet: false,
+    });
+    expect(TaskInbox.standingOf([working])).toMatchObject({
+      latest: null,
+      quiet: false,
+    });
+  });
+
+  it('stays quiet while only read judge questions wait', () => {
+    expect(
+      TaskInbox.standingOf(
+        disagreements.map((each) => ({
+          ...each,
+          unread: false,
+          unreadSince: null,
+        })),
+      ),
+    ).toMatchObject({
+      unreadCount: 0,
+      latest: { kind: 'judge-question', count: 3 },
+      quiet: true,
+    });
   });
 
   it('can be resolved while anything open in it can be', () => {

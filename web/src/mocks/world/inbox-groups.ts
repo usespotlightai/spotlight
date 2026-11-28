@@ -128,6 +128,15 @@ const groupOf = (entries: readonly InboxConversation[]): ShownGroup | null => {
 
   const unread = parts.filter((each) => each.unread);
   const resolved = parts.every((each) => each.resolved);
+  // Once all is read, the row previews what still waits on a person.
+  const previewed =
+    unread.length > 0
+      ? unread
+      : parts.filter(
+          (each) =>
+            !each.resolved &&
+            (each.inboxRequest !== null || each.progress === null),
+        );
   const conversation = anchor.inboxRequest === null;
   const { inboxRequest: _request, ...base } = anchor;
 
@@ -152,10 +161,10 @@ const groupOf = (entries: readonly InboxConversation[]): ShownGroup | null => {
     resolvable: parts.some((each) => each.resolvable),
     reopenable: resolved && parts.some((each) => each.reopenable),
     conversationId: conversation ? anchor.id : null,
-    latest: latestOf(unread),
+    latest: latestOf(previewed),
     quiet:
-      unread.length > 0 &&
-      unread.every((each) => kindOf(each) === 'judge-question'),
+      previewed.length > 0 &&
+      previewed.every((each) => kindOf(each) === 'judge-question'),
     parts: [...parts]
       .sort((one, other) => Date.parse(one.askedAt) - Date.parse(other.askedAt))
       .map(partOf),

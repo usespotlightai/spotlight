@@ -3330,11 +3330,11 @@ export type InboxItemResponseDto = {
    */
   unreadCount: number;
   /**
-   * What the newest unread part is, preferring one that blocks the line; null when nothing is unread
+   * What the row previews: the newest unread part, preferring one that blocks the line; once all is read, the newest part that still waits on the person. Null when nothing is unread and nothing waits
    */
   latest: InboxPartPreviewResponseDto | null;
   /**
-   * True when only judge questions are unread, so nothing unread blocks the line
+   * True when what the row previews is only judge questions, so none of it blocks the line
    */
   quiet: boolean;
   /**
@@ -3595,11 +3595,11 @@ export type InboxItemViewResponseDto = {
    */
   unreadCount: number;
   /**
-   * What the newest unread part is, preferring one that blocks the line; null when nothing is unread
+   * What the row previews: the newest unread part, preferring one that blocks the line; once all is read, the newest part that still waits on the person. Null when nothing is unread and nothing waits
    */
   latest: InboxPartPreviewResponseDto | null;
   /**
-   * True when only judge questions are unread, so nothing unread blocks the line
+   * True when what the row previews is only judge questions, so none of it blocks the line
    */
   quiet: boolean;
   /**

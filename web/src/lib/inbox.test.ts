@@ -161,6 +161,38 @@ describe('previewOf', () => {
     ).toBe('Planning stopped: The run exited.');
   });
 
+  it('previews what still waits on a read row, not the note its run works on', () => {
+    expect(
+      previewOf(
+        item(
+          { form: 'words', body: 'Request: add rate limiting to the API' },
+          {
+            conversationId: 'task_1:0',
+            latest: { kind: 'memories', count: 1 },
+            parts: [
+              part({ id: 'task_1:0', kind: 'question', form: null }),
+              part({ id: 'request_1', kind: 'memories', form: 'memories' }),
+            ],
+          },
+        ),
+      ),
+    ).toBe('A run proposed memories for the team.');
+  });
+
+  it('shows the latest note when nothing waits on a person', () => {
+    expect(
+      previewOf(
+        item(
+          { form: 'words', body: 'Request: add rate limiting to the API' },
+          {
+            conversationId: 'task_1:0',
+            parts: [part({ id: 'task_1:0', kind: 'question', form: null })],
+          },
+        ),
+      ),
+    ).toBe('Request: add rate limiting to the API');
+  });
+
   it('counts the judge questions that are new', () => {
     expect(
       previewOf(item(null, { latest: { kind: 'judge-question', count: 2 } })),
@@ -170,6 +202,7 @@ describe('previewOf', () => {
   it('says a station alert fired, and that it resolved', () => {
     const alert = (open: boolean) =>
       item(null, {
+        latest: open ? { kind: 'alert', count: 1 } : null,
         parts: [part({ kind: 'alert', form: 'alert', about: 'alert_1', open })],
       });
 
@@ -179,7 +212,10 @@ describe('previewOf', () => {
 
   it('says the judge and people disagree on a run, and that someone answered', () => {
     const disagreement = (open: boolean) =>
-      item(null, { parts: [part({ open })] });
+      item(null, {
+        latest: open ? { kind: 'judge-question', count: 1 } : null,
+        parts: [part({ open })],
+      });
 
     expect(previewOf(disagreement(true))).toBe(
       'The judge and people disagree on a run. Spotlight asks why.',

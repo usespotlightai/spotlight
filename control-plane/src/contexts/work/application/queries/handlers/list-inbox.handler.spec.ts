@@ -96,6 +96,7 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
       about: null,
       asks: 1,
       open: true,
+      waits: true,
       unread: true,
       unreadSince: asked,
       arrivedAt: asked,

@@ -491,8 +491,9 @@ export const previewOf = (item: InboxItem): string => {
     return askedBody(item) ?? `Waiting at ${item.station}`;
   }
 
+  // Nothing waits on a person: the latest note, or how its parts settled.
   return shown.open
-    ? waitingPreviewOf(item, shown.kind, 1)
+    ? (askedBody(item) ?? `Waiting at ${item.station}`)
     : settledPreviewOf(item, shown);
 };
 

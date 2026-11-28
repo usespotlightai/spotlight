@@ -50,6 +50,7 @@ const part = (
   about: `about_${id}`,
   asks: 1,
   open: true,
+  waits: true,
   unread: true,
   unreadSince: ASKED_AT,
   arrivedAt: ASKED_AT,

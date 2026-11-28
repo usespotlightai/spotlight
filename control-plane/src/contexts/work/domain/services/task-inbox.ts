@@ -25,6 +25,9 @@ export interface InboxPart {
   // item's "N new", its preview and the badge all count what people see.
   readonly asks: number;
   readonly open: boolean;
+  // Open and waiting on a person now: a conversation whose run works on the
+  // answer is open but waits on the run.
+  readonly waits: boolean;
   readonly unread: boolean;
   readonly unreadSince: Date | null;
   readonly arrivedAt: Date;
@@ -148,15 +151,18 @@ export const TaskInbox = {
 
     const unread = parts.filter((part) => part.unread);
     const resolved = parts.every((part) => !part.open);
+    // The row previews what is new; once all is read, what still waits.
+    const previewed =
+      unread.length > 0 ? unread : parts.filter((part) => part.waits);
 
     return {
       unreadCount: questionsIn(unread),
       resolved,
       listedAsOpen: !resolved || unread.length > 0,
-      latest: previewOf(unread),
+      latest: previewOf(previewed),
       quiet:
-        unread.length > 0 &&
-        unread.every((part) => part.kind === 'judge-question'),
+        previewed.length > 0 &&
+        previewed.every((part) => part.kind === 'judge-question'),
       arrivedAt: parts.reduce(
         (latest, part) => later(latest, part.arrivedAt),
         first.arrivedAt,
