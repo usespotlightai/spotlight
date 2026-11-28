@@ -20,7 +20,7 @@
     "electron-updater": "6.8.11"
   },
   "devDependencies": {
-    "@types/node": "^26.6.6",
+    "@types/node": "^26.6.10",
     "electron": "45.4.1",
     "electron-builder": "26.18.0",
     "knip": "^6.48.0",
