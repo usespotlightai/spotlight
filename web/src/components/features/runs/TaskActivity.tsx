@@ -18,19 +18,21 @@ type TaskActivityProps = {
 
 type Entry = { readonly at: string; readonly rows: ReactNode[] };
 
-// Runs come newest first. Each move goes before the first run that started before it.
-const interleaved = (runs: Entry[], moves: Entry[]): Entry[] => {
+const newestFirst = (runsNewestFirst: Entry[], moves: Entry[]): Entry[] => {
   const left = moves.toSorted(
     (one, other) => Date.parse(other.at) - Date.parse(one.at),
   );
   const merged: Entry[] = [];
 
-  for (const run of runs) {
-    const later = left.findIndex(
-      (move) => Date.parse(move.at) < Date.parse(run.at),
+  for (const run of runsNewestFirst) {
+    const firstAtOrBefore = left.findIndex(
+      (move) => Date.parse(move.at) <= Date.parse(run.at),
     );
 
-    merged.push(...left.splice(0, later === -1 ? left.length : later), run);
+    merged.push(
+      ...left.splice(0, firstAtOrBefore === -1 ? left.length : firstAtOrBefore),
+      run,
+    );
   }
 
   return [...merged, ...left];
@@ -45,7 +47,7 @@ export function TaskActivity({
   const { data: runs } = useTaskRuns(teamId, taskId);
   const { data: moves } = useTaskMoves(teamId, taskId);
 
-  const entries = interleaved(
+  const entries = newestFirst(
     (runs ?? []).map((run) => ({
       at: run.startedAt,
       rows: [
