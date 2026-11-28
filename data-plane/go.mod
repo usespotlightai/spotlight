@@ -4,13 +4,13 @@ go 1.26.11
 
 require (
 	charm.land/bubbles/v2 v2.2.2
-	charm.land/bubbletea/v2 v2.1.2
+	charm.land/bubbletea/v2 v2.1.3
 	charm.land/lipgloss/v2 v2.1.1
 	github.com/charmbracelet/x/ansi v0.11.10
 	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
 	github.com/getsentry/sentry-go v0.50.0
-	github.com/pkg/sftp v1.13.12
+	github.com/pkg/sftp v1.13.13
 	golang.org/x/crypto v0.59.0
 	golang.org/x/term v0.48.0
 )
