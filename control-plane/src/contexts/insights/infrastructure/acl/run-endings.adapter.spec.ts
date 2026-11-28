@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 const BACKFILL = readFileSync(
   join(
     __dirname,
-    '../../../../../drizzle/20261128110217_backfill_run_fact_left_out.sql',
+    '../../../../../drizzle/20261128163525_backfill_run_fact_left_out.sql',
   ),
   'utf8',
 );

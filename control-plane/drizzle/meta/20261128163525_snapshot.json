@@ -1,6 +1,6 @@
 {
-  "id": "ddccf7fb-e38b-45c9-9e51-84ea1feb2d6d",
-  "prevId": "addd5a54-d554-4b9d-8f3d-400eac72a17d",
+  "id": "e1acd69c-8eab-415c-8568-9baab00e14ea",
+  "prevId": "4ef93958-2a82-4611-a7de-20502cb49333",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -19555,6 +19555,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "asks": {
+          "name": "asks",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
         "asked_of_id": {
           "name": "asked_of_id",
           "type": "text",
@@ -19578,6 +19585,13 @@
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "resolved_by_a_person": {
+          "name": "resolved_by_a_person",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "version": {
           "name": "version",
