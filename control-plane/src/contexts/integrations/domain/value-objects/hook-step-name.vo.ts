@@ -1,7 +1,6 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-
-const STEP_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class HookStepName {
   private readonly kind = 'hook-step-name';
@@ -20,11 +19,8 @@ export class HookStepName {
   }
 
   static of(raw: string): HookStepName {
-    if (!STEP_NAME.test(raw)) {
-      throw new InvalidIdentifierError(
-        'hook step',
-        'is named in lowercase words joined by dashes, as in notify',
-      );
+    if (!isSlug(raw)) {
+      throw InvalidIdentifierError.notSlug('hook step name', 'notify');
     }
 
     return new HookStepName(raw);

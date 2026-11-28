@@ -22,4 +22,10 @@ describe('Opening', () => {
   ])('rejects %o, which is not named in words', (input) => {
     expect(() => Opening.of(input)).toThrow(InvalidIdentifierError);
   });
+
+  it('rejects a station that a run names in its handover, as a station key does', () => {
+    expect(() => Opening.of({ lineRole: 'delivery', station: 'done' })).toThrow(
+      /Station key cannot be done/,
+    );
+  });
 });

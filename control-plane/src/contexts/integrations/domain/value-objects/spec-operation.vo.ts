@@ -2,6 +2,7 @@ import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/inv
 import {
   INPUT_NAME,
   isSlug,
+  slugAdvice,
   WHOLE_CALL_INPUT,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
@@ -87,9 +88,7 @@ export class SpecOperation {
     const description = input.description.trim();
 
     if (!isSlug(input.name)) {
-      throw invalid(
-        'is not named in lowercase words joined by dashes, as in create-issue',
-      );
+      throw invalid(`is not valid. ${slugAdvice('create-issue')}`);
     }
 
     if (description === '') {

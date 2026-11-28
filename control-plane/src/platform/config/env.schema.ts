@@ -5,8 +5,8 @@ import {
 } from '@shared-kernel/application/integration-events/integration-event';
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import {
-  MAX_SLUG_LENGTH,
-  SLUG_SHAPE,
+  isSlug,
+  slugAdvice,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import {
@@ -110,15 +110,7 @@ export const envSchema = databaseSchema
       )
       .pipe(
         z
-          .array(
-            z
-              .string()
-              .max(MAX_SLUG_LENGTH)
-              .regex(
-                new RegExp(`^${SLUG_SHAPE}$`),
-                'is lowercase words joined by dashes, as in vpc-internal',
-              ),
-          )
+          .array(z.string().refine(isSlug, `${slugAdvice('vpc-internal')}.`))
           .refine((labels) => new Set(labels).size === labels.length, {
             message: 'names a label twice',
           }),

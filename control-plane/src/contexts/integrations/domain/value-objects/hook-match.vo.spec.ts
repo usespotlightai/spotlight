@@ -159,6 +159,31 @@ describe('HookMatch', () => {
     );
   });
 
+  it('says how to write a line or station it cannot read', () => {
+    const because = (
+      fields: Partial<Parameters<typeof HookMatch.written>[0]>,
+    ) => {
+      try {
+        matching('task.moved', fields);
+      } catch (error) {
+        return error instanceof InvalidHookError ? error.because : error;
+      }
+
+      return null;
+    };
+
+    expect([
+      because({ lines: ['Delivery'] }),
+      because({ stations: ['done'] }),
+    ]).toEqual([
+      'Use lowercase letters and digits, with single dashes between words, such as web-app (at most 64 characters).',
+      'Choose another name. A run names done in its handover to finish its task.',
+    ]);
+    expect(() => matching('task.moved', { lines: ['Delivery'] })).toThrow(
+      'Hook match.lines[0]: Line key is not valid. Use lowercase letters and digits, with single dashes between words, such as web-app (at most 64 characters).',
+    );
+  });
+
   it('is for the event it was written for', () => {
     expect(matching('task.moved', {}).isFor(HookEvent.of('task.moved'))).toBe(
       true,

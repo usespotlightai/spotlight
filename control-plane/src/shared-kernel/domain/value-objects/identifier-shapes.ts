@@ -1,11 +1,14 @@
 export const SLUG_SHAPE = '[a-z0-9]+(-[a-z0-9]+)*';
 
-export const MAX_SLUG_LENGTH = 64;
+const MAX_SLUG_LENGTH = 64;
 
 const EXACTLY_SLUG = new RegExp(`^${SLUG_SHAPE}$`);
 
 export const isSlug = (named: string): boolean =>
   EXACTLY_SLUG.test(named) && named.length <= MAX_SLUG_LENGTH;
+
+export const slugAdvice = (example: string, otherShape?: string): string =>
+  `Use lowercase letters and digits, with single dashes between words, such as ${example} (at most ${MAX_SLUG_LENGTH} characters)${otherShape === undefined ? '' : `, or ${otherShape}`}`;
 
 export const slugify = (name: string): string =>
   name

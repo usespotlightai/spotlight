@@ -186,7 +186,7 @@ func TestThePoolNameMustBeASlug(t *testing.T) {
 	m.setupView.input.SetValue("Leon's Mac")
 	m, _ = press(m, "enter")
 
-	if m.setupView.step != nameStep || !strings.Contains(screenText(m), "lowercase words joined by dashes") {
+	if m.setupView.step != nameStep || !strings.Contains(screenText(m), "single dashes between words") {
 		t.Errorf("step %v:\n%s", m.setupView.step, screenText(m))
 	}
 }

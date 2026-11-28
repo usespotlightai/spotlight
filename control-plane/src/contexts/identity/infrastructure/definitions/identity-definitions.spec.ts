@@ -100,6 +100,26 @@ describe('IdentityDefinitions', () => {
     ).toEqual(['key']);
   });
 
+  it('advises how to write a team key or token name it refuses', () => {
+    const reasons = (
+      compiled: ParsedTeam | ParsedWorkspaceToken,
+    ): readonly string[] =>
+      compiled.ok ? [] : compiled.problems.map((each) => each.reason);
+
+    expect([
+      ...reasons(definitions.team({ key: 'Core Team', name: 'Core' })),
+      ...reasons(
+        definitions.workspaceToken({
+          name: 'Local Terraform!',
+          scopes: ['plan'],
+        }),
+      ),
+    ]).toEqual([
+      'Use lowercase letters and digits, with single dashes between words, such as platform-team (at most 64 characters).',
+      'Use lowercase letters and digits, with single dashes between words, such as ci-deploy (at most 64 characters).',
+    ]);
+  });
+
   it('reads a workspace token as its settings, never expiring and undescribed unless told', () => {
     const compiled = definitions.workspaceToken({
       name: 'ci',

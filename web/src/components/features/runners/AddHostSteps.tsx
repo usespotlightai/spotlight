@@ -51,8 +51,7 @@ export function AddHostSteps({ slug, workspaceId }: AddHostStepsProps) {
           </div>
         ) : (
           <CreatePoolForm
-            key={suggested}
-            defaultName={suggested}
+            suggestedName={suggested}
             creating={creating.isPending || Boolean(created)}
             refusal={creating.error ? messageOf(creating.error) : null}
             onCreate={(name) => creating.mutate(name)}

@@ -3,9 +3,10 @@ import { type SubmitEvent, useId, useState } from 'react';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
 import { nonEmpty } from '@/lib/non-empty';
+import { LONGEST_SLUG, sanitizeSlug, slugify } from '@/lib/slug';
 
 type CreatePoolFormProps = {
-  defaultName: string;
+  suggestedName: string;
   creating: boolean;
   refusal: string | null;
   onCreate: (name: string) => void;
@@ -13,22 +14,22 @@ type CreatePoolFormProps = {
 };
 
 export function CreatePoolForm({
-  defaultName,
+  suggestedName,
   creating,
   refusal,
   onCreate,
   onEdit,
 }: CreatePoolFormProps) {
   const nameId = useId();
-  const [name, setName] = useState(defaultName);
-  const named = name.trim();
+  const hintId = useId();
+  const refusalId = useId();
+  const refused = nonEmpty(refusal);
+  const [name, setName] = useState('');
+  const named = slugify(name) || suggestedName;
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (named) {
-      onCreate(named);
-    }
+    onCreate(named);
   };
 
   return (
@@ -41,27 +42,34 @@ export function CreatePoolForm({
         <FieldInput
           id={nameId}
           name="name"
-          required
+          placeholder={suggestedName}
+          aria-invalid={refused || undefined}
+          aria-describedby={refused ? `${refusalId} ${hintId}` : hintId}
           autoComplete="off"
           spellCheck={false}
+          maxLength={LONGEST_SLUG}
           disabled={creating}
           value={name}
           onChange={(event) => {
-            setName(event.target.value);
+            setName(sanitizeSlug(event.target.value));
             onEdit();
           }}
         />
 
-        <Button type="submit" disabled={!named || creating}>
+        <Button type="submit" disabled={creating}>
           Create pool
         </Button>
       </div>
 
-      {nonEmpty(refusal) && (
-        <p role="alert" className="text-destructive text-xs">
+      {refused && (
+        <p id={refusalId} role="alert" className="text-destructive text-xs">
           {refusal}
         </p>
       )}
+
+      <p id={hintId} className="text-muted-foreground text-xs">
+        Leave it empty to use {suggestedName}.
+      </p>
     </form>
   );
 }

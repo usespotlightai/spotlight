@@ -603,6 +603,39 @@ webhook:
     });
   });
 
+  it('points at the line role or station an event opens on that it refuses, saying how to write it', () => {
+    const opening = (lineRole: string, station: string) => `integration: slack
+webhook:
+  verify:
+    token:
+      secret: secret.SLACK_SIGNING_SECRET
+  events:
+    - when: \${{ true }}
+      raise:
+        happening: slack.app_mention
+        opens:
+          lineRole: ${lineRole}
+          station: ${station}
+          title: \${{ body.event.text }}
+`;
+
+    expect(
+      problems(opening('Delivery', 'done')).map((each) => [
+        dottedOf(each.field),
+        each.reason,
+      ]),
+    ).toEqual([
+      [
+        'webhook.events.0.raise.opens.lineRole',
+        'Use lowercase letters and digits, with single dashes between words, such as delivery (at most 64 characters).',
+      ],
+      [
+        'webhook.events.0.raise.opens.station',
+        'Choose another name. A run names done in its handover to finish its task.',
+      ],
+    ]);
+  });
+
   describe('a mark that does not find a task', () => {
     const withAmbient = `integration: slack
 webhook:

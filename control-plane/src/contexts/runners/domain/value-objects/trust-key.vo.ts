@@ -1,8 +1,5 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import {
-  isSlug,
-  MAX_SLUG_LENGTH,
-} from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class TrustKey {
   private readonly kind = 'trust-key';
@@ -13,9 +10,9 @@ export class TrustKey {
     const named = raw.trim();
 
     if (!isSlug(named)) {
-      throw new InvalidIdentifierError(
+      throw InvalidIdentifierError.notSlug(
         'runner trust key',
-        `is lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in production-cluster`,
+        'production-cluster',
       );
     }
 

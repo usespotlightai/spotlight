@@ -30,6 +30,54 @@ export function messageOf(
   return fallback;
 }
 
+export class FieldRefusal extends Error {
+  readonly field: string;
+
+  constructor(message: string, field: string) {
+    super(message);
+    this.name = 'FieldRefusal';
+    this.field = field;
+  }
+}
+
+type Reason = { readonly field: string; readonly message: string };
+
+const reasonOf = (error: unknown): Reason | null => {
+  const field = fieldOf(error, 'path');
+  const message = fieldOf(error, 'message');
+
+  return typeof field === 'string' &&
+    typeof message === 'string' &&
+    message.length > 0
+    ? { field, message }
+    : null;
+};
+
+export function refusalOf(
+  thrown: unknown,
+  fields: readonly string[],
+  fallback?: string,
+): Error {
+  const errors = fieldOf(thrown, 'errors');
+  const reasons = (Array.isArray(errors) ? errors : [])
+    .filter((error) => fieldOf(error, 'severity') !== 'warning')
+    .map(reasonOf);
+  const [first] = reasons;
+
+  if (
+    first &&
+    fields.includes(first.field) &&
+    reasons.every((reason) => reason?.field === first.field)
+  ) {
+    return new FieldRefusal(
+      reasons.map((reason) => reason?.message).join(' '),
+      first.field,
+    );
+  }
+
+  return new Error(messageOf(thrown, fallback));
+}
+
 const answered = (thrown: unknown, status: number): boolean => {
   return (
     fieldOf(thrown, 'statusCode') === status ||

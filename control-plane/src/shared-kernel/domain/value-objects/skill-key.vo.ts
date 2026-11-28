@@ -2,7 +2,6 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 import {
   isCatalogReference,
   isSlug,
-  MAX_SLUG_LENGTH,
   unversioned,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
@@ -13,9 +12,10 @@ export class SkillKey {
     const trimmed = raw.trim();
 
     if (!isSlug(trimmed) && !isCatalogReference(trimmed)) {
-      throw new InvalidIdentifierError(
-        'skill',
-        `must be lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters (e.g. spotlight-handover), or a catalog skill id (e.g. catalog.research@1.0.0)`,
+      throw InvalidIdentifierError.notSlug(
+        'skill key',
+        'spotlight-handover',
+        'a catalog skill id, such as catalog.research@1.0.0',
       );
     }
 

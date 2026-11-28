@@ -97,16 +97,48 @@ describe('AddHost', () => {
     expect(screen.getByText('The runners')).toBeInTheDocument();
   });
 
-  it('creates a pool with the name given', async () => {
+  it('suggests a pool name, and creates it when no other is typed', async () => {
     const person = userEvent.setup();
 
     renderPage();
 
-    expect(screen.getByLabelText('Pool name')).toHaveValue('my-computer-1');
+    const name = screen.getByLabelText('Pool name');
+    expect(name).toHaveValue('');
+    expect(name).toHaveAttribute('placeholder', 'my-computer-1');
 
     await person.click(screen.getByRole('button', { name: 'Create pool' }));
 
     expect(create).toHaveBeenCalledWith('my-computer-1');
+  });
+
+  it('creates the suggested pool when only spaces are typed', async () => {
+    const person = userEvent.setup();
+
+    renderPage();
+
+    await person.type(screen.getByLabelText('Pool name'), '   ');
+    await person.click(screen.getByRole('button', { name: 'Create pool' }));
+
+    expect(create).toHaveBeenCalledWith('my-computer-1');
+  });
+
+  it('says that an empty name uses the suggested one', () => {
+    renderPage();
+
+    expect(screen.getByLabelText('Pool name')).toHaveAccessibleDescription(
+      'Leave it empty to use my-computer-1.',
+    );
+  });
+
+  it('creates the pool with the name typed instead of the suggested one', async () => {
+    const person = userEvent.setup();
+
+    renderPage();
+
+    await person.type(screen.getByLabelText('Pool name'), 'dev-host');
+    await person.click(screen.getByRole('button', { name: 'Create pool' }));
+
+    expect(create).toHaveBeenCalledWith('dev-host');
   });
 
   it('suggests the first numbered name no pool has yet', () => {
@@ -118,34 +150,48 @@ describe('AddHost', () => {
 
     renderPage();
 
-    expect(screen.getByLabelText('Pool name')).toHaveValue('my-computer-3');
+    expect(screen.getByLabelText('Pool name')).toHaveAttribute(
+      'placeholder',
+      'my-computer-3',
+    );
   });
 
-  it('keeps the pool name as it is typed, for Spotlight to check', async () => {
+  it('writes the pool name in lowercase words joined by dashes as it is typed', async () => {
     const person = userEvent.setup();
 
     renderPage();
 
     const name = screen.getByLabelText('Pool name');
-    await person.clear(name);
     await person.type(name, ' My Mac Pool! ');
+
+    expect(name).toHaveValue('my-mac-pool-');
+
     await person.click(screen.getByRole('button', { name: 'Create pool' }));
 
-    expect(name).toHaveValue(' My Mac Pool! ');
-    expect(create).toHaveBeenCalledWith('My Mac Pool!');
+    expect(create).toHaveBeenCalledWith('my-mac-pool');
   });
 
-  it('says why Spotlight refused the pool name', () => {
-    creating.mockReturnValue({
-      error: new Error(
-        'key: is lowercase words joined by dashes, at most 64 characters, as in ephemeral',
-      ),
-    });
+  it('takes no more of the pool name than Spotlight keeps', () => {
+    renderPage();
+
+    expect(screen.getByLabelText('Pool name')).toHaveAttribute(
+      'maxLength',
+      '64',
+    );
+  });
+
+  it('says why Spotlight refused the pool name, beside the name', () => {
+    const advice =
+      'Use lowercase letters and digits, with single dashes between words, such as dev-host (at most 64 characters).';
+    creating.mockReturnValue({ error: new Error(advice) });
 
     renderPage();
 
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'key: is lowercase words joined by dashes, at most 64 characters, as in ephemeral',
+    expect(screen.getByRole('alert')).toHaveTextContent(advice);
+    const name = screen.getByLabelText('Pool name');
+    expect(name).toHaveAttribute('aria-invalid', 'true');
+    expect(name).toHaveAccessibleDescription(
+      `${advice} Leave it empty to use my-computer-1.`,
     );
   });
 

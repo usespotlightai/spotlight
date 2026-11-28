@@ -1,7 +1,10 @@
 import { InvalidActionError } from '@integrations/domain/exceptions/invalid-action.error';
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
-import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import {
+  isSlug,
+  slugAdvice,
+} from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export interface ActionFields {
   readonly name: string;
@@ -100,7 +103,7 @@ export class Action {
     if (!isSlug(fields.name)) {
       throw new InvalidIntegrationPartError(
         `action ${JSON.stringify(fields.name)}`,
-        'must be lowercase words joined by dashes, as in post-message',
+        `is not valid. ${slugAdvice('post-message')}`,
       );
     }
 

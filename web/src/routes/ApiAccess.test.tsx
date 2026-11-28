@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { FieldRefusal } from '@/lib/error';
 import { ApiAccess } from '@/routes/ApiAccess';
 
 const listed = vi.fn<(...args: unknown[]) => unknown>();
@@ -249,32 +250,64 @@ describe('ApiAccess', () => {
     );
   });
 
-  it('keeps the name as it is typed, for Spotlight to check', async () => {
+  it('writes the name in lowercase words joined by dashes as it is typed', async () => {
     const { person, dialog } = await openCreate();
     const name = within(dialog).getByLabelText('Name');
 
     await person.type(name, 'Local Terraform!');
+
+    expect(name).toHaveValue('local-terraform-');
+    expect(name).toHaveAttribute('maxLength', '64');
+
     await person.click(
       within(dialog).getByRole('button', { name: 'Create token' }),
     );
 
-    expect(name).toHaveValue('Local Terraform!');
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Local Terraform!' }),
+      expect.objectContaining({ name: 'local-terraform' }),
       expect.anything(),
+    );
+  });
+
+  it('creates no token from a name with nothing to keep', async () => {
+    const { person, dialog } = await openCreate();
+
+    await person.type(within(dialog).getByLabelText('Name'), '!!!');
+
+    expect(
+      within(dialog).getByRole('button', { name: 'Create token' }),
+    ).toBeDisabled();
+  });
+
+  it('says why Spotlight refused the token name, under the name', async () => {
+    const advice =
+      'Use lowercase letters and digits, with single dashes between words, such as ci-deploy (at most 64 characters).';
+    refusal.mockReturnValue(new FieldRefusal(advice, 'name'));
+    const { dialog } = await openCreate();
+
+    const alert = within(dialog).getByRole('alert');
+    expect(alert).toHaveTextContent(advice);
+    expect(within(dialog).getByLabelText('Name')).toHaveAttribute(
+      'aria-describedby',
+      alert.id,
+    );
+    expect(within(dialog).getByLabelText('Name')).toHaveAttribute(
+      'aria-invalid',
+      'true',
     );
   });
 
   it('says why Spotlight refused the token', async () => {
     refusal.mockReturnValue(
-      new Error(
-        'name: is lowercase words joined by dashes, at most 64 characters, as in ci',
-      ),
+      new Error('scopes: include read, plan or configure'),
     );
     const { dialog } = await openCreate();
 
     expect(within(dialog).getByRole('alert')).toHaveTextContent(
-      'name: is lowercase words joined by dashes, at most 64 characters, as in ci',
+      'scopes: include read, plan or configure',
+    );
+    expect(within(dialog).getByLabelText('Name')).not.toHaveAttribute(
+      'aria-invalid',
     );
   });
 

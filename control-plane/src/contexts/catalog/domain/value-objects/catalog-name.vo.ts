@@ -1,7 +1,7 @@
 import { InvalidCatalogEntryError } from '@catalog/domain/exceptions/invalid-catalog-entry.error';
 import {
   isSlug,
-  MAX_SLUG_LENGTH,
+  slugAdvice,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class CatalogName {
@@ -13,7 +13,7 @@ export class CatalogName {
     if (!isSlug(trimmed)) {
       throw new InvalidCatalogEntryError(
         'name',
-        `Catalog name "${trimmed}" must be lowercase words joined by dashes, such as web-search. Maximum length: ${MAX_SLUG_LENGTH} characters`,
+        `Catalog name "${trimmed}" is not valid. ${slugAdvice('web-search')}.`,
       );
     }
 

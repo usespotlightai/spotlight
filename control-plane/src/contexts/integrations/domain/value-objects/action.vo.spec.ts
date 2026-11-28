@@ -61,7 +61,7 @@ describe('Action', () => {
       InvalidActionError,
     );
     expect(() => Action.of(fields({ name: 'Post Now' }))).toThrow(
-      /lowercase words joined by dashes/,
+      'Integration action "Post Now" is not valid. Use lowercase letters and digits, with single dashes between words, such as post-message (at most 64 characters).',
     );
   });
 
