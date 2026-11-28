@@ -5,11 +5,13 @@ import type {
   InboxEntry,
   InboxItem,
   InboxNotice,
+  InboxPart,
   JournalStep,
   Note,
   RunJournal,
 } from '@/lib/inbox';
 import {
+  actOnParts,
   chatPreviewOf,
   counted,
   entryKey,
@@ -27,6 +29,7 @@ import {
   spentOn,
   workingWordsOf,
   threadText,
+  unreadCountOf,
   workedOn,
 } from '@/lib/inbox';
 import { partial } from '@/test/partial';
@@ -93,12 +96,33 @@ describe('spentIn', () => {
 });
 
 describe('previewOf', () => {
-  const item = (lastNote: Partial<Note> | null) =>
+  const item = (
+    lastNote: Partial<Note> | null,
+    over: Partial<InboxItem> = {},
+  ) =>
     partial<InboxItem>({
       station: 'Planning',
       description: 'A few quick steps will get everything ready.',
       lastNote: lastNote === null ? null : partial<Note>(lastNote),
+      conversationId: null,
+      latest: null,
+      parts: [],
+      ...over,
     });
+
+  const part = (over: Partial<InboxPart>): InboxPart => ({
+    id: 'request_1',
+    kind: 'judge-question',
+    form: 'judge-disagreement',
+    about: 'disagreement_1',
+    asks: 1,
+    at: '2026-11-27T09:00:00.000Z',
+    open: true,
+    unread: false,
+    resolvable: false,
+    reopenable: false,
+    ...over,
+  });
 
   it('shows the last note', () => {
     expect(previewOf(item({ form: 'words', body: 'Which queue?' }))).toBe(
@@ -116,30 +140,126 @@ describe('previewOf', () => {
     expect(previewOf(item(null))).toBe('Waiting at Planning');
   });
 
-  it('says a station alert fired, and that it resolved', () => {
-    const alert = (resolved: boolean) =>
-      ({
-        ...item(null),
-        resolved,
-        inboxRequest: { form: 'alert', about: 'alert_1' },
-      }) as InboxItem;
+  it('says a station asks, when its question is the newest unread thing', () => {
+    expect(
+      previewOf(
+        item(
+          { form: 'words', body: 'Which queue?', voice: 'station' },
+          { latest: { kind: 'question', count: 1 } },
+        ),
+      ),
+    ).toBe('Planning asks: Which queue?');
+  });
 
-    expect(previewOf(alert(false))).toBe('Station alert fired.');
-    expect(previewOf(alert(true))).toBe('Station alert resolved.');
+  it('shows a person’s answer to the open question as it is, not as the station’s question', () => {
+    expect(
+      previewOf(
+        item(
+          { form: 'words', body: 'Leave it for now.', voice: 'person' },
+          { latest: { kind: 'question', count: 1 } },
+        ),
+      ),
+    ).toBe('Leave it for now.');
+  });
+
+  it('shows a note from GitHub as it is, not as the station’s question', () => {
+    expect(
+      previewOf(
+        item(
+          {
+            form: 'words',
+            body: 'The pull request was closed without being merged.',
+            voice: 'world',
+          },
+          { latest: { kind: 'question', count: 1 } },
+        ),
+      ),
+    ).toBe('The pull request was closed without being merged.');
+  });
+
+  it('says a run stopped, when a failed run waits for an answer', () => {
+    expect(
+      previewOf(
+        item(
+          { form: 'failure', body: 'The run exited.', voice: 'station' },
+          { latest: { kind: 'failure', count: 1 } },
+        ),
+      ),
+    ).toBe('Planning stopped: The run exited.');
+  });
+
+  it('previews what still waits on a read row, not the note its run works on', () => {
+    expect(
+      previewOf(
+        item(
+          { form: 'words', body: 'Request: add rate limiting to the API' },
+          {
+            conversationId: 'task_1:0',
+            latest: { kind: 'memories', count: 1 },
+            parts: [
+              part({ id: 'task_1:0', kind: 'question', form: null }),
+              part({ id: 'request_1', kind: 'memories', form: 'memories' }),
+            ],
+          },
+        ),
+      ),
+    ).toBe('A run proposed memories for the team.');
+  });
+
+  it('shows the latest note when nothing waits on a person', () => {
+    expect(
+      previewOf(
+        item(
+          { form: 'words', body: 'Request: add rate limiting to the API' },
+          {
+            conversationId: 'task_1:0',
+            parts: [part({ id: 'task_1:0', kind: 'question', form: null })],
+          },
+        ),
+      ),
+    ).toBe('Request: add rate limiting to the API');
+  });
+
+  it('counts the judge questions that are new', () => {
+    expect(
+      previewOf(item(null, { latest: { kind: 'judge-question', count: 2 } })),
+    ).toBe('2 judge questions');
+  });
+
+  it('says a station alert fired, and that it resolved', () => {
+    const alert = (open: boolean) =>
+      item(null, {
+        latest: open ? { kind: 'alert', count: 1 } : null,
+        parts: [part({ kind: 'alert', form: 'alert', about: 'alert_1', open })],
+      });
+
+    expect(previewOf(alert(true))).toBe('Station alert fired.');
+    expect(previewOf(alert(false))).toBe('Station alert resolved.');
   });
 
   it('says the judge and people disagree on a run, and that someone answered', () => {
-    const disagreement = (resolved: boolean) =>
-      ({
-        ...item(null),
-        resolved,
-        inboxRequest: { form: 'judge-disagreement', about: 'disagreement_1' },
-      }) as InboxItem;
+    const disagreement = (open: boolean) =>
+      item(null, {
+        latest: open ? { kind: 'judge-question', count: 1 } : null,
+        parts: [part({ open })],
+      });
 
-    expect(previewOf(disagreement(false))).toBe(
+    expect(previewOf(disagreement(true))).toBe(
       'The judge and people disagree on a run. Spotlight asks why.',
     );
-    expect(previewOf(disagreement(true))).toBe('Disagreement resolved.');
+    expect(previewOf(disagreement(false))).toBe('Disagreement resolved.');
+  });
+});
+
+describe('unreadCountOf', () => {
+  it('adds up what each entry counts as unread', () => {
+    expect(
+      unreadCountOf([
+        partial<InboxItem>({ unreadCount: 4 }),
+        partial<InboxChat>({ unreadCount: 1 }),
+        partial<InboxNotice>({ unreadCount: 0 }),
+      ]),
+    ).toBe(5);
   });
 });
 
@@ -390,6 +510,7 @@ const notice = (over: Partial<InboxNotice> = {}): InboxNotice => ({
   form: 'ended',
   headline: 'Spotlight opened a config pull request for the Build station',
   points: ['Candidate terse changes prompt.', 'Held-out gain: +8 points'],
+  unreadCount: 0,
   link: 'lines/line_1/stations/station_1',
   linkLabel: 'Open the station',
   externalLink: {
@@ -483,6 +604,7 @@ describe('chatPreviewOf', () => {
     title: 'Why do retries pile up?',
     progress: null,
     openProposals: 0,
+    unreadCount: 0,
     askedAt: '2026-10-01T10:00:00.000Z',
     unread: false,
     resolved: false,
@@ -540,5 +662,47 @@ describe('resolvable', () => {
   it('follows the server for a notice', () => {
     expect(resolvable(notice())).toBe(true);
     expect(resolvable(notice({ resolvable: false }))).toBe(false);
+  });
+});
+
+describe('actOnParts', () => {
+  const part = (id: string, form: InboxPart['form']) =>
+    partial<InboxPart>({ id, form });
+
+  it('acts on a task’s conversations one after another, and on its requests at once', async () => {
+    const started: string[] = [];
+    const finished: string[] = [];
+    const releases = new Map<string, () => void>();
+    const act = (each: InboxPart) => {
+      started.push(each.id);
+      return new Promise<void>((resolve) => {
+        releases.set(each.id, () => {
+          finished.push(each.id);
+          resolve();
+        });
+      });
+    };
+    const done = actOnParts(
+      [
+        part('task_1:1', null),
+        part('request_1', 'judge-disagreement'),
+        part('task_1:2', null),
+        part('request_2', 'memories'),
+      ],
+      act,
+    );
+
+    await Promise.resolve();
+    expect(started).toEqual(['task_1:1', 'request_1', 'request_2']);
+
+    releases.get('task_1:1')?.();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(started).toContain('task_1:2');
+
+    for (const id of ['request_1', 'request_2', 'task_1:2']) {
+      releases.get(id)?.();
+    }
+    await done;
+    expect(finished).toHaveLength(4);
   });
 });

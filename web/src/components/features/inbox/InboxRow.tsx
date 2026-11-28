@@ -19,7 +19,7 @@ export function InboxRow({ slug, item }: InboxRowProps) {
     <InboxRowFrame
       to={inboxItemPath(slug, item.id)}
       onIntent={
-        item.inboxRequest
+        item.conversationId === null
           ? undefined
           : () => prefetch(item.taskId, [item.runId])
       }
@@ -31,6 +31,8 @@ export function InboxRow({ slug, item }: InboxRowProps) {
       }
       title={item.title}
       unread={item.unread}
+      unreadCount={item.unreadCount}
+      quiet={item.quiet}
       at={item.askedAt}
       preview={plainPreview(previewOf(item))}
       badge={<FailureCount failure={item.failure} />}

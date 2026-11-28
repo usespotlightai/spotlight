@@ -3,6 +3,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { MarkConversationReadCommand } from '@work/application/commands/mark-conversation-read.command';
 import type { ConversationLoader } from '@work/application/services/conversation-loader.service';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ConversationAudience } from '@work/domain/services/conversation-audience';
 
@@ -18,19 +19,27 @@ export class MarkConversationReadHandler implements CommandHandlerPort<
 
   async execute(command: MarkConversationReadCommand): Promise<void> {
     try {
-      const { item, task, standing } = await this.conversations.seenBy(
-        command.conversationId,
-        command.readBy,
-      );
-
-      if (
-        ConversationAudience.answers(standing) &&
-        task.unreadFrom(item.from)
-      ) {
-        await this.tasks.save(task.read(item.from, this.clock.now()));
-      }
+      // Opening a task's item reads each of its conversations at once, and
+      // they all write the one task.
+      await this.readOnce(command).catch((error: unknown) => {
+        if (error instanceof TaskVersionConflictError) {
+          return this.readOnce(command);
+        }
+        throw error;
+      });
     } catch (error) {
       rethrowAsApplicationError(error);
+    }
+  }
+
+  private async readOnce(command: MarkConversationReadCommand): Promise<void> {
+    const { item, task, standing } = await this.conversations.seenBy(
+      command.conversationId,
+      command.readBy,
+    );
+
+    if (ConversationAudience.answers(standing) && task.unreadFrom(item.from)) {
+      await this.tasks.save(task.read(item.from, this.clock.now()));
     }
   }
 }

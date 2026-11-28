@@ -36,7 +36,7 @@ export class ResolveInboxRequestHandler implements CommandHandlerPort<
       command.inboxRequestId,
       command.resolvedBy,
     );
-    const resolved = inboxRequest.resolve(this.clock.now());
+    const resolved = inboxRequest.resolve(this.clock.now(), true);
 
     if (resolved !== inboxRequest) {
       await this.inboxRequests.save(resolved);

@@ -9,6 +9,7 @@ import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.eve
 import { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
 import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
 import type { ConversationStanding } from '@work/domain/services/conversation-audience';
+import { InboxRequestAsks } from '@work/domain/value-objects/inbox-request-asks.vo';
 import {
   INBOX_REQUEST_FORMS,
   type InboxRequestForm,
@@ -42,11 +43,13 @@ export class InboxRequest extends EventRecorder {
     readonly taskId: TaskId,
     readonly form: InboxRequestForm,
     readonly about: InboxRequestSubject,
+    readonly asks: InboxRequestAsks,
     readonly askedOf: UserId | null,
     readonly createdAt: Date,
     readonly openedAt: Date,
     readonly reads: readonly InboxRequestRead[],
     readonly resolvedAt: Date | null,
+    readonly resolvedByAPerson: boolean,
     readonly version: number,
   ) {
     super();
@@ -58,6 +61,7 @@ export class InboxRequest extends EventRecorder {
     taskId: TaskId;
     form: InboxRequestForm;
     about: InboxRequestSubject;
+    asks?: InboxRequestAsks;
     askedOf: UserId | null;
     now: Date;
   }): InboxRequest {
@@ -67,11 +71,13 @@ export class InboxRequest extends EventRecorder {
       input.taskId,
       input.form,
       input.about,
+      input.asks ?? InboxRequestAsks.ONE,
       input.askedOf,
       input.now,
       input.now,
       [],
       null,
+      false,
       0,
     );
     created.record(
@@ -92,11 +98,13 @@ export class InboxRequest extends EventRecorder {
     taskId: TaskId;
     form: InboxRequestForm;
     about: InboxRequestSubject;
+    asks: InboxRequestAsks;
     askedOf: UserId | null;
     createdAt: Date;
     openedAt: Date;
     reads: readonly InboxRequestRead[];
     resolvedAt: Date | null;
+    resolvedByAPerson: boolean;
     version: number;
   }): InboxRequest {
     if (input.version < 0) {
@@ -110,6 +118,13 @@ export class InboxRequest extends EventRecorder {
       throw new InconsistentStateError(
         'inbox request',
         'was opened before it was created',
+      );
+    }
+
+    if (input.resolvedByAPerson && !input.resolvedAt) {
+      throw new InconsistentStateError(
+        'inbox request',
+        'was resolved by a person while it is open',
       );
     }
 
@@ -143,11 +158,13 @@ export class InboxRequest extends EventRecorder {
       input.taskId,
       input.form,
       input.about,
+      input.asks,
       input.askedOf,
       input.createdAt,
       input.openedAt,
       input.reads,
       input.resolvedAt,
+      input.resolvedByAPerson,
       input.version,
     );
   }
@@ -166,6 +183,15 @@ export class InboxRequest extends EventRecorder {
 
   static reopenableBy(team: TeamStanding, resolvedAt: Date | null): boolean {
     return team.actsOnTasks && InboxRequest.reopenable(resolvedAt);
+  }
+
+  // Reopening a task's item brings back what a person resolved, not what
+  // was settled where it was asked, such as an answered judge question.
+  static reopensWithItem(
+    team: TeamStanding,
+    resolved: { readonly at: Date | null; readonly byAPerson: boolean },
+  ): boolean {
+    return resolved.byAPerson && InboxRequest.reopenableBy(team, resolved.at);
   }
 
   static requiredAccess(form: InboxRequestForm): InboxRequestAccess {
@@ -275,13 +301,19 @@ export class InboxRequest extends EventRecorder {
     return read;
   }
 
-  resolve(now: Date): InboxRequest {
+  // While it is open, the asker can say how many questions are left; an
+  // answered one does not count as new again.
+  stillAsks(asks: InboxRequestAsks): InboxRequest {
+    return !this.open || this.asks.equals(asks) ? this : this.with({ asks });
+  }
+
+  resolve(now: Date, byAPerson = false): InboxRequest {
     if (!this.open) {
       return this;
     }
 
     const resolved = this.with(
-      { resolvedAt: now },
+      { resolvedAt: now, resolvedByAPerson: byAPerson },
       (event) =>
         !(
           event instanceof InboxRequestOpened ||
@@ -307,11 +339,13 @@ export class InboxRequest extends EventRecorder {
       this.taskId,
       this.form,
       this.about,
+      this.asks,
       this.askedOf,
       this.createdAt,
       now,
       [],
       null,
+      false,
       this.version,
     );
     reopened.inheritEvents(this);
@@ -329,8 +363,10 @@ export class InboxRequest extends EventRecorder {
 
   private with(
     change: {
+      asks?: InboxRequestAsks;
       reads?: readonly InboxRequestRead[];
       resolvedAt?: Date;
+      resolvedByAPerson?: boolean;
     },
     keeps: (event: DomainEvent) => boolean = () => true,
   ): InboxRequest {
@@ -340,11 +376,13 @@ export class InboxRequest extends EventRecorder {
       this.taskId,
       this.form,
       this.about,
+      change.asks ?? this.asks,
       this.askedOf,
       this.createdAt,
       this.openedAt,
       change.reads ?? this.reads,
       change.resolvedAt ?? this.resolvedAt,
+      change.resolvedByAPerson ?? this.resolvedByAPerson,
       this.version,
     );
     next.inheritEvents(this, keeps);

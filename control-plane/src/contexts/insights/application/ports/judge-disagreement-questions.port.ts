@@ -11,6 +11,7 @@ export interface JudgeDisagreementQuestionsPort {
     taskId: TaskId,
     disagreementId: JudgeDisagreementId,
     askedOf: UserId | null,
+    questions: number,
   ): Promise<void>;
 
   resolve(

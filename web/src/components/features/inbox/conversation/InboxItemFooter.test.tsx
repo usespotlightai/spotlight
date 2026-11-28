@@ -62,7 +62,12 @@ const showing = (
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
-        <InboxItemFooter slug="acme" item={item} progress={progress} />
+        <InboxItemFooter
+          slug="acme"
+          item={item}
+          conversationId="task_1:0"
+          progress={progress}
+        />
       </MemoryRouter>
     </QueryClientProvider>,
   );

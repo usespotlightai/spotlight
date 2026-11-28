@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { use, useId, useRef, useState } from 'react';
 
 import { ProposedMemoryControls } from '@/components/features/inbox/memories/ProposedMemoryControls';
 import { ProposedMemoryFacts } from '@/components/features/inbox/memories/ProposedMemoryFacts';
@@ -20,6 +20,7 @@ import {
   proposalTitleOf,
   undecided,
 } from '@/lib/memory';
+import { NOT_DECIDED, SettledPartContext } from '@/lib/settled-part';
 import { cn } from '@/lib/utils';
 
 type ProposedMemoryCardProps = {
@@ -30,6 +31,29 @@ type ProposedMemoryCardProps = {
   onReject: () => void;
   onRestore: () => void;
 };
+
+// A proposal still open on a resolved inbox item was not decided. A folded,
+// rejected one shows its words beside the title.
+function ProposedMemoryTitle({
+  memory,
+  folded,
+}: {
+  memory: ProposedMemory;
+  folded: boolean;
+}) {
+  const settled = use(SettledPartContext);
+
+  return (
+    <DecisionTitle status={proposalStatusOf(memory)}>
+      {settled && undecided(memory) ? NOT_DECIDED : proposalTitleOf(memory)}
+      {folded && (
+        <span className="ml-2 font-normal text-muted-foreground">
+          {memory.body}
+        </span>
+      )}
+    </DecisionTitle>
+  );
+}
 
 export function ProposedMemoryCard({
   memory,
@@ -65,16 +89,7 @@ export function ProposedMemoryCard({
     >
       <DecisionHeader
         className={cn(folded && 'mb-0')}
-        title={
-          <DecisionTitle status={proposalStatusOf(memory)}>
-            {proposalTitleOf(memory)}
-            {folded && (
-              <span className="ml-2 font-normal text-muted-foreground">
-                {memory.body}
-              </span>
-            )}
-          </DecisionTitle>
-        }
+        title={<ProposedMemoryTitle memory={memory} folded={folded} />}
         trailing={
           !editing && (
             <span className="flex shrink-0 items-center gap-1">

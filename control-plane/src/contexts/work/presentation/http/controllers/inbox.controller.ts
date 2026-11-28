@@ -73,7 +73,9 @@ import {
   InboxItemResponseDto,
   InboxItemViewResponseDto,
   InboxNoticeResponseDto,
-  InboxRequestResponseDto,
+  InboxFirstUnreadResponseDto,
+  InboxPartPreviewResponseDto,
+  InboxPartResponseDto,
   InboxRunResponseDto,
   InboxStationResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
@@ -129,11 +131,15 @@ const taskItemFields = (
   runId: item.runId,
   stoppableByYou: item.stoppableByYou,
   unread: item.unread,
+  unreadCount: item.unreadCount,
+  latest: item.latest && new InboxPartPreviewResponseDto(item.latest),
+  quiet: item.quiet,
+  conversationId: item.conversationId,
+  parts: item.parts.map((part) => new InboxPartResponseDto(part)),
+  firstUnread:
+    item.firstUnread && new InboxFirstUnreadResponseDto(item.firstUnread),
   briefing: item.briefing,
   failure: item.failure ? new InboxFailureResponseDto(item.failure) : null,
-  inboxRequest: item.inboxRequest
-    ? new InboxRequestResponseDto(item.inboxRequest)
-    : null,
   lastNote: item.lastNote && NoteHttpMapper.toResponse(item.lastNote),
 });
 
@@ -213,7 +219,7 @@ export class InboxController {
   @ApiOperation({
     operationId: 'readInboxItem',
     summary:
-      'One conversation or inbox request with all its notes, open or resolved',
+      'One task’s inbox item, open or resolved: the conversation it opens on with all its notes, and its parts. The id is the task, or one of its parts, so older links still open it',
   })
   @ApiParam({ name: 'slug', example: 'acme' })
   @ApiParam({ name: 'itemId' })

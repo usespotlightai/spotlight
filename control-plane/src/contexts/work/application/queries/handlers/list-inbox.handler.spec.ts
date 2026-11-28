@@ -83,8 +83,30 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   unread: true,
   briefing: null,
   failure,
-  inboxRequest: null,
   lastNote: note(failure),
+  conversationId: 'task_1:0',
+  unreadCount: 1,
+  latest: { kind: failure ? 'failure' : 'question', count: 1 },
+  quiet: false,
+  parts: [
+    {
+      id: 'task_1:0',
+      kind: failure ? 'failure' : 'question',
+      form: null,
+      about: null,
+      asks: 1,
+      open: true,
+      waits: true,
+      unread: true,
+      unreadSince: asked,
+      arrivedAt: asked,
+      interactedAt: asked,
+      resolvedAt: null,
+      resolvable: true,
+      reopenable: false,
+    },
+  ],
+  firstUnread: { partId: 'task_1:0', position: 0 },
 });
 
 const reader = (
@@ -168,6 +190,7 @@ describe('ListInboxHandler', () => {
               },
               askedAt: asked,
               unread: true,
+              unreadCount: 1,
               resolved: false,
               section: 'open',
               resolvable: true,
@@ -192,11 +215,31 @@ describe('ListInboxHandler', () => {
       },
       askedAt: '2026-09-26T09:15:00.000Z',
       unread: true,
+      unreadCount: 1,
       resolved: false,
       section: 'open',
       resolvable: true,
       reopenable: false,
     });
+  });
+
+  it('hands back each part of a task, its date as it would travel', async () => {
+    const about = await firstTask(reader([item(null)]));
+
+    expect(about?.parts).toEqual([
+      {
+        id: 'task_1:0',
+        kind: 'question',
+        form: null,
+        about: null,
+        asks: 1,
+        at: '2026-09-26T09:15:00.000Z',
+        open: true,
+        unread: true,
+        resolvable: true,
+        reopenable: false,
+      },
+    ]);
   });
 
   it('reads the resolved entries a page at a time', async () => {

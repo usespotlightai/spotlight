@@ -16,6 +16,8 @@ type InboxRowFrameProps = {
   icon: ReactNode;
   title: string;
   unread: boolean;
+  unreadCount?: number;
+  quiet?: boolean;
   at: string;
   preview: string;
   badge?: ReactNode;
@@ -25,11 +27,43 @@ type InboxRowFrameProps = {
   onIntent?: () => void;
 };
 
+// "3 new" when more than one thing waits, otherwise a dot.
+function UnreadMarker({ count, loud }: { count: number; loud: boolean }) {
+  if (count > 1) {
+    return (
+      <span
+        data-slot="unread-count"
+        className={cn(
+          'shrink-0 text-xs tabular-nums',
+          loud ? 'font-medium text-primary' : 'text-muted-foreground',
+        )}
+      >
+        {count} new
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <span className="sr-only">Unread</span>
+      <span
+        aria-hidden
+        className={cn(
+          'size-1.5 shrink-0 rounded-full',
+          loud ? 'bg-primary' : 'bg-muted-foreground',
+        )}
+      />
+    </>
+  );
+}
+
 export function InboxRowFrame({
   to,
   icon,
   title,
   unread,
+  unreadCount = unread ? 1 : 0,
+  quiet = false,
   at,
   preview,
   badge,
@@ -48,6 +82,7 @@ export function InboxRowFrame({
   const menu = useMenuActions(
     resolve ? [resolve, ...menuActions] : menuActions,
   );
+  const loud = unread && !quiet;
 
   return (
     <div
@@ -78,7 +113,7 @@ export function InboxRowFrame({
             title={title}
             className={cn(
               'truncate text-sm',
-              unread
+              loud
                 ? 'font-semibold text-foreground'
                 : 'font-medium text-muted-foreground',
             )}
@@ -88,15 +123,7 @@ export function InboxRowFrame({
 
           {badge}
 
-          {unread && (
-            <>
-              <span className="sr-only">Unread</span>
-              <span
-                aria-hidden
-                className="size-1.5 shrink-0 rounded-full bg-primary"
-              />
-            </>
-          )}
+          {unread && <UnreadMarker count={unreadCount} loud={loud} />}
         </span>
 
         <span

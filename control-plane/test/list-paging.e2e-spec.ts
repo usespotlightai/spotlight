@@ -237,7 +237,7 @@ const boardOf = (_workspaceId: string) => {
 };
 
 describe('the inbox, open and resolved', () => {
-  it('lists open conversations with their newest note, and pages the resolved ones', async () => {
+  it('lists a task with an open conversation in Open with its newest note, and only tasks with nothing open in Resolved', async () => {
     const line = await aLine();
     const first = await line.addTask({ stationId: line.work });
     const second = await line.addTask({ stationId: line.work });
@@ -258,8 +258,11 @@ describe('the inbox, open and resolved', () => {
 
     const open = await inbox.openForWorkspaceMember('acme', viewer);
 
-    expect(open.map((each) => each.id)).toEqual([`${first}:2`]);
-    expect(taskOf(firstOf(open))?.lastNote?.body).toBe('answered 3');
+    expect(open.map((each) => each.id)).toEqual([first]);
+    expect(taskOf(firstOf(open))).toMatchObject({
+      conversationId: `${first}:2`,
+      lastNote: { body: 'answered 3' },
+    });
 
     const one = await inbox.resolvedForWorkspaceMember(
       'acme',
@@ -271,16 +274,10 @@ describe('the inbox, open and resolved', () => {
       viewer,
       pageAfter(one.next ?? null, 1),
     );
-    const three = await inbox.resolvedForWorkspaceMember(
-      'acme',
-      viewer,
-      pageAfter(two.next ?? null, 1),
-    );
 
-    expect(one.items.map((each) => each.id)).toEqual([`${second}:0`]);
-    expect(two.items.map((each) => each.id)).toEqual([`${first}:0`]);
-    expect(taskOf(firstOf(two.items))?.lastNote?.body).toBe('passed 1');
-    expect(three).toEqual({ items: [], next: null });
+    expect(one.items.map((each) => each.id)).toEqual([second]);
+    expect(taskOf(firstOf(one.items))?.lastNote?.body).toBe('passed 1');
+    expect(two).toEqual({ items: [], next: null });
   });
 
   it('lists open conversations by arrival, not by their newest note', async () => {
@@ -299,10 +296,7 @@ describe('the inbox, open and resolved', () => {
       line.teamId,
     ).openForWorkspaceMember('acme', UserId.of(line.viewer));
 
-    expect(open.map((each) => each.id)).toEqual([
-      `${arrivedLast}:0`,
-      `${arrivedFirst}:0`,
-    ]);
+    expect(open.map((each) => each.id)).toEqual([arrivedLast, arrivedFirst]);
   });
 
   const runningTask = async (
@@ -349,11 +343,7 @@ describe('the inbox, open and resolved', () => {
       voice: 'world',
     });
 
-    expect(await openIds(line)).toEqual([
-      `${worldNoted}:0`,
-      `${agentNoted}:0`,
-      `${plain}:0`,
-    ]);
+    expect(await openIds(line)).toEqual([worldNoted, agentNoted, plain]);
   });
 
   it('keeps an open task in place when an agent note arrives', async () => {
@@ -367,7 +357,7 @@ describe('the inbox, open and resolved', () => {
     ]);
     await line.addNotes(later, [{ kind: 'asked', at: at(5) }]);
 
-    expect(await openIds(line)).toEqual([`${later}:0`, `${noted}:0`]);
+    expect(await openIds(line)).toEqual([later, noted]);
   });
 
   it('does not move a running task when its notes are marked read', async () => {
@@ -380,21 +370,24 @@ describe('the inbox, open and resolved', () => {
       .set({ readAt: at(40) })
       .where(eq(schema.taskNote.taskId, older));
 
-    expect(await openIds(line)).toEqual([`${newer}:0`, `${older}:0`]);
+    expect(await openIds(line)).toEqual([newer, older]);
   });
 
-  it('pages resolved requests by resolve time without skipping or repeating one', async () => {
+  it('pages tasks whose requests were resolved by resolve time without skipping or repeating one', async () => {
     const line = await aLine();
-    const taskId = await line.addTask({ stationId: line.work });
     const resolvedAt = [5, 5, 3, 3, 1];
     const requests = await Promise.all(
-      resolvedAt.map((minute, place) =>
-        line.addRequest({
+      resolvedAt.map(async (minute, place) => {
+        const taskId = await line.addTask({ stationId: line.work });
+
+        await line.addRequest({
           taskId,
           openedAt: at(40 - place),
           resolvedAt: at(minute),
-        }),
-      ),
+        });
+
+        return taskId;
+      }),
     );
     const inbox = inboxOf(line.workspaceId, line.teamId);
     const viewer = UserId.of(line.viewer);
@@ -420,24 +413,87 @@ describe('the inbox, open and resolved', () => {
     ).toEqual(resolvedAt);
   });
 
-  it('puts a reopened request at the top of Open', async () => {
+  it('lists a task whose requests were all resolved once, at its last resolve, across pages', async () => {
     const line = await aLine();
-    const taskId = await line.addTask({ stationId: line.work });
-    const kept = await line.addRequest({ taskId, openedAt: at(10) });
+    const many = await line.addTask({ stationId: line.work });
+    const one = await line.addTask({ stationId: line.work });
+
+    for (const minute of [1, 3, 5]) {
+      await line.addRequest({
+        taskId: many,
+        openedAt: at(0),
+        resolvedAt: at(minute),
+      });
+    }
+    await line.addRequest({ taskId: one, openedAt: at(0), resolvedAt: at(4) });
+
+    const inbox = inboxOf(line.workspaceId, line.teamId);
+    const viewer = UserId.of(line.viewer);
+    const seen: string[] = [];
+    let before: string | null = null;
+
+    do {
+      const page: Awaited<ReturnType<typeof inbox.resolvedForWorkspaceMember>> =
+        await inbox.resolvedForWorkspaceMember(
+          'acme',
+          viewer,
+          pageAfter(before, 1),
+        );
+
+      seen.push(...page.items.map((each) => each.id));
+      before = page.next ?? null;
+    } while (nonEmpty(before));
+
+    expect(seen).toEqual([many, one]);
+  });
+
+  it('puts a task whose request reopened at the top of Open', async () => {
+    const line = await aLine();
+    const keptTask = await line.addTask({ stationId: line.work });
+    const reopenedTask = await line.addTask({ stationId: line.work });
+
+    await line.addRequest({ taskId: keptTask, openedAt: at(10) });
     const reopened = await line.addRequest({
-      taskId,
+      taskId: reopenedTask,
       openedAt: at(1),
       resolvedAt: at(2),
     });
 
-    expect(await openIds(line)).toEqual([kept]);
+    expect(await openIds(line)).toEqual([keptTask]);
 
     await db
       .update(schema.inboxRequest)
       .set({ openedAt: at(30), resolvedAt: null })
       .where(eq(schema.inboxRequest.id, reopened));
 
-    expect(await openIds(line)).toEqual([reopened, kept]);
+    expect(await openIds(line)).toEqual([reopenedTask, keptTask]);
+  });
+
+  it('moves a task to the top when something new arrives on it, as one entry that counts each part', async () => {
+    const line = await aLine();
+    const judged = await line.addTask({ stationId: line.work });
+    const asked = await line.addTask({ stationId: line.work });
+
+    await line.addNotes(judged, [{ kind: 'asked', at: at(0), unseen: true }]);
+    await line.addRequest({ taskId: judged, openedAt: at(1) });
+    await line.addRequest({ taskId: judged, openedAt: at(2) });
+    await line.addNotes(asked, [{ kind: 'asked', at: at(10) }]);
+
+    expect(await openIds(line)).toEqual([asked, judged]);
+
+    await line.addRequest({ taskId: judged, openedAt: at(20) });
+
+    const open = await inboxOf(
+      line.workspaceId,
+      line.teamId,
+    ).openForWorkspaceMember('acme', UserId.of(line.viewer));
+
+    expect(open.map((each) => each.id)).toEqual([judged, asked]);
+    expect(taskOf(firstOf(open))).toMatchObject({
+      unreadCount: 4,
+      conversationId: `${judged}:0`,
+    });
+    expect(taskOf(firstOf(open))?.parts).toHaveLength(4);
   });
 
   it('keeps a resolved conversation open while its ask is unseen, but not on a finished task', async () => {
@@ -468,7 +524,7 @@ describe('the inbox, open and resolved', () => {
       line.teamId,
     ).openForWorkspaceMember('acme', UserId.of(line.viewer));
 
-    expect(open.map((each) => each.id)).toEqual([`${unseen}:0`]);
+    expect(open.map((each) => each.id)).toEqual([unseen]);
     expect(open[0]).toMatchObject({
       resolved: true,
       unread: true,
@@ -505,12 +561,12 @@ describe('the inbox, open and resolved', () => {
       pageAfter(null, 1),
     );
 
-    expect(resolved.items.map((each) => each.id)).toEqual([`${asked}:0`]);
+    expect(resolved.items.map((each) => each.id)).toEqual([asked]);
     expect(taskOf(firstOf(resolved.items))?.lastNote?.body).toBe('passed 3');
     expect(resolved.next).toBeNull();
   });
 
-  it('lets a person reopen only the last conversation, where a person resolved it', async () => {
+  it('lets a person reopen only a task with nothing open, whose last conversation a person resolved', async () => {
     const line = await aLine();
     const resolved = await line.addTask({ stationId: line.work });
     const followed = await line.addTask({ stationId: line.work });
@@ -525,13 +581,15 @@ describe('the inbox, open and resolved', () => {
       { kind: 'asked', at: at(4) },
     ]);
 
-    const page = await inboxOf(
-      line.workspaceId,
-      line.teamId,
-    ).resolvedForWorkspaceMember(
+    const inbox = inboxOf(line.workspaceId, line.teamId);
+    const page = await inbox.resolvedForWorkspaceMember(
       'acme',
       UserId.of(line.viewer),
       pageAfter(null, 10),
+    );
+    const open = await inbox.openForWorkspaceMember(
+      'acme',
+      UserId.of(line.viewer),
     );
 
     expect(
@@ -540,10 +598,10 @@ describe('the inbox, open and resolved', () => {
         section: each.section,
         reopenable: each.reopenable,
       })),
-    ).toEqual([
-      { id: `${followed}:0`, section: 'resolved', reopenable: false },
-      { id: `${resolved}:0`, section: 'resolved', reopenable: true },
-    ]);
+    ).toEqual([{ id: resolved, section: 'resolved', reopenable: true }]);
+    expect(open.find((each) => each.id === followed)).toMatchObject({
+      reopenable: false,
+    });
   });
 
   it('refuses a cursor it did not give', async () => {
@@ -584,6 +642,26 @@ describe('the inbox, open and resolved', () => {
       'answered 1',
       'passed 2',
     ]);
+  });
+
+  it('opens a task by its id, or by the id of a request on it', async () => {
+    const line = await aLine();
+    const taskId = await line.addTask({ stationId: line.work });
+
+    await line.addNotes(taskId, [{ kind: 'asked', at: at(0) }]);
+    const requestId = await line.addRequest({ taskId, openedAt: at(1) });
+    const inbox = inboxOf(line.workspaceId, line.teamId);
+    const viewer = UserId.of(line.viewer);
+
+    for (const id of [taskId, requestId, `${taskId}:0`]) {
+      expect(
+        await inbox.itemForWorkspaceMember('acme', viewer, id),
+      ).toMatchObject({
+        id: taskId,
+        conversationId: `${taskId}:0`,
+        notes: [{ body: 'asked 0' }],
+      });
+    }
   });
 
   it('opens a conversation only for the person the task is assigned to, as the lists do', async () => {

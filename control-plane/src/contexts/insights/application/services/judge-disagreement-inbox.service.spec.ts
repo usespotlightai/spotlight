@@ -1,5 +1,6 @@
 import { JudgeDisagreementInbox } from '@insights/application/services/judge-disagreement-inbox.service';
 import { JudgeDisagreementAnswered } from '@insights/domain/events/judge-disagreement-answered.event';
+import { JudgeDisagreementClaimAnswered } from '@insights/domain/events/judge-disagreement-claim-answered.event';
 import { JudgeDisagreementOpened } from '@insights/domain/events/judge-disagreement-opened.event';
 import { JudgeDisagreementWithdrawn } from '@insights/domain/events/judge-disagreement-withdrawn.event';
 import {
@@ -21,9 +22,9 @@ const setUp = async () => {
   await disagreements.add(opened);
   const moved: string[] = [];
   const inbox = new JudgeDisagreementInbox(disagreements, {
-    ask: async (taskId, disagreementId, askedOf) => {
+    ask: async (taskId, disagreementId, askedOf, questions) => {
       moved.push(
-        `ask ${taskId.value} ${disagreementId.value} ${askedOf?.value}`,
+        `ask ${taskId.value} ${disagreementId.value} ${askedOf?.value} ${questions}`,
       );
     },
     resolve: async (taskId, disagreementId, askedOf) => {
@@ -64,8 +65,29 @@ describe('JudgeDisagreementInbox', () => {
     await inbox.moved(new JudgeDisagreementAnswered(...args));
 
     expect(moved).toEqual([
-      'ask task_run_1 disagreement_run_1 user_ada',
+      'ask task_run_1 disagreement_run_1 user_ada 2',
       'resolve task_run_1 disagreement_run_1 user_ada',
+    ]);
+  });
+
+  it('tells the inbox how many disputed claims are still unanswered as each one is answered', async () => {
+    const { disagreements, inbox, moved, args, opened } = await setUp();
+
+    await inbox.moved(new JudgeDisagreementOpened(...args));
+    await disagreements.save(
+      opened.answerClaim({
+        claim: 1,
+        answer: 'judge-right',
+        note: null,
+        by: ADA,
+        now: NOW,
+      }),
+    );
+    await inbox.moved(new JudgeDisagreementClaimAnswered(...args, 1));
+
+    expect(moved).toEqual([
+      'ask task_run_1 disagreement_run_1 user_ada 2',
+      'ask task_run_1 disagreement_run_1 user_ada 1',
     ]);
   });
 

@@ -6,6 +6,7 @@ import { Conversation } from '@/components/features/inbox/conversation/Conversat
 import { InboxItemBriefing } from '@/components/features/inbox/conversation/InboxItemBriefing';
 import { InboxItemFooter } from '@/components/features/inbox/conversation/InboxItemFooter';
 import { FailureCount } from '@/components/features/inbox/FailureCount';
+import { InboxTaskParts } from '@/components/features/inbox/parts/InboxTaskParts';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { Dockable } from '@/components/shared/decision-tray/Dockable';
@@ -19,6 +20,7 @@ import { useTaskPullRequests } from '@/hooks/api/useTaskPullRequests';
 import { useClosableTask } from '@/hooks/useClosableTask';
 import { useRunProgress } from '@/hooks/useRunProgress';
 import {
+  conversationClosed,
   type InboxItemView,
   type RunJournal,
   shownAt,
@@ -38,17 +40,25 @@ const CLOSE_TASK = 'close-task';
 type InboxItemConversationProps = {
   slug: string;
   item: InboxItemView;
+  conversationId: string;
   worked: readonly RunJournal[];
+  openAt?: number | null;
+  openPartAt?: string | null;
   trail: readonly BreadcrumbSegment[];
 };
 
 export function InboxItemConversation({
   slug,
   item,
+  conversationId,
   worked,
+  openAt = null,
+  openPartAt = null,
   trail,
 }: InboxItemConversationProps) {
   const [params] = useSearchParams();
+  const resolved = item.resolved || conversationClosed(item, conversationId);
+  const conversation = { ...item, resolved };
   const answer = useAnswerInboxItem();
   const ownsItsBriefing = carriesItsOwn(item);
   const reported = useRunProgress(item.runId, item.progress);
@@ -59,7 +69,7 @@ export function InboxItemConversation({
     item.taskId,
   );
   const closing =
-    suggestsClosing(item) && closable
+    suggestsClosing(conversation) && closable
       ? {
           id: CLOSE_TASK,
           kind: 'Suggestion',
@@ -86,7 +96,7 @@ export function InboxItemConversation({
       <RunSidePanel>
         <Conversation
           item={{
-            id: item.id,
+            id: conversationId,
             taskId: item.taskId,
             teamId: item.teamId,
             about: ownsItsBriefing
@@ -95,7 +105,7 @@ export function InboxItemConversation({
             createdAt: item.createdAt,
             station: stationOf(item),
             progress,
-            resolved: item.resolved,
+            resolved,
             notes: item.notes,
             folded: item.folded,
           }}
@@ -105,7 +115,7 @@ export function InboxItemConversation({
             onDecide: ({ approve, ask, body, inputs }) =>
               answer.mutate({
                 slug,
-                itemId: item.id,
+                itemId: conversationId,
                 body,
                 attachments: [],
                 approve,
@@ -126,7 +136,14 @@ export function InboxItemConversation({
               </div>
             ) : undefined
           }
-          openAt={shownAt(item.notes, params.get('run'))}
+          openAt={shownAt(item.notes, params.get('run')) ?? openAt}
+          closing={
+            <InboxTaskParts
+              slug={slug}
+              item={item}
+              openAt={openAt === null ? openPartAt : null}
+            />
+          }
           prompt={promptOf(item)}
           live={
             nonEmpty(item.runId) && progress ? (
@@ -143,7 +160,12 @@ export function InboxItemConversation({
           }
           footer={
             ownsItsBriefing ? null : (
-              <InboxItemFooter slug={slug} item={item} progress={reported} />
+              <InboxItemFooter
+                slug={slug}
+                item={conversation}
+                conversationId={conversationId}
+                progress={reported}
+              />
             )
           }
         />

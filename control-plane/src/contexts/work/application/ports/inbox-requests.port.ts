@@ -18,6 +18,9 @@ export interface InboxRequestOf {
 
 export interface AskedInboxRequest extends InboxRequestOf {
   readonly askedOf?: string | null;
+  // How many questions it still puts to people; one when left out. Asking
+  // again about the same thing updates it while the request is open.
+  readonly asks?: number;
 }
 
 export interface InboxRequestsPort {

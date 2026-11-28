@@ -6,6 +6,7 @@ import {
   INBOX_RUN_STANDINGS,
   INBOX_STANDINGS,
   INBOX_NOTICE_FORMS,
+  INBOX_DTO_PART_KINDS,
   INBOX_REQUEST_DTO_FORMS,
   type InboxApprovalDto,
   type InboxChatDto,
@@ -14,8 +15,10 @@ import {
   type InboxRunStanding,
   type InboxStanding,
   type InboxFailureDto,
+  type InboxFirstUnreadDto,
   type InboxNoticeDto,
-  type InboxRequestDto,
+  type InboxPartDto,
+  type InboxPartPreviewDto,
   type InboxRunDto,
   NOTE_FORMS,
   NOTE_HOLD_ENDS,
@@ -151,25 +154,127 @@ export class InboxApprovalResponseDto {
   }
 }
 
-export class InboxRequestResponseDto {
+export class InboxPartResponseDto {
   @ApiProperty({
-    enum: INBOX_REQUEST_DTO_FORMS,
-    example: 'memories',
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2',
     description:
-      'The kind of inbox request: memories are proposed memories to approve or reject; alert reports a station that needs attention; judge-disagreement asks why people’s verdict on a run differs from the judge’s',
+      'The conversation (task id and the position it opened at) or the inbox request',
   })
-  readonly form: string;
+  readonly id: string;
 
   @ApiProperty({
-    example: 'run_1',
+    enum: INBOX_DTO_PART_KINDS,
+    example: 'judge-question',
     description:
-      'What it is about: for memories, the run that proposed them; for alert, the alert; for judge-disagreement, the disagreement',
+      'What waits: question when a station asks, failure when a run failed or was refused and waits for an answer, judge-question when the judge and people disagree on a run, memories when a run proposed memories, alert when a station alert fired. Only question and failure block the line',
   })
-  readonly about: string;
+  readonly kind: string;
 
-  constructor(inboxRequest: InboxRequestDto) {
-    this.form = inboxRequest.form;
-    this.about = inboxRequest.about;
+  @ApiProperty({
+    enum: [...INBOX_REQUEST_DTO_FORMS, null],
+    nullable: true,
+    type: String,
+    example: 'judge-disagreement',
+    description: 'The form of the inbox request; null for a conversation',
+  })
+  readonly form: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'disagreement_1',
+    description:
+      'What the inbox request is about: for memories, the run that proposed them; for alert, the alert; for judge-disagreement, the disagreement. Null for a conversation',
+  })
+  readonly about: string | null;
+
+  @ApiProperty({
+    example: 2,
+    description:
+      'How many questions it puts to the person: one, or for a judge question each disputed claim still unanswered. The unread count and the preview count in questions',
+  })
+  readonly asks: number;
+
+  @ApiProperty({
+    example: '2026-08-28T21:15:00.000Z',
+    description: 'When it last arrived',
+  })
+  readonly at: string;
+
+  @ApiProperty({ example: true, description: 'It still waits on a person' })
+  readonly open: boolean;
+
+  @ApiProperty({ example: true, description: 'Not seen yet' })
+  readonly unread: boolean;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'True when resolving the item resolves this part: it is open and the person may resolve it',
+  })
+  readonly resolvable: boolean;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'True when reopening the item reopens this part: the last resolve of the item closed it, and the person may reopen it',
+  })
+  readonly reopenable: boolean;
+
+  constructor(part: InboxPartDto) {
+    this.id = part.id;
+    this.kind = part.kind;
+    this.form = part.form;
+    this.about = part.about;
+    this.asks = part.asks;
+    this.at = part.at;
+    this.open = part.open;
+    this.unread = part.unread;
+    this.resolvable = part.resolvable;
+    this.reopenable = part.reopenable;
+  }
+}
+
+export class InboxPartPreviewResponseDto {
+  @ApiProperty({
+    enum: INBOX_DTO_PART_KINDS,
+    example: 'judge-question',
+    description:
+      'The kind of the newest unread part, preferring one that blocks the line',
+  })
+  readonly kind: string;
+
+  @ApiProperty({
+    example: 2,
+    description: 'How many unread questions are of that kind',
+  })
+  readonly count: number;
+
+  constructor(preview: InboxPartPreviewDto) {
+    this.kind = preview.kind;
+    this.count = preview.count;
+  }
+}
+
+export class InboxFirstUnreadResponseDto {
+  @ApiProperty({
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2',
+    description: 'The part to open at',
+  })
+  readonly partId: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 7,
+    description:
+      'The position of the first unread note, when the part is a conversation',
+  })
+  readonly position: number | null;
+
+  constructor(first: InboxFirstUnreadDto) {
+    this.partId = first.partId;
+    this.position = first.position;
   }
 }
 
@@ -527,13 +632,15 @@ export class InboxCurrentStationResponseDto extends InboxStationResponseDto {
 export class InboxItemResponseDto {
   @ApiProperty({
     enum: ['task'],
-    description: 'A task’s conversation or an inbox request on the task',
+    description:
+      'A task, with everything on it that waits on the person: its conversation and the inbox requests raised about it',
   })
   readonly kind = 'task' as const;
 
   @ApiProperty({
-    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2',
-    description: 'One conversation a person was asked to own',
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
+    description:
+      'The task. Reading an item also accepts the id of one of its parts',
   })
   readonly id: string;
 
@@ -663,6 +770,52 @@ export class InboxItemResponseDto {
   readonly unread: boolean;
 
   @ApiProperty({
+    example: 3,
+    description:
+      'How many questions on it the person has not seen yet: one per part, or per disputed claim still unanswered for a judge question. The inbox badge is the sum of these over the open entries',
+  })
+  readonly unreadCount: number;
+
+  @ApiProperty({
+    type: InboxPartPreviewResponseDto,
+    nullable: true,
+    description:
+      'What the row previews: the newest unread part, preferring one that blocks the line; once all is read, the newest part that still waits on the person. Null when nothing is unread and nothing waits',
+  })
+  readonly latest: InboxPartPreviewResponseDto | null;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'True when what the row previews is only judge questions, so none of it blocks the line',
+  })
+  readonly quiet: boolean;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2',
+    description:
+      'The conversation it opens on, to answer, read or resolve; null when the task has no conversation waiting on the person',
+  })
+  readonly conversationId: string | null;
+
+  @ApiProperty({
+    type: InboxPartResponseDto,
+    isArray: true,
+    description:
+      'Everything on the task that waits or waited on the person, oldest first. Answered inbox requests stay as history',
+  })
+  readonly parts: readonly InboxPartResponseDto[];
+
+  @ApiProperty({
+    type: InboxFirstUnreadResponseDto,
+    nullable: true,
+    description: 'Where to open: the oldest part not seen yet',
+  })
+  readonly firstUnread: InboxFirstUnreadResponseDto | null;
+
+  @ApiProperty({
     nullable: true,
     type: String,
     description: 'The briefing of the station that opened this conversation',
@@ -676,14 +829,6 @@ export class InboxItemResponseDto {
       'The failure this conversation is about, where it is about one',
   })
   readonly failure: InboxFailureResponseDto | null;
-
-  @ApiProperty({
-    type: InboxRequestResponseDto,
-    nullable: true,
-    description:
-      'The inbox request of this item, where it is not a conversation. It never blocks the task',
-  })
-  readonly inboxRequest: InboxRequestResponseDto | null;
 
   @ApiProperty({
     type: NoteResponseDto,
@@ -717,9 +862,14 @@ export class InboxItemResponseDto {
     this.runId = item.runId;
     this.stoppableByYou = item.stoppableByYou;
     this.unread = item.unread;
+    this.unreadCount = item.unreadCount;
+    this.latest = item.latest;
+    this.quiet = item.quiet;
+    this.conversationId = item.conversationId;
+    this.parts = item.parts;
+    this.firstUnread = item.firstUnread;
     this.briefing = item.briefing;
     this.failure = item.failure;
-    this.inboxRequest = item.inboxRequest;
     this.lastNote = item.lastNote;
   }
 }
@@ -825,6 +975,12 @@ export class InboxNoticeResponseDto {
   readonly unread: boolean;
 
   @ApiProperty({
+    example: 1,
+    description: '1 while it is unread, else 0',
+  })
+  readonly unreadCount: number;
+
+  @ApiProperty({
     example: false,
     description: 'True once its person resolved it',
   })
@@ -865,6 +1021,7 @@ export class InboxNoticeResponseDto {
       : null;
     this.askedAt = notice.askedAt;
     this.unread = notice.unread;
+    this.unreadCount = notice.unreadCount;
     this.resolved = notice.resolved;
     this.section = notice.section;
     this.resolvable = notice.resolvable;
@@ -926,6 +1083,9 @@ export class InboxRunResponseDto {
 
   @ApiProperty({ enum: [false], description: 'Never unread' })
   readonly unread = false as const;
+
+  @ApiProperty({ enum: [0], description: 'Never unread' })
+  readonly unreadCount = 0 as const;
 
   @ApiProperty({ enum: [false], description: 'Never resolved' })
   readonly resolved = false as const;
@@ -1015,6 +1175,12 @@ export class InboxChatResponseDto {
   readonly unread: boolean;
 
   @ApiProperty({
+    example: 1,
+    description: '1 while it is unread, else 0',
+  })
+  readonly unreadCount: number;
+
+  @ApiProperty({
     example: false,
     description: 'True once the chat is resolved and nothing runs on it',
   })
@@ -1042,6 +1208,7 @@ export class InboxChatResponseDto {
     this.openProposals = entry.openProposals;
     this.askedAt = entry.askedAt;
     this.unread = entry.unread;
+    this.unreadCount = entry.unreadCount;
     this.resolved = entry.resolved;
     this.section = entry.section;
     this.reopenable = entry.reopenable;

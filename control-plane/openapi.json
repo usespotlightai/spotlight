@@ -13048,7 +13048,7 @@
             "description": "No such inbox item for this caller"
           }
         },
-        "summary": "One conversation or inbox request with all its notes, open or resolved",
+        "summary": "One task’s inbox item, open or resolved: the conversation it opens on with all its notes, and its parts. The id is the task, or one of its parts, so older links still open it",
         "tags": [
           "inbox"
         ]
@@ -30943,6 +30943,11 @@
             "example": true,
             "description": "The agent proposed a task the person has not seen yet"
           },
+          "unreadCount": {
+            "type": "number",
+            "example": 1,
+            "description": "1 while it is unread, else 0"
+          },
           "resolved": {
             "type": "boolean",
             "example": false,
@@ -30974,6 +30979,7 @@
           "openProposals",
           "askedAt",
           "unread",
+          "unreadCount",
           "resolved",
           "section",
           "reopenable"
@@ -31058,6 +31064,134 @@
           "latestRunId"
         ]
       },
+      "InboxPartPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "question",
+              "failure",
+              "judge-question",
+              "memories",
+              "alert"
+            ],
+            "example": "judge-question",
+            "description": "The kind of the newest unread part, preferring one that blocks the line"
+          },
+          "count": {
+            "type": "number",
+            "example": 2,
+            "description": "How many unread questions are of that kind"
+          }
+        },
+        "required": [
+          "kind",
+          "count"
+        ]
+      },
+      "InboxPartResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2",
+            "description": "The conversation (task id and the position it opened at) or the inbox request"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "question",
+              "failure",
+              "judge-question",
+              "memories",
+              "alert"
+            ],
+            "example": "judge-question",
+            "description": "What waits: question when a station asks, failure when a run failed or was refused and waits for an answer, judge-question when the judge and people disagree on a run, memories when a run proposed memories, alert when a station alert fired. Only question and failure block the line"
+          },
+          "form": {
+            "type": "string",
+            "enum": [
+              "memories",
+              "alert",
+              "judge-disagreement",
+              null
+            ],
+            "nullable": true,
+            "example": "judge-disagreement",
+            "description": "The form of the inbox request; null for a conversation"
+          },
+          "about": {
+            "type": "string",
+            "nullable": true,
+            "example": "disagreement_1",
+            "description": "What the inbox request is about: for memories, the run that proposed them; for alert, the alert; for judge-disagreement, the disagreement. Null for a conversation"
+          },
+          "asks": {
+            "type": "number",
+            "example": 2,
+            "description": "How many questions it puts to the person: one, or for a judge question each disputed claim still unanswered. The unread count and the preview count in questions"
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-08-28T21:15:00.000Z",
+            "description": "When it last arrived"
+          },
+          "open": {
+            "type": "boolean",
+            "example": true,
+            "description": "It still waits on a person"
+          },
+          "unread": {
+            "type": "boolean",
+            "example": true,
+            "description": "Not seen yet"
+          },
+          "resolvable": {
+            "type": "boolean",
+            "example": true,
+            "description": "True when resolving the item resolves this part: it is open and the person may resolve it"
+          },
+          "reopenable": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when reopening the item reopens this part: the last resolve of the item closed it, and the person may reopen it"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "form",
+          "about",
+          "asks",
+          "at",
+          "open",
+          "unread",
+          "resolvable",
+          "reopenable"
+        ]
+      },
+      "InboxFirstUnreadResponseDto": {
+        "type": "object",
+        "properties": {
+          "partId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2",
+            "description": "The part to open at"
+          },
+          "position": {
+            "type": "number",
+            "nullable": true,
+            "example": 7,
+            "description": "The position of the first unread note, when the part is a conversation"
+          }
+        },
+        "required": [
+          "partId",
+          "position"
+        ]
+      },
       "InboxFailureResponseDto": {
         "type": "object",
         "properties": {
@@ -31081,30 +31215,6 @@
           "source",
           "code",
           "occurrences"
-        ]
-      },
-      "InboxRequestResponseDto": {
-        "type": "object",
-        "properties": {
-          "form": {
-            "type": "string",
-            "enum": [
-              "memories",
-              "alert",
-              "judge-disagreement"
-            ],
-            "example": "memories",
-            "description": "The kind of inbox request: memories are proposed memories to approve or reject; alert reports a station that needs attention; judge-disagreement asks why people’s verdict on a run differs from the judge’s"
-          },
-          "about": {
-            "type": "string",
-            "example": "run_1",
-            "description": "What it is about: for memories, the run that proposed them; for alert, the alert; for judge-disagreement, the disagreement"
-          }
-        },
-        "required": [
-          "form",
-          "about"
         ]
       },
       "InboxAuthorResponseDto": {
@@ -31484,12 +31594,12 @@
             "enum": [
               "task"
             ],
-            "description": "A task’s conversation or an inbox request on the task"
+            "description": "A task, with everything on it that waits on the person: its conversation and the inbox requests raised about it"
           },
           "id": {
             "type": "string",
-            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2",
-            "description": "One conversation a person was asked to own"
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+            "description": "The task. Reading an item also accepts the id of one of its parts"
           },
           "taskId": {
             "type": "string",
@@ -31626,6 +31736,49 @@
             "example": true,
             "description": "Something was asked here that they have not seen yet"
           },
+          "unreadCount": {
+            "type": "number",
+            "example": 3,
+            "description": "How many questions on it the person has not seen yet: one per part, or per disputed claim still unanswered for a judge question. The inbox badge is the sum of these over the open entries"
+          },
+          "latest": {
+            "nullable": true,
+            "description": "What the row previews: the newest unread part, preferring one that blocks the line; once all is read, the newest part that still waits on the person. Null when nothing is unread and nothing waits",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxPartPreviewResponseDto"
+              }
+            ]
+          },
+          "quiet": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when what the row previews is only judge questions, so none of it blocks the line"
+          },
+          "conversationId": {
+            "type": "string",
+            "nullable": true,
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2",
+            "description": "The conversation it opens on, to answer, read or resolve; null when the task has no conversation waiting on the person"
+          },
+          "parts": {
+            "description": "Everything on the task that waits or waited on the person, oldest first. Answered inbox requests stay as history",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboxPartResponseDto"
+            }
+          },
+          "firstUnread": {
+            "nullable": true,
+            "description": "Where to open: the oldest part not seen yet",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxFirstUnreadResponseDto"
+              }
+            ]
+          },
           "briefing": {
             "type": "string",
             "nullable": true,
@@ -31638,16 +31791,6 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/InboxFailureResponseDto"
-              }
-            ]
-          },
-          "inboxRequest": {
-            "nullable": true,
-            "description": "The inbox request of this item, where it is not a conversation. It never blocks the task",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/InboxRequestResponseDto"
               }
             ]
           },
@@ -31688,9 +31831,14 @@
           "runId",
           "stoppableByYou",
           "unread",
+          "unreadCount",
+          "latest",
+          "quiet",
+          "conversationId",
+          "parts",
+          "firstUnread",
           "briefing",
           "failure",
-          "inboxRequest",
           "lastNote"
         ]
       },
@@ -31780,6 +31928,11 @@
             "example": true,
             "description": "Not seen yet"
           },
+          "unreadCount": {
+            "type": "number",
+            "example": 1,
+            "description": "1 while it is unread, else 0"
+          },
           "resolved": {
             "type": "boolean",
             "example": false,
@@ -31819,6 +31972,7 @@
           "externalLink",
           "askedAt",
           "unread",
+          "unreadCount",
           "resolved",
           "section",
           "resolvable",
@@ -31893,6 +32047,13 @@
             ],
             "description": "Never unread"
           },
+          "unreadCount": {
+            "type": "number",
+            "enum": [
+              0
+            ],
+            "description": "Never unread"
+          },
           "resolved": {
             "type": "boolean",
             "enum": [
@@ -31945,6 +32106,7 @@
           "progress",
           "askedAt",
           "unread",
+          "unreadCount",
           "resolved",
           "section",
           "standing",
@@ -32013,12 +32175,12 @@
             "enum": [
               "task"
             ],
-            "description": "A task’s conversation or an inbox request on the task"
+            "description": "A task, with everything on it that waits on the person: its conversation and the inbox requests raised about it"
           },
           "id": {
             "type": "string",
-            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2",
-            "description": "One conversation a person was asked to own"
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+            "description": "The task. Reading an item also accepts the id of one of its parts"
           },
           "taskId": {
             "type": "string",
@@ -32155,6 +32317,49 @@
             "example": true,
             "description": "Something was asked here that they have not seen yet"
           },
+          "unreadCount": {
+            "type": "number",
+            "example": 3,
+            "description": "How many questions on it the person has not seen yet: one per part, or per disputed claim still unanswered for a judge question. The inbox badge is the sum of these over the open entries"
+          },
+          "latest": {
+            "nullable": true,
+            "description": "What the row previews: the newest unread part, preferring one that blocks the line; once all is read, the newest part that still waits on the person. Null when nothing is unread and nothing waits",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxPartPreviewResponseDto"
+              }
+            ]
+          },
+          "quiet": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when what the row previews is only judge questions, so none of it blocks the line"
+          },
+          "conversationId": {
+            "type": "string",
+            "nullable": true,
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2",
+            "description": "The conversation it opens on, to answer, read or resolve; null when the task has no conversation waiting on the person"
+          },
+          "parts": {
+            "description": "Everything on the task that waits or waited on the person, oldest first. Answered inbox requests stay as history",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboxPartResponseDto"
+            }
+          },
+          "firstUnread": {
+            "nullable": true,
+            "description": "Where to open: the oldest part not seen yet",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxFirstUnreadResponseDto"
+              }
+            ]
+          },
           "briefing": {
             "type": "string",
             "nullable": true,
@@ -32167,16 +32372,6 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/InboxFailureResponseDto"
-              }
-            ]
-          },
-          "inboxRequest": {
-            "nullable": true,
-            "description": "The inbox request of this item, where it is not a conversation. It never blocks the task",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/InboxRequestResponseDto"
               }
             ]
           },
@@ -32231,9 +32426,14 @@
           "runId",
           "stoppableByYou",
           "unread",
+          "unreadCount",
+          "latest",
+          "quiet",
+          "conversationId",
+          "parts",
+          "firstUnread",
           "briefing",
           "failure",
-          "inboxRequest",
           "lastNote",
           "notes",
           "folded"

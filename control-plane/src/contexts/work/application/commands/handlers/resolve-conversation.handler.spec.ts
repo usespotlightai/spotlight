@@ -19,6 +19,7 @@ import { ConversationLoader } from '@work/application/services/conversation-load
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { NotOnTheTeamAskedError } from '@work/domain/exceptions/not-on-the-team-asked.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
@@ -135,12 +136,17 @@ const lines = () =>
     candidate: vi.fn(),
   }) satisfies LineMapsPort;
 
-const resolve = (found: Task, by: UserId, members: readonly UserId[]) => {
+const resolve = (
+  found: Task,
+  by: UserId,
+  members: readonly UserId[],
+  repository = tasks(found),
+) => {
   const access = workAccessSeeing(() => true, { members });
 
   return new ResolveConversationHandler(
-    new ConversationLoader(tasks(found), lines(), access),
-    tasks(found),
+    new ConversationLoader(repository, lines(), access),
+    repository,
     clock,
   ).execute(
     new ResolveConversationCommand(
@@ -178,6 +184,19 @@ describe('ResolveConversation', () => {
     await resolve(askingAndUnassigned(), ASKED, [OPENER, ASKED]);
 
     expect(saved?.assignee).toEqual(ASKED);
+    expect(saved?.openConversation).toBeNull();
+  });
+
+  it('resolves again when another write of the same task landed first', async () => {
+    const task = askingAndUnassigned();
+    const repository = tasks(task);
+    repository.save.mockRejectedValueOnce(
+      new TaskVersionConflictError('task_1'),
+    );
+
+    await resolve(task, ASKED, [OPENER, ASKED], repository);
+
+    expect(repository.save).toHaveBeenCalledTimes(2);
     expect(saved?.openConversation).toBeNull();
   });
 });

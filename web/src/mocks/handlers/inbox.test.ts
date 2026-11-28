@@ -24,10 +24,15 @@ import {
   readTaskDecisions,
   readTaskJournal,
   rejectMemory,
+  reopenInboxItem,
+  reopenInboxRequest,
+  resolveInboxItem,
   resolveInboxNotice,
+  resolveInboxRequest,
   submitReview,
 } from '@/lib/api';
 import { client } from '@/lib/api/client.gen';
+import { type InboxPart, unreadCountOf } from '@/lib/inbox';
 import { nonEmpty } from '@/lib/non-empty';
 import { entryOf } from '@/mocks/entry';
 import { serveMockApi } from '@/mocks/testing';
@@ -114,13 +119,17 @@ describe('the mock inbox', () => {
 
   it('contains open and resolved work across both teams', async () => {
     const entries = await inbox();
-    const ids = entries.map((entry) => entry.id);
+    const ids = entries.flatMap((entry) =>
+      entry.kind === 'task'
+        ? [entry.id, ...entry.parts.map((part) => part.id)]
+        : [entry.id],
+    );
 
     expect(ids).toEqual(
       expect.arrayContaining([
-        'task_rate_limits:0',
-        'task_postgres:0',
-        'task_onboarding_copy:0',
+        'task_rate_limits',
+        'task_postgres',
+        'task_onboarding_copy',
         MEMORIES_REQUEST_ID,
         ALERT_REQUEST_ID,
         STALLED_NOTICE_ID,
@@ -229,6 +238,165 @@ describe('the mock inbox', () => {
     });
   });
 
+  describe('with three judge questions and a station question on one task', () => {
+    const GROUPED = [
+      SEARCH_DISAGREEMENT_REQUEST_ID,
+      MERGED_DISAGREEMENT_REQUEST_ID,
+      VERDICTS_AGREE_DISAGREEMENT_REQUEST_ID,
+    ];
+    const TASK = 'task_rate_limits';
+
+    const onOneTask = () => {
+      for (const entry of inboxStore().entries) {
+        if (entry.kind === 'task' && GROUPED.includes(entry.id)) {
+          Object.assign(entry, { taskId: TASK, unread: true, resolved: false });
+        }
+      }
+    };
+
+    const open = async () =>
+      (await listInbox({ path: { slug: SLUG }, throwOnError: true })).data
+        .items;
+
+    const taskIn = async () =>
+      (await open()).filter(
+        (entry) => entry.kind === 'task' && entry.taskId === TASK,
+      );
+
+    // What Resolve and Reopen on the row send: one call per part it covers.
+    const eachPart = async (
+      choose: (part: InboxPart) => boolean,
+      forConversation: typeof resolveInboxItem,
+      forRequest: typeof resolveInboxRequest,
+    ) => {
+      for (const part of (await itemIn(TASK))?.parts.filter(choose) ?? []) {
+        await (part.form === null
+          ? forConversation({
+              path: { slug: SLUG, itemId: part.id },
+              throwOnError: true,
+            })
+          : forRequest({
+              path: { slug: SLUG, requestId: part.id },
+              throwOnError: true,
+            }));
+      }
+    };
+    const resolveAll = () =>
+      eachPart(
+        (part) => part.resolvable,
+        resolveInboxItem,
+        resolveInboxRequest,
+      );
+
+    const questionsOf = (parts: readonly InboxPart[]) =>
+      parts.reduce((sum, part) => sum + part.asks, 0);
+
+    it('lists the task once, counting each question on it, every claim in dispute too', async () => {
+      onOneTask();
+
+      const rows = await taskIn();
+      const row = rows.at(0);
+
+      expect(rows).toHaveLength(1);
+      expect(row).toMatchObject({
+        id: TASK,
+        conversationId: `${TASK}:0`,
+        latest: { kind: 'question', count: 1 },
+      });
+      expect(row?.kind === 'task' && row.parts).toHaveLength(4);
+      expect(row?.unreadCount).toBe(
+        row?.kind === 'task' ? questionsOf(row.parts) : 0,
+      );
+      expect(row?.unreadCount).toBeGreaterThan(4);
+    });
+
+    it('counts down as the questions are answered, and resolves once the last one is', async () => {
+      onOneTask();
+      await answerInboxItem({
+        path: { slug: SLUG, itemId: `${TASK}:0` },
+        body: { body: 'Per API key.' },
+        throwOnError: true,
+      });
+
+      const left = (await taskIn()).at(0);
+
+      expect(left?.unreadCount).toBe(
+        left?.kind === 'task'
+          ? questionsOf(left.parts.filter((part) => part.form !== null))
+          : 0,
+      );
+
+      for (const requestId of GROUPED) {
+        await resolveInboxRequest({
+          path: { slug: SLUG, requestId },
+          throwOnError: true,
+        });
+      }
+
+      expect(await taskIn()).toEqual([]);
+      expect(await itemIn(TASK)).toMatchObject({
+        resolved: true,
+        unreadCount: 0,
+      });
+    });
+
+    it('opens again at the top when something new arrives', async () => {
+      onOneTask();
+      await resolveAll();
+
+      expect(await taskIn()).toEqual([]);
+
+      await reopenInboxRequest({
+        path: { slug: SLUG, requestId: SEARCH_DISAGREEMENT_REQUEST_ID },
+        throwOnError: true,
+      });
+
+      const [top] = await open();
+
+      expect(top).toMatchObject({ id: TASK, resolved: false });
+    });
+
+    it('resolves everything in it, and reopens what that resolved', async () => {
+      onOneTask();
+      await resolveAll();
+
+      expect((await itemIn(TASK))?.parts.every((part) => !part.open)).toBe(
+        true,
+      );
+
+      await eachPart(
+        (part) => part.reopenable,
+        reopenInboxItem,
+        reopenInboxRequest,
+      );
+
+      expect(
+        (await itemIn(TASK))?.parts.filter((part) => part.open),
+      ).toHaveLength(4);
+    });
+
+    it('opens the task from an old link to one of its questions', async () => {
+      onOneTask();
+
+      expect(await itemIn(MERGED_DISAGREEMENT_REQUEST_ID)).toMatchObject({
+        id: TASK,
+      });
+    });
+
+    it('keeps chats apart, and counts the badge as the items do', async () => {
+      onOneTask();
+      const entries = await open();
+
+      expect(
+        entries.filter((entry) => entry.kind === 'chat').length,
+      ).toBeGreaterThan(0);
+      expect(unreadCountOf(entries)).toBe(
+        entries.reduce((sum, entry) => sum + entry.unreadCount, 0),
+      );
+      expect(unreadCountOf(entries)).toBeGreaterThanOrEqual(4);
+    });
+  });
+
   it('marks items and inbox requests read, and resolves notices', async () => {
     await markInboxItemRead({
       path: { slug: SLUG, itemId: 'task_rate_limits:0' },
@@ -245,7 +413,9 @@ describe('the mock inbox', () => {
 
     const entries = await inbox();
     const unreadOf = (id: string) =>
-      entries.find((entry) => entry.id === id)?.unread;
+      entries
+        .flatMap((entry) => (entry.kind === 'task' ? entry.parts : []))
+        .find((part) => part.id === id)?.unread;
 
     expect(unreadOf('task_rate_limits:0')).toBe(false);
     expect(unreadOf(MEMORIES_REQUEST_ID)).toBe(false);
@@ -329,7 +499,9 @@ describe('the mock inbox', () => {
 
   it('asks the team about a merged run the judge failed, about the claims in dispute', async () => {
     const asked = await itemIn(SEARCH_DISAGREEMENT_REQUEST_ID);
-    expect(asked?.inboxRequest).toEqual({
+    expect(
+      asked?.parts.find((part) => part.id === SEARCH_DISAGREEMENT_REQUEST_ID),
+    ).toMatchObject({
       form: 'judge-disagreement',
       about: SEARCH_DISAGREEMENT_ID,
     });
@@ -813,9 +985,12 @@ describe('the mock inbox in an empty workspace', () => {
       throwOnError: true,
     });
 
-    expect((await inbox()).map((entry) => [entry.id, entry.resolved])).toEqual([
-      [SETUP_ITEM_ID, false],
-    ]);
+    expect(
+      (await inbox()).map((entry) => [
+        entry.kind === 'task' ? entry.conversationId : entry.id,
+        entry.resolved,
+      ]),
+    ).toEqual([[SETUP_ITEM_ID, false]]);
     expect(journal).toEqual([]);
   });
 

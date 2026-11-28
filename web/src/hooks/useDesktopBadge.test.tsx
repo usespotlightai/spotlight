@@ -16,7 +16,7 @@ describe('useDesktopBadge', () => {
     inbox.mockReset();
   });
 
-  it('shows the number of unread items on the app icon', () => {
+  it('shows on the app icon what the items count as unread', () => {
     const setBadge = vi.fn();
     Object.assign(window, {
       spotlightDesktop: {
@@ -29,9 +29,9 @@ describe('useDesktopBadge', () => {
     inbox.mockReturnValue(
       partial<ReturnType<typeof useInbox>>({
         data: [
-          partial<InboxEntry>({ unread: true }),
-          partial<InboxEntry>({ unread: false }),
-          partial<InboxEntry>({ unread: true }),
+          partial<InboxEntry>({ unread: true, unreadCount: 3 }),
+          partial<InboxEntry>({ unread: false, unreadCount: 0 }),
+          partial<InboxEntry>({ unread: true, unreadCount: 1 }),
         ],
       }),
     );
@@ -39,7 +39,7 @@ describe('useDesktopBadge', () => {
     const { unmount } = renderHook(() => useDesktopBadge('acme'));
 
     expect(inbox).toHaveBeenCalledWith('acme');
-    expect(setBadge).toHaveBeenCalledWith(2);
+    expect(setBadge).toHaveBeenCalledWith(4);
 
     unmount();
 

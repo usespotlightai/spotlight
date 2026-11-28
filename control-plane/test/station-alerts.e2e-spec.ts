@@ -252,11 +252,11 @@ describe('a station alert (e2e)', () => {
     expect(inbox.status).toBe(200);
     expect(
       bodyOf<{
-        items: { inboxRequest: { form: string; about: string } | null }[];
-      }>(inbox).items.some(
-        (each) =>
-          each.inboxRequest?.form === 'alert' &&
-          each.inboxRequest.about === inboxRequest.about,
+        items: { parts?: { form: string | null; about: string | null }[] }[];
+      }>(inbox).items.some((each) =>
+        (each.parts ?? []).some(
+          (part) => part.form === 'alert' && part.about === inboxRequest.about,
+        ),
       ),
     ).toBe(true);
   });

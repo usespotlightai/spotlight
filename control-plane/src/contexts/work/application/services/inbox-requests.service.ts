@@ -12,6 +12,7 @@ import type {
 import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
 import type { InboxRequestRepository } from '@work/domain/repositories/inbox-request.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { InboxRequestAsks } from '@work/domain/value-objects/inbox-request-asks.vo';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
@@ -35,19 +36,27 @@ export class InboxRequests implements InboxRequestsPort {
     const inboxRequest = {
       ...input,
       about: InboxRequestSubject.of(input.about),
+      asks:
+        input.asks === undefined
+          ? InboxRequestAsks.ONE
+          : InboxRequestAsks.of(input.asks),
     };
 
     return this.transaction.inTransaction(async () => {
+      const existing = await this.inboxRequests.about(
+        inboxRequest.taskId,
+        FORMS[inboxRequest.form],
+        inboxRequest.about,
+      );
+
+      if (existing) {
+        await this.changed(existing, existing.stillAsks(inboxRequest.asks));
+        return;
+      }
+
       const task = await this.tasks.find(inboxRequest.taskId);
 
-      if (
-        !task ||
-        (await this.inboxRequests.about(
-          inboxRequest.taskId,
-          FORMS[inboxRequest.form],
-          inboxRequest.about,
-        ))
-      ) {
+      if (!task) {
         return;
       }
 
@@ -58,6 +67,7 @@ export class InboxRequests implements InboxRequestsPort {
           taskId: task.id,
           form: FORMS[inboxRequest.form],
           about: inboxRequest.about,
+          asks: inboxRequest.asks,
           askedOf: nonEmpty(input.askedOf) ? UserId.of(input.askedOf) : null,
           now: this.clock.now(),
         }),

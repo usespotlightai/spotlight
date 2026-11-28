@@ -104,6 +104,7 @@ import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
 import { HistoryAccess } from '@work/domain/value-objects/history-access.vo';
 import { HoldId } from '@work/domain/value-objects/hold-id.vo';
+import { InboxRequestAsks } from '@work/domain/value-objects/inbox-request-asks.vo';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
@@ -247,6 +248,7 @@ export const WORK_PAYLOAD_TYPES = [
   TraceReference,
   Voice,
   DraftGeneration,
+  InboxRequestAsks,
   InboxRequestId,
   NoticeId,
   NoticeLink,

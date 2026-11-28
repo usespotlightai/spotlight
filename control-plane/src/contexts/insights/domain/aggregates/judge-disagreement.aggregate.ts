@@ -276,6 +276,23 @@ export class JudgeDisagreement extends EventRecorder {
     return this.fields.claimAnswers;
   }
 
+  // What it still asks people: each disputed claim not answered yet, or the
+  // one question of why the judge failed a run where no claim is in dispute.
+  get openQuestions(): number {
+    if (this.state !== 'open') {
+      return 0;
+    }
+
+    const disputed = this.disputedClaims;
+
+    return disputed.length === 0
+      ? 1
+      : disputed.filter(
+          (claim) =>
+            !this.fields.claimAnswers.some((each) => each.claim === claim),
+        ).length;
+  }
+
   get notMet(): NotMetAnswer | null {
     return this.fields.notMet;
   }

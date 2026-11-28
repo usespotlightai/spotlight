@@ -511,7 +511,7 @@ describe('remembering from inside a run', () => {
     await eventually(async () => {
       const items = bodyOf<{
         readonly items: {
-          inboxRequest: { form: string; about: string } | null;
+          parts?: { form: string | null; about: string | null }[];
         }[];
       }>(
         await http()
@@ -519,10 +519,10 @@ describe('remembering from inside a run', () => {
           .set(TEST_USER_HEADER, team.owner.value),
       ).items;
 
-      return items.some(
-        (each) =>
-          each.inboxRequest?.form === 'memories' &&
-          each.inboxRequest.about === runId,
+      return items.some((each) =>
+        (each.parts ?? []).some(
+          (part) => part.form === 'memories' && part.about === runId,
+        ),
       );
     });
   });

@@ -1,6 +1,7 @@
 import type {
   FoldedVisitResponseDto,
   InboxChatResponseDto,
+  InboxPartResponseDto,
   InboxItemResponseDto,
   InboxItemViewResponseDto,
   InboxNoticeResponseDto,
@@ -10,7 +11,7 @@ import type {
   RunJournalResponseDto,
 } from '@/lib/api';
 import { formatDate } from '@/lib/date-format';
-import { RESOLVED_PREVIEW, OPEN_PREVIEW } from '@/lib/judge-disagreement';
+import { OPEN_PREVIEW, RESOLVED_PREVIEW } from '@/lib/judge-disagreement';
 import { nonEmpty } from '@/lib/non-empty';
 import type { Person } from '@/lib/person';
 import type { ShownProgress } from '@/lib/run';
@@ -26,7 +27,28 @@ export type InboxRun = InboxRunResponseDto;
 
 export type InboxChat = InboxChatResponseDto;
 
+export type InboxPart = InboxPartResponseDto;
+
+type InboxPartKind = InboxPart['kind'];
+
 export type InboxEntry = InboxItem | InboxNotice | InboxRun | InboxChat;
+
+// Acts on each part of a task's item. The task's conversations all write the
+// one task, so they go one after another; requests go at the same time.
+export const actOnParts = async (
+  parts: readonly InboxPart[],
+  act: (part: InboxPart) => Promise<unknown>,
+): Promise<void> => {
+  const conversations = parts.filter((part) => part.form === null);
+  const requests = parts.filter((part) => part.form !== null);
+  const inTurn = async () => {
+    for (const part of conversations) {
+      await act(part);
+    }
+  };
+
+  await Promise.all([inTurn(), ...requests.map(act)]);
+};
 
 export type ResolvableEntry = InboxItem | InboxNotice | InboxChat;
 
@@ -412,29 +434,108 @@ export const shownAt = (
   notes.find((note) => nonEmpty(runId) && note.runId === runId)?.position ??
   null;
 
-export const previewOf = (item: InboxItem): string => {
-  if (item.inboxRequest?.form === 'memories') {
-    return item.resolved
-      ? 'Proposed memories decided.'
-      : 'A run proposed memories for the team.';
-  }
+const plural = (count: number, one: string, many: string): string =>
+  count === 1 ? one : `${count} ${many}`;
 
-  if (item.inboxRequest?.form === 'alert') {
-    return item.resolved ? 'Station alert resolved.' : 'Station alert fired.';
-  }
-
-  if (item.inboxRequest?.form === 'judge-disagreement') {
-    return item.resolved ? RESOLVED_PREVIEW : OPEN_PREVIEW;
-  }
-
+const askedBody = (item: InboxItem): string | null => {
   const asked = item.lastNote;
 
   if (!asked) {
-    return `Waiting at ${item.station}`;
+    return null;
   }
 
   return asked.form === 'setup' ? (item.description ?? '') : asked.body;
 };
+
+const waitingPreviewOf = (
+  item: InboxItem,
+  kind: InboxPartKind,
+  count: number,
+): string => {
+  switch (kind) {
+    case 'question':
+    case 'failure': {
+      const body = askedBody(item);
+
+      if (body === null) {
+        return `Waiting at ${item.station}`;
+      }
+
+      // Only a note the station wrote is its question; a person's answer or
+      // a note from outside Spotlight is shown as it is.
+      if (item.lastNote?.voice !== 'station') {
+        return body;
+      }
+
+      return kind === 'failure'
+        ? `${item.station} stopped: ${body}`
+        : `${item.station} asks: ${body}`;
+    }
+    case 'judge-question':
+      return plural(count, OPEN_PREVIEW, 'judge questions');
+    case 'memories':
+      return plural(
+        count,
+        'A run proposed memories for the team.',
+        'runs proposed memories',
+      );
+    case 'alert':
+      return plural(count, 'Station alert fired.', 'station alerts fired');
+  }
+};
+
+const settledPreviewOf = (item: InboxItem, part: InboxPart): string => {
+  switch (part.kind) {
+    case 'question':
+    case 'failure':
+      return askedBody(item) ?? `Waiting at ${item.station}`;
+    case 'judge-question':
+      return RESOLVED_PREVIEW;
+    case 'memories':
+      return 'Proposed memories decided.';
+    case 'alert':
+      return 'Station alert resolved.';
+  }
+};
+
+const shownPartOf = (item: InboxItem): InboxPart | undefined =>
+  item.parts.find((part) => part.id === item.conversationId) ??
+  item.parts.findLast((part) => part.open) ??
+  item.parts.at(-1);
+
+export const previewOf = (item: InboxItem): string => {
+  if (item.latest) {
+    return waitingPreviewOf(item, item.latest.kind, item.latest.count);
+  }
+
+  const shown = shownPartOf(item);
+
+  if (!shown) {
+    return askedBody(item) ?? `Waiting at ${item.station}`;
+  }
+
+  // Nothing waits on a person: the latest note, or how its parts settled.
+  return shown.open
+    ? (askedBody(item) ?? `Waiting at ${item.station}`)
+    : settledPreviewOf(item, shown);
+};
+
+export const unreadCountOf = (entries: readonly InboxEntry[]): number =>
+  entries.reduce((sum, entry) => sum + entry.unreadCount, 0);
+
+export const requestPartsOf = (item: InboxItem): InboxPart[] =>
+  item.parts.filter((part) => part.form !== null);
+
+export const conversationClosed = (
+  item: InboxItem,
+  conversationId: string,
+): boolean =>
+  !item.parts.some((part) => part.id === conversationId && part.open);
+
+export const firstUnreadNoteOf = (item: InboxItem): number | null =>
+  item.firstUnread && item.firstUnread.partId === item.conversationId
+    ? item.firstUnread.position
+    : null;
 
 export const answerPlaceholder = (station: string): string =>
   `${station} reads your answer and decides the next step…`;

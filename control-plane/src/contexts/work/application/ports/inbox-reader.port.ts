@@ -11,6 +11,10 @@ import type {
   ConversationStanding,
   RunStanding,
 } from '@work/domain/services/conversation-audience';
+import type {
+  InboxPart,
+  InboxPartPreview,
+} from '@work/domain/services/task-inbox';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { HoldEnd } from '@work/domain/value-objects/hold-end';
@@ -91,9 +95,15 @@ export interface InboxNote {
   readonly suggestsClosing: boolean;
 }
 
-interface InboxRequestView {
-  readonly form: InboxRequestForm;
-  readonly about: string;
+export interface InboxPartSummary extends InboxPart {
+  readonly id: string;
+  readonly form: InboxRequestForm | null;
+  readonly about: string | null;
+}
+
+interface InboxFirstUnread {
+  readonly partId: string;
+  readonly position: number | null;
 }
 
 interface InboxStation {
@@ -134,8 +144,13 @@ export interface InboxItemSummary {
   readonly unread: boolean;
   readonly briefing: string | null;
   readonly failure: InboxFailure | null;
-  readonly inboxRequest: InboxRequestView | null;
   readonly lastNote: InboxNote | null;
+  readonly conversationId: string | null;
+  readonly unreadCount: number;
+  readonly latest: InboxPartPreview | null;
+  readonly quiet: boolean;
+  readonly parts: readonly InboxPartSummary[];
+  readonly firstUnread: InboxFirstUnread | null;
 }
 
 export interface InboxFoldedVisit {
@@ -167,6 +182,7 @@ export interface InboxNoticeSummary {
   } | null;
   readonly askedAt: Date;
   readonly unread: boolean;
+  readonly unreadCount: number;
   readonly resolved: boolean;
   readonly section: InboxSection;
   readonly resolvable: boolean;
@@ -186,6 +202,7 @@ export interface InboxRunSummary {
   readonly progress: Progress;
   readonly askedAt: Date;
   readonly unread: false;
+  readonly unreadCount: 0;
   readonly resolved: false;
   readonly section: InboxSection;
   readonly standing: RunStanding;
@@ -202,6 +219,7 @@ export interface InboxChatSummary {
   readonly openProposals: number;
   readonly askedAt: Date;
   readonly unread: boolean;
+  readonly unreadCount: number;
   readonly resolved: boolean;
   readonly section: InboxSection;
   readonly reopenable: boolean;

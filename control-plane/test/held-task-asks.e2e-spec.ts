@@ -562,15 +562,18 @@ describe('a held task whose turn asks another person (e2e)', () => {
   });
 
   it('lets only a person who acts on the team resolve or reopen an inbox request', async () => {
-    const task = await heldAndAsking();
-    const open = randomUUID();
-    const resolved = randomUUID();
+    const openTask = added();
+    const resolvedTask = added();
+    const open = openTask.id.value;
+    const resolved = resolvedTask.id.value;
 
+    await tasks.add(openTask);
+    await tasks.add(resolvedTask);
     await database.db.insert(schema.inboxRequest).values([
       {
-        id: open,
+        id: randomUUID(),
         workspaceId,
-        taskId: task.id.value,
+        taskId: open,
         form: 'memories',
         about: open,
         createdAt: NOW,
@@ -578,14 +581,15 @@ describe('a held task whose turn asks another person (e2e)', () => {
         resolvedAt: null,
       },
       {
-        id: resolved,
+        id: randomUUID(),
         workspaceId,
-        taskId: task.id.value,
+        taskId: resolved,
         form: 'memories',
         about: resolved,
         createdAt: NOW,
         openedAt: NOW,
         resolvedAt: NOW,
+        resolvedByAPerson: true,
       },
     ]);
 
@@ -608,6 +612,35 @@ describe('a held task whose turn asks another person (e2e)', () => {
     ).toMatchObject({ resolvable: false });
     expect((await resolvedFor(true))?.reopenable).toBe(true);
     expect((await resolvedFor(false))?.reopenable).toBe(false);
+  });
+
+  it('holds an inbox request on a held task that asks in the task’s one item, resolvable only by a person who acts on the team', async () => {
+    const task = await heldAndAsking();
+    const request = randomUUID();
+
+    await database.db.insert(schema.inboxRequest).values({
+      id: request,
+      workspaceId,
+      taskId: task.id.value,
+      form: 'memories',
+      about: request,
+      createdAt: NOW,
+      openedAt: NOW,
+      resolvedAt: null,
+    });
+
+    const partFor = async (actsOnTeam: boolean) =>
+      entryWithId(
+        await reader.open(scopeOf(holder, actsOnTeam)),
+        task.id.value,
+      )?.parts.find((each) => each.id === request);
+
+    expect(await partFor(true)).toMatchObject({
+      kind: 'memories',
+      open: true,
+      resolvable: true,
+    });
+    expect(await partFor(false)).toMatchObject({ resolvable: false });
   });
 
   it('lets only a person who acts on the team resolve or reopen a notice', async () => {

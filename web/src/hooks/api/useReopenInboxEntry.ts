@@ -12,14 +12,22 @@ import {
   reopenInboxNotice,
   reopenInboxRequest,
 } from '@/lib/api';
-import type { ResolvableEntry } from '@/lib/inbox';
+import { actOnParts, type InboxPart, type ResolvableEntry } from '@/lib/inbox';
 
 type ReopenInboxEntryInput = {
   slug: string;
   entry: ResolvableEntry;
 };
 
-const reopening = ({ slug, entry }: ReopenInboxEntryInput) => {
+const reopeningPart = (slug: string, part: InboxPart) =>
+  part.form === null
+    ? reopenInboxItem({ path: { slug, itemId: part.id }, throwOnError: true })
+    : reopenInboxRequest({
+        path: { slug, requestId: part.id },
+        throwOnError: true,
+      });
+
+const reopening = async ({ slug, entry }: ReopenInboxEntryInput) => {
   if (entry.kind === 'chat') {
     return reopenInboxChat({
       path: { slug, chatId: entry.id },
@@ -34,15 +42,11 @@ const reopening = ({ slug, entry }: ReopenInboxEntryInput) => {
     });
   }
 
-  return entry.inboxRequest
-    ? reopenInboxRequest({
-        path: { slug, requestId: entry.id },
-        throwOnError: true,
-      })
-    : reopenInboxItem({
-        path: { slug, itemId: entry.id },
-        throwOnError: true,
-      });
+  // Reopening a task's item reopens what its last resolve closed.
+  await actOnParts(
+    entry.parts.filter((part) => part.reopenable),
+    (part) => reopeningPart(slug, part),
+  );
 };
 
 export function useReopenInboxEntry(): UseMutationResult<
@@ -67,7 +71,7 @@ export function useReopenInboxEntry(): UseMutationResult<
         ...(entry.kind === 'task' || entry.kind === 'notice'
           ? { resolvable: true }
           : {}),
-        ...(entry.kind === 'task' && !entry.inboxRequest
+        ...(entry.kind === 'task' && entry.conversationId !== null
           ? { answerable: true }
           : {}),
       }),

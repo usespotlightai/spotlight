@@ -3,7 +3,7 @@ import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import {
   awaitsAPerson,
   conversationsOf,
-  listedAsOpen,
+  lastAskIn,
   notesIn,
   pendingIn,
   reopenable,
@@ -61,29 +61,6 @@ describe('stillOpen', () => {
 
   it('does not once something has', () => {
     expect(stillOpen({ from: 0, to: 2 })).toBe(false);
-  });
-});
-
-describe('listedAsOpen', () => {
-  const seen = { kind: 'asked' as const, readAt: new Date(0) };
-  const unseen = { kind: 'asked' as const, readAt: null };
-
-  it('lists an open conversation while its task is unfinished', () => {
-    expect(listedAsOpen({ from: 0, to: null, notes: [seen] }, false)).toBe(
-      true,
-    );
-    expect(listedAsOpen({ from: 0, to: null, notes: [unseen] }, true)).toBe(
-      false,
-    );
-  });
-
-  it('lists a closed conversation only while an ask in it is unread', () => {
-    expect(listedAsOpen({ from: 0, to: 1, notes: [unseen] }, false)).toBe(true);
-    expect(listedAsOpen({ from: 0, to: 1, notes: [seen] }, false)).toBe(false);
-  });
-
-  it('lists no conversation of a finished task, read or not', () => {
-    expect(listedAsOpen({ from: 0, to: 1, notes: [unseen] }, true)).toBe(false);
   });
 });
 
@@ -343,5 +320,22 @@ describe('worksOn', () => {
 
   it('does not work without a run', () => {
     expect(worksOn(false, [])).toBe(false);
+  });
+});
+
+describe('lastAskIn', () => {
+  it('finds the last time the station asked', () => {
+    expect(
+      lastAskIn([
+        { kind: 'asked', at: 1 },
+        { kind: 'answered', at: 2 },
+        { kind: 'asked', at: 3 },
+        { kind: 'answered', at: 4 },
+      ] as const),
+    ).toEqual({ kind: 'asked', at: 3 });
+  });
+
+  it('finds nothing where nobody was asked', () => {
+    expect(lastAskIn([{ kind: 'passed' }] as const)).toBeNull();
   });
 });

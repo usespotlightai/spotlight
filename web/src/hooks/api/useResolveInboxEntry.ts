@@ -12,14 +12,22 @@ import {
   resolveInboxNotice,
   resolveInboxRequest,
 } from '@/lib/api';
-import type { ResolvableEntry } from '@/lib/inbox';
+import { actOnParts, type InboxPart, type ResolvableEntry } from '@/lib/inbox';
 
 type ResolveInboxEntryInput = {
   slug: string;
   entry: ResolvableEntry;
 };
 
-const resolving = ({ slug, entry }: ResolveInboxEntryInput) => {
+const resolvingPart = (slug: string, part: InboxPart) =>
+  part.form === null
+    ? resolveInboxItem({ path: { slug, itemId: part.id }, throwOnError: true })
+    : resolveInboxRequest({
+        path: { slug, requestId: part.id },
+        throwOnError: true,
+      });
+
+const resolving = async ({ slug, entry }: ResolveInboxEntryInput) => {
   if (entry.kind === 'chat') {
     return resolveInboxChat({
       path: { slug, chatId: entry.id },
@@ -34,16 +42,17 @@ const resolving = ({ slug, entry }: ResolveInboxEntryInput) => {
     });
   }
 
-  return entry.inboxRequest
-    ? resolveInboxRequest({
-        path: { slug, requestId: entry.id },
-        throwOnError: true,
-      })
-    : resolveInboxItem({
-        path: { slug, itemId: entry.id },
-        throwOnError: true,
-      });
+  // Resolving a task's item resolves each part the server says it covers.
+  await actOnParts(
+    entry.parts.filter((part) => part.resolvable),
+    (part) => resolvingPart(slug, part),
+  );
 };
+
+// Shown as resolved at once only when every open part goes with it.
+const wholly = (entry: ResolvableEntry): boolean =>
+  entry.kind !== 'task' ||
+  entry.parts.every((part) => !part.open || part.resolvable);
 
 export function useResolveInboxEntry(): UseMutationResult<
   void,
@@ -60,15 +69,18 @@ export function useResolveInboxEntry(): UseMutationResult<
     },
 
     onMutate: ({ slug, entry }) => ({
-      rollback: patchInboxEntry(queryClient, slug, entry, {
-        resolved: true,
-        unread: false,
-        section: 'resolved',
-        reopenable: true,
-        ...(entry.kind === 'task' || entry.kind === 'notice'
-          ? { resolvable: false }
-          : {}),
-      }),
+      rollback: wholly(entry)
+        ? patchInboxEntry(queryClient, slug, entry, {
+            resolved: true,
+            unread: false,
+            unreadCount: 0,
+            section: 'resolved',
+            reopenable: true,
+            ...(entry.kind === 'task' || entry.kind === 'notice'
+              ? { resolvable: false }
+              : {}),
+          })
+        : () => {},
     }),
 
     onError: (_error, _input, context) => context?.rollback(),

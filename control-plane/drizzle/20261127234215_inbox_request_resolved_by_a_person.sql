@@ -1,0 +1,1 @@
+ALTER TABLE "inbox_request" ADD COLUMN "resolved_by_a_person" boolean DEFAULT false NOT NULL;

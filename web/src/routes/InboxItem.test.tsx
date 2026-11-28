@@ -1,7 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { InboxItem } from '@/routes/InboxItem';
@@ -26,13 +32,25 @@ vi.mock('@/hooks/api/useSession', () => ({
 }));
 
 type Waiting =
-  | { id: string; notes?: unknown[]; [key: string]: unknown }[]
+  | {
+      id: string;
+      notes?: unknown[];
+      parts?: { id: string }[];
+      [key: string]: unknown;
+    }[]
   | undefined;
 
 vi.mock('@/hooks/api/useInbox', () => ({
-  inboxKeys: { forWorkspace: () => ['inbox'] },
+  inboxKeys: {
+    forWorkspace: () => ['inbox'],
+    item: (slug: string, itemId: string) => ['inbox', slug, 'item', itemId],
+  },
   useInboxItem: (_slug: string, itemId: string) => {
-    const found = waiting()?.find((each) => each.id === itemId);
+    // The server opens a task's item from the task or from any of its parts.
+    const found = waiting()?.find(
+      (each) =>
+        each.id === itemId || each.parts?.some((part) => part.id === itemId),
+    );
 
     return {
       data: found && {
@@ -93,6 +111,12 @@ const markInboxRequestRead = vi.fn();
 
 vi.mock('@/hooks/api/useMarkInboxRequestRead', () => ({
   useMarkInboxRequestRead: () => ({ mutate: markInboxRequestRead }),
+}));
+
+vi.mock('@/components/features/inbox/parts/JudgeQuestionPart', () => ({
+  JudgeQuestionPart: ({ disagreementId }: { disagreementId: string }) => (
+    <p>The question about {disagreementId}</p>
+  ),
 }));
 
 vi.mock('@/components/features/inbox/memories/MemoryThread', () => ({
@@ -158,6 +182,22 @@ const item = (
     answerable: true,
     progress: null,
     unread: false,
+    unreadCount: 0,
+    conversationId: 'task_1:0',
+    latest: null,
+    quiet: false,
+    parts: [
+      {
+        id: 'task_1:0',
+        kind: 'question',
+        form: null,
+        about: null,
+        at: '2026-08-29T12:00:00.000Z',
+        open: true,
+        unread: false,
+      },
+    ],
+    firstUnread: null,
     briefing: null,
     notes,
     folded,
@@ -174,6 +214,10 @@ const renderItem = (itemId = 'task_1:0') =>
       </MemoryRouter>
     </QueryClientProvider>,
   );
+
+function Where() {
+  return <output aria-label="Address">{useLocation().pathname}</output>;
+}
 
 function Switch({ to }: { to: string }) {
   const navigate = useNavigate();
@@ -225,18 +269,34 @@ describe('InboxItem', () => {
     });
   });
 
-  describe('when it asks for a review of memories', () => {
-    const inboxRequest = (unread: boolean) => [
-      {
-        ...item([])[0],
-        id: 'request_1',
-        unread,
-        inboxRequest: { form: 'memories', about: 'run_7' },
-      },
-    ];
+  const requestOn = (
+    form: 'memories' | 'judge-disagreement',
+    about: string,
+    unread: boolean,
+  ) => [
+    {
+      ...item([])[0],
+      id: 'task_1',
+      unread,
+      unreadCount: unread ? 1 : 0,
+      conversationId: null,
+      parts: [
+        {
+          id: 'request_1',
+          kind: form === 'memories' ? 'memories' : 'judge-question',
+          form,
+          about,
+          at: '2026-08-29T12:00:00.000Z',
+          open: true,
+          unread,
+        },
+      ],
+    },
+  ];
 
+  describe('when it asks for a review of memories', () => {
     it('opens the run’s thread with the memories it proposed, without waiting on the work', () => {
-      waiting.mockReturnValue(inboxRequest(false));
+      waiting.mockReturnValue(requestOn('memories', 'run_7', false));
       journal.mockReturnValue(undefined);
 
       renderItem('request_1');
@@ -251,7 +311,7 @@ describe('InboxItem', () => {
 
     it('marks it seen as an inbox request, not as a conversation', () => {
       markInboxRequestRead.mockClear();
-      waiting.mockReturnValue(inboxRequest(true));
+      waiting.mockReturnValue(requestOn('memories', 'run_7', true));
 
       renderItem('request_1');
 
@@ -265,21 +325,82 @@ describe('InboxItem', () => {
 
   describe('when it asks why the judge disagrees with people', () => {
     it('shows the question about the disagreement it names', () => {
-      waiting.mockReturnValue([
-        {
-          ...item([])[0],
-          id: 'request_3',
-          unread: false,
-          inboxRequest: { form: 'judge-disagreement', about: 'disagreement_1' },
-        },
-      ]);
+      waiting.mockReturnValue(
+        requestOn('judge-disagreement', 'disagreement_1', false),
+      );
       journal.mockReturnValue(undefined);
 
-      renderItem('request_3');
+      renderItem('request_1');
 
       expect(
         screen.getByText('The thread of disagreement disagreement_1'),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('when its task has a question and several judge questions', () => {
+    const judged = (id: string, unread: boolean) => ({
+      id,
+      kind: 'judge-question',
+      form: 'judge-disagreement',
+      about: `disagreement_${id}`,
+      at: '2026-08-29T12:30:00.000Z',
+      open: true,
+      unread,
+    });
+    const grouped = () => [
+      {
+        ...item([note(), note({ position: 1, body: 'And which region?' })])[0],
+        id: 'task_1',
+        unread: true,
+        unreadCount: 4,
+        parts: [
+          judged('request_1', true),
+          judged('request_2', true),
+          judged('request_3', true),
+          {
+            id: 'task_1:0',
+            kind: 'question',
+            form: null,
+            about: null,
+            at: '2026-08-29T12:40:00.000Z',
+            open: true,
+            unread: true,
+          },
+        ],
+        firstUnread: { partId: 'task_1:0', position: 1 },
+      },
+    ];
+
+    it('shows the conversation and a card for each judge question in it', () => {
+      waiting.mockReturnValue(grouped());
+
+      renderItem('task_1');
+
+      expect(screen.getByText('And which region?')).toBeInTheDocument();
+      expect(
+        within(
+          screen.getByRole('list', { name: 'Also waiting on this task' }),
+        ).getAllByRole('listitem', { name: 'Judge question' }),
+      ).toHaveLength(3);
+    });
+
+    it('answers the conversation it opens on, not the task', async () => {
+      const person = userEvent.setup();
+      waiting.mockReturnValue(grouped());
+
+      renderItem('task_1');
+
+      await write(
+        screen.getByRole('textbox', { name: 'Answer Implementation' }),
+        'The EU one.',
+      );
+      await person.click(screen.getByRole('button', { name: 'Send' }));
+
+      expect(answer).toHaveBeenCalledWith(
+        expect.objectContaining({ itemId: 'task_1:0' }),
+        expect.anything(),
+      );
     });
   });
 
@@ -1164,7 +1285,11 @@ describe('InboxItem', () => {
 
   it('marks what was put to you as read on opening it', () => {
     waiting.mockReturnValue(
-      item([note()]).map((each) => ({ ...each, unread: true })),
+      item([note()]).map((each) => ({
+        ...each,
+        unread: true,
+        parts: [{ ...each.parts[0], unread: true }],
+      })),
     );
 
     renderItem();
@@ -1181,28 +1306,82 @@ describe('InboxItem', () => {
     expect(markInboxItemRead).not.toHaveBeenCalled();
   });
 
-  it('reads the conversation it opens with, not the task', () => {
+  it('reads what is new on the task it opens, from a link to one of its conversations', () => {
     waiting.mockReturnValue(
       item([
         note({ position: 4 }),
         note({ position: 5, body: 'And this.' }),
-      ]).map((each) => ({ ...each, id: 'task_1:4', unread: true })),
+      ]).map((each) => ({
+        ...each,
+        id: 'task_1',
+        conversationId: 'task_1:4',
+        parts: [{ ...each.parts[0], id: 'task_1:4', unread: true }],
+        unread: true,
+      })),
     );
 
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={['/w/acme/inbox/task_1:4']}>
-          <Routes>
-            <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    renderItem('task_1:4');
 
     expect(markInboxItemRead).toHaveBeenCalledWith({
       slug: 'acme',
       itemId: 'task_1:4',
     });
+  });
+
+  const opened = (path: string) =>
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/w/:slug/inbox/:itemId" element={<InboxItem />} />
+          </Routes>
+          <Where />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+  it('moves an old link to one of its inbox requests to the address of the task', async () => {
+    waiting.mockReturnValue(
+      item([note()]).map((each) => ({
+        ...each,
+        id: 'task_1',
+        parts: [
+          ...each.parts,
+          {
+            id: 'request_1',
+            kind: 'judge-question',
+            form: 'judge-disagreement',
+            about: 'disagreement_1',
+            at: '2026-08-29T12:30:00.000Z',
+            open: true,
+            unread: false,
+            resolvable: true,
+            reopenable: false,
+          },
+        ],
+      })),
+    );
+
+    opened('/w/acme/inbox/request_1');
+
+    await waitFor(() =>
+      expect(screen.getByRole('status', { name: 'Address' })).toHaveTextContent(
+        '/w/acme/inbox/task_1',
+      ),
+    );
+    expect(screen.getByText('Which queue should I drain?')).toBeInTheDocument();
+  });
+
+  it('keeps a link to one of its conversations, which it opens on', () => {
+    waiting.mockReturnValue(
+      item([note()]).map((each) => ({ ...each, id: 'task_1' })),
+    );
+
+    opened('/w/acme/inbox/task_1:0');
+
+    expect(screen.getByRole('status', { name: 'Address' })).toHaveTextContent(
+      '/w/acme/inbox/task_1:0',
+    );
   });
 
   it('puts a failure in words and counts how often it happened', () => {

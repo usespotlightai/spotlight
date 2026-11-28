@@ -67,6 +67,22 @@ describe('InboxRequests', () => {
     expect(stored[0]?.workspaceId.value).toBe('ws_1');
   });
 
+  it('keeps how many questions an open request still asks, as its asker says', async () => {
+    const { inboxRequests, stored } = asiding();
+
+    await inboxRequests.create({ ...MEMORIES, asks: 3 });
+    await inboxRequests.create({ ...MEMORIES, asks: 2 });
+
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.asks.value).toBe(2);
+
+    await inboxRequests.resolve(MEMORIES);
+    await inboxRequests.create({ ...MEMORIES, asks: 1 });
+
+    expect(stored[0]?.asks.value).toBe(2);
+    expect(stored[0]?.open).toBe(false);
+  });
+
   it('names the inbox request it created, and none it did not', async () => {
     const { inboxRequests } = asiding();
 

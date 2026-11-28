@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -48,81 +48,96 @@ vi.mock('@/hooks/api/useReopenInboxEntry', () => ({
   useReopenInboxEntry: () => ({ mutate: reopen, isPending: false }),
 }));
 
-const item = (over: Record<string, unknown> = {}) => ({
-  kind: 'task',
-  id: 'task_1:0',
-  taskId: 'task_1',
-  teamId: 'team_1',
-  title: 'Fix the queue',
-  description: null,
-  station: 'Implementation',
-  stationColor: '#5c66d9',
-  stationPosition: 2,
-  stationCount: 4,
-  originStation: {
-    station: 'Triage',
-    stationColor: '#edc12b',
-    stationPosition: 0,
-  },
-  createdAt: '2026-08-29T09:02:00.000Z',
-  askedAt: '2026-08-29T12:00:00.000Z',
-  resolved: false,
-  section: 'open',
-  reopenable: false,
-  progress: null,
-  runId: null,
-  inboxRequest: null,
-  unread: false,
-  lastNote: {
-    position: 0,
-    kind: 'asked',
+const counted = <T extends { unread: boolean }>(entry: T) => ({
+  unreadCount: entry.unread ? 1 : 0,
+  ...entry,
+});
+
+const item = (over: Record<string, unknown> = {}) =>
+  counted({
+    kind: 'task',
+    id: 'task_1:0',
+    taskId: 'task_1',
+    teamId: 'team_1',
+    title: 'Fix the queue',
+    description: null,
     station: 'Implementation',
     stationColor: '#5c66d9',
     stationPosition: 2,
+    stationCount: 4,
+    originStation: {
+      station: 'Triage',
+      stationColor: '#edc12b',
+      stationPosition: 0,
+    },
+    createdAt: '2026-08-29T09:02:00.000Z',
+    askedAt: '2026-08-29T12:00:00.000Z',
+    resolved: false,
+    section: 'open',
+    reopenable: false,
+    progress: null,
     runId: null,
-    body: 'Which queue should I drain?',
-    at: '2026-08-29T12:00:00.000Z',
-    author: null,
-  },
-  standing: 'assignee',
-  answerable: true,
-  resolvable: true,
-  ...over,
-});
+    conversationId: 'task_1:0',
+    latest: null,
+    quiet: false,
+    parts: [],
+    firstUnread: null,
+    unread: false,
+    lastNote: {
+      position: 0,
+      kind: 'asked',
+      voice: 'station',
+      station: 'Implementation',
+      stationColor: '#5c66d9',
+      stationPosition: 2,
+      runId: null,
+      body: 'Which queue should I drain?',
+      at: '2026-08-29T12:00:00.000Z',
+      author: null,
+    },
+    standing: 'assignee',
+    answerable: true,
+    resolvable: true,
+    ...over,
+  });
 
-const notice = (over: Record<string, unknown> = {}) => ({
-  kind: 'notice',
-  id: 'notice_1',
-  teamId: 'team_1',
-  form: 'ended',
-  headline: 'The search for a better Build config stalled',
-  points: ['Fix the judge’s claims: one requires tests a rename never needs.'],
-  link: 'lines/line_1/stations/station_1',
-  linkLabel: 'Open the station',
-  externalLink: null,
-  askedAt: '2026-08-29T13:00:00.000Z',
-  unread: true,
-  resolved: false,
-  section: 'open',
-  resolvable: true,
-  reopenable: false,
-  ...over,
-});
+const notice = (over: Record<string, unknown> = {}) =>
+  counted({
+    kind: 'notice',
+    id: 'notice_1',
+    teamId: 'team_1',
+    form: 'ended',
+    headline: 'The search for a better Build config stalled',
+    points: [
+      'Fix the judge’s claims: one requires tests a rename never needs.',
+    ],
+    link: 'lines/line_1/stations/station_1',
+    linkLabel: 'Open the station',
+    externalLink: null,
+    askedAt: '2026-08-29T13:00:00.000Z',
+    unread: true,
+    resolved: false,
+    section: 'open',
+    resolvable: true,
+    reopenable: false,
+    ...over,
+  });
 
-const chat = (over: Record<string, unknown> = {}) => ({
-  kind: 'chat',
-  id: 'chat_1',
-  teamId: 'team_1',
-  title: 'Why do retries pile up?',
-  progress: null,
-  openProposals: 0,
-  askedAt: '2026-08-29T14:00:00.000Z',
-  unread: false,
-  resolved: false,
-  section: 'open',
-  reopenable: false,
-  ...over,
-});
+const chat = (over: Record<string, unknown> = {}) =>
+  counted({
+    kind: 'chat',
+    id: 'chat_1',
+    teamId: 'team_1',
+    title: 'Why do retries pile up?',
+    progress: null,
+    openProposals: 0,
+    askedAt: '2026-08-29T14:00:00.000Z',
+    unread: false,
+    resolved: false,
+    section: 'open',
+    reopenable: false,
+    ...over,
+  });
 
 const markChatRead = vi.fn();
 
@@ -372,6 +387,50 @@ describe('Inbox', () => {
       expect(screen.getByRole('button', { name: /Resolved/ })).toHaveAttribute(
         'aria-expanded',
         'false',
+      );
+    });
+
+    it('lists a task once, with how much on it is new and what the newest blocking thing is', () => {
+      waiting.mockReturnValue([
+        item({
+          id: 'task_1',
+          unread: true,
+          unreadCount: 4,
+          latest: { kind: 'question', count: 1 },
+        }),
+        chat({ unread: true }),
+      ]);
+      renderAt('/w/acme/inbox');
+
+      const rows = screen.getAllByRole('link', { name: /Fix the queue/ });
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toHaveTextContent('4 new');
+      expect(rows[0]).toHaveTextContent(
+        'Implementation asks: Which queue should I drain?',
+      );
+      expect(
+        screen.getByRole('link', { name: /Why do retries pile up/ }),
+      ).toBeInTheDocument();
+    });
+
+    it('mutes a task while only judge questions on it are new', () => {
+      waiting.mockReturnValue([
+        item({
+          id: 'task_1',
+          unread: true,
+          unreadCount: 3,
+          quiet: true,
+          latest: { kind: 'judge-question', count: 3 },
+        }),
+      ]);
+      renderAt('/w/acme/inbox');
+
+      const row = screen.getByRole('link', { name: /Fix the queue/ });
+
+      expect(row).toHaveTextContent('3 judge questions');
+      expect(within(row).getByTitle('Fix the queue')).toHaveClass(
+        'text-muted-foreground',
       );
     });
 

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProposedMemories } from '@/components/features/inbox/memories/ProposedMemories';
 import type { ProposedMemory } from '@/lib/memory';
+import { SettledPartContext } from '@/lib/settled-part';
 
 const refetch = vi.fn();
 const reviewState = {
@@ -116,6 +117,27 @@ describe('ProposedMemories', () => {
     expect(
       screen.getByRole('button', { name: 'Reject memory 1' }),
     ).toHaveProperty('disabled', false);
+  });
+
+  it('says a memory was not decided once its inbox item was resolved, and still takes a decision', () => {
+    reviewState.data = {
+      taskId: 'task_1',
+      runId: 'run_1',
+      memories: [memory({ id: 'one', body: 'One.' })],
+    };
+    render(
+      <SettledPartContext value>
+        <ProposedMemories {...ABOUT} />
+      </SettledPartContext>,
+    );
+
+    expect(screen.getByText('Not decided')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Waiting for your approval'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^Approve memory / }),
+    ).toBeInTheDocument();
   });
 
   it('lists every memory the run proposed', () => {

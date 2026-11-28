@@ -4,6 +4,7 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { ResolveConversationCommand } from '@work/application/commands/resolve-conversation.command';
 import type { ConversationLoader } from '@work/application/services/conversation-loader.service';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -22,22 +23,35 @@ export class ResolveConversationHandler implements CommandHandlerPort<
 
   async execute(command: ResolveConversationCommand): Promise<void> {
     try {
-      const { item, task, line, viewer } = await this.conversations.putTo(
-        command.conversationId,
-        command.resolvedBy,
-      );
-      const resolvedBy = UserId.of(command.resolvedBy);
-
-      await this.tasks.save(
-        task.resolveAs(viewer, item.from, {
-          line,
-          body: TaskNoteBody.of(RESOLVED),
-          at: this.clock.now(),
-          voice: Voice.person(resolvedBy),
-        }),
-      );
+      // Resolving or reopening a task's inbox item acts on each of its
+      // conversations at once, and they all write the one task.
+      await this.resolveOnce(command).catch((error: unknown) => {
+        if (error instanceof TaskVersionConflictError) {
+          return this.resolveOnce(command);
+        }
+        throw error;
+      });
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private async resolveOnce(
+    command: ResolveConversationCommand,
+  ): Promise<void> {
+    const { item, task, line, viewer } = await this.conversations.putTo(
+      command.conversationId,
+      command.resolvedBy,
+    );
+    const resolvedBy = UserId.of(command.resolvedBy);
+
+    await this.tasks.save(
+      task.resolveAs(viewer, item.from, {
+        line,
+        body: TaskNoteBody.of(RESOLVED),
+        at: this.clock.now(),
+        voice: Voice.person(resolvedBy),
+      }),
+    );
   }
 }

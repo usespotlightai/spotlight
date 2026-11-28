@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { use, useId, useRef, useState } from 'react';
 
 import { ClaimAnsweredRows } from '@/components/features/inbox/disagreements/ClaimAnsweredRows';
 import { ClaimAnswerRow } from '@/components/features/inbox/disagreements/ClaimAnswerRow';
@@ -26,6 +26,7 @@ import {
   SEND_ANSWER,
   WHY,
 } from '@/lib/judge-disagreement';
+import { NOT_ANSWERED, SettledPartContext } from '@/lib/settled-part';
 import { taskTracePath } from '@/lib/task';
 
 type DisputedClaimCardProps = {
@@ -54,6 +55,7 @@ export function DisputedClaimCard({
   const formId = useId();
 
   const state = cardStateOf(disagreement, claim.index);
+  const settled = use(SettledPartContext);
   const given = answerOfClaim(disagreement, claim.index);
   const answering = state === 'open';
   const body = claimAnswerOf(draft);
@@ -99,11 +101,15 @@ export function DisputedClaimCard({
     >
       <DisagreementCardHeader
         state={state}
-        title={claimCardTitleOf(
-          disagreement,
-          claim.index,
-          given ? answererOf(given.answeredBy) : null,
-        )}
+        title={
+          settled && state === 'open'
+            ? NOT_ANSWERED
+            : claimCardTitleOf(
+                disagreement,
+                claim.index,
+                given ? answererOf(given.answeredBy) : null,
+              )
+        }
         sending={send.isPending}
         at={
           state === 'withdrawn'

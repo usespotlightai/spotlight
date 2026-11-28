@@ -4,6 +4,7 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { ReopenConversationCommand } from '@work/application/commands/reopen-conversation.command';
 import type { ConversationLoader } from '@work/application/services/conversation-loader.service';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -22,21 +23,32 @@ export class ReopenConversationHandler implements CommandHandlerPort<
 
   async execute(command: ReopenConversationCommand): Promise<void> {
     try {
-      const { item, task, line, viewer } = await this.conversations.putTo(
-        command.conversationId,
-        command.reopenedBy,
-      );
-
-      await this.tasks.save(
-        task.reopenAs(viewer, item.from, {
-          line,
-          body: TaskNoteBody.of(REOPENED),
-          at: this.clock.now(),
-          voice: Voice.person(UserId.of(command.reopenedBy)),
-        }),
-      );
+      // Resolving or reopening a task's inbox item acts on each of its
+      // conversations at once, and they all write the one task.
+      await this.reopenOnce(command).catch((error: unknown) => {
+        if (error instanceof TaskVersionConflictError) {
+          return this.reopenOnce(command);
+        }
+        throw error;
+      });
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private async reopenOnce(command: ReopenConversationCommand): Promise<void> {
+    const { item, task, line, viewer } = await this.conversations.putTo(
+      command.conversationId,
+      command.reopenedBy,
+    );
+
+    await this.tasks.save(
+      task.reopenAs(viewer, item.from, {
+        line,
+        body: TaskNoteBody.of(REOPENED),
+        at: this.clock.now(),
+        voice: Voice.person(UserId.of(command.reopenedBy)),
+      }),
+    );
   }
 }
