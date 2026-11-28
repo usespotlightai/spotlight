@@ -258,8 +258,10 @@ export const runnerStatus = (runner: ActiveRunner): string => {
 
 export const hiddenRunTip = (run: LeasedRun): string => run.hiddenReason ?? '';
 
+const UNNAMED_RUN = 'A run';
+
 export const formatRun = (run: LeasedRun | null): string =>
-  run === null ? 'No run yet' : (run.title ?? run.hiddenReason ?? '');
+  run === null ? 'No run yet' : (run.title ?? run.hiddenReason ?? UNNAMED_RUN);
 
 export const hiddenFromViewer = (run: LeasedRun | null): boolean =>
   run !== null && run.hiddenReason !== null;

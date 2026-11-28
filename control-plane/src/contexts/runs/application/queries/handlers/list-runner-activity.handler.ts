@@ -9,7 +9,10 @@ import type {
   RunnerActivityReaderPort,
 } from '@runs/application/ports/runner-activity-reader.port';
 import type { ListRunnerActivityQuery } from '@runs/application/queries/list-runner-activity.query';
-import type { RunTitles } from '@runs/application/services/run-titles.service';
+import {
+  type RunTitles,
+  UNNAMED_RUN,
+} from '@runs/application/services/run-titles.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -51,16 +54,14 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
       );
 
       const shown = (each: ActivityRunRow): LeasedRunDto => {
-        const titled = titles.get(each.runId.value);
+        const titled = titles.get(each.runId.value) ?? UNNAMED_RUN;
 
         return {
           id: each.runId.value,
           state: each.state,
           kind: each.requester.kind,
           teamId: each.teamId,
-          title: titled?.title ?? null,
-          hiddenReason: titled?.hiddenReason ?? null,
-          link: titled?.link ?? null,
+          ...titled,
         };
       };
 

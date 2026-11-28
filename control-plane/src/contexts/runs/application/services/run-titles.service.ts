@@ -33,16 +33,22 @@ export interface TitledRun extends ListedRun {
  * What the viewer sees of a run: its title when they may read it, with the run it opens, or why it is hidden from
  * them.
  */
-export interface RunTitle {
-  readonly title: string | null;
-  readonly hiddenReason: string | null;
-  readonly link: { readonly runId: string; readonly teamId: string } | null;
-}
+export type RunTitle =
+  | {
+      readonly title: string;
+      readonly hiddenReason: null;
+      readonly link: { readonly runId: string; readonly teamId: string } | null;
+    }
+  | {
+      readonly title: null;
+      readonly hiddenReason: string;
+      readonly link: null;
+    };
 
 /** The workspace whose runs are titled, by its id and its slug. */
 type TitledWorkspace = Pick<WorkspaceMembership, 'workspaceId' | 'slug'>;
 
-const UNNAMED: RunTitle = {
+export const UNNAMED_RUN: RunTitle = {
   title: UNNAMED_RUN_TITLE,
   hiddenReason: null,
   link: null,
@@ -169,7 +175,7 @@ export class RunTitles {
         const shown = state ? TitleAudience.shown(state, reads(state)) : null;
 
         if (!label || !shown || shown.shows === 'nothing') {
-          return [run.runId.value, UNNAMED] as const;
+          return [run.runId.value, UNNAMED_RUN] as const;
         }
 
         return [

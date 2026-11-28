@@ -439,6 +439,12 @@ describe('formatRun', () => {
       'Title hidden. This run belongs to a team you’re not on.',
     );
   });
+
+  it('names plainly a run that has neither a title nor a reason it is hidden', () => {
+    expect(formatRun({ ...LEASED_RUN, title: null, hiddenReason: null })).toBe(
+      'A run',
+    );
+  });
 });
 
 describe('runnerStatus', () => {

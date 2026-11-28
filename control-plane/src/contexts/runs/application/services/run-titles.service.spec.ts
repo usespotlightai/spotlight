@@ -11,6 +11,7 @@ import type {
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
 import { RunTitles } from '@runs/application/services/run-titles.service';
 import type { RunViewing } from '@runs/application/services/run-viewing.service';
+import { TitleAudience } from '@runs/domain/services/title-audience';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -82,6 +83,7 @@ const DELETED_CHAT_RUN = runOf(
 const ON_DELETED_CHAT = sessionRunOf('on_deleted_chat');
 const SESSION_ON_SESSION = sessionRunOf('on_session');
 const SESSION_ON_LOOP = sessionRunOf('on_loop');
+const THREE_HOPS = sessionRunOf('three_hops');
 const NO_TEAM_ON_GONE = runOf(
   'run_no_team',
   { owner: 'assist', kind: 'session', id: 'no_team' },
@@ -164,6 +166,10 @@ const LABELS: Record<string, RequesterLabel | undefined> = {
     'Going round',
     'run_on_loop',
   ),
+  [requesterRefOf(THREE_HOPS.requester)]: sessionLabel(
+    'Judging the judge of the judge',
+    'run_on_session',
+  ),
 };
 
 const titling = ({
@@ -203,6 +209,7 @@ const titling = ({
       DELETED_CHAT_RUN,
       REPLAY_RUN,
       JUDGING,
+      SESSION_ON_SESSION,
       SESSION_ON_LOOP,
     ].filter((each) => ids.some((id) => id.equals(each.runId))),
   );
@@ -410,6 +417,24 @@ describe('RunTitles', () => {
       link: { runId: 'run_task', teamId: 'team_1' },
     });
     expect(titled.get('run_on_loop')).toEqual(UNNAMED_TITLE);
+  });
+
+  it('names plainly a run whose chain to a listed run is longer than the most it follows, with one read of runs per hop', async () => {
+    const { titles, runsOf } = titling({ readable: ['run_task'], teams: [] });
+
+    const titled = await titles.of(
+      MEMBERSHIP,
+      [THREE_HOPS, SESSION_ON_SESSION, JUDGING],
+      VIEWER,
+    );
+
+    expect(TitleAudience.MOST_FOLLOWED).toBe(2);
+    expect(titled.get('run_three_hops')).toEqual(UNNAMED_TITLE);
+    expect(titled.get('run_on_session')?.title).toBe('Judging the judge');
+    expect(titled.get('run_judging')?.title).toBe(
+      'Judging Implementation on “Incident owners 2/5”',
+    );
+    expect(runsOf).toHaveBeenCalledTimes(TitleAudience.MOST_FOLLOWED);
   });
 
   it('never shows the title of an unlisted run to the readers of the run itself, whoever reads it', async () => {
