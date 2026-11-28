@@ -42,6 +42,21 @@ const textOf = (first: unknown): string => {
     : '';
 };
 
+const ASKED_AT = Symbol('spotlight.e2e.query-rounds.asked-at');
+
+const checkedOut = (client: unknown, asked: number): void => {
+  if (client instanceof Client) {
+    Reflect.set(client, ASKED_AT, asked);
+  }
+};
+
+const askedForClient = (client: Client): number => {
+  const asked: unknown = Reflect.get(client, ASKED_AT);
+  Reflect.deleteProperty(client, ASKED_AT);
+
+  return typeof asked === 'number' ? asked : performance.now();
+};
+
 if (Reflect.get(globalThis, PATCHED) !== true) {
   Reflect.set(globalThis, PATCHED, true);
 
@@ -51,15 +66,20 @@ if (Reflect.get(globalThis, PATCHED) !== true) {
   Object.defineProperty(Pool.prototype, 'connect', {
     value: function (this: Pool, ...args: unknown[]) {
       const [callback] = args;
+      const asked = performance.now();
 
       return typeof callback === 'function'
         ? connect.call(
             this,
             AsyncResource.bind((...results: unknown[]): void => {
+              checkedOut(results[1], asked);
               Reflect.apply(callback, undefined, results);
             }),
           )
-        : connect.apply(this, args);
+        : Promise.resolve(connect.apply(this, args)).then((client) => {
+            checkedOut(client, asked);
+            return client;
+          });
     },
     writable: true,
     configurable: true,
@@ -82,7 +102,7 @@ if (Reflect.get(globalThis, PATCHED) !== true) {
 
     const entry: Query = {
       text: textOf(first),
-      started: performance.now(),
+      started: askedForClient(this),
       ended: Number.POSITIVE_INFINITY,
     };
     current.queries.push(entry);
