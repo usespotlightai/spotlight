@@ -28,7 +28,10 @@ import type {
   ResolutionDeltas,
   TallySeen,
 } from '@insights/domain/services/run-tally';
-import type { StationWorthImproving } from '@insights/domain/services/station-ranking';
+import type {
+  LeftOutCount,
+  StationWorthImproving,
+} from '@insights/domain/services/station-ranking';
 import type {
   DayTally,
   StationReport,
@@ -83,6 +86,8 @@ export type ConfigMarkerDto = Omit<ConfigMarker, 'firstRunAt'> & {
 
 export type StationWorthImprovingDto = StationWorthImproving;
 
+export type LeftOutRunsDto = LeftOutCount;
+
 export interface InsightsOverviewDto {
   readonly period: PeriodDto;
   readonly headline: HeadlineDto;
@@ -91,6 +96,7 @@ export interface InsightsOverviewDto {
   readonly outputCurrency: string | null;
   readonly outputMixedCurrencies: boolean;
   readonly worthImproving: readonly StationWorthImprovingDto[];
+  readonly leftOut: readonly LeftOutRunsDto[];
   readonly people: readonly PersonNameDto[];
 }
 

@@ -22,7 +22,7 @@ export class CostSliceResponseDto {
     type: String,
     example: 'claude-sonnet-4',
     description:
-      'What the slice is: a harness, model, station id or repository; none for the harness’s own model or runs with no repository',
+      'What the slice is: a harness, model, station id or repository; none for the harness’s own model, the team’s Agent chats among stations, or runs with no repository',
   })
   readonly key: string | null;
 
@@ -37,7 +37,10 @@ export class CostSliceResponseDto {
   })
   readonly share: number | null;
 
-  @ApiProperty({ example: 11, description: 'Runs in the slice' })
+  @ApiProperty({
+    example: 11,
+    description: 'Runs in the slice, Agent chat runs among them',
+  })
   readonly runs: number;
 
   constructor(slice: CostSliceDto) {
@@ -114,7 +117,7 @@ export class CostFlowNodeResponseDto {
     type: String,
     example: 'claude-sonnet-4',
     description:
-      'The model, station id or repository; none for the harness’s own model or no repository',
+      'The model, station id or repository; none for the harness’s own model, the team’s Agent chats as a station, or no repository',
   })
   readonly key: string | null;
 
@@ -147,11 +150,14 @@ export class CostBreakdownResponseDto {
     type: MoneyResponseDto,
     nullable: true,
     description:
-      'Spend this period; none, and every slice empty, where nothing was priced or prices came in more than one currency',
+      'Spend this period, of the stations’ runs and the Agent chats’ runs; none, and every slice empty, where nothing was priced or prices came in more than one currency',
   })
   readonly spend: MoneyResponseDto | null;
 
-  @ApiProperty({ example: 1, description: 'Runs that ran with no price' })
+  @ApiProperty({
+    example: 1,
+    description: 'Runs, of stations or Agent chats, that ran with no price',
+  })
   readonly unpriced: number;
 
   @ApiProperty({
@@ -181,14 +187,16 @@ export class CostBreakdownResponseDto {
   @ApiProperty({
     type: CostFlowNodeResponseDto,
     isArray: true,
-    description: 'Models, stations and repositories, for a Sankey diagram',
+    description:
+      'Models, stations and the Agent chats, and repositories, for a Sankey diagram',
   })
   readonly nodes: readonly CostFlowNodeResponseDto[];
 
   @ApiProperty({
     type: CostFlowLinkResponseDto,
     isArray: true,
-    description: 'Spend from model to station, and station to repository',
+    description:
+      'Spend from model to station or the Agent chats, and from there to repository',
   })
   readonly links: readonly CostFlowLinkResponseDto[];
 
@@ -239,7 +247,7 @@ export class InsightsCostResponseDto {
     type: DeltaResponseDto,
     nullable: true,
     description:
-      'Spend against the period before, where both periods were priced in one currency',
+      'Spend, Agent chats too, against the period before, where both periods were priced in one currency',
   })
   readonly spendChange: DeltaResponseDto | null;
 

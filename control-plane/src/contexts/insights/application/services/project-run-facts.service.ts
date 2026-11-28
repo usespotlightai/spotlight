@@ -1,3 +1,4 @@
+import type { RunEndingsPort } from '@insights/application/ports/run-endings.port';
 import type {
   RunFactOwner,
   RunFactsPort,
@@ -67,6 +68,7 @@ export class ProjectRunFacts implements RunFactsMaintenance {
     private readonly taskActions: TaskActionsRepository,
     private readonly pullRequests: PullRequestRecordRepository,
     private readonly facts: RunFactsPort,
+    private readonly endings: RunEndingsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -269,6 +271,7 @@ export class ProjectRunFacts implements RunFactsMaintenance {
         openings.get(key) ?? null,
         PullRequestRecord.taskPullRequestsOf(owned.get(key) ?? []),
         followedAtOf(record, taskRecords.get(key) ?? []),
+        record.end ? this.endings.outsideCauseOf(record.end) : null,
       );
 
       return fact ? [fact] : [];

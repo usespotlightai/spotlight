@@ -4,10 +4,15 @@ import type {
   HeadlineDeltasDto,
   HeadlineDto,
   InsightsOverviewDto,
+  LeftOutRunsDto,
   StationWorthImprovingDto,
 } from '@insights/application/dto/insights.dto';
 import type { SignalReadingDto } from '@insights/application/dto/read-model.dto';
 import { STATION_SIGNALS } from '@insights/domain/services/station-ranking';
+import {
+  LEFT_OUT_CAUSES,
+  type LeftOutCause,
+} from '@insights/domain/value-objects/left-out-cause';
 import {
   DeltaResponseDto,
   deltaResponseOf,
@@ -398,6 +403,27 @@ export class StationWorthImprovingResponseDto {
   }
 }
 
+export class LeftOutRunsResponseDto {
+  @ApiProperty({
+    enum: LEFT_OUT_CAUSES,
+    example: 'refused',
+    description:
+      'Why the runs ended outside their station’s work: refused before they started, failed in setup, lost to an infrastructure problem such as a lost runner, or cancelled',
+  })
+  readonly cause: LeftOutCause;
+
+  @ApiProperty({
+    example: 3,
+    description: 'Runs this period that ended for that reason',
+  })
+  readonly runs: number;
+
+  constructor(leftOut: LeftOutRunsDto) {
+    this.cause = leftOut.cause;
+    this.runs = leftOut.runs;
+  }
+}
+
 export class InsightsOverviewResponseDto {
   @ApiProperty({ type: InsightsPeriodResponseDto })
   readonly period: InsightsPeriodResponseDto;
@@ -438,9 +464,17 @@ export class InsightsOverviewResponseDto {
     type: StationWorthImprovingResponseDto,
     isArray: true,
     description:
-      'Stations with at least three runs whose signals rose against the period before or trail the team, the most signals first',
+      'Stations with at least three runs whose signals rose against the period before or trail the team, the most signals first. Runs that ended outside their station’s work count for none of them',
   })
   readonly worthImproving: readonly StationWorthImprovingResponseDto[];
+
+  @ApiProperty({
+    type: LeftOutRunsResponseDto,
+    isArray: true,
+    description:
+      'Runs this period that the stations’ signals leave out, by why they ended outside their station’s work, the most first',
+  })
+  readonly leftOut: readonly LeftOutRunsResponseDto[];
 
   @ApiProperty({ type: PersonNameResponseDto, isArray: true })
   readonly people: readonly PersonNameResponseDto[];
@@ -454,6 +488,9 @@ export class InsightsOverviewResponseDto {
     this.outputMixedCurrencies = overview.outputMixedCurrencies;
     this.worthImproving = overview.worthImproving.map(
       (each) => new StationWorthImprovingResponseDto(each),
+    );
+    this.leftOut = overview.leftOut.map(
+      (each) => new LeftOutRunsResponseDto(each),
     );
     this.people = overview.people.map(
       (each) => new PersonNameResponseDto(each),

@@ -70,6 +70,7 @@ const reading = async (member = true) => {
     unfinishedRuns: async () => [],
     traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
     taskRunOf: async () => null,
+    chatRunOf: async () => null,
     endedRun: async () => null,
     configsInOrder: async (fingerprints) => {
       requested.push([...fingerprints]);

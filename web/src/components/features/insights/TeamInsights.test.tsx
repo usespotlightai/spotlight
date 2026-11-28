@@ -214,6 +214,7 @@ const OVERVIEW = partial<InsightsOverview>({
       mixedCurrencies: false,
     },
   ],
+  leftOut: [],
   people: [],
 });
 
@@ -484,6 +485,31 @@ describe('TeamInsights', () => {
         name: 'Sent back 30% (was 10%, all stations 15%)',
       }),
     ).toBeInTheDocument();
+  });
+
+  it('says which runs no station’s signals count, so a problem outside the stations stays in sight', () => {
+    answers.overview = queried({
+      ...OVERVIEW,
+      worthImproving: [],
+      leftOut: [{ cause: 'refused', runs: 3 }],
+    });
+
+    showing();
+
+    const card = screen.getByRole('region', {
+      name: 'Stations worth improving',
+    });
+
+    expect(card).toHaveTextContent('All stations are healthy');
+    expect(card).toHaveTextContent(
+      'Not counted: 3 runs refused before they started.',
+    );
+  });
+
+  it('says nothing of runs left out when every run counted', () => {
+    showing();
+
+    expect(screen.queryByText(/Not counted/)).not.toBeInTheDocument();
   });
 
   it('keeps the shape of the overview while it loads', () => {

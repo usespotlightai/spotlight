@@ -2,6 +2,10 @@ import type { LocatedFailure } from '@insights/domain/services/failure-summaries
 import { rateOf } from '@insights/domain/services/measures';
 import type { TallyCounts } from '@insights/domain/services/run-tally';
 import type { TeamCounts } from '@insights/domain/services/station-reports';
+import {
+  LEFT_OUT_CAUSES,
+  type LeftOutCause,
+} from '@insights/domain/value-objects/left-out-cause';
 
 export interface StationLocation {
   readonly lineId: string;
@@ -184,3 +188,20 @@ export const stationsWorthImprovingFrom = (
         b.runs - a.runs,
     );
 };
+
+export interface LeftOutCount {
+  readonly cause: LeftOutCause;
+  readonly runs: number;
+}
+
+/** The runs no station's signals count, most first, so a problem outside the stations' work stays in sight. */
+export const leftOutRunsFrom = (
+  counts: readonly LeftOutCount[],
+): readonly LeftOutCount[] =>
+  counts
+    .filter((each) => each.runs > 0)
+    .sort(
+      (a, b) =>
+        b.runs - a.runs ||
+        LEFT_OUT_CAUSES.indexOf(a.cause) - LEFT_OUT_CAUSES.indexOf(b.cause),
+    );

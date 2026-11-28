@@ -291,6 +291,7 @@ import {
   CHAT_READER,
   type ChatReaderPort,
 } from '@work/application/ports/chat-reader.port';
+import { CHAT_RUNS } from '@work/application/ports/chat-runs.port';
 import { CHAT_TOOL_EXTENSIONS } from '@work/application/ports/chat-tool-extensions.port';
 import { CONNECTION_ASKS } from '@work/application/ports/connection-asks.port';
 import {
@@ -545,6 +546,7 @@ import { CarryGitCall } from '@work/application/services/carry-git-call.service'
 import { ChannelChats } from '@work/application/services/channel-chats.service';
 import { ChatLoader } from '@work/application/services/chat-loader.service';
 import { ChatPullRequestToolUse } from '@work/application/services/chat-pull-request.tool-use';
+import { ChatRuns } from '@work/application/services/chat-runs.service';
 import { ChatToolExtensions } from '@work/application/services/chat-tool-extensions.service';
 import { ChecksToolUse } from '@work/application/services/checks.tool-use';
 import { CiSetups } from '@work/application/services/ci-setups.service';
@@ -1147,6 +1149,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       reader: StationRunReaderPort,
       dispatches: DispatchRepository,
     ) => new StationRuns(reader, dispatches),
+  },
+
+  {
+    provide: CHAT_RUNS,
+    inject: [DISPATCH_REPOSITORY, CHAT_REPOSITORY],
+    useFactory: (dispatches: DispatchRepository, chats: ChatRepository) =>
+      new ChatRuns(dispatches, chats),
   },
 
   {

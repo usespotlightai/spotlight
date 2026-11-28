@@ -9,18 +9,19 @@ import {
 } from '@insights/domain/services/cost-breakdown';
 import type { Window } from '@insights/domain/value-objects/insights-period.vo';
 import {
+  asUtc,
   endedIn,
-  factsInPeriod,
   inEndOrder,
-  isCurrent,
+  iso,
   onTeam,
-  priced,
   ran,
   type SpendRow,
-  spendColumns,
   spendOf,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
-import { runFact } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
+import {
+  chatRunSpend,
+  runFact,
+} from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { type SQL, sql } from 'drizzle-orm';
 
@@ -62,6 +63,44 @@ const runsIn = (team: TeamInPeriod, window: Window, matching: SQL): SQL => sql`
   from ${runFact}
   where ${onTeam(team)} and ${endedIn(window.from, window.to)} and ${matching}`;
 
+/** What the team's runs and its Agent chats' runs spent, a chat's at no station. */
+const spentIn = (team: TeamInPeriod, window: Window): SQL => sql`
+  select
+    ${runFact.runId} as run_id,
+    ${runFact.endedAt} as ended_at,
+    ${runFact.harness} as harness,
+    ${runFact.model} as model,
+    ${runFact.stationId} as station_id,
+    ${runFact.repositories} as repositories,
+    ${runFact.cost} as cost,
+    ${runFact.currency} as currency
+  from ${runFact}
+  where ${onTeam(team)} and ${endedIn(window.from, window.to)} and ${ran}
+  union all
+  select
+    ${chatRunSpend.runId},
+    ${chatRunSpend.spentAt},
+    ${chatRunSpend.harness},
+    ${chatRunSpend.model},
+    null,
+    ${chatRunSpend.repositories},
+    ${chatRunSpend.cost},
+    ${chatRunSpend.currency}
+  from ${chatRunSpend}
+  where ${chatRunSpend.workspaceId} = ${team.workspaceId.value}
+    and ${chatRunSpend.teamId} = ${team.teamId.value}
+    and ${chatRunSpend.spentAt} >= ${iso(window.from)}::timestamptz
+    and ${chatRunSpend.spentAt} < ${iso(window.to)}::timestamptz`;
+
+const spentPriced = sql`spent.cost is not null and coalesce(spent.currency, '') <> ''`;
+
+const spentInOrder = sql`spent.ended_at, spent.run_id collate "C"`;
+
+const pricedIn = (team: TeamInPeriod, window: Window): SQL => sql`
+  select spent.*, row_number() over (order by ${spentInOrder}) as place
+  from (${spentIn(team, window)}) as spent
+  where ${spentPriced}`;
+
 const sharesOf = sql`
   select repository.value #>> '{}' as key, repository.position, priced.cost::float8 / jsonb_array_length(priced.repositories) as amount
   from jsonb_array_elements(priced.repositories) with ordinality as repository(value, position)
@@ -81,10 +120,16 @@ const spendingIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
 ): Promise<readonly SpendingRow[]> => {
+  const { current, previous } = team.period;
   const result = await db.execute<SpendingRow>(sql`
-    select ${isCurrent} as is_current, ${spendColumns}
-    from ${factsInPeriod(team)}
-    group by ${isCurrent}
+    select
+      spent.ended_at >= ${asUtc(current.from)} as is_current,
+      sum(spent.cost::float8 order by ${spentInOrder}) filter (where ${spentPriced}) as amount,
+      min(spent.currency) filter (where ${spentPriced}) as currency,
+      count(distinct spent.currency) filter (where ${spentPriced})::int as currencies,
+      count(*) filter (where not (${spentPriced}))::int as unpriced
+    from (${spentIn(team, { from: previous.from, to: current.to })}) as spent
+    group by 1
   `);
 
   return result.rows;
@@ -95,7 +140,7 @@ const sharesIn = async (
   team: TeamInPeriod,
 ): Promise<readonly CostShareCount[]> => {
   const result = await db.execute<ShareRow>(sql`
-    with priced as (${runsIn(team, team.period.current, priced)})
+    with priced as (${pricedIn(team, team.period.current)})
     select 'harness' as part, priced.harness as key, sum(priced.cost::float8 order by priced.place) as amount, count(*)::int as runs, ${firstAt(sql`0`)} as first
     from priced group by priced.harness
     union all
@@ -124,7 +169,7 @@ const linksIn = async (
   team: TeamInPeriod,
 ): Promise<readonly CostLinkCount[]> => {
   const result = await db.execute<LinkRow>(sql`
-    with priced as (${runsIn(team, team.period.current, priced)})
+    with priced as (${pricedIn(team, team.period.current)})
     select 'model' as source_kind, priced.model as source_key, 'station' as target_kind, priced.station_id as target_key, sum(priced.cost::float8 order by priced.place) as amount, ${firstAt(sql`0`)} as first
     from priced group by priced.model, priced.station_id
     union all

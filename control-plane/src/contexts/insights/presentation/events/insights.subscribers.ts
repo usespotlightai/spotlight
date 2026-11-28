@@ -3,6 +3,7 @@ import type { DeleteInsights } from '@insights/application/services/delete-insig
 import type { RecordAskingRun } from '@insights/application/services/record-asking-run.service';
 import type { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import type { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
+import type { RecordChatSpend } from '@insights/application/services/record-chat-spend.service';
 import type { RecordChat } from '@insights/application/services/record-chat.service';
 import type { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
 import type { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
@@ -142,6 +143,7 @@ export interface InsightsHandlers {
   readonly failing: RecordTaskFailure;
   readonly recordingTaskActions: RecordTaskAction;
   readonly chatting: RecordChat;
+  readonly spendingInChats: RecordChatSpend;
   readonly recording: RecordPullRequests;
   readonly shaping: RecordChangeShape;
   readonly watching: WatchStations;
@@ -345,6 +347,12 @@ export const insightsSubscribers = (
     'insights.record-run-usage',
     [RUN_USAGE_RECORDED],
     (event) => handlers.recordingUsage.usageRecorded(event),
+  ),
+  subscribing<RunUsageRecordedIntegrationEvent>(
+    'insights.record-chat-run-spend',
+    [RUN_USAGE_RECORDED],
+    (event, record) =>
+      handlers.spendingInChats.usageRecorded(event, record.recordedAt),
   ),
   subscribing<MemoriesUsedIntegrationEvent>(
     'insights.record-run-memories',

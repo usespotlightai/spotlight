@@ -22,6 +22,7 @@ import {
   pageShownOf,
   paramsOf,
   sankeyLayout,
+  leftOutNote,
   sankeyOf,
   shownDeltaOf,
   sliceFilter,
@@ -461,6 +462,25 @@ describe('cost', () => {
     expect(named('station', 'station_build')).toBe('Implementation');
   });
 
+  it('names the spend of Agent chats as a row of its own, beside the stations', () => {
+    expect(named('station', null)).toBe('Agent chats');
+    expect(sliceFilter('station', null)).toBeNull();
+    expect(
+      sankeyOf(
+        [
+          { id: 'model:opus', kind: 'model', key: 'opus' },
+          { id: 'station:', kind: 'station', key: null },
+          { id: 'repository:', kind: 'repository', key: null },
+        ],
+        [
+          { source: 'model:opus', target: 'station:', amount: 0.5 },
+          { source: 'station:', target: 'repository:', amount: 0.5 },
+        ],
+        named,
+      ).nodes.map((each) => each.name),
+    ).toEqual(['opus', 'Agent chats', 'No repository']);
+  });
+
   it('drills into runs by the slice, the harness default and no repository included', () => {
     expect(sliceFilter('station', 'station_build')).toEqual({
       stationId: 'station_build',
@@ -505,6 +525,29 @@ describe('cost', () => {
       ],
       links: [{ source: 0, target: 1, value: 4 }],
     });
+  });
+});
+
+describe('runs left out of the stations’ signals', () => {
+  it('says how many runs no station counts, and why', () => {
+    expect(
+      leftOutNote([
+        { cause: 'refused', runs: 2 },
+        { cause: 'cancelled', runs: 1 },
+      ]),
+    ).toBe(
+      'Not counted: 3 runs that stopped for reasons outside their station (2 refused before they started, 1 cancelled).',
+    );
+    expect(leftOutNote([{ cause: 'refused', runs: 3 }])).toBe(
+      'Not counted: 3 runs refused before they started.',
+    );
+    expect(leftOutNote([{ cause: 'infrastructure', runs: 1 }])).toBe(
+      'Not counted: 1 run lost to an infrastructure problem.',
+    );
+  });
+
+  it('says nothing when every run counted', () => {
+    expect(leftOutNote([])).toBeNull();
   });
 });
 

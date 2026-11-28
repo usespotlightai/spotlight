@@ -17,6 +17,7 @@ import type {
   InsightsStationsResponseDto,
   InsightsTraceResponseDto,
   InsightsTracesResponseDto,
+  LeftOutRunsResponseDto,
   LineResponseDto,
   ListInsightsTracesData,
   MoneyResponseDto,
@@ -61,6 +62,49 @@ export type Money = MoneyResponseDto;
 export type Spread = SpreadResponseDto;
 export type DayOutput = DayOutputResponseDto;
 export type WorthImproving = StationWorthImprovingResponseDto;
+
+export type LeftOutRuns = LeftOutRunsResponseDto;
+
+const LEFT_OUT_AS: Record<
+  LeftOutRuns['cause'],
+  { readonly one: string; readonly many: string }
+> = {
+  refused: {
+    one: 'refused before it started',
+    many: 'refused before they started',
+  },
+  setup: { one: 'failed in setup', many: 'failed in setup' },
+  infrastructure: {
+    one: 'lost to an infrastructure problem',
+    many: 'lost to an infrastructure problem',
+  },
+  cancelled: { one: 'cancelled', many: 'cancelled' },
+};
+
+const ranAs = (each: LeftOutRuns): string =>
+  each.runs === 1 ? LEFT_OUT_AS[each.cause].one : LEFT_OUT_AS[each.cause].many;
+
+const runsCounted = (runs: number): string =>
+  `${formatCount(runs)} ${runs === 1 ? 'run' : 'runs'}`;
+
+export const leftOutNote = (leftOut: readonly LeftOutRuns[]): string | null => {
+  const runs = leftOut.reduce((sum, each) => sum + each.runs, 0);
+
+  if (runs === 0) {
+    return null;
+  }
+
+  if (leftOut.length === 1) {
+    return `Not counted: ${runsCounted(runs)} ${leftOut.map(ranAs).join('')}.`;
+  }
+
+  const why = leftOut
+    .map((each) => `${formatCount(each.runs)} ${ranAs(each)}`)
+    .join(', ');
+
+  return `Not counted: ${runsCounted(runs)} that stopped for reasons outside their station (${why}).`;
+};
+
 export type SignalReading = SignalReadingResponseDto;
 export type Flow = FlowResponseDto;
 export type StationFlow = StationFlowResponseDto;
@@ -495,6 +539,8 @@ export const stationNamesOf = (
 
 const REMOVED_STATION = 'A removed station';
 
+const AGENT_CHATS = 'Agent chats';
+
 export const formatStation = (names: StationNames, stationId: string): string =>
   names.get(stationId)?.stationName ?? REMOVED_STATION;
 
@@ -712,7 +758,7 @@ export const sliceNamer =
       case 'model':
         return formatModel(key);
       case 'station':
-        return key === null ? REMOVED_STATION : formatStation(names, key);
+        return key === null ? AGENT_CHATS : formatStation(names, key);
       case 'repository':
         return formatRepository(key);
     }
@@ -1159,7 +1205,7 @@ export const CACHE_NOTE =
   'Cache reads as a share of all tokens read, which are input, cache reads and cache writes. If a harness doesn’t report input or cache reads, its runs don’t count.';
 
 export const COST_SANKEY_NOTE =
-  'Spend from model to station to repository. A run on several repositories splits its cost evenly.';
+  'Spend from model to station, or to Agent chats, then to repository. A run on several repositories splits its cost evenly.';
 
 export const PEOPLE_HEADINGS: readonly NestedHeading[] = [
   { label: 'Person', indent: 'edge', size: 'minmax(10rem,2fr)' },

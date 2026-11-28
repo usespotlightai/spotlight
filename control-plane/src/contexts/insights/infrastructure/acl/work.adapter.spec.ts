@@ -5,6 +5,7 @@ import type {
 } from '@shared-kernel/application/ports/logger.port';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { ChatRunsPort } from '@work/application/ports/chat-runs.port';
 import type {
   EndedStationRun,
   StationRunsPort,
@@ -49,7 +50,10 @@ const workOf = (fingerprint: string | null) => {
     ended: async () => endedRun(fingerprint),
   });
 
-  return { work: new Work(stations, logger), warned };
+  return {
+    work: new Work(stations, partial<ChatRunsPort>({}), logger),
+    warned,
+  };
 };
 
 describe('reading an ended run from Work', () => {
@@ -97,5 +101,52 @@ describe('reading an ended run from Work', () => {
 
     expect(run?.fingerprint).toBe(null);
     expect(warned).toEqual([]);
+  });
+});
+
+const CHAT_REQUESTER = {
+  owner: 'work',
+  kind: 'chat',
+  id: 'chat_1',
+  token: null,
+};
+
+describe('reading a chat run from Work', () => {
+  it('reads the chat a run worked for, and the team it is in', async () => {
+    const work = new Work(
+      partial<StationRunsPort>({}),
+      partial<ChatRunsPort>({
+        of: async (runId) => ({
+          runId,
+          workspaceId: 'ws_1',
+          teamId: 'team_1',
+          chatId: 'chat_1',
+          harness: 'claude-code',
+          model: null,
+          repositories: ['acme/api'],
+        }),
+      }),
+      partial<LoggerPort>({}),
+    );
+
+    const run = await work.chatRunOf(RunId.of('run_1'), CHAT_REQUESTER);
+
+    expect(run?.teamId.value).toBe('team_1');
+    expect(run).toMatchObject({
+      chatId: 'chat_1',
+      harness: 'claude-code',
+      model: null,
+      repositories: ['acme/api'],
+    });
+  });
+
+  it('reads no chat for a run of none', async () => {
+    const work = new Work(
+      partial<StationRunsPort>({}),
+      partial<ChatRunsPort>({ of: async () => null }),
+      partial<LoggerPort>({}),
+    );
+
+    expect(await work.chatRunOf(RunId.of('run_1'), CHAT_REQUESTER)).toBeNull();
   });
 });

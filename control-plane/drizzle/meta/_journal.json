@@ -71,6 +71,20 @@
       "when": 1795859343416,
       "tag": "20261128094903_backfill_inbox_request_asks",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795883723502,
+      "tag": "20261128163523_insights_left_out_runs_and_chat_spend",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795883725567,
+      "tag": "20261128163525_backfill_run_fact_left_out",
+      "breakpoints": true
     }
   ]
 }

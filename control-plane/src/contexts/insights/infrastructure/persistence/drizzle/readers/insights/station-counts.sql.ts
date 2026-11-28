@@ -10,6 +10,7 @@ import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurr
 import type { Window } from '@insights/domain/value-objects/insights-period.vo';
 import {
   asUtc,
+  countsForItsStation,
   day,
   endedIn,
   factsInPeriod,
@@ -31,7 +32,23 @@ import {
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { sql } from 'drizzle-orm';
+import { type SQL, sql } from 'drizzle-orm';
+
+/** Every run, or only the runs that count for their station: none that ended outside its work. */
+export type CountedRuns = 'every-run' | 'station-work';
+
+const COUNTED: Readonly<Record<CountedRuns, SQL>> = {
+  'every-run': sql`true`,
+  'station-work': countsForItsStation,
+};
+
+const fromCountedRun = (counted: CountedRuns, runId: SQL): SQL =>
+  counted === 'every-run'
+    ? sql`true`
+    : sql`not exists (
+        select 1 from ${runFact}
+        where ${runFact.runId} = ${runId} and not (${countsForItsStation})
+      )`;
 
 interface TallyRow extends TallyColumns, Record<string, unknown> {
   readonly is_current: boolean;
@@ -82,21 +99,30 @@ class WindowTallies {
 const talliesIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
+  counted: CountedRuns,
+  byStation = true,
 ): Promise<readonly TallyRow[]> => {
+  const stationColumns = byStation
+    ? sql`${runFact.stationId} as station_id,
+        grouping(${runFact.stationId})::int as all_stations,`
+    : sql`null::text as station_id,
+        1 as all_stations,`;
+  const stationSets = byStation
+    ? sql`,
+        (${isCurrent}, ${runFact.stationId}),
+        (${isCurrent}, ${runFact.stationId}, ${day})`
+    : sql``;
   const result = await db.execute<TallyRow>(sql`
       select
         ${isCurrent} as is_current,
-        ${runFact.stationId} as station_id,
+        ${stationColumns}
         ${day} as day,
-        grouping(${runFact.stationId})::int as all_stations,
         grouping(${day})::int as all_days,
         ${tallyColumns}
-      from ${factsInPeriod(team)}
+      from ${factsInPeriod(team, COUNTED[counted])}
       group by grouping sets (
         (${isCurrent}),
-        (${isCurrent}, ${day}),
-        (${isCurrent}, ${runFact.stationId}),
-        (${isCurrent}, ${runFact.stationId}, ${day})
+        (${isCurrent}, ${day})${stationSets}
       )
       having ${isCurrent} or grouping(${day}) = 1
     `);
@@ -107,13 +133,14 @@ const talliesIn = async (
 const stationsIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
+  counted: CountedRuns,
 ): Promise<readonly StationRow[]> => {
   const { current } = team.period;
   const result = await db.execute<StationRow>(
     stationsInEndOrder(
       sql`
         select ${runFact}.* from ${runFact}
-        where ${onTeam(team)} and ${endedIn(current.from, current.to)}`,
+        where ${onTeam(team)} and ${endedIn(current.from, current.to)} and ${COUNTED[counted]}`,
     ),
   );
 
@@ -123,6 +150,7 @@ const stationsIn = async (
 const runFailuresIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
+  counted: CountedRuns,
 ): Promise<readonly RunFailureRow[]> => {
   const { current } = team.period;
   const result = await db.execute<RunFailureRow>(sql`
@@ -134,6 +162,7 @@ const runFailuresIn = async (
       where ${onTeam(team)}
         and ${endedIn(current.from, current.to)}
         and ${runFact.ending} = 'failed'
+        and ${COUNTED[counted]}
       group by ${runFact.stationId}, ${runFact.failure}
       order by
         count(*) desc,
@@ -148,6 +177,7 @@ export const failingIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
   window: Window,
+  counted: CountedRuns = 'every-run',
 ): Promise<readonly FailingTask[]> => {
   const at = sql`(occurrence.value->>'at')::timestamptz`;
   const result = await db.execute<FailingRow>(sql`
@@ -164,6 +194,7 @@ export const failingIn = async (
         and ${taskFailures.lastAt} >= ${iso(window.from)}::timestamptz
         and ${at} >= ${asUtc(window.from)}
         and ${at} < ${asUtc(window.to)}
+        and ${fromCountedRun(counted, sql`occurrence.value->>'runId'`)}
       order by ${taskFailures.lastAt} desc, ${taskFailures.taskId} desc, occurrence.position
     `);
 
@@ -178,14 +209,30 @@ export const failingIn = async (
   }));
 };
 
+export const teamCountsIn = async (
+  db: DrizzleDatabase,
+  team: TeamInPeriod,
+): Promise<WindowCounts> => {
+  const tallies = new WindowTallies();
+
+  for (const row of await talliesIn(db, team, 'every-run', false)) {
+    if (row.all_stations === 1) {
+      tallies.add(row);
+    }
+  }
+
+  return tallies.counts();
+};
+
 export const stationCountsIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
+  counted: CountedRuns = 'every-run',
 ): Promise<TeamCounts> => {
-  const tallies = await talliesIn(db, team);
-  const stations = await stationsIn(db, team);
-  const runFailures = await runFailuresIn(db, team);
-  const failing = await failingIn(db, team, team.period.current);
+  const tallies = await talliesIn(db, team, counted);
+  const stations = await stationsIn(db, team, counted);
+  const runFailures = await runFailuresIn(db, team, counted);
+  const failing = await failingIn(db, team, team.period.current, counted);
   const teamTallies = new WindowTallies();
   const stationTallies = new Map<string, WindowTallies>();
 

@@ -60,6 +60,40 @@ describe('RunFailure', () => {
     ]);
   });
 
+  it.each([
+    ['exited', 'work'],
+    ['timed-out', 'work'],
+    ['refused', 'refused'],
+    ['unprepared', 'setup'],
+    ['unprovisioned', 'infrastructure'],
+    ['start-gate-unanswered', 'infrastructure'],
+    ['runner-lost', 'infrastructure'],
+    ['cancelled', 'cancelled'],
+  ])('says a run that ended %s failed for %s', (code, cause) => {
+    expect(RunFailure.of(code).cause).toBe(cause);
+  });
+
+  it('says a run cancelled as a whole, with no failure of its own, was cancelled', () => {
+    expect(RunFailure.causeOfEnding({ cancelled: true, failure: null })).toBe(
+      'cancelled',
+    );
+    expect(
+      RunFailure.causeOfEnding({ cancelled: false, failure: 'runner-lost' }),
+    ).toBe('infrastructure');
+  });
+
+  it('knows no cause for a run that did not fail, or that its task superseded', () => {
+    expect(
+      RunFailure.causeOfEnding({ cancelled: false, failure: null }),
+    ).toBeNull();
+    expect(
+      RunFailure.causeOfEnding({ cancelled: false, failure: 'superseded' }),
+    ).toBeNull();
+    expect(
+      RunFailure.causeOfEnding({ cancelled: false, failure: 'exploded' }),
+    ).toBeNull();
+  });
+
   it('rejects a code nobody knows', () => {
     expect(() => RunFailure.of('exploded')).toThrow(InvalidRunOutcomeError);
   });

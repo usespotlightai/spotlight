@@ -43,6 +43,7 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
     outputCurrency,
     outputMixedCurrencies,
     worthImproving,
+    leftOut,
   } = overview.data;
 
   if (headline.runs === 0 && headline.mergedPullRequests === 0) {
@@ -88,6 +89,7 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
         slug={slug}
         teamId={teamId}
         stations={worthImproving}
+        leftOut={leftOut}
         names={names}
       />
     </div>

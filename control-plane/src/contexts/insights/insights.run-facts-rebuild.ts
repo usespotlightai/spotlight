@@ -1,5 +1,6 @@
 import { ProjectRunFacts } from '@insights/application/services/project-run-facts.service';
 import { RebuildRunFacts } from '@insights/application/services/rebuild-run-facts.service';
+import { RunEndings } from '@insights/infrastructure/acl/run-endings.adapter';
 import { DrizzleRunFacts } from '@insights/infrastructure/persistence/drizzle/projections/run-facts.projection';
 import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
@@ -36,6 +37,7 @@ export const openRunFactsRebuild = (): RunFactsRebuild => {
         new DrizzleTaskActionsRepository(context, READ_ONLY),
         new DrizzlePullRequestRecordRepository(context, READ_ONLY),
         new DrizzleRunFacts(context),
+        new RunEndings(),
         context,
       ),
     ),

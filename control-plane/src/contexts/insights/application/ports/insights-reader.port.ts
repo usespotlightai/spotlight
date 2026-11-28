@@ -101,6 +101,7 @@ export interface RunsListed {
 
 export interface InsightsReaderPort {
   stationCounts(team: TeamInPeriod): Promise<TeamCounts>;
+  /** Its station counts hold only the runs that count for their station (RunFact.countsForItsStation); the headline holds every run. */
   overviewCounts(team: TeamInPeriod): Promise<OverviewCounts>;
   costCounts(team: TeamInPeriod): Promise<CostCountsInPeriod>;
   flowCounts(team: TeamInPeriod): Promise<FlowCounts>;

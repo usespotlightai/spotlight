@@ -2751,6 +2751,31 @@
           "mixedCurrencies"
         ]
       },
+      "LeftOutRunsResponseDto": {
+        "type": "object",
+        "properties": {
+          "cause": {
+            "type": "string",
+            "enum": [
+              "refused",
+              "setup",
+              "infrastructure",
+              "cancelled"
+            ],
+            "example": "refused",
+            "description": "Why the runs ended outside their station’s work: refused before they started, failed in setup, lost to an infrastructure problem such as a lost runner, or cancelled"
+          },
+          "runs": {
+            "type": "number",
+            "example": 3,
+            "description": "Runs this period that ended for that reason"
+          }
+        },
+        "required": [
+          "cause",
+          "runs"
+        ]
+      },
       "PersonNameResponseDto": {
         "type": "object",
         "properties": {
@@ -2811,10 +2836,17 @@
             "description": "Whether the period’s prices came in more than one currency"
           },
           "worthImproving": {
-            "description": "Stations with at least three runs whose signals rose against the period before or trail the team, the most signals first",
+            "description": "Stations with at least three runs whose signals rose against the period before or trail the team, the most signals first. Runs that ended outside their station’s work count for none of them",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StationWorthImprovingResponseDto"
+            }
+          },
+          "leftOut": {
+            "description": "Runs this period that the stations’ signals leave out, by why they ended outside their station’s work, the most first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeftOutRunsResponseDto"
             }
           },
           "people": {
@@ -2832,6 +2864,7 @@
           "outputCurrency",
           "outputMixedCurrencies",
           "worthImproving",
+          "leftOut",
           "people"
         ]
       },
@@ -3723,7 +3756,7 @@
             "type": "string",
             "nullable": true,
             "example": "claude-sonnet-4",
-            "description": "What the slice is: a harness, model, station id or repository; none for the harness’s own model or runs with no repository"
+            "description": "What the slice is: a harness, model, station id or repository; none for the harness’s own model, the team’s Agent chats among stations, or runs with no repository"
           },
           "amount": {
             "type": "number",
@@ -3739,7 +3772,7 @@
           "runs": {
             "type": "number",
             "example": 11,
-            "description": "Runs in the slice"
+            "description": "Runs in the slice, Agent chat runs among them"
           }
         },
         "required": [
@@ -3768,7 +3801,7 @@
             "type": "string",
             "nullable": true,
             "example": "claude-sonnet-4",
-            "description": "The model, station id or repository; none for the harness’s own model or no repository"
+            "description": "The model, station id or repository; none for the harness’s own model, the team’s Agent chats as a station, or no repository"
           }
         },
         "required": [
@@ -3880,7 +3913,7 @@
         "properties": {
           "spend": {
             "nullable": true,
-            "description": "Spend this period; none, and every slice empty, where nothing was priced or prices came in more than one currency",
+            "description": "Spend this period, of the stations’ runs and the Agent chats’ runs; none, and every slice empty, where nothing was priced or prices came in more than one currency",
             "type": "object",
             "allOf": [
               {
@@ -3891,7 +3924,7 @@
           "unpriced": {
             "type": "number",
             "example": 1,
-            "description": "Runs that ran with no price"
+            "description": "Runs, of stations or Agent chats, that ran with no price"
           },
           "mixedCurrencies": {
             "type": "boolean",
@@ -3924,14 +3957,14 @@
             }
           },
           "nodes": {
-            "description": "Models, stations and repositories, for a Sankey diagram",
+            "description": "Models, stations and the Agent chats, and repositories, for a Sankey diagram",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CostFlowNodeResponseDto"
             }
           },
           "links": {
-            "description": "Spend from model to station, and station to repository",
+            "description": "Spend from model to station or the Agent chats, and from there to repository",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CostFlowLinkResponseDto"
@@ -3977,7 +4010,7 @@
           },
           "spendChange": {
             "nullable": true,
-            "description": "Spend against the period before, where both periods were priced in one currency",
+            "description": "Spend, Agent chats too, against the period before, where both periods were priced in one currency",
             "type": "object",
             "allOf": [
               {

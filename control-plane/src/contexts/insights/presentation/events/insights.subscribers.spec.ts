@@ -9,6 +9,7 @@ import { FactRecorder } from '@insights/application/services/fact-recorder.servi
 import { RecordAskingRun } from '@insights/application/services/record-asking-run.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
+import { RecordChatSpend } from '@insights/application/services/record-chat-spend.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
 import { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
@@ -119,6 +120,18 @@ const WORK = {
           workspaceId: ENDED.workspaceId,
           taskId: ENDED.taskId,
           teamId: ENDED.teamId,
+        }
+      : null,
+  chatRunOf: async (runId: RunId) =>
+    runId.value === 'run_chat'
+      ? {
+          runId,
+          workspaceId: ENDED.workspaceId,
+          teamId: ENDED.teamId,
+          chatId: 'chat_1',
+          harness: 'claude-code',
+          model: 'opus',
+          repositories: ['acme/api'],
         }
       : null,
   endedRun: async (runId: RunId) => (runId.equals(ENDED.runId) ? ENDED : null),
@@ -262,6 +275,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       inTransaction,
     ),
     chatting: new RecordChat(chats, deletions, inTransaction),
+    spendingInChats: new RecordChatSpend(WORK, chats, deletions, inTransaction),
     recording: new RecordPullRequests(
       pullRequests,
       new FactRecorder(deletions),
@@ -424,7 +438,7 @@ describe('insightsSubscribers', () => {
     await subscriber.deliver('insights.record-ended-run', runEnded());
 
     expect(
-      (await subscriber.record())?.factWith(null, null, null)?.ending,
+      (await subscriber.record())?.factWith(null, null, null, null)?.ending,
     ).toBe('completed');
   });
 
@@ -437,7 +451,7 @@ describe('insightsSubscribers', () => {
     );
 
     expect(
-      (await subscriber.record())?.factWith(null, null, null)?.ending,
+      (await subscriber.record())?.factWith(null, null, null, null)?.ending,
     ).toBe('stopped');
   });
 
@@ -515,7 +529,7 @@ describe('insightsSubscribers', () => {
     const record = await subscriber.record();
     expect(record?.checks).toBe('passed');
     expect(record?.actions.decidingAction?.kind).toBe('sent-back');
-    expect(record?.factWith(null, null, null)?.ending).toBe('superseded');
+    expect(record?.factWith(null, null, null, null)?.ending).toBe('superseded');
   });
 
   it('follows the task’s pull request from opened to merged', async () => {
@@ -643,6 +657,63 @@ describe('insightsSubscribers', () => {
     });
 
     expect(await subscriber.record()).toBeNull();
+  });
+
+  it('keeps what a run of an Agent chat cost, once, apart from the runs of tasks', async () => {
+    const subscriber = subscribed();
+    const usage = {
+      kind: RUN_USAGE_RECORDED,
+      runId: 'run_chat',
+      workspaceId: 'ws_1',
+      requester: {
+        owner: 'work',
+        kind: 'chat',
+        id: 'chat_1',
+        token: null,
+        team: 'team_1',
+      },
+      listed: true,
+      ms: 60_000,
+      steps: 12,
+      errors: 0,
+      changedLines: 0,
+      contextTokens: null,
+      contextWindow: null,
+      cost: 0.42,
+      currency: 'USD',
+      spentCosts: [{ amount: 0.42, currency: 'USD' }],
+      unpricedCalls: 0,
+      inputTokens: null,
+      outputTokens: null,
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+      servers: [],
+      skillsRead: [],
+    };
+
+    await subscriber.deliver('insights.record-chat-run-spend', usage);
+    await subscriber.deliver('insights.record-chat-run-spend', {
+      ...usage,
+      cost: 9,
+    });
+    await subscriber.deliver('insights.record-chat-run-spend', {
+      ...usage,
+      runId: 'run_1',
+    });
+
+    expect([...subscriber.chats.spending.values()]).toEqual([
+      {
+        runId: RunId.of('run_chat'),
+        chatId: 'chat_1',
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TeamId.of('team_1'),
+        harness: 'claude-code',
+        model: 'opus',
+        repositories: ['acme/api'],
+        spend: { amount: 0.42, currency: 'USD' },
+        spentAt: anOutboxRecord().recordedAt,
+      },
+    ]);
   });
 
   it('keeps the memories a run used, received before and after it ended', async () => {
@@ -798,7 +869,7 @@ describe('insightsSubscribers', () => {
 
     const record = await subscriber.record();
     expect(record?.asked).toBe(true);
-    expect(record?.factWith(null, null, null)?.disposition).toBe('asked');
+    expect(record?.factWith(null, null, null, null)?.disposition).toBe('asked');
   });
 
   it('records no asking run for an ask a person drove, a failure the run reported, or no run made', async () => {

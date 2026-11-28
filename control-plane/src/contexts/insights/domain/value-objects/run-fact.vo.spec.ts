@@ -46,13 +46,40 @@ describe('RunFact', () => {
     expect(cancelled.size).toBeNull();
   });
 
+  it('counts for its station only when it ended in the station’s own work', () => {
+    const refused = factOf(
+      endedRecord('run_1', { ending: 'failed', failure: 'refused' }),
+    );
+    const exited = factOf(
+      endedRecord('run_2', { ending: 'failed', failure: 'exited' }),
+    );
+    const cancelled = factOf(endedRecord('run_3', { ending: 'cancelled' }));
+
+    expect(refused.leftOut).toBe('refused');
+    expect(refused.countsForItsStation).toBe(false);
+    expect(exited.leftOut).toBeNull();
+    expect(exited.countsForItsStation).toBe(true);
+    expect(cancelled.leftOut).toBe('cancelled');
+  });
+
+  it('is left out for the cause it is given', () => {
+    const lost = endedRecord('run_1', {
+      ending: 'exhausted',
+      failure: 'runner-lost',
+    });
+
+    expect(lost.factWith(null, null, null, 'infrastructure')?.leftOut).toBe(
+      'infrastructure',
+    );
+  });
+
   it('turned out as its run did', () => {
     const accepted = endedRecord('run_1', { ending: 'failed' }).recordAction(
       PersonAction.of('accepted', AT, ACTOR),
     );
 
     expect(factOf(accepted).disposition).toBe(
-      accepted.factWith(null, null, null)?.disposition,
+      accepted.factWith(null, null, null, null)?.disposition,
     );
     expect(factOf(accepted).disposition).toBe('failed');
     expect(factOf(accepted).resolution).toBe('failed');
@@ -62,7 +89,7 @@ describe('RunFact', () => {
     const fact = endedRecord('run_1', { endedAt: EARLIER })
       .recordAction(PersonAction.of('answered', AT, ACTOR))
       .recordAction(PersonAction.of('started', LATER, ACTOR))
-      .factWith(null, null, null);
+      .factWith(null, null, null, null);
 
     expect(fact?.asOf(EARLIER)?.disposition).toBe('other');
     expect(fact?.asOf(AT)?.actions.answer?.at).toEqual(AT);
@@ -79,7 +106,7 @@ describe('RunFact', () => {
       .recordAction(PersonAction.of('approved', LATER, ACTOR))
       .recordAction(PersonAction.of('accepted', LATER, ACTOR))
       .passTo(StationPass.of(StationId.of('station_2'), LATER))
-      .factWith(null, PULL_REQUEST, null);
+      .factWith(null, PULL_REQUEST, null, null);
     const known = fact?.asOf(AT);
 
     expect(known?.ending).toBe('completed');

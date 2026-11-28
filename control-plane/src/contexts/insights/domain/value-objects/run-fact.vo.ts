@@ -9,6 +9,7 @@ import { type RunSize, sizeOf } from '@insights/domain/services/run-size';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import type { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import { HumanLabel } from '@insights/domain/value-objects/human-label.vo';
+import type { LeftOutCause } from '@insights/domain/value-objects/left-out-cause';
 import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
 import type { RunActions } from '@insights/domain/value-objects/run-actions.vo';
 import type { RunDisposition } from '@insights/domain/value-objects/run-disposition';
@@ -56,6 +57,7 @@ export interface RunFactParts {
   readonly runId: RunId;
   readonly workspaceId: WorkspaceId;
   readonly end: RunEnd;
+  readonly endedOutside: LeftOutCause | null;
   readonly supersededAt: Date | null;
   readonly followedAt: Date | null;
   readonly asked: boolean;
@@ -101,6 +103,7 @@ export class RunFact implements RunFactParts {
   readonly runId!: RunId;
   readonly workspaceId!: WorkspaceId;
   readonly end!: RunEnd;
+  readonly endedOutside!: LeftOutCause | null;
   readonly supersededAt!: Date | null;
   readonly followedAt!: Date | null;
   readonly asked!: boolean;
@@ -146,6 +149,14 @@ export class RunFact implements RunFactParts {
 
   get ran(): boolean {
     return this.end.ran;
+  }
+
+  get leftOut(): LeftOutCause | null {
+    return this.endedOutside;
+  }
+
+  get countsForItsStation(): boolean {
+    return this.leftOut === null;
   }
 
   get size(): RunSize | null {

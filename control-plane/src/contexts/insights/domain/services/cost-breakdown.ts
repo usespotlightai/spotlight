@@ -60,6 +60,7 @@ export interface CostPlace {
 
 export interface CostShareCount {
   readonly part: CostPart;
+  /** For a station, none is the team's Agent chats, which run at no station. */
   readonly key: string | null;
   readonly amount: number;
   readonly runs: number;
