@@ -3,7 +3,9 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentWorking } from '@/components/features/agent/AgentWorking';
+import { formatDate } from '@/lib/date-format';
 import type { JournalStep } from '@/lib/inbox';
+import type { RunWaiting } from '@/lib/run-waiting';
 
 const fleet = vi.hoisted(() => ({ readyToRun: true }));
 const workspace = vi.hoisted(() => ({ role: 'member' }));
@@ -49,6 +51,7 @@ describe('AgentWorking', () => {
       <AgentWorking
         slug="acme"
         harness="claude-code"
+        waiting={null}
         progress="in-progress"
         phase={{ kind: 'preparing', key: 'run_1:preparing', since: null }}
       />,
@@ -62,6 +65,7 @@ describe('AgentWorking', () => {
       <AgentWorking
         slug="acme"
         harness="claude-code"
+        waiting={null}
         progress="in-progress"
         phase={{ kind: 'step', step: running, key: 'run_1:step', since: START }}
       />,
@@ -86,6 +90,7 @@ describe('AgentWorking', () => {
       <AgentWorking
         slug="acme"
         harness="claude-code"
+        waiting={null}
         progress="in-progress"
         phase={{ kind: 'step', step: running, key: 'run_1:step', since: START }}
       />,
@@ -99,6 +104,7 @@ describe('AgentWorking', () => {
       <AgentWorking
         slug="acme"
         harness="claude-code"
+        waiting={null}
         progress="in-progress"
         phase={{ kind: 'working', key: 'run_1:working:2', since: null }}
       />,
@@ -114,6 +120,7 @@ describe('AgentWorking', () => {
       <AgentWorking
         slug="acme"
         harness="claude-code"
+        waiting={null}
         progress="in-progress"
         phase={{ kind: 'step', step: running, key: 'run_1:step', since: START }}
       />,
@@ -127,6 +134,7 @@ describe('AgentWorking', () => {
       <AgentWorking
         slug="acme"
         harness="claude-code"
+        waiting={null}
         progress="in-progress"
         phase={{
           kind: 'step',
@@ -148,6 +156,7 @@ describe('AgentWorking', () => {
       <AgentWorking
         slug="acme"
         harness="claude-code"
+        waiting={null}
         progress="queued"
         phase={{ kind: 'step', step: running, key: 'run_1:step', since: START }}
       />,
@@ -168,6 +177,7 @@ describe('AgentWorking', () => {
         <AgentWorking
           slug="acme"
           harness="claude-code"
+          waiting={null}
           progress="queued"
           phase={{ kind: 'working', key: 'run_1:working', since: null }}
         />
@@ -191,6 +201,7 @@ describe('AgentWorking', () => {
       <AgentWorking
         slug="acme"
         harness="claude-code"
+        waiting={null}
         progress="queued"
         phase={{ kind: 'working', key: 'run_1:working', since: null }}
       />,
@@ -202,5 +213,76 @@ describe('AgentWorking', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  describe('while the hosts that can take its run are offline', () => {
+    const OFFLINE_SINCE = '2026-09-14T08:30:00.000Z';
+    const at = formatDate(new Date(OFFLINE_SINCE), {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const offline = (hosts: string[]): RunWaiting => ({
+      reason: 'hosts-offline',
+      since: OFFLINE_SINCE,
+      quiet: { hosts, since: OFFLINE_SINCE },
+    });
+
+    const queued = (waiting: RunWaiting | null) =>
+      render(
+        <MemoryRouter>
+          <AgentWorking
+            slug="acme"
+            harness="claude-code"
+            waiting={waiting}
+            progress="queued"
+            phase={{ kind: 'working', key: 'run_1:working', since: null }}
+          />
+        </MemoryRouter>,
+      );
+
+    it('names the offline host, and links an admin to adding another', () => {
+      workspace.role = 'admin';
+      queued(offline(['dev-host']));
+
+      expect(
+        screen.getByText(
+          `Queued: dev-host, the only host that can take this chat, has been offline since ${at}.`,
+          { exact: false },
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: 'add another host' }),
+      ).toHaveAttribute('href', '/w/acme/settings/runners/new');
+      expect(
+        screen.queryByText(/when a runner is free/),
+      ).not.toBeInTheDocument();
+    });
+
+    it('asks a member to have an admin start the host', () => {
+      queued(offline(['dev-host']));
+
+      expect(
+        screen.getByText(/Ask an admin to start it\.$/),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    });
+
+    it('counts several offline hosts', () => {
+      queued(offline(['dev-host', 'ci-host']));
+
+      expect(
+        screen.getByText(
+          /^Queued: the 2 hosts that can take this chat have been offline since .+ Ask an admin to start one\.$/,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('waits for a free runner while its hosts are only busy', () => {
+      queued({ reason: 'hosts-pull', since: OFFLINE_SINCE, quiet: null });
+
+      expect(
+        screen.getByText('Queued. The agent starts when a runner is free.'),
+      ).toBeInTheDocument();
+    });
   });
 });

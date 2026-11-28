@@ -1,16 +1,24 @@
+import { QueuedForOfflineHosts } from '@/components/features/runners/QueuedForOfflineHosts';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useRunners } from '@/hooks/api/useRunners';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { isAdmin } from '@/lib/role';
+import { quietHostsOf, type RunWaiting } from '@/lib/run-waiting';
 import { addHostPath } from '@/lib/runner';
 
 type AgentQueuedProps = {
   slug: string;
+  waiting: RunWaiting | null;
 };
 
-export function AgentQueued({ slug }: AgentQueuedProps) {
+export function AgentQueued({ slug, waiting }: AgentQueuedProps) {
   const { data: fleet } = useRunners(slug);
   const { data: workspace } = useWorkspace(slug);
+  const quiet = quietHostsOf(waiting);
+
+  if (quiet) {
+    return <QueuedForOfflineHosts slug={slug} quiet={quiet} what="chat" />;
+  }
 
   if (fleet?.readyToRun !== false) {
     return (

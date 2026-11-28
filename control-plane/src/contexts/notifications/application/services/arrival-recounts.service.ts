@@ -23,7 +23,7 @@ const REQUEST_ATTEMPTS = 5;
 const sightingsOf = (inbox: MemberInbox): InboxSighting[] =>
   inbox.items.map((item) => ({
     person: UserId.of(inbox.personId),
-    teamId: TeamId.of(item.teamId),
+    teamId: item.teamId === null ? null : TeamId.of(item.teamId),
     itemId: item.id,
     kind: item.kind,
     title: item.title,
@@ -117,6 +117,7 @@ export class ArrivalRecounts implements PendingJobsPort {
     const people = inboxes.map((each) => ({
       person: UserId.of(each.personId),
       teams: each.teamsSeen.map((team) => TeamId.of(team)),
+      seesWorkspace: each.isAdmin,
     }));
 
     for (let attempt = 1; ; attempt += 1) {

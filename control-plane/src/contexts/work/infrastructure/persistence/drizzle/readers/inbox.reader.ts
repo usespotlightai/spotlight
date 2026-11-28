@@ -25,6 +25,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { PageRequest } from '@work/application/dto/page.dto';
 import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
+import { RunWaitingMapper } from '@work/application/mappers/run-waiting.mapper';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {
   InboxChatSummary,
@@ -52,6 +53,7 @@ import {
 import {
   Notice,
   type NoticeAudience,
+  type NoticeStanding,
 } from '@work/domain/aggregates/notice.aggregate';
 import {
   chatInboxStanding,
@@ -91,7 +93,7 @@ import {
   chatInboxFacts,
   chatInboxFactsOf,
 } from '@work/infrastructure/persistence/drizzle/readers/chat-inbox-state';
-import { currentRunReadings } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
+import { currentRunsOf } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -270,6 +272,14 @@ const teamStandingOf = (scope: InboxScope, teamId: string): TeamStanding =>
     memberOfTeam: scope.teamsJoined.has(teamId),
   });
 
+const noticeStandingOf = (
+  scope: InboxScope,
+  teamId: string | null,
+): NoticeStanding =>
+  teamId === null
+    ? { kind: 'workspace', isAdmin: scope.isAdmin }
+    : { kind: 'team', team: teamStandingOf(scope, teamId) };
+
 const drivesHold = (
   scope: InboxScope,
   row: {
@@ -398,6 +408,7 @@ const tasksWhere = async (
             drives: drivesHold(scope, row),
             team: teamStandingOf(scope, row.teamId),
             workingReading: RunReadingMapper.reading(working ?? null),
+            workingWait: RunWaitingMapper.toDto(working?.waiting ?? null),
             workingSince: working?.queuedAt ?? null,
           },
         ]
@@ -660,6 +671,7 @@ const conversationItem = (
         closingOf(conversation, lastNote),
       ),
     progress,
+    waiting: progress === 'queued' ? row.workingWait : null,
     runId: open ? row.working : null,
     stoppableByYou:
       open &&
@@ -728,6 +740,7 @@ const runItem = (
         stationPosition: row.currentStationPosition,
         stationCount: context.stationCounts.get(row.lineId) ?? 1,
         progress,
+        waiting: progress === 'queued' ? row.workingWait : null,
         askedAt: row.workingSince ?? row.createdAt,
         unread: false,
         unreadCount: 0,
@@ -1499,6 +1512,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           resolvable,
           reopenable,
           progress: null,
+          waiting: null,
           runId: null,
           stoppableByYou: false,
           unread,
@@ -1530,15 +1544,16 @@ export class DrizzleInboxReader implements InboxReaderPort {
 
   private noticeItems(scope: InboxScope, rows: readonly NoticeRow[]): Keyed[] {
     return rows
-      .filter(
-        (row) =>
-          scope.teamsSeen.has(row.notice.teamId) &&
-          Notice.addressedTo(
-            nonEmpty(row.notice.addresseeId)
-              ? UserId.of(row.notice.addresseeId)
-              : null,
-            scope.viewer,
-          ),
+      .filter((row) =>
+        Notice.shownTo({
+          teamId: row.notice.teamId,
+          addressee: nonEmpty(row.notice.addresseeId)
+            ? UserId.of(row.notice.addresseeId)
+            : null,
+          person: scope.viewer,
+          teamsSeen: scope.teamsSeen,
+          isAdmin: scope.isAdmin,
+        }),
       )
       .map(({ notice: row, cursorAt }) => {
         const unread = Notice.unread(row.resolvedAt);
@@ -1568,12 +1583,12 @@ export class DrizzleInboxReader implements InboxReaderPort {
               following: false,
             }),
             resolvable: Notice.resolvableBy(
-              teamStandingOf(scope, row.teamId),
-              row.resolvedAt,
+              noticeStandingOf(scope, row.teamId),
+              row,
             ),
             reopenable: Notice.reopenableBy(
-              teamStandingOf(scope, row.teamId),
-              row.resolvedAt,
+              noticeStandingOf(scope, row.teamId),
+              row,
             ),
           },
           cursorAt,
@@ -1582,7 +1597,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   private async chatItems(rows: readonly ChatRow[]): Promise<Keyed[]> {
-    const currentRunOf = await currentRunReadings(
+    const currentRunOf = await currentRunsOf(
       this.progress,
       rows.map((row) => row.currentRunId),
     );
@@ -1590,12 +1605,15 @@ export class DrizzleInboxReader implements InboxReaderPort {
     return rows.map((row) => {
       const facts = chatInboxFactsOf(row);
       const standing = chatInboxStanding(facts);
+      const current = currentRunOf(row.currentRunId);
+      const progress = chatProgress(facts, current.reading);
       const entry: InboxChatSummary = {
         kind: 'chat',
         id: row.id,
         teamId: row.teamId,
         title: row.title,
-        progress: chatProgress(facts, currentRunOf(row.currentRunId)),
+        progress,
+        waiting: progress === 'queued' ? current.waiting : null,
         openProposals: row.openProposals,
         askedAt: row.lastAt,
         unread: standing.unread,

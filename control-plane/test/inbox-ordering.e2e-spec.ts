@@ -52,6 +52,7 @@ const scopeOf = (viewer: string): InboxScope => ({
   teamsSeen: new Set(['team_1']),
   teamsActedOn: new Set(),
   teamsJoined: new Set(),
+  isAdmin: false,
 });
 
 const noticeFor = (viewer: string, raisedAt: Date) =>
@@ -71,6 +72,7 @@ const noticeFor = (viewer: string, raisedAt: Date) =>
       headline: 'The search stalled',
       points: ['Fix the claims.'],
     }),
+    autoResolve: false,
     at: raisedAt,
   });
 

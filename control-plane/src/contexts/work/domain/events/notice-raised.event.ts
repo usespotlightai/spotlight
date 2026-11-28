@@ -10,7 +10,8 @@ export class NoticeRaised implements DomainEvent {
   constructor(
     readonly noticeId: NoticeId,
     readonly workspaceId: WorkspaceId,
-    readonly teamId: TeamId,
+    // Null for a notice about the whole workspace, which goes to its owners and admins.
+    readonly teamId: TeamId | null,
     readonly addressee: UserId | null,
     readonly at: Date,
   ) {}

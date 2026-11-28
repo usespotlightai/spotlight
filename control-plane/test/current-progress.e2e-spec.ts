@@ -175,6 +175,7 @@ const inboxWith = async (
     teamsSeen: new Set(['team_1']),
     teamsActedOn: new Set(actsOnTeam ? ['team_1'] : []),
     teamsJoined: new Set(onTeam ? ['team_1'] : []),
+    isAdmin: false,
   });
 
   const onBoard = await tasks.findInTeam(
@@ -528,6 +529,7 @@ const movedOnWith = async (
     teamsSeen: new Set(['team_1']),
     teamsActedOn: new Set(),
     teamsJoined: new Set(),
+    isAdmin: false,
   });
 
   return {

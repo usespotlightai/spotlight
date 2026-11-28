@@ -65,6 +65,7 @@ export class MemberInboxes implements MemberInboxesPort {
           batch.map(async (scope) => ({
             personId: scope.viewer.value,
             teamsSeen: [...scope.teamsSeen],
+            isAdmin: scope.isAdmin,
             items: (await this.inbox.open(scope)).flatMap(itemsOf),
           })),
         )),

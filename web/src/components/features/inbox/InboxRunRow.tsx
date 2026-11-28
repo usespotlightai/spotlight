@@ -1,7 +1,7 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
 import { useStopRunAction } from '@/hooks/useStopRunAction';
-import { type InboxRun, inboxRunPath, workingWordsOf } from '@/lib/inbox';
+import { type InboxRun, inboxRunPath, runPreviewOf } from '@/lib/inbox';
 import { stoppable } from '@/lib/run';
 import { stationShare } from '@/lib/station';
 
@@ -25,7 +25,7 @@ export function InboxRunRow({ slug, run }: InboxRunRowProps) {
       title={run.title}
       unread={false}
       at={run.askedAt}
-      preview={workingWordsOf(run.progress, run.station)}
+      preview={runPreviewOf(run)}
       menuActions={stop ? [stop] : []}
     />
   );

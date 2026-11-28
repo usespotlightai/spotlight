@@ -9,7 +9,8 @@ export class ItemArrived implements DomainEvent {
 
   constructor(
     readonly workspaceId: WorkspaceId,
-    readonly teamId: TeamId,
+    // Null for a notice about the whole workspace.
+    readonly teamId: TeamId | null,
     readonly person: UserId,
     readonly itemId: string,
     readonly itemKind: InboxArrivalKind,

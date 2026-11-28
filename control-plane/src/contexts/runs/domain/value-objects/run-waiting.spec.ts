@@ -39,6 +39,7 @@ describe('a waiting run', () => {
   it('waits for the reason Spotlight noted in this queueing, while no runner is reserved for it', () => {
     const wait = {
       reason: 'no-pool-has-room' as const,
+      quiet: null,
       since: NOW,
       queuedAt: EARLIER,
     };
@@ -50,6 +51,7 @@ describe('a waiting run', () => {
 
     expect(currentWait(facts, wait)).toEqual({
       reason: 'no-pool-has-room',
+      quiet: null,
       since: NOW,
     });
     expect(currentWait(facts, null)).toBeNull();

@@ -1,4 +1,7 @@
-import type { WaitReason } from '@runs/domain/value-objects/run-waiting';
+import type {
+  QuietHosts,
+  WaitReason,
+} from '@runs/domain/value-objects/run-waiting';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const RUN_WAITS = Symbol('RUN_WAITS');
@@ -7,6 +10,7 @@ export const RUN_WAITS = Symbol('RUN_WAITS');
 export interface WaitingRun {
   readonly runId: RunId;
   readonly reason: WaitReason;
+  readonly quiet: QuietHosts | null;
   readonly queuedAt: Date;
 }
 

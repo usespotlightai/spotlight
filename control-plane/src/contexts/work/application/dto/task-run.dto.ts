@@ -1,7 +1,5 @@
-import {
-  RUNNER_SOURCE_KIND_FACTS,
-  RUN_WAIT_REASON_FACTS,
-} from '@runs/application/ports/run-facts.port';
+import { RUNNER_SOURCE_KIND_FACTS } from '@runs/application/ports/run-facts.port';
+import type { RunWaitingDto } from '@work/application/dto/run-waiting.dto';
 import { REVIEW_STATES } from '@work/domain/services/conversations';
 import {
   MESSAGE_OUTCOMES,
@@ -29,17 +27,10 @@ export const MESSAGE_OUTCOME_NAMES = MESSAGE_OUTCOMES;
 
 export const RUNNER_SOURCE_KIND_NAMES = RUNNER_SOURCE_KIND_FACTS;
 
-export const RUN_WAIT_REASON_NAMES = RUN_WAIT_REASON_FACTS;
-
 interface RunRanOnDto {
   readonly kind: (typeof RUNNER_SOURCE_KIND_NAMES)[number];
   readonly key: string;
   readonly platform: boolean;
-}
-
-interface RunWaitingDto {
-  readonly reason: (typeof RUN_WAIT_REASON_NAMES)[number];
-  readonly since: string;
 }
 
 type RunDriverName = RunDriver;

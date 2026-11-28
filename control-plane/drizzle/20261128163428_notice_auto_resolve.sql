@@ -1,0 +1,1 @@
+ALTER TABLE "notice" ADD COLUMN "auto_resolve" boolean DEFAULT false NOT NULL;

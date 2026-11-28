@@ -39,6 +39,7 @@ const inboxScopeOf = (
   teamsJoined: new Set(
     access.teams.filter((each) => each.joined).map((each) => each.teamId.value),
   ),
+  isAdmin: access.isAdmin,
 });
 
 export class WorkAccess {

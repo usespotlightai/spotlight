@@ -105,6 +105,7 @@ export function InboxItemConversation({
             createdAt: item.createdAt,
             station: stationOf(item),
             progress,
+            waiting: item.waiting,
             resolved,
             notes: item.notes,
             folded: item.folded,
@@ -152,6 +153,7 @@ export function InboxItemConversation({
                 journals={workedOn(worked, item.notes, item.runId)}
                 progress={progress}
                 station={stationOf(item)}
+                waiting={item.waiting}
               />
             ) : undefined
           }

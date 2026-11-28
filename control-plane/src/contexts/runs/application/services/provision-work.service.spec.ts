@@ -122,13 +122,17 @@ const aPlatformPool = (
     allowsReviewWork,
   });
 
-const hostsServing = (labels: string[] = []): HostOfferAtWork => ({
+const hostsServing = (
+  labels: string[] = [],
+  quiet: HostOfferAtWork['quiet'] = null,
+): HostOfferAtWork => ({
   workspaceId: WorkspaceId.of('ws_1'),
   labels: RunnerOffer.of(labels),
   egress: true,
   images: null,
   allowsSecrets: true,
   allowsReviewWork: true,
+  quiet,
 });
 
 const provisioning = (
@@ -321,6 +325,7 @@ describe('ProvisionWork', () => {
         {
           runId: RunId.of('run_1'),
           reason: 'no-pool-matches',
+          quiet: null,
           queuedAt: queued.queuedAt,
         },
       ],
@@ -889,21 +894,75 @@ describe('ProvisionWork', () => {
     );
   });
 
-  it('visits no workspace that only hosts serve', async () => {
-    const { provisioner, awaitingProvision } = provisioning(
-      [waiting('run_1', ['on-premises'])],
-      [],
+  it('notes why the runs of a workspace that only hosts serve wait, reading one page, and provisions nothing', async () => {
+    const { provisioner, awaitingProvision, provision, waits, checks } =
+      provisioning(
+        [waiting('run_1', ['on-premises'])],
+        [],
+        {},
+        NOON,
+        0,
+        {},
+        [],
+        [hostsServing(['on-premises'])],
+      );
+
+    await provisioner.due();
+
+    expect(provision).not.toHaveBeenCalled();
+    expect(awaitingProvision).toHaveBeenCalledOnce();
+    expect(checks.awaiting).not.toHaveBeenCalled();
+    expect(
+      waits.note.mock.calls.flatMap(([noted]) =>
+        noted.map((each) => each.reason),
+      ),
+    ).toEqual(['hosts-pull']);
+  });
+
+  it('notes why a run that injects secrets waits where only hosts serve and no pool names an egress', async () => {
+    const since = new Date(NOON.getTime() - 30 * 60_000);
+    const { provisioner, provision, waits } = provisioning(
+      [waiting('run_1', ['on-premises'], 'ws_1', null, ['LINEAR_API_KEY'])],
+      [aPool('burst', ['gpu'])],
       {},
       NOON,
       0,
       {},
       [],
-      [hostsServing(['on-premises'])],
+      [hostsServing(['on-premises'], { hosts: ['dev-host'], since })],
     );
 
     await provisioner.due();
 
-    expect(awaitingProvision).not.toHaveBeenCalled();
+    expect(provision).not.toHaveBeenCalled();
+    expect(
+      waits.note.mock.calls.flatMap(([noted]) =>
+        noted.map((each) => [each.reason, each.quiet]),
+      ),
+    ).toEqual([['hosts-offline', { hosts: ['dev-host'], since }]]);
+  });
+
+  it('says a run waits for its offline hosts, naming them, and keeps it off the platform pool', async () => {
+    const since = new Date(NOON.getTime() - 30 * 60_000);
+    const { provisioner, provision, waits } = provisioning(
+      [waiting('run_1', ['on-premises'])],
+      [aPlatformPool(['on-premises'])],
+      {},
+      NOON,
+      0,
+      {},
+      [],
+      [hostsServing(['on-premises'], { hosts: ['dev-host'], since })],
+    );
+
+    await provisioner.due();
+
+    expect(provision).not.toHaveBeenCalled();
+    expect(
+      waits.note.mock.calls.flatMap(([noted]) =>
+        noted.map((each) => [each.reason, each.quiet]),
+      ),
+    ).toEqual([['hosts-offline', { hosts: ['dev-host'], since }]]);
   });
 
   const ticksUntilProvisioned = async (

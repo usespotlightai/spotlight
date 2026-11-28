@@ -82,6 +82,7 @@ import {
   type EditorSandboxesPort,
 } from '@runners/application/ports/editor-sandboxes.port';
 import { EDITOR_SESSIONS } from '@runners/application/ports/editor-sessions.port';
+import { HOST_OUTAGES } from '@runners/application/ports/host-outages.port';
 import {
   HOST_SLOT_LOCKS,
   type HostSlotLocksPort,
@@ -98,6 +99,10 @@ import {
   PROVISION_SECRETS,
   type ProvisionSecretsPort,
 } from '@runners/application/ports/provision-secrets.port';
+import {
+  QUEUED_WORK,
+  type QueuedWorkPort,
+} from '@runners/application/ports/queued-work.port';
 import {
   RUNNER_AUTHENTICATOR,
   type RunnerAuthenticatorPort,
@@ -158,6 +163,7 @@ import {
 } from '@runners/application/queries/runner-resource.queries';
 import { DeleteRunnersOfDeletedWorkspace } from '@runners/application/services/delete-runners-of-deleted-workspace.service';
 import { HostAdmission } from '@runners/application/services/host-admission.service';
+import { HostOutageLookup } from '@runners/application/services/host-outages.service';
 import { HostWarmSlots } from '@runners/application/services/host-warm-slots.service';
 import { PlatformPools } from '@runners/application/services/platform-pools.service';
 import { PurgeStaleHosts } from '@runners/application/services/purge-stale-hosts.service';
@@ -174,6 +180,7 @@ import { Runners } from '@runners/application/services/runners.service';
 import { SandboxEditors } from '@runners/application/services/sandbox-editors.service';
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import { WarmSandboxes } from '@runners/application/services/warm-sandboxes.service';
+import { WatchHostOutages } from '@runners/application/services/watch-host-outages.service';
 import { WorkingCopyStores } from '@runners/application/services/working-copy-stores.service';
 import { WorkspaceEgressRunners } from '@runners/application/services/workspace-egress-runners.service';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
@@ -190,6 +197,7 @@ import { DrizzleRunnerResources } from '@runners/infrastructure/persistence/driz
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
 import { DrizzleSandboxPlacements } from '@runners/infrastructure/persistence/drizzle/readers/sandbox-placements.reader';
 import { DrizzleEgressRepository } from '@runners/infrastructure/persistence/drizzle/repositories/egress.repository';
+import { DrizzleHostOutageRepository } from '@runners/infrastructure/persistence/drizzle/repositories/host-outage.repository';
 import { DrizzleRunnerHostRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-host.repository';
 import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-pool.repository';
 import { DrizzleRunnerTrustRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-trust.repository';
@@ -215,6 +223,7 @@ import { RunnerTrustResourceController } from '@runners/presentation/http/contro
 import { WorkspaceRunnersResourceController } from '@runners/presentation/http/controllers/workspace-runners-resource.controller';
 import { RunnerGuard } from '@runners/presentation/http/guards/runner.guard';
 import { SandboxEditorGateway } from '@runners/presentation/websocket/sandbox-editor.gateway';
+import { HostOutagesWorker } from '@runners/presentation/workers/host-outages.worker';
 import { SandboxesWorker } from '@runners/presentation/workers/sandboxes.worker';
 import { StaleHostsWorker } from '@runners/presentation/workers/stale-hosts.worker';
 import {
@@ -479,6 +488,51 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     inject: [DrizzleRunnerHostRepository, CLOCK],
     useFactory: (hosts: DrizzleRunnerHostRepository, clock: ClockPort) =>
       new PurgeStaleHosts(hosts, clock),
+  },
+  {
+    provide: WatchHostOutages,
+    inject: [
+      DrizzleHostOutageRepository,
+      DrizzleRunnerHostRepository,
+      DrizzleRunnerPoolRepository,
+      DrizzleRunnerTrustRepository,
+      QUEUED_WORK,
+      ID_GENERATOR,
+      CLOCK,
+      LOGGER,
+    ],
+    useFactory: (
+      outages: DrizzleHostOutageRepository,
+      hosts: DrizzleRunnerHostRepository,
+      pools: DrizzleRunnerPoolRepository,
+      trusts: DrizzleRunnerTrustRepository,
+      queued: QueuedWorkPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) =>
+      new WatchHostOutages(
+        outages,
+        hosts,
+        pools,
+        trusts,
+        queued,
+        ids,
+        clock,
+        logger,
+      ),
+  },
+  {
+    provide: HOST_OUTAGES,
+    inject: [DrizzleHostOutageRepository],
+    useFactory: (outages: DrizzleHostOutageRepository) =>
+      new HostOutageLookup(outages),
+  },
+  {
+    provide: HostOutagesWorker,
+    inject: [WatchHostOutages, LOGGER],
+    useFactory: (watching: WatchHostOutages, logger: LoggerPort) =>
+      new HostOutagesWorker(watching, logger),
   },
   {
     provide: StaleHostsWorker,
@@ -776,6 +830,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       RunnerAuthenticator,
       PLATFORM_EGRESS,
       PLATFORM_POOL,
+      DrizzleRunnerHostRepository,
+      CLOCK,
     ],
     useFactory: (
       pools: DrizzleRunnerPoolRepository,
@@ -785,12 +841,23 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       authenticator: RunnerAuthenticator,
       platformEgress: PlatformEgressSettings | null,
       platformPool: PlatformPoolSettings | null,
+      hosts: DrizzleRunnerHostRepository,
+      clock: ClockPort,
     ) =>
-      new RunnerPools(pools, trusts, runners, placements, authenticator, {
-        platformEgressSet: platformEgress !== null,
-        platformPoolSet: platformPool !== null,
-        platformImages: platformPool?.images ?? null,
-      }),
+      new RunnerPools(
+        pools,
+        trusts,
+        runners,
+        placements,
+        authenticator,
+        {
+          platformEgressSet: platformEgress !== null,
+          platformPoolSet: platformPool !== null,
+          platformImages: platformPool?.images ?? null,
+        },
+        hosts,
+        clock,
+      ),
   },
   { provide: INSTALLER_ASSETS, useClass: InstallerAssets },
 
@@ -801,6 +868,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   DrizzleEgressRepository,
   DrizzleRunnerRepository,
   DrizzleRunnerHostRepository,
+  DrizzleHostOutageRepository,
   DrizzleSandboxRepository,
   DrizzleSandboxPlacements,
 

@@ -78,6 +78,7 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   resolvable: true,
   reopenable: false,
   progress: null,
+  waiting: null,
   runId: null,
   stoppableByYou: false,
   unread: true,
@@ -125,6 +126,7 @@ const SCOPE: InboxScope = {
   teamsSeen: new Set(['team_1']),
   teamsActedOn: new Set(),
   teamsJoined: new Set(),
+  isAdmin: false,
 };
 
 const access = (scope: InboxScope | null = SCOPE): WorkAccess =>

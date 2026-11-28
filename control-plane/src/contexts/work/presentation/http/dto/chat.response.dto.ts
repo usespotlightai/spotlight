@@ -7,6 +7,7 @@ import {
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { InboxAuthorResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
+import { RunWaitingResponseDto } from '@work/presentation/http/dto/run-waiting.response.dto';
 import { pageResponseOf } from '@work/presentation/http/paging';
 
 export class ChatSetupResponseDto {
@@ -122,6 +123,14 @@ export class ChatSummaryResponseDto {
   readonly progress: string | null;
 
   @ApiProperty({
+    type: RunWaitingResponseDto,
+    nullable: true,
+    description:
+      'Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet',
+  })
+  readonly waiting: RunWaitingResponseDto | null;
+
+  @ApiProperty({
     example: false,
     description:
       "Whether it is the starter's turn: an unread proposal, or an agent reply not yet resolved, while no run is working on it.",
@@ -140,6 +149,7 @@ export class ChatSummaryResponseDto {
     createdAt: string,
     updatedAt: string,
     progress: string | null,
+    waiting: RunWaitingResponseDto | null,
     waitingForYou: boolean,
   ) {
     this.id = id;
@@ -153,6 +163,7 @@ export class ChatSummaryResponseDto {
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
     this.progress = progress;
+    this.waiting = waiting;
     this.waitingForYou = waitingForYou;
   }
 }
@@ -414,6 +425,7 @@ export class ChatResponseDto extends ChatSummaryResponseDto {
       summary.createdAt,
       summary.updatedAt,
       summary.progress,
+      summary.waiting,
       summary.waitingForYou,
     );
     this.runId = runId;

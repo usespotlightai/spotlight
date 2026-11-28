@@ -71,6 +71,20 @@
       "when": 1795859343416,
       "tag": "20261128094903_backfill_inbox_request_asks",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795883654079,
+      "tag": "20261128163414_host_outages_and_workspace_notices",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795883668510,
+      "tag": "20261128163428_notice_auto_resolve",
+      "breakpoints": true
     }
   ]
 }

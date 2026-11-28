@@ -3,9 +3,14 @@ import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { ReopenNoticeHandler } from '@work/application/commands/handlers/reopen-notice.handler';
 import { ResolveNoticeHandler } from '@work/application/commands/handlers/resolve-notice.handler';
+import { ReopenNoticeCommand } from '@work/application/commands/reopen-notice.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
-import type { NoticeOf } from '@work/application/ports/notices.port';
+import type {
+  NoticeOf,
+  WorkspaceNoticeOf,
+} from '@work/application/ports/notices.port';
 import { NoticeLoader } from '@work/application/services/notice-loader.service';
 import { Notices } from '@work/application/services/notices.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
@@ -29,24 +34,36 @@ class InMemoryNotices implements NoticeRepository {
 
   find = async (id: { value: string }) => this.stored.get(id.value) ?? null;
 
-  about = async (
-    teamId: TeamId,
-    addressee: UserId | null,
-    form: string,
-    subject: NoticeSubject,
-  ) =>
+  about = async (input: {
+    readonly workspaceId: WorkspaceId | null;
+    readonly teamId: TeamId | null;
+    readonly addressee: UserId | null;
+    readonly form: string;
+    readonly subject: NoticeSubject;
+  }) =>
     [...this.stored.values()].find(
       (each) =>
-        each.teamId.equals(teamId) &&
-        (each.addressee === null || addressee === null
-          ? each.addressee === addressee
-          : each.addressee.equals(addressee)) &&
-        each.form === form &&
-        each.subject.equals(subject),
+        (each.teamId === null || input.teamId === null
+          ? each.teamId === input.teamId
+          : each.teamId.equals(input.teamId)) &&
+        (input.workspaceId === null ||
+          each.workspaceId.equals(input.workspaceId)) &&
+        (each.addressee === null || input.addressee === null
+          ? each.addressee === input.addressee
+          : each.addressee.equals(input.addressee)) &&
+        each.form === input.form &&
+        each.subject.equals(input.subject),
     ) ?? null;
 
+  aboutWorkspace = async (workspaceId: WorkspaceId) =>
+    [...this.stored.values()].filter(
+      (each) => each.teamId === null && each.workspaceId.equals(workspaceId),
+    );
+
   ofTeam = async (teamId: TeamId) =>
-    [...this.stored.values()].filter((each) => each.teamId.equals(teamId));
+    [...this.stored.values()].filter(
+      (each) => each.teamId?.equals(teamId) ?? false,
+    );
 
   remove = async (notice: Notice) => {
     this.stored.delete(notice.id.value);
@@ -123,7 +140,7 @@ describe('Notices', () => {
     await notices.create(team);
     await notices.create({ ...team, subject: 'memory-upkeep upkeep_2' });
     await notices.resolve({
-      teamId: team.teamId,
+      teamId: TeamId.of('team_1'),
       form: 'advice',
       subject: team.subject,
     });
@@ -131,6 +148,126 @@ describe('Notices', () => {
     expect(
       [...memory.stored.values()].map((each) => each.resolvedAt !== null),
     ).toEqual([true, false]);
+  });
+
+  const OUTAGE: WorkspaceNoticeOf = {
+    workspaceId: WorkspaceId.of('ws_1'),
+    form: 'advice',
+    subject: 'host-outage outage_1',
+    link: 'settings/runners',
+    linkLabel: 'Open runners',
+    externalLink: null,
+    headline: 'dev-host, the only host of the pool default, is offline',
+    points: ['Start a host.'],
+    autoResolve: true,
+  };
+
+  describe('resolved by an admin', () => {
+    const clock = { now: () => NOW, sleep: async () => {} };
+    const admin = workAccessSeeing(() => false, { admin: true });
+    const commands = (memory: InMemoryNotices) => {
+      const loader = new NoticeLoader(memory, admin);
+
+      return {
+        resolve: (id: string) =>
+          new ResolveNoticeHandler(loader, memory, clock).execute(
+            new ResolveNoticeCommand(id, 'acme', 'user_1'),
+          ),
+        reopen: (id: string) =>
+          new ReopenNoticeHandler(loader, memory, clock).execute(
+            new ReopenNoticeCommand(id, 'acme', 'user_1'),
+          ),
+      };
+    };
+    const onlyOf = (memory: InMemoryNotices): Notice => {
+      const only = firstOf([...memory.stored.values()]);
+
+      if (only === undefined) {
+        throw new Error('expected a stored notice');
+      }
+
+      return only;
+    };
+
+    it('refuses to resolve or reopen a notice that resolves itself, which stays open until its cause ends', async () => {
+      const memory = new InMemoryNotices();
+      const notices = noticesOver(memory);
+      const { resolve, reopen } = commands(memory);
+
+      await notices.createAboutWorkspace(OUTAGE);
+      const id = onlyOf(memory).id.value;
+
+      await expect(resolve(id)).rejects.toMatchObject({ kind: 'conflict' });
+      expect(onlyOf(memory).resolvedAt).toBeNull();
+
+      await notices.resolveInWorkspace({
+        workspaceId: OUTAGE.workspaceId,
+        form: 'advice',
+        subject: OUTAGE.subject,
+      });
+      expect(onlyOf(memory).resolvedAt).toEqual(NOW);
+
+      await expect(reopen(id)).rejects.toMatchObject({ kind: 'conflict' });
+      expect(onlyOf(memory).resolvedAt).toEqual(NOW);
+    });
+
+    it('resolves and reopens a notice about the whole workspace that does not resolve itself', async () => {
+      const memory = new InMemoryNotices();
+      const { resolve, reopen } = commands(memory);
+
+      await noticesOver(memory).createAboutWorkspace({
+        ...OUTAGE,
+        autoResolve: false,
+      });
+      const id = onlyOf(memory).id.value;
+
+      await resolve(id);
+      expect(onlyOf(memory).resolvedAt).toEqual(NOW);
+      await reopen(id);
+      expect(onlyOf(memory).resolvedAt).toBeNull();
+    });
+  });
+
+  it('creates one notice about the whole workspace, with no team and no addressee, and resolves it', async () => {
+    const memory = new InMemoryNotices();
+    const notices = noticesOver(memory);
+    const states = () =>
+      [...memory.stored.values()].map((each) => [
+        each.teamId,
+        each.addressee,
+        each.resolvedAt,
+      ]);
+
+    await notices.createAboutWorkspace(OUTAGE);
+    await notices.createAboutWorkspace(OUTAGE);
+    expect(states()).toEqual([[null, null, null]]);
+
+    await notices.resolveInWorkspace({
+      workspaceId: WorkspaceId.of('ws_2'),
+      form: 'advice',
+      subject: OUTAGE.subject,
+    });
+    expect(states()).toEqual([[null, null, null]]);
+
+    await notices.resolveInWorkspace({
+      workspaceId: WorkspaceId.of('ws_1'),
+      form: 'advice',
+      subject: OUTAGE.subject,
+    });
+    expect(states()).toEqual([[null, null, NOW]]);
+  });
+
+  it('deletes the notices about a deleted workspace, and keeps its team notices for their teams', async () => {
+    const memory = new InMemoryNotices();
+    const notices = noticesOver(memory);
+
+    await notices.createAboutWorkspace(OUTAGE);
+    await notices.create(STALLED);
+    await notices.deleteForWorkspace(WorkspaceId.of('ws_1'));
+
+    expect(
+      [...memory.stored.values()].map((each) => each.teamId?.value),
+    ).toEqual(['team_1']);
   });
 
   it('deletes the notices of a deleted team, and only those', async () => {
@@ -146,7 +283,7 @@ describe('Notices', () => {
     await notices.deleteForTeam(TeamId.of('team_1'));
 
     expect(
-      [...memory.stored.values()].map((each) => each.teamId.value),
+      [...memory.stored.values()].map((each) => each.teamId?.value),
     ).toEqual(['team_2']);
   });
 

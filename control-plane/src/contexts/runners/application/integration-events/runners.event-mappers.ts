@@ -1,4 +1,6 @@
 import type { HostBecameReady } from '@runners/domain/events/host-became-ready.event';
+import type { HostOutageBegan } from '@runners/domain/events/host-outage-began.event';
+import type { HostOutageEnded } from '@runners/domain/events/host-outage-ended.event';
 import type { RunnerEnded } from '@runners/domain/events/runner-ended.event';
 import type { RunnerPoolCreated } from '@runners/domain/events/runner-pool-created.event';
 import type { RunnerTrustCreated } from '@runners/domain/events/runner-trust-created.event';
@@ -6,6 +8,14 @@ import {
   HOST_BECAME_READY,
   type HostBecameReadyIntegrationEvent,
 } from '@shared-kernel/application/integration-events/host-became-ready.integration-event';
+import {
+  HOST_OUTAGE_BEGAN,
+  type HostOutageBeganIntegrationEvent,
+} from '@shared-kernel/application/integration-events/host-outage-began.integration-event';
+import {
+  HOST_OUTAGE_ENDED,
+  type HostOutageEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/host-outage-ended.integration-event';
 import {
   RUNNER_ACCESS_CREATED,
   type RunnerAccessCreatedIntegrationEvent,
@@ -36,6 +46,29 @@ export const RUNNERS_EVENT_MAPPERS = [
     (event): HostBecameReadyIntegrationEvent => ({
       kind: HOST_BECAME_READY,
       workspaceId: event.workspaceId.value,
+    }),
+  ),
+  mapping<HostOutageBegan>(
+    'host-outage.began',
+    (event): HostOutageBeganIntegrationEvent => ({
+      kind: HOST_OUTAGE_BEGAN,
+      outageId: event.outageId.value,
+      workspaceId: event.workspaceId.value,
+      source: event.source.kind,
+      sourceId: event.source.id,
+      sourceKey: event.sourceKey,
+      hosts: event.hosts,
+      since: event.since.toISOString(),
+    }),
+  ),
+  mapping<HostOutageEnded>(
+    'host-outage.ended',
+    (event): HostOutageEndedIntegrationEvent => ({
+      kind: HOST_OUTAGE_ENDED,
+      outageId: event.outageId.value,
+      workspaceId: event.workspaceId.value,
+      source: event.source.kind,
+      sourceId: event.source.id,
     }),
   ),
   mapping<RunnerEnded>(

@@ -29,6 +29,7 @@ import {
 } from '@work/application/dto/inbox.dto';
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
+import { RunWaitingResponseDto } from '@work/presentation/http/dto/run-waiting.response.dto';
 
 export class InboxAuthorResponseDto {
   @ApiProperty({ example: 'b7f3c1d9-2a48-4e6b-9c05-7d1e3f8a2b64' })
@@ -750,6 +751,14 @@ export class InboxItemResponseDto {
   readonly progress: string | null;
 
   @ApiProperty({
+    type: RunWaitingResponseDto,
+    nullable: true,
+    description:
+      'Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet',
+  })
+  readonly waiting: RunWaitingResponseDto | null;
+
+  @ApiProperty({
     nullable: true,
     type: String,
     description:
@@ -859,6 +868,7 @@ export class InboxItemResponseDto {
     this.resolvable = item.resolvable;
     this.reopenable = item.reopenable;
     this.progress = item.progress;
+    this.waiting = item.waiting;
     this.runId = item.runId;
     this.stoppableByYou = item.stoppableByYou;
     this.unread = item.unread;
@@ -918,15 +928,21 @@ export class InboxNoticeResponseDto {
   @ApiProperty({
     enum: ['notice'],
     description:
-      'Word put to one person about their team’s work, outside any task',
+      'Word put to one person about their team’s work, outside any task, or to the owners and admins about the whole workspace',
   })
   readonly kind = 'notice' as const;
 
   @ApiProperty({ example: 'b2d9e4f1-7c3a-4e58-9b1d-6f0a2c8e5d37' })
   readonly id: string;
 
-  @ApiProperty({ example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
-  readonly teamId: string;
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84',
+    description:
+      'Its team; null for a notice about the whole workspace, which goes to its owners and admins',
+  })
+  readonly teamId: string | null;
 
   @ApiProperty({
     enum: INBOX_NOTICE_FORMS,
@@ -950,7 +966,8 @@ export class InboxNoticeResponseDto {
 
   @ApiProperty({
     example: 'lines/line_1/stations/station_1',
-    description: 'Where to look, as a path within its team',
+    description:
+      'Where to look, as a path within its team, or within the workspace for a notice about the whole workspace',
   })
   readonly link: string;
 
@@ -1076,6 +1093,14 @@ export class InboxRunResponseDto {
   readonly progress: (typeof PROGRESS_NAMES)[number];
 
   @ApiProperty({
+    type: RunWaitingResponseDto,
+    nullable: true,
+    description:
+      'Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet',
+  })
+  readonly waiting: RunWaitingResponseDto | null;
+
+  @ApiProperty({
     example: '2026-08-28T21:15:00.000Z',
     description: 'When the run was queued',
   })
@@ -1124,6 +1149,7 @@ export class InboxRunResponseDto {
     this.stationPosition = entry.stationPosition;
     this.stationCount = entry.stationCount;
     this.progress = entry.progress;
+    this.waiting = RunWaitingResponseDto.of(entry.waiting);
     this.askedAt = entry.askedAt;
     this.section = entry.section;
     this.standing = entry.standing;
@@ -1155,6 +1181,14 @@ export class InboxChatResponseDto {
     description: 'How far the run on the chat has come; null when none runs',
   })
   readonly progress: string | null;
+
+  @ApiProperty({
+    type: RunWaitingResponseDto,
+    nullable: true,
+    description:
+      'Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet',
+  })
+  readonly waiting: RunWaitingResponseDto | null;
 
   @ApiProperty({
     example: 1,
@@ -1205,6 +1239,7 @@ export class InboxChatResponseDto {
     this.teamId = entry.teamId;
     this.title = entry.title;
     this.progress = entry.progress;
+    this.waiting = RunWaitingResponseDto.of(entry.waiting);
     this.openProposals = entry.openProposals;
     this.askedAt = entry.askedAt;
     this.unread = entry.unread;

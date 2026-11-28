@@ -37,6 +37,7 @@ const itemOf = (id: string, overrides: Partial<PartItem> = {}): PartItem => ({
   resolved: false,
   section: 'open',
   standing: 'assignee',
+  waiting: null,
   answerable: false,
   resolvable: true,
   reopenable: false,
@@ -212,6 +213,7 @@ describe('groupOf', () => {
       stationPosition: 1,
       stationCount: 3,
       progress: 'in-progress',
+      waiting: null,
       askedAt: at(0),
       unread: false,
       unreadCount: 0,
@@ -234,6 +236,43 @@ describe('groupOf', () => {
       stoppableByYou: true,
       section: 'resolved',
     });
+  });
+
+  it('says why the run that works the task waits, when nothing in it says so', () => {
+    const waiting = {
+      reason: 'hosts-offline',
+      since: at(1).toISOString(),
+      quiet: { hosts: ['dev-host'], since: at(0).toISOString() },
+    } as const;
+    const run: InboxRunSummary = {
+      kind: 'run',
+      id: 'run_1',
+      taskId: 'task_1',
+      teamId: 'team_1',
+      title: 'Fix the queue',
+      station: 'Triage',
+      stationColor: '#edc12b',
+      stationPosition: 1,
+      stationCount: 3,
+      progress: 'queued',
+      waiting,
+      askedAt: at(0),
+      unread: false,
+      unreadCount: 0,
+      resolved: false,
+      section: 'running',
+      standing: 'assignee',
+      reopenable: false,
+      stoppableByYou: true,
+    };
+
+    expect(
+      groupOf({
+        pieces: judged.map((each) => answered(each, 9)),
+        run,
+        newestAt: null,
+      })?.item,
+    ).toMatchObject({ progress: 'queued', waiting });
   });
 
   it('previews the memories that wait on a read row, not the conversation its run works on', () => {

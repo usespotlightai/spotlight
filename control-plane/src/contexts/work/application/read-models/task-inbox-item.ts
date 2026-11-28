@@ -95,6 +95,7 @@ export const groupOf = (
       resolvable: standing.resolvable,
       reopenable: standing.reopenable,
       progress,
+      waiting: base.waiting ?? run?.waiting ?? null,
       runId: base.runId ?? run?.id ?? null,
       stoppableByYou: base.stoppableByYou || (run?.stoppableByYou ?? false),
       unread,

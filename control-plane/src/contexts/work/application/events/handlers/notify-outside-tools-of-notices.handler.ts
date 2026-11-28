@@ -18,14 +18,16 @@ export class NotifyOutsideToolsOfNotices {
   async on(event: NoticeRaised): Promise<void> {
     const notice = await this.notices.find(event.noticeId);
 
-    if (!notice?.openToTeam) {
+    const teamId = notice?.teamId;
+
+    if (!notice?.openToTeam || !teamId) {
       return;
     }
 
     await this.outside.notify({
       id: notice.id.value,
       workspaceId: notice.workspaceId.value,
-      teamId: notice.teamId.value,
+      teamId: teamId.value,
       form: FORMS[notice.form],
       headline: notice.wording.headline,
       points: notice.wording.points,

@@ -83,10 +83,11 @@ interface Read<Cursor> {
   readonly next: Cursor | null;
 }
 
-// One kind of waiting work: the runs, or the review work. A page starts at a cursor, and at the head with none.
+// One kind of waiting work: the runs, or the review work. A page starts at a cursor, and at the head with none. Runs keep why they wait, so their head is read even when no pool has room.
 interface Source<Cursor> {
   readonly sweeps: Sweeps<Cursor>;
   readonly page: (from: Cursor | null) => Promise<Read<Cursor>>;
+  readonly notesWaits: boolean;
 }
 
 const rethrown = (thrown: readonly unknown[]): void => {
@@ -162,21 +163,21 @@ export class ProvisionWork {
     this.#reviewWorkSweeps.keepOnly(waiting);
 
     const offers = await this.pools.offersIn(awaiting);
-    const offered = offers.pools;
+    const poolsBy = byWorkspace(
+      offers.pools.map((each): OfferedPool => ({
+        ...each,
+        pool: PoolId.of(each.poolId),
+      })),
+    );
     const hostsBy = byWorkspace(offers.hostOffers);
 
+    // A workspace with no pool to ask still notes why its runs wait, as when only the hosts of a pull pool take them.
     await awaitAll(
-      [
-        ...byWorkspace(
-          offered.map((each): OfferedPool => ({
-            ...each,
-            pool: PoolId.of(each.poolId),
-          })),
-        ).entries(),
-      ].map(([workspaceId, pools]) =>
+      awaiting.map((workspaceId) =>
         this.inWorkspace(
-          [...pools].sort(offerOrder),
-          hostsBy.get(workspaceId) ?? [],
+          workspaceId,
+          [...(poolsBy.get(workspaceId.value) ?? [])].sort(offerOrder),
+          hostsBy.get(workspaceId.value) ?? [],
         ),
       ),
     );
@@ -193,15 +194,10 @@ export class ProvisionWork {
   }
 
   private async inWorkspace(
+    workspaceId: WorkspaceId,
     pools: readonly OfferedPool[],
     hostOffers: readonly HostOfferAtWork[],
   ): Promise<void> {
-    const first = firstOf(pools);
-
-    if (!first) {
-      return;
-    }
-
     let room = PoolRoom.of(
       await Promise.all(
         pools.map(
@@ -236,19 +232,20 @@ export class ProvisionWork {
       const chosen = firstOf(fitting);
 
       if (!chosen) {
-        const reason = waitReasonFor(
+        const cause = waitReasonFor(
           provisionable.placement,
           pools,
           hostOffers,
           provisionable.needs,
         );
 
-        this.unplaced(provisionable, reason);
+        this.unplaced(provisionable, cause.reason);
 
         if (provisionable.run) {
           waiting.push({
             runId: provisionable.run.id,
-            reason,
+            reason: cause.reason,
+            quiet: cause.quiet,
             queuedAt: provisionable.run.queuedAt,
           });
         }
@@ -264,17 +261,21 @@ export class ProvisionWork {
     const more = (): boolean => placed.length < MAX_AT_ONCE && room.anyLeft;
 
     const held = await this.sandboxes.liveKeysIn(
-      first.workspaceId.value,
+      workspaceId.value,
       this.clock.now(),
     );
 
-    const withEgress = pools.some((offered) => offered.egress);
+    // Hosts send runs through their own egress, so runs that inject secrets are read too where hosts serve, to note why they wait. Each offer still fits them only with an egress.
+    const withEgress =
+      pools.some((offered) => offered.egress) ||
+      hostOffers.some((offered) => offered.egress);
 
-    await this.sweep(first.workspaceId, place, more, {
+    await this.sweep(workspaceId, place, more, {
       sweeps: this.#runSweeps,
+      notesWaits: true,
       page: async (from: ClaimCursor | null) => {
         const queued = await this.runs.awaitingProvision(
-          first.workspaceId,
+          workspaceId,
           this.clock.now(),
           {
             after: from,
@@ -295,11 +296,12 @@ export class ProvisionWork {
         };
       },
     });
-    await this.sweep(first.workspaceId, place, more, {
+    await this.sweep(workspaceId, place, more, {
       sweeps: this.#reviewWorkSweeps,
+      notesWaits: false,
       page: async (from: ReviewWorkCursor | null) => {
         const awaiting = await this.reviewWork.awaiting(
-          first.workspaceId,
+          workspaceId,
           this.clock.now(),
           { after: from, max: PAGE },
         );
@@ -344,7 +346,7 @@ export class ProvisionWork {
     more: () => boolean,
     source: Source<Cursor>,
   ): Promise<void> {
-    if (!more()) {
+    if (!more() && !source.notesWaits) {
       return;
     }
 

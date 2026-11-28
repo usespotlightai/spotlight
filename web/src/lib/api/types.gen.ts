@@ -2958,6 +2958,32 @@ export type ReplyToReviewCommentRequestDto = {
   resolve?: boolean;
 };
 
+export type QuietHostsResponseDto = {
+  /**
+   * The hosts that could take it, none of which reports in; empty when none is left
+   */
+  hosts: Array<string>;
+  /**
+   * When Spotlight last heard from one of them; null when none is left to hear from
+   */
+  since: string | null;
+};
+
+export type RunWaitingResponseDto = {
+  /**
+   * Why Spotlight starts no runner for it: only the hosts of a pull pool or a trust take it (hosts-pull), only such hosts take it and none of them reports in (hosts-offline), the pools that fit it run all the runs they can (no-pool-has-room), only the platform pool could take it and the operator does not let it (platform-pool-not-allowed), or no pool fits it (no-pool-matches)
+   */
+  reason: 'hosts-pull' | 'hosts-offline' | 'no-pool-has-room' | 'platform-pool-not-allowed' | 'no-pool-matches';
+  /**
+   * When Spotlight first saw this reason since the run was last queued
+   */
+  since: string;
+  /**
+   * The offline hosts it waits for; set for hosts-offline
+   */
+  quiet: QuietHostsResponseDto | null;
+};
+
 export type InboxChatResponseDto = {
   /**
    * An agent chat the person started
@@ -2970,6 +2996,10 @@ export type InboxChatResponseDto = {
    * How far the run on the chat has come; null when none runs
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet
+   */
+  waiting: RunWaitingResponseDto | null;
   /**
    * How many task proposals still wait for the person
    */
@@ -3314,6 +3344,10 @@ export type InboxItemResponseDto = {
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
   /**
+   * Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet
+   */
+  waiting: RunWaitingResponseDto | null;
+  /**
    * The run working it now, whose steps can be watched as they land
    */
   runId: string | null;
@@ -3370,11 +3404,14 @@ export type NoticeExternalLinkResponseDto = {
 
 export type InboxNoticeResponseDto = {
   /**
-   * Word put to one person about their team’s work, outside any task
+   * Word put to one person about their team’s work, outside any task, or to the owners and admins about the whole workspace
    */
   kind: 'notice';
   id: string;
-  teamId: string;
+  /**
+   * Its team; null for a notice about the whole workspace, which goes to its owners and admins
+   */
+  teamId: string | null;
   /**
    * ended when work the person started has ended and they may want to act on how; advice when it carries on but suggests something they could fix
    */
@@ -3385,7 +3422,7 @@ export type InboxNoticeResponseDto = {
    */
   points: Array<string>;
   /**
-   * Where to look, as a path within its team
+   * Where to look, as a path within its team, or within the workspace for a notice about the whole workspace
    */
   link: string;
   /**
@@ -3452,6 +3489,10 @@ export type InboxRunResponseDto = {
    * Queued until a runner takes it, then in progress, and stopping once someone asked it to stop
    */
   progress: 'queued' | 'in-progress' | 'stopping';
+  /**
+   * Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet
+   */
+  waiting: RunWaitingResponseDto | null;
   /**
    * When the run was queued
    */
@@ -3578,6 +3619,10 @@ export type InboxItemViewResponseDto = {
    * What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet
+   */
+  waiting: RunWaitingResponseDto | null;
   /**
    * The run working it now, whose steps can be watched as they land
    */
@@ -3900,17 +3945,6 @@ export type RunRanOnResponseDto = {
    * The platform pool that Spotlight adds to each workspace
    */
   platform: boolean;
-};
-
-export type RunWaitingResponseDto = {
-  /**
-   * Why Spotlight starts no runner for it: only the hosts of a pull pool or a trust take it (hosts-pull), the pools that fit it run all the runs they can (no-pool-has-room), or no pool fits it (no-pool-matches)
-   */
-  reason: 'hosts-pull' | 'no-pool-has-room' | 'platform-pool-not-allowed' | 'no-pool-matches';
-  /**
-   * When Spotlight first saw this reason since the run was last queued
-   */
-  since: string;
 };
 
 export type RunStationResponseDto = {
@@ -4319,6 +4353,10 @@ export type ChatSummaryResponseDto = {
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
   /**
+   * Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet
+   */
+  waiting: RunWaitingResponseDto | null;
+  /**
    * Whether it is the starter's turn: an unread proposal, or an agent reply not yet resolved, while no run is working on it.
    */
   waitingForYou: boolean;
@@ -4480,6 +4518,10 @@ export type ChatResponseDto = {
    * What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers.
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * Why its queued run waits for a runner, as Spotlight last saw it; null unless it is queued, and where Spotlight has no reason yet
+   */
+  waiting: RunWaitingResponseDto | null;
   /**
    * Whether it is the starter's turn: an unread proposal, or an agent reply not yet resolved, while no run is working on it.
    */
@@ -17161,6 +17203,10 @@ export type ResolveInboxNoticeErrors = {
    * No such notice for this caller
    */
   404: unknown;
+  /**
+   * The notice resolves itself when its cause ends, so a person cannot resolve it
+   */
+  409: unknown;
 };
 
 export type ResolveInboxNoticeResponses = {
@@ -17195,6 +17241,10 @@ export type ReopenInboxNoticeErrors = {
    * No such notice for this caller
    */
   404: unknown;
+  /**
+   * The notice resolves itself when its cause ends, so a person cannot reopen it
+   */
+  409: unknown;
 };
 
 export type ReopenInboxNoticeResponses = {

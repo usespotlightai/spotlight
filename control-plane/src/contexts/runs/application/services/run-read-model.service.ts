@@ -79,14 +79,7 @@ const factsOf = (
     exitCode: run.outcome?.exitCode.value ?? null,
     image: run.ranIn?.value ?? null,
     ranOn: run.ranOn?.parts ?? null,
-    waiting: currentWait(
-      {
-        state: run.state,
-        queuedAt: run.queuedAt,
-        reserved: run.reservation !== null,
-      },
-      wait,
-    ),
+    waiting: waitOf(run, wait),
     startedFrom: startedFrom && {
       archiveId: startedFrom.archive?.value ?? null,
       archiveStored: startedFrom.archive
@@ -113,7 +106,20 @@ const progressFactsOf = (run: Run) => {
   };
 };
 
-const progressOf = (run: Run): RunProgressFacts => ({
+const waitOf = (run: Run, wait: QueuedRunWait | null) =>
+  currentWait(
+    {
+      state: run.state,
+      queuedAt: run.queuedAt,
+      reserved: run.reservation !== null,
+    },
+    wait,
+  );
+
+const progressOf = (
+  run: Run,
+  wait: QueuedRunWait | null,
+): RunProgressFacts => ({
   runId: run.id,
   state: run.state,
   stopRequested: run.stopRequested,
@@ -121,6 +127,7 @@ const progressOf = (run: Run): RunProgressFacts => ({
   ...progressFactsOf(run),
   suspendedAt: run.turn?.suspendedAt ?? null,
   queuedAt: run.queuedAt,
+  waiting: waitOf(run, wait),
 });
 
 const leasedOf = (
@@ -245,7 +252,10 @@ export class RunReadModel
   async progressOf(
     runIds: readonly RunId[],
   ): Promise<readonly RunProgressFacts[]> {
-    return (await this.found(runIds)).map(progressOf);
+    const found = await this.found(runIds);
+    const waits = await this.waitsOf(found);
+
+    return found.map((run) => progressOf(run, waits.get(run.id.value) ?? null));
   }
 
   private async found(runIds: readonly RunId[]): Promise<readonly Run[]> {

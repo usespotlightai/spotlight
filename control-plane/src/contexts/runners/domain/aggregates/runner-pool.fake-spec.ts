@@ -304,6 +304,11 @@ export const storedHosts = (...known: RunnerHost[]): StoredHosts => {
     inWorkspace: vi.fn(async (workspaceId: WorkspaceId) =>
       [...stored.values()].filter((host) => host.belongsTo(workspaceId)),
     ),
+    inWorkspaces: vi.fn(async (workspaceIds: readonly WorkspaceId[]) =>
+      [...stored.values()].filter((host) =>
+        workspaceIds.some((each) => host.belongsTo(each)),
+      ),
+    ),
   } satisfies RunnerHostRepository;
 
   return { stored, hosts };

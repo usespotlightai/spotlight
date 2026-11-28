@@ -44,13 +44,19 @@ const aPlatformPool = (
 
 const REFUSING = { allowsSecrets: false, allowsReviewWork: false };
 
-const hostsServing = (labels: string[]): HostOffer => ({
+const hostsServing = (
+  labels: string[],
+  quiet: HostOffer['quiet'] = null,
+): HostOffer => ({
   labels: RunnerOffer.of(labels),
   egress: true,
   images: null,
   allowsSecrets: true,
   allowsReviewWork: true,
+  quiet,
 });
+
+const QUIET_SINCE = new Date('2026-11-27T20:00:00.000Z');
 
 const POOLS = [aPool(BURST, ['gpu']), aPool(STEADY), aPool(SPARE)];
 
@@ -258,6 +264,48 @@ describe('PoolRoom', () => {
 });
 
 describe('waitReasonFor', () => {
+  it('says the work waits for a person when every host offer that fits it has no host that reports in, naming the hosts', () => {
+    expect(
+      waitReasonFor(
+        RunnerPlacement.of(['gpu']),
+        [aPlatformPool(['gpu'])],
+        [
+          hostsServing(['gpu'], { hosts: ['dev-host'], since: QUIET_SINCE }),
+          hostsServing(['gpu'], { hosts: [], since: null }),
+          hostsServing(['arm'], null),
+        ],
+        RUN,
+      ),
+    ).toEqual({
+      reason: 'hosts-offline',
+      quiet: { hosts: ['dev-host'], since: QUIET_SINCE },
+    });
+  });
+
+  it('says hosts pull the work while one host offer that fits it reports in, or a pool of its own fits it', () => {
+    const offline = hostsServing(['gpu'], {
+      hosts: ['dev-host'],
+      since: QUIET_SINCE,
+    });
+
+    expect(
+      waitReasonFor(
+        RunnerPlacement.of(['gpu']),
+        [],
+        [offline, hostsServing(['gpu'])],
+        RUN,
+      ),
+    ).toEqual({ reason: 'hosts-pull', quiet: null });
+    expect(
+      waitReasonFor(
+        RunnerPlacement.of(['gpu']),
+        [aPool(BURST, ['gpu'])],
+        [offline],
+        RUN,
+      ),
+    ).toEqual({ reason: 'hosts-pull', quiet: null });
+  });
+
   it('says the hosts pull work that they fit', () => {
     expect(
       waitReasonFor(
@@ -266,7 +314,7 @@ describe('waitReasonFor', () => {
         [hostsServing(['gpu'])],
         RUN,
       ),
-    ).toBe('hosts-pull');
+    ).toEqual({ reason: 'hosts-pull', quiet: null });
   });
 
   it('says the pools are full when a pool fits the work', () => {
@@ -277,7 +325,7 @@ describe('waitReasonFor', () => {
         [],
         RUN,
       ),
-    ).toBe('no-pool-has-room');
+    ).toEqual({ reason: 'no-pool-has-room', quiet: null });
   });
 
   it('says the operator does not allow the platform pool the work when only that keeps it off', () => {
@@ -285,10 +333,13 @@ describe('waitReasonFor', () => {
 
     expect(
       waitReasonFor(RunnerPlacement.anywhere(), refusing, [], SECRET_RUN),
-    ).toBe('platform-pool-not-allowed');
-    expect(waitReasonFor(RunnerPlacement.anywhere(), refusing, [], CHECK)).toBe(
-      'platform-pool-not-allowed',
-    );
+    ).toEqual({ reason: 'platform-pool-not-allowed', quiet: null });
+    expect(
+      waitReasonFor(RunnerPlacement.anywhere(), refusing, [], CHECK),
+    ).toEqual({
+      reason: 'platform-pool-not-allowed',
+      quiet: null,
+    });
   });
 
   it('says no pool matches when no pool or host could take the work at all', () => {
@@ -299,9 +350,9 @@ describe('waitReasonFor', () => {
         [hostsServing(['arm'])],
         RUN,
       ),
-    ).toBe('no-pool-matches');
+    ).toEqual({ reason: 'no-pool-matches', quiet: null });
     expect(
       waitReasonFor(RunnerPlacement.anywhere(), [aPool(BURST)], [], SECRET_RUN),
-    ).toBe('no-pool-matches');
+    ).toEqual({ reason: 'no-pool-matches', quiet: null });
   });
 });

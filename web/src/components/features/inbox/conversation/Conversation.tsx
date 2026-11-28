@@ -348,6 +348,7 @@ export function Conversation({
                             stationColor={item.station.color}
                             stationPosition={item.station.position}
                             stationCount={item.station.count}
+                            waiting={item.waiting}
                             session={worked.at(-1)}
                           />
                         )

@@ -3,6 +3,14 @@ import {
   type HostBecameReadyIntegrationEvent,
 } from '@shared-kernel/application/integration-events/host-became-ready.integration-event';
 import {
+  HOST_OUTAGE_BEGAN,
+  type HostOutageBeganIntegrationEvent,
+} from '@shared-kernel/application/integration-events/host-outage-began.integration-event';
+import {
+  HOST_OUTAGE_ENDED,
+  type HostOutageEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/host-outage-ended.integration-event';
+import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
@@ -39,6 +47,10 @@ import {
   type WorkspaceConnectedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/workspace-connected.integration-event';
 import {
+  WORKSPACE_DELETED,
+  type WorkspaceDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
+import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
@@ -67,6 +79,7 @@ import type { RetargetStackedTasks } from '@work/application/events/handlers/ret
 import type { RetireChatSandbox } from '@work/application/events/handlers/retire-chat-sandbox.handler';
 import type { RetireTaskSandbox } from '@work/application/events/handlers/retire-task-sandbox.handler';
 import type { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
+import type { TellAdminsOfHostOutages } from '@work/application/events/handlers/tell-admins-of-host-outages.handler';
 import type { TellChatOfTask } from '@work/application/events/handlers/tell-chat-of-task.handler';
 import type { TrackSetupPullRequests } from '@work/application/events/handlers/track-setup-pull-requests.handler';
 import type { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
@@ -157,7 +170,18 @@ export const workSubscribers = (reactions: {
   setupPullRequests: TrackSetupPullRequests;
   stackedTasks: RetargetStackedTasks;
   chatsOfTasks: TellChatOfTask;
+  hostOutages: TellAdminsOfHostOutages;
 }): readonly DomainEventSubscriber[] => [
+  subscribing<HostOutageBeganIntegrationEvent>(
+    'work.tell-admins-of-host-outage',
+    [HOST_OUTAGE_BEGAN],
+    (event) => reactions.hostOutages.began(event),
+  ),
+  subscribing<HostOutageEndedIntegrationEvent>(
+    'work.resolve-host-outage-notices',
+    [HOST_OUTAGE_ENDED],
+    (event) => reactions.hostOutages.ended(event),
+  ),
   subscribing<ToolUsed>(
     'work.fire-hooks-after-tool-used',
     ['tool.used'],
@@ -182,6 +206,13 @@ export const workSubscribers = (reactions: {
     'work.delete-chats-of-deleted-team',
     [TEAM_DELETED],
     (event) => reactions.deletingChats.deleteForTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'work.delete-notices-of-deleted-workspace',
+    [WORKSPACE_DELETED],
+    (event) =>
+      reactions.notices.deleteForWorkspace(WorkspaceId.of(event.workspaceId)),
     { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(

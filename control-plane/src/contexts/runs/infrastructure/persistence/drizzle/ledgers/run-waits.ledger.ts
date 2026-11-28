@@ -28,6 +28,8 @@ export class DrizzleRunWaits implements RunWaitsPort {
           reason: each.reason,
           queuedAt: each.queuedAt,
           since: at,
+          quietHosts: each.quiet ? [...each.quiet.hosts] : null,
+          quietSince: each.quiet?.since ?? null,
         })),
       )
       .onConflictDoUpdate({
@@ -35,11 +37,16 @@ export class DrizzleRunWaits implements RunWaitsPort {
         set: {
           reason: sql`excluded.reason`,
           queuedAt: sql`excluded.queued_at`,
-          since: sql`excluded.since`,
+          // The quiet hosts can change while the reason stays, and the time stays with it.
+          since: sql`case when ${runWait.reason} = excluded.reason and ${runWait.queuedAt} = excluded.queued_at then ${runWait.since} else excluded.since end`,
+          quietHosts: sql`excluded.quiet_hosts`,
+          quietSince: sql`excluded.quiet_since`,
         },
         setWhere: or(
           ne(runWait.reason, sql`excluded.reason`),
           ne(runWait.queuedAt, sql`excluded.queued_at`),
+          sql`${runWait.quietHosts} is distinct from excluded.quiet_hosts`,
+          sql`${runWait.quietSince} is distinct from excluded.quiet_since`,
         ),
       });
   }

@@ -539,6 +539,15 @@ describe('notices', () => {
     );
   });
 
+  it('turns the link of a notice about the whole workspace into a route within the workspace', () => {
+    expect(
+      noticeLinkPath(
+        'acme',
+        notice({ link: 'settings/runners', teamId: null }),
+      ),
+    ).toBe('/w/acme/settings/runners');
+  });
+
   it('previews its first point', () => {
     expect(noticePreviewOf(notice())).toBe('Candidate terse changes prompt.');
   });
@@ -603,6 +612,7 @@ describe('chatPreviewOf', () => {
     teamId: 'team_1',
     title: 'Why do retries pile up?',
     progress: null,
+    waiting: null,
     openProposals: 0,
     unreadCount: 0,
     askedAt: '2026-10-01T10:00:00.000Z',
@@ -616,6 +626,23 @@ describe('chatPreviewOf', () => {
   it('says how far the run of a chat has come', () => {
     expect(chatPreviewOf(chat({ progress: 'queued' }))).toBe(
       'Queued. Agent starts when a runner is free.',
+    );
+  });
+
+  it('names the offline host that a queued chat waits for', () => {
+    expect(
+      chatPreviewOf(
+        chat({
+          progress: 'queued',
+          waiting: {
+            reason: 'hosts-offline',
+            since: '2026-10-01T10:00:00.000Z',
+            quiet: { hosts: ['dev-host'], since: null },
+          },
+        }),
+      ),
+    ).toBe(
+      'Queued: dev-host, the only host that can take this chat, has been offline.',
     );
   });
 

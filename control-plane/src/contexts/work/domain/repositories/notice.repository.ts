@@ -1,5 +1,6 @@
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Notice } from '@work/domain/aggregates/notice.aggregate';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import type { NoticeId } from '@work/domain/value-objects/notice-id.vo';
@@ -14,14 +15,19 @@ export interface NoticeRepository {
 
   find(id: NoticeId): Promise<Notice | null>;
 
-  about(
-    teamId: TeamId,
-    addressee: UserId | null,
-    form: NoticeForm,
-    subject: NoticeSubject,
-  ): Promise<Notice | null>;
+  // The notice of a team, or, with no team, the notice of the workspace about the whole workspace, on the subject.
+  about(input: {
+    readonly workspaceId: WorkspaceId | null;
+    readonly teamId: TeamId | null;
+    readonly addressee: UserId | null;
+    readonly form: NoticeForm;
+    readonly subject: NoticeSubject;
+  }): Promise<Notice | null>;
 
   ofTeam(teamId: TeamId): Promise<Notice[]>;
+
+  // The notices about the whole workspace, which belong to no team.
+  aboutWorkspace(workspaceId: WorkspaceId): Promise<Notice[]>;
 
   remove(notice: Notice): Promise<void>;
 }

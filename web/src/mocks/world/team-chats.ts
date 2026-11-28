@@ -214,6 +214,7 @@ const chatOf = (
   setup: null,
   updatedAt: over.createdAt,
   progress: null,
+  waiting: null,
   waitingForYou: false,
   runId: null,
   ...over,

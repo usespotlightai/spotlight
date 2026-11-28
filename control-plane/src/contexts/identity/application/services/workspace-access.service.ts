@@ -67,6 +67,7 @@ const teamAccessOf = (
     actsOn: TeamAccess.actsOnTeam(team, workspace, principal),
     joined: TeamAccess.joinedTeam(team, workspace, principal),
   })),
+  isAdmin: workspace.permissionsFor(principal).isAdmin,
 });
 
 export class WorkspaceAccess implements WorkspaceAccessPort {
@@ -142,7 +143,6 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
 
     return workspace.members.flatMap((member): MemberTeamAccess[] => {
       const principal = PersonPrincipal.of(member.userId);
-
       return workspace.permissionsFor(principal).reads
         ? [
             {

@@ -6,6 +6,8 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import { NoticeRaised } from '@work/domain/events/notice-raised.event';
 import { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import { NoticeResolved } from '@work/domain/events/notice-resolved.event';
+import { InvalidNoticeError } from '@work/domain/exceptions/invalid-notice.error';
+import { NoticeAutoResolveError } from '@work/domain/exceptions/notice-auto-resolve.error';
 import type { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import type { NoticeId } from '@work/domain/value-objects/notice-id.vo';
@@ -17,13 +19,16 @@ import type { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 interface NoticeState {
   readonly id: NoticeId;
   readonly workspaceId: WorkspaceId;
-  readonly teamId: TeamId;
+  // Null for a notice about the whole workspace: it goes to the owners and admins of the workspace, and to no team.
+  readonly teamId: TeamId | null;
   readonly addressee: UserId | null;
   readonly form: NoticeForm;
   readonly subject: NoticeSubject;
   readonly link: NoticeLink;
   readonly externalLink: NoticeExternalLink | null;
   readonly wording: NoticeWording;
+  // True when Spotlight resolves the notice once its cause ends, such as a host outage. Then no person resolves or reopens it.
+  readonly autoResolve: boolean;
   readonly createdAt: Date;
   readonly resolvedAt: Date | null;
   readonly version: number;
@@ -34,6 +39,29 @@ export interface NoticeAudience {
   readonly unaddressed: boolean;
 }
 
+// How a person stands to a notice: on the team of a team notice, or as an admin or not of the workspace, for a notice about the whole workspace.
+export type NoticeStanding =
+  | { readonly kind: 'team'; readonly team: TeamStanding }
+  | { readonly kind: 'workspace'; readonly isAdmin: boolean };
+
+// What a person needs to know of a notice to resolve or reopen it.
+export interface NoticeResolution {
+  readonly resolvedAt: Date | null;
+  readonly autoResolve: boolean;
+}
+
+// A notice about the whole workspace has no addressee: every owner and admin gets it.
+const checkedAudience = (
+  teamId: TeamId | null,
+  addressee: UserId | null,
+): void => {
+  if (teamId === null && addressee !== null) {
+    throw new InvalidNoticeError(
+      'about the whole workspace goes to its admins, not to one person',
+    );
+  }
+};
+
 export class Notice extends EventRecorder {
   private constructor(private readonly state: NoticeState) {
     super();
@@ -42,15 +70,18 @@ export class Notice extends EventRecorder {
   static create(input: {
     id: NoticeId;
     workspaceId: WorkspaceId;
-    teamId: TeamId;
+    teamId: TeamId | null;
     addressee: UserId | null;
     form: NoticeForm;
     subject: NoticeSubject;
     link: NoticeLink;
     externalLink: NoticeExternalLink | null;
     wording: NoticeWording;
+    autoResolve: boolean;
     at: Date;
   }): Notice {
+    checkedAudience(input.teamId, input.addressee);
+
     const created = new Notice({
       ...input,
       createdAt: input.at,
@@ -70,13 +101,17 @@ export class Notice extends EventRecorder {
     return created;
   }
 
+  // A notice about the whole workspace always reaches its admins. A team notice needs its team, and its addressee on it.
   static deliverable(input: {
+    aboutWorkspace: boolean;
     teamExists: boolean;
     addressee: UserId | null;
     addresseeSeesTeam: boolean;
   }): boolean {
     return (
-      input.teamExists && (input.addressee === null || input.addresseeSeesTeam)
+      input.aboutWorkspace ||
+      (input.teamExists &&
+        (input.addressee === null || input.addresseeSeesTeam))
     );
   }
 
@@ -84,16 +119,57 @@ export class Notice extends EventRecorder {
     return resolvedAt !== null;
   }
 
-  static assertActedOnBy(team: TeamStanding, unseen: () => Error): void {
-    team.assertActsOnTasks(unseen);
+  // A person acts on a team notice who acts on the tasks of its team, and on a notice about the whole workspace who is an owner or admin of it.
+  static assertActedOnBy(standing: NoticeStanding, unseen: () => Error): void {
+    if (standing.kind === 'team') {
+      standing.team.assertActsOnTasks(unseen);
+    } else if (!standing.isAdmin) {
+      throw unseen();
+    }
   }
 
-  static resolvableBy(team: TeamStanding, resolvedAt: Date | null): boolean {
-    return team.actsOnTasks && resolvedAt === null;
+  private static actsOn(standing: NoticeStanding): boolean {
+    return standing.kind === 'team'
+      ? standing.team.actsOnTasks
+      : standing.isAdmin;
   }
 
-  static reopenableBy(team: TeamStanding, resolvedAt: Date | null): boolean {
-    return team.actsOnTasks && Notice.reopenable(resolvedAt);
+  // A person resolves an open notice that does not resolve itself.
+  static resolvableBy(
+    standing: NoticeStanding,
+    notice: NoticeResolution,
+  ): boolean {
+    return (
+      Notice.actsOn(standing) &&
+      !notice.autoResolve &&
+      notice.resolvedAt === null
+    );
+  }
+
+  // A person reopens a resolved notice that does not resolve itself. Reopened, such a notice would stay open with nobody to resolve it.
+  static reopenableBy(
+    standing: NoticeStanding,
+    notice: NoticeResolution,
+  ): boolean {
+    return (
+      Notice.actsOn(standing) &&
+      !notice.autoResolve &&
+      Notice.reopenable(notice.resolvedAt)
+    );
+  }
+
+  // A person's inbox shows a team notice addressed to them, or to the team, of a team they see, and a notice about the whole workspace to its owners and admins.
+  static shownTo(input: {
+    readonly teamId: string | null;
+    readonly addressee: UserId | null;
+    readonly person: UserId;
+    readonly teamsSeen: ReadonlySet<string>;
+    readonly isAdmin: boolean;
+  }): boolean {
+    return input.teamId === null
+      ? input.isAdmin
+      : input.teamsSeen.has(input.teamId) &&
+          Notice.addressedTo(input.addressee, input.person);
   }
 
   static unread(resolvedAt: Date | null): boolean {
@@ -101,6 +177,13 @@ export class Notice extends EventRecorder {
   }
 
   static rehydrate(state: NoticeState): Notice {
+    if (state.teamId === null && state.addressee !== null) {
+      throw new InconsistentStateError(
+        'notice',
+        'is about the whole workspace but has an addressee',
+      );
+    }
+
     if (state.version < 0) {
       throw new InconsistentStateError('notice', 'has a negative version');
     }
@@ -123,7 +206,7 @@ export class Notice extends EventRecorder {
     return this.state.workspaceId;
   }
 
-  get teamId(): TeamId {
+  get teamId(): TeamId | null {
     return this.state.teamId;
   }
 
@@ -149,6 +232,10 @@ export class Notice extends EventRecorder {
 
   get wording(): NoticeWording {
     return this.state.wording;
+  }
+
+  get autoResolve(): boolean {
+    return this.state.autoResolve;
   }
 
   get createdAt(): Date {
@@ -181,10 +268,20 @@ export class Notice extends EventRecorder {
 
   get openToTeam(): boolean {
     return (
-      this.state.addressee === null && Notice.unread(this.state.resolvedAt)
+      this.state.teamId !== null &&
+      this.state.addressee === null &&
+      Notice.unread(this.state.resolvedAt)
     );
   }
 
+  // A person resolves the notice. A notice that resolves itself refuses this.
+  resolveByPerson(at: Date): Notice {
+    this.assertChangedByPerson();
+
+    return this.resolve(at);
+  }
+
+  // Spotlight resolves the notice, for example when the cause of a notice that resolves itself ends.
   resolve(at: Date): Notice {
     if (this.state.resolvedAt) {
       return this;
@@ -204,7 +301,10 @@ export class Notice extends EventRecorder {
     return resolved;
   }
 
+  // Only a person reopens a notice, so a notice that resolves itself refuses this.
   reopen(at: Date): Notice {
+    this.assertChangedByPerson();
+
     if (!Notice.reopenable(this.state.resolvedAt)) {
       return this;
     }
@@ -222,5 +322,11 @@ export class Notice extends EventRecorder {
     );
 
     return reopened;
+  }
+
+  private assertChangedByPerson(): void {
+    if (this.state.autoResolve) {
+      throw new NoticeAutoResolveError(this.state.id.value);
+    }
   }
 }

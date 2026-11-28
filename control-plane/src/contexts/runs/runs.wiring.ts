@@ -26,6 +26,7 @@ import { ChangeNotices } from '@platform/live/change-notices';
 import { Leadership } from '@platform/redis/leadership';
 import { RedisConnection } from '@platform/redis/redis-connection';
 import { IDLE_WORKING_COPIES } from '@runners/application/ports/idle-working-copies.port';
+import { QUEUED_WORK } from '@runners/application/ports/queued-work.port';
 import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_CLAIMANTS } from '@runners/application/ports/runner-claimants.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
@@ -135,7 +136,10 @@ import { HARNESS_PROFILE_REVIEW } from '@runs/application/ports/harness-profile-
 import { HARNESS_TOOL_NAMES } from '@runs/application/ports/harness-tool-names.port';
 import { HOOK_TRACES } from '@runs/application/ports/hook-traces.port';
 import { NETWORK_CALLS } from '@runs/application/ports/network-calls.port';
-import { QUEUED_PLACEMENTS } from '@runs/application/ports/queued-placements.port';
+import {
+  QUEUED_PLACEMENTS,
+  type QueuedPlacementsPort,
+} from '@runs/application/ports/queued-placements.port';
 import {
   REVIEW_WORK_PROVISIONING,
   type ReviewWorkProvisioningPort,
@@ -299,6 +303,7 @@ import {
 } from '@runs/domain/repositories/working-copy-archive.repository';
 import { LinesWarmLines } from '@runs/infrastructure/acl/lines-warm-lines.adapter';
 import { RunnersWarmSandboxKeeping } from '@runs/infrastructure/acl/runners-warm-sandboxes.adapter';
+import { RunsQueuedWork } from '@runs/infrastructure/acl/runs-queued-work.adapter';
 import { RUNS_PAYLOAD_TYPES } from '@runs/infrastructure/events/runs-payload-types';
 import { BuiltInHarnesses } from '@runs/infrastructure/harnesses/built-in-harnesses';
 import { HarnessCommands } from '@runs/infrastructure/harnesses/harness-commands';
@@ -998,6 +1003,11 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ]),
 
   { provide: QUEUED_PLACEMENTS, useClass: DrizzleQueuedPlacements },
+  {
+    provide: QUEUED_WORK,
+    inject: [QUEUED_PLACEMENTS],
+    useFactory: (queued: QueuedPlacementsPort) => new RunsQueuedWork(queued),
+  },
 
   {
     provide: RunnerLeases,

@@ -263,6 +263,7 @@ export function ChatThread({
                                 slug={slug}
                                 harness={chat.harness}
                                 progress={working}
+                                waiting={chat.waiting}
                                 phase={phaseOf(journals, chat.runId)}
                               />
                             </div>

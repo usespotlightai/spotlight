@@ -2,6 +2,8 @@ import { EgressCreated } from '@runners/domain/events/egress-created.event';
 import { EgressDeleted } from '@runners/domain/events/egress-deleted.event';
 import { EgressUpdated } from '@runners/domain/events/egress-updated.event';
 import { HostBecameReady } from '@runners/domain/events/host-became-ready.event';
+import { HostOutageBegan } from '@runners/domain/events/host-outage-began.event';
+import { HostOutageEnded } from '@runners/domain/events/host-outage-ended.event';
 import { HostStoppedReportingSandbox } from '@runners/domain/events/host-stopped-reporting-sandbox.event';
 import { RunnerEnded } from '@runners/domain/events/runner-ended.event';
 import { RunnerPoolCreated } from '@runners/domain/events/runner-pool-created.event';
@@ -25,6 +27,7 @@ import { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypte
 import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostImage } from '@runners/domain/value-objects/host-image.vo';
+import { HostOutageId } from '@runners/domain/value-objects/host-outage-id.vo';
 import { HostRelease } from '@runners/domain/value-objects/host-release.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
@@ -67,6 +70,7 @@ export const RUNNERS_PAYLOAD_TYPES = [
   HarnessVersion,
   HostId,
   HostImage,
+  HostOutageId,
   HostRelease,
   HostReport,
   BootId,
@@ -99,6 +103,8 @@ export const RUNNERS_PAYLOAD_TYPES = [
   EgressUpdated,
   EgressDeleted,
   HostBecameReady,
+  HostOutageBegan,
+  HostOutageEnded,
   HostStoppedReportingSandbox,
   RunnerEnded,
   RunnerPoolCreated,

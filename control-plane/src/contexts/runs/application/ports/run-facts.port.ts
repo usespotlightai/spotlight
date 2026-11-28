@@ -27,6 +27,7 @@ export type RunProgressFact = (typeof RUN_PROGRESS_FACTS)[number];
 
 export const RUN_WAIT_REASON_FACTS = [
   'hosts-pull',
+  'hosts-offline',
   'no-pool-has-room',
   'platform-pool-not-allowed',
   'no-pool-matches',
@@ -44,10 +45,17 @@ export interface RunnerSourceFact {
   readonly platform: boolean;
 }
 
-// Why Spotlight provisions no runner for the queued run, and since when.
+// The hosts a queued run waits for while none of them reports in, and when Spotlight last heard from one of them. Since is null when none is left to hear from.
+interface QuietHostsFact {
+  readonly hosts: readonly string[];
+  readonly since: Date | null;
+}
+
+// Why Spotlight provisions no runner for the queued run, and since when. Quiet is set for hosts-offline.
 export interface RunWaitFact {
   readonly reason: RunWaitReasonFact;
   readonly since: Date;
+  readonly quiet: QuietHostsFact | null;
 }
 
 export interface RunFacts {

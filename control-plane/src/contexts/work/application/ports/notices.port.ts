@@ -24,6 +24,14 @@ export interface NoticeOf {
   readonly points: readonly string[];
 }
 
+// A notice about the whole workspace, for its owners and admins: it has no team and no addressee. With autoResolve, Spotlight resolves it once its cause ends, and no person resolves or reopens it.
+export interface WorkspaceNoticeOf extends Omit<
+  NoticeOf,
+  'teamId' | 'addressee'
+> {
+  readonly autoResolve: boolean;
+}
+
 export interface NoticesPort {
   create(notice: NoticeOf): Promise<void>;
 

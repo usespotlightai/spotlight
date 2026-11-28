@@ -25,8 +25,7 @@ export function InboxNotice() {
   const found = useInboxNotice(slug, noticeId);
   const notice = found.data;
   const { data: workspace } = useWorkspace(slug);
-  const pending = notice && !notice.resolved ? notice.id : null;
-  const resolve = useResolveNoticeOnOpening(slug, pending);
+  const resolve = useResolveNoticeOnOpening(slug, notice);
 
   const team = workspace?.teams.find(
     (candidate) => candidate.id === notice?.teamId,

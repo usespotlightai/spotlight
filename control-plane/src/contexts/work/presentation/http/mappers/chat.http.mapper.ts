@@ -10,6 +10,7 @@ import {
   ChatTraceResponseDto,
 } from '@work/presentation/http/dto/chat.response.dto';
 import { InboxAuthorResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
+import { RunWaitingResponseDto } from '@work/presentation/http/dto/run-waiting.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
 
 export const ChatHttpMapper = {
@@ -28,6 +29,7 @@ export const ChatHttpMapper = {
       dto.createdAt,
       dto.updatedAt,
       dto.progress,
+      RunWaitingResponseDto.of(dto.waiting),
       dto.waitingForYou,
     );
   },

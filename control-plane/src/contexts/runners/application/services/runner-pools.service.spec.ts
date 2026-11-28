@@ -4,6 +4,7 @@ import type {
 } from '@runners/application/ports/runner-authenticator.port';
 import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
+import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
   aPlatformPool,
@@ -12,12 +13,17 @@ import {
   aRunner,
   aTrust,
   POOL_ID,
+  storedHosts,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
+import {
+  aNamedHost,
+  minutesAfter,
+} from '@runners/domain/services/host-outages.fake-spec';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
@@ -42,6 +48,8 @@ const pooling = (
     platform?: boolean;
     platformPool?: boolean;
     platformImages?: readonly RunnerImage[] | null;
+    hosts?: readonly RunnerHost[];
+    now?: Date;
   } = {},
 ) => {
   const authenticate = vi.fn(async () => authenticated);
@@ -68,6 +76,8 @@ const pooling = (
       platformPoolSet: stored.platformPool ?? true,
       platformImages: stored.platformImages ?? null,
     },
+    storedHosts(...(stored.hosts ?? [])).hosts,
+    { now: () => stored.now ?? NOW, sleep: async () => {} },
   );
 
   return { pools, authenticate, find, inWorkspaces };
@@ -253,6 +263,35 @@ describe('RunnerPools', () => {
       ]);
       expect(offers.hostOffers.every((each) => each.egress)).toBe(true);
       expect(offers.hostOffers.every((each) => !('poolId' in each))).toBe(true);
+    });
+
+    it('says which host offers have no host that reports in, naming their hosts and when they were last heard from', async () => {
+      const trust = aTrust();
+      const { pools } = pooling(null, {
+        provisioning: [aPullPool()],
+        trusts: [trust],
+        hosts: [
+          aNamedHost('dev-host'),
+          aNamedHost('gh-host', { through: trust, lastAt: 30 }),
+        ],
+        now: minutesAfter(30),
+      });
+
+      expect(
+        (await pools.offersIn([WORKSPACE])).hostOffers.map(
+          (each) => each.quiet,
+        ),
+      ).toEqual([{ hosts: ['dev-host'], since: minutesAfter(0) }, null]);
+    });
+
+    it('counts a pull pool with no host as quiet, as nothing can take its work', async () => {
+      const { pools } = pooling(null, { provisioning: [aPullPool()] });
+
+      expect(
+        (await pools.offersIn([WORKSPACE])).hostOffers.map(
+          (each) => each.quiet,
+        ),
+      ).toEqual([{ hosts: [], since: null }]);
     });
 
     it('leaves out a disabled platform pool', async () => {

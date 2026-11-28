@@ -5,7 +5,6 @@ import {
   RUN_DRIVER_NAMES,
   RUNNER_SOURCE_KIND_NAMES,
   RUN_STATE_NAMES,
-  RUN_WAIT_REASON_NAMES,
 } from '@work/application/dto/task-run.dto';
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
@@ -13,6 +12,7 @@ import {
   FoldedVisitResponseDto,
   NoteResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
+import { RunWaitingResponseDto } from '@work/presentation/http/dto/run-waiting.response.dto';
 import { pageResponseOf } from '@work/presentation/http/paging';
 
 export class RunStationResponseDto {
@@ -87,28 +87,6 @@ export class RunRanOnResponseDto {
     this.kind = kind;
     this.key = key;
     this.platform = platform;
-  }
-}
-
-export class RunWaitingResponseDto {
-  @ApiProperty({
-    enum: RUN_WAIT_REASON_NAMES,
-    example: 'no-pool-has-room',
-    description:
-      'Why Spotlight starts no runner for it: only the hosts of a pull pool or a trust take it (hosts-pull), the pools that fit it run all the runs they can (no-pool-has-room), or no pool fits it (no-pool-matches)',
-  })
-  readonly reason: string;
-
-  @ApiProperty({
-    example: '2026-08-28T16:32:47.877Z',
-    description:
-      'When Spotlight first saw this reason since the run was last queued',
-  })
-  readonly since: string;
-
-  constructor(reason: string, since: string) {
-    this.reason = reason;
-    this.since = since;
   }
 }
 

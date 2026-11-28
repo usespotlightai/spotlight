@@ -34,11 +34,13 @@ const read = (
   sightings: InboxSighting[],
   people = [SAM, ADA],
   teams = ['team_1'],
+  admins: readonly UserId[] = [],
 ) =>
   ledger.sighted({
     people: people.map((person) => ({
       person,
       teams: teams.map((team) => TeamId.of(team)),
+      seesWorkspace: admins.some((each) => each.equals(person)),
     })),
     sightings,
     readAt,
@@ -173,6 +175,48 @@ describe('ArrivalLedger', () => {
     );
 
     expect(arrivedIn(joined)).toEqual([]);
+  });
+
+  it('announces a notice about the whole workspace to an admin it already ledgers as one, however old it is', () => {
+    const aboutWorkspace = (person: UserId) => ({
+      ...sighting('outage', at(-60), person),
+      teamId: null,
+      kind: 'notice' as const,
+    });
+    const before = read(
+      ArrivalLedger.start(WorkspaceId.of('ws_1')),
+      at(0),
+      [],
+      [SAM, ADA],
+      ['team_1'],
+      [SAM],
+    );
+    before.pullEvents();
+
+    expect(
+      arrivedIn(
+        read(
+          before,
+          at(1),
+          [aboutWorkspace(SAM)],
+          [SAM, ADA],
+          ['team_1'],
+          [SAM],
+        ),
+      ),
+    ).toEqual(['user_1 outage']);
+    expect(
+      arrivedIn(
+        read(
+          before,
+          at(1),
+          [aboutWorkspace(ADA)],
+          [SAM, ADA],
+          ['team_1'],
+          [ADA],
+        ),
+      ),
+    ).toEqual([]);
   });
 
   it('refuses a stored ledger that announced one item twice to a person', () => {

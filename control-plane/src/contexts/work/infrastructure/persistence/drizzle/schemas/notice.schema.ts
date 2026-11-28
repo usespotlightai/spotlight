@@ -1,6 +1,8 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
+import { sql } from 'drizzle-orm';
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -8,6 +10,7 @@ import {
   pgTable,
   text,
   unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export const noticeForm = pgEnum('notice_form', NOTICE_FORMS);
@@ -17,7 +20,8 @@ export const notice = pgTable(
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
-    teamId: text('team_id').notNull(),
+    // Null for a notice about the whole workspace, for its owners and admins.
+    teamId: text('team_id'),
     addresseeId: text('addressee_id'),
     form: noticeForm('form').notNull(),
     subject: text('subject').notNull(),
@@ -27,6 +31,8 @@ export const notice = pgTable(
     externalLabel: text('external_label'),
     headline: text('headline').notNull(),
     points: jsonb('points').$type<string[]>().notNull(),
+    // True when Spotlight resolves the notice once its cause ends; then no person resolves or reopens it.
+    autoResolve: boolean('auto_resolve').notNull().default(false),
     createdAt: timestamptz('created_at').notNull(),
     resolvedAt: timestamptz('resolved_at'),
     version: integer('version').notNull().default(0),
@@ -35,6 +41,10 @@ export const notice = pgTable(
     unique('notice_subject_idx')
       .on(table.teamId, table.addresseeId, table.form, table.subject)
       .nullsNotDistinct(),
+    // A notice about the whole workspace has no team: it is one for each subject in its workspace.
+    uniqueIndex('notice_workspace_subject_idx')
+      .on(table.workspaceId, table.form, table.subject)
+      .where(sql`${table.teamId} is null`),
     index('notice_addressee_idx').on(table.workspaceId, table.addresseeId),
     index('notice_team_idx').on(table.teamId),
     index('notice_workspace_created_idx').on(

@@ -1,4 +1,5 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
+import type { RunWaitingDto } from '@work/application/dto/run-waiting.dto';
 import {
   INBOX_SECTIONS,
   type InboxSection,
@@ -166,6 +167,7 @@ export interface InboxItemDto {
   readonly resolvable: boolean;
   readonly reopenable: boolean;
   readonly progress: Progress | null;
+  readonly waiting: RunWaitingDto | null;
   readonly runId: string | null;
   readonly stoppableByYou: boolean;
   readonly unread: boolean;
@@ -202,7 +204,7 @@ export interface NoticeExternalLinkDto {
 export interface InboxNoticeDto {
   readonly kind: 'notice';
   readonly id: string;
-  readonly teamId: string;
+  readonly teamId: string | null;
   readonly form: string;
   readonly headline: string;
   readonly points: readonly string[];
@@ -229,6 +231,7 @@ export interface InboxRunDto {
   readonly stationPosition: number;
   readonly stationCount: number;
   readonly progress: Progress;
+  readonly waiting: RunWaitingDto | null;
   readonly askedAt: string;
   readonly unread: false;
   readonly unreadCount: 0;
@@ -245,6 +248,7 @@ export interface InboxChatDto {
   readonly teamId: string;
   readonly title: string;
   readonly progress: Progress | null;
+  readonly waiting: RunWaitingDto | null;
   readonly openProposals: number;
   readonly askedAt: string;
   readonly unread: boolean;

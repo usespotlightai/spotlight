@@ -186,7 +186,9 @@ describe('InboxNotice', () => {
       act(() => {
         vi.advanceTimersByTime(3000);
       });
-      waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
+      waiting.mockReturnValue([
+        notice({ resolved: true, unread: false, resolvable: false }),
+      ]);
       rerender(noticeAt());
       waiting.mockReturnValue([notice({ unread: false })]);
       rerender(noticeAt());
@@ -211,8 +213,21 @@ describe('InboxNotice', () => {
       expect(resolve).not.toHaveBeenCalled();
     });
 
+    it('leaves open a notice that you cannot resolve, such as one that resolves itself when its cause ends', () => {
+      waiting.mockReturnValue([notice({ resolvable: false })]);
+      renderNotice();
+
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+
+      expect(resolve).not.toHaveBeenCalled();
+    });
+
     it('leaves a notice already resolved alone', () => {
-      waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
+      waiting.mockReturnValue([
+        notice({ resolved: true, unread: false, resolvable: false }),
+      ]);
       renderNotice();
 
       act(() => {

@@ -153,6 +153,16 @@ describe('WorkspaceAccess.teamAccessOfMembers', () => {
       },
     });
   });
+
+  it('says which members are owners or admins', async () => {
+    const members = await accessIn(acme).access.teamAccessOfMembers(acme.id);
+
+    expect(
+      Object.fromEntries(
+        members.map((each) => [each.viewer.value, each.isAdmin]),
+      ),
+    ).toEqual({ owner_1: true, admin_1: true, member_1: false });
+  });
 });
 
 describe('WorkspaceAccess.accessOnTeam', () => {

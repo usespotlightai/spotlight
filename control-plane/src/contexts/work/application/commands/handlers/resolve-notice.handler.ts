@@ -22,7 +22,7 @@ export class ResolveNoticeHandler implements CommandHandlerPort<
         command.slug,
         command.resolvedBy,
       );
-      const resolved = notice.resolve(this.clock.now());
+      const resolved = notice.resolveByPerson(this.clock.now());
 
       if (resolved !== notice) {
         await this.notices.save(resolved);

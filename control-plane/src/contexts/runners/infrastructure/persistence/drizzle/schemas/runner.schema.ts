@@ -263,6 +263,29 @@ export const runnerHost = pgTable(
   ],
 );
 
+// The hosts of a pull pool or a trust all stopped reporting in, and Spotlight told the admins. One row for each pool or trust at a time.
+export const hostOutage = pgTable(
+  'host_outage',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    poolId: text('pool_id'),
+    trustId: text('trust_id'),
+    hosts: jsonb('hosts').$type<string[]>().notNull().default([]),
+    since: timestamptz('since').notNull(),
+    raisedAt: timestamptz('raised_at').notNull(),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('host_outage_pool_idx').on(table.poolId),
+    uniqueIndex('host_outage_trust_idx').on(table.trustId),
+    check(
+      'host_outage_one_credential_source',
+      sql`(${table.poolId} is null) <> (${table.trustId} is null)`,
+    ),
+  ],
+);
+
 export interface SandboxLeaseRecord {
   readonly kind: string;
   readonly holder: string;

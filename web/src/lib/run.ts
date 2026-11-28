@@ -92,7 +92,11 @@ export const runStatus = (run: Run): string | null => {
   return null;
 };
 
-type WaitReason = NonNullable<Run['waiting']>['reason'];
+// A run that waits for offline hosts says so where it shows it is queued, naming the hosts, so it needs no second line.
+type WaitReason = Exclude<
+  NonNullable<Run['waiting']>['reason'],
+  'hosts-offline'
+>;
 
 const WAIT_REASONS: Readonly<Record<WaitReason, string>> = {
   'hosts-pull':
@@ -108,7 +112,9 @@ const WAIT_REASONS: Readonly<Record<WaitReason, string>> = {
 export const waitReason = (
   run: Pick<Run, 'state' | 'waiting'>,
 ): string | null =>
-  run.state === 'queued' && run.waiting
+  run.state === 'queued' &&
+  run.waiting &&
+  run.waiting.reason !== 'hosts-offline'
     ? WAIT_REASONS[run.waiting.reason]
     : null;
 

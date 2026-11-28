@@ -83,6 +83,7 @@ import {
   JournalledRunResponseDto,
   RunJournalResponseDto,
 } from '@work/presentation/http/dto/run-journal.response.dto';
+import { RunWaitingResponseDto } from '@work/presentation/http/dto/run-waiting.response.dto';
 import { askInput } from '@work/presentation/http/mappers/ask-input';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
 import { draftGenerationInput } from '@work/presentation/http/mappers/draft-generation-input';
@@ -128,6 +129,7 @@ const taskItemFields = (
   resolvable: item.resolvable,
   reopenable: item.reopenable,
   progress: item.progress,
+  waiting: RunWaitingResponseDto.of(item.waiting),
   runId: item.runId,
   stoppableByYou: item.stoppableByYou,
   unread: item.unread,
@@ -472,6 +474,10 @@ export class InboxController {
     description:
       'The caller is not a member of the team, nor a workspace admin',
   })
+  @ApiConflictResponse({
+    description:
+      'The notice resolves itself when its cause ends, so a person cannot resolve it',
+  })
   async resolveNotice(
     @Param('slug') slug: string,
     @Param('noticeId') noticeId: string,
@@ -495,6 +501,10 @@ export class InboxController {
   @ApiForbiddenResponse({
     description:
       'The caller is not a member of the team, nor a workspace admin',
+  })
+  @ApiConflictResponse({
+    description:
+      'The notice resolves itself when its cause ends, so a person cannot reopen it',
   })
   async reopenNotice(
     @Param('slug') slug: string,
