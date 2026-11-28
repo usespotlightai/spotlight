@@ -3247,6 +3247,55 @@
         ]
       }
     },
+    "/teams/{teamId}/tasks/{taskId}/moves": {
+      "get": {
+        "operationId": "listTaskMoves",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskMoveResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task, or not the viewer's"
+          }
+        },
+        "summary": "The moves on a task that no run made, by a person or by a line reaction, oldest first",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/teams/{teamId}/tasks/{taskId}/trace": {
       "get": {
         "operationId": "readTaskTrace",
@@ -12867,6 +12916,59 @@
           "yourMessage",
           "stoppableByYou",
           "driver"
+        ]
+      },
+      "TaskMoveResponseDto": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "number",
+            "example": 4
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-11-27T09:15:00.000Z"
+          },
+          "station": {
+            "type": "string",
+            "nullable": true,
+            "example": "Backlog",
+            "description": "The station the task moved to; null once it is gone"
+          },
+          "by": {
+            "type": "string",
+            "enum": [
+              "line",
+              "person",
+              "run"
+            ],
+            "example": "line",
+            "description": "Who moved the task: the line, when something happened in the world, or a person"
+          },
+          "person": {
+            "nullable": true,
+            "description": "The person who moved the task, when a person did",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskPersonResponseDto"
+              }
+            ]
+          },
+          "why": {
+            "type": "string",
+            "nullable": true,
+            "example": "The pull request was closed without being merged.",
+            "description": "Why the task moved, when the mover said"
+          }
+        },
+        "required": [
+          "position",
+          "at",
+          "station",
+          "by",
+          "person",
+          "why"
         ]
       },
       "AddTaskRequestDto": {

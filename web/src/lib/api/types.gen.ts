@@ -4208,6 +4208,27 @@ export type TaskRunResponseDto = {
   driver: 'line' | 'person';
 };
 
+export type TaskMoveResponseDto = {
+  position: number;
+  at: string;
+  /**
+   * The station the task moved to; null once it is gone
+   */
+  station: string | null;
+  /**
+   * Who moved the task: the line, when something happened in the world, or a person
+   */
+  by: 'line' | 'person' | 'run';
+  /**
+   * The person who moved the task, when a person did
+   */
+  person: TaskPersonResponseDto | null;
+  /**
+   * Why the task moved, when the mover said
+   */
+  why: string | null;
+};
+
 export type AddTaskRequestDto = {
   title: string;
   /**
@@ -17798,6 +17819,33 @@ export type ListTaskNotesResponses = {
 };
 
 export type ListTaskNotesResponse = ListTaskNotesResponses[keyof ListTaskNotesResponses];
+
+export type ListTaskMovesData = {
+  body?: never;
+  path: {
+    taskId: string;
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}/moves';
+};
+
+export type ListTaskMovesErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task, or not the viewer's
+   */
+  404: unknown;
+};
+
+export type ListTaskMovesResponses = {
+  200: Array<TaskMoveResponseDto>;
+};
+
+export type ListTaskMovesResponse = ListTaskMovesResponses[keyof ListTaskMovesResponses];
 
 export type ReadTaskTraceData = {
   body?: never;
