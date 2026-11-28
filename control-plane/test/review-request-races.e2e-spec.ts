@@ -38,6 +38,7 @@ import { createTeam } from './support/team';
 
 const NOW = new Date('2026-11-20T09:00:00.000Z');
 const PULL = 'https://github.com/acme/api/pull/7';
+const CLOSED_PULL = 'https://github.com/acme/api/pull/8';
 
 let database: TestDatabase;
 let context: DrizzleContext;
@@ -109,8 +110,11 @@ const reactions = (): ReactToHappenings =>
     new DrizzlePullRequestReviewLocks(context),
   );
 
-const requested = (trigger: 'opened' | 'labelled'): Happened => {
-  const marks = [{ kind: REVIEW_MARK, value: PULL }];
+const requested = (
+  trigger: 'opened' | 'labelled',
+  pullRequest = PULL,
+): Happened => {
+  const marks = [{ kind: REVIEW_MARK, value: pullRequest }];
 
   return {
     happening: `github.pull_request.${trigger}`,
@@ -124,13 +128,13 @@ const requested = (trigger: 'opened' | 'labelled'): Happened => {
       lineRole: 'review',
       station: null,
       title: 'Retry uploads',
-      description: `Review ${PULL}`,
+      description: `Review ${pullRequest}`,
       assignEmail: null,
       marks,
       review: {
         trigger,
         label: trigger === 'labelled' ? 'spotlight' : null,
-        pullRequest: PULL,
+        pullRequest,
         author: 'octocat',
         outside: true,
         draft: false,
@@ -139,6 +143,22 @@ const requested = (trigger: 'opened' | 'labelled'): Happened => {
     },
   };
 };
+
+const closedUnmerged = (pullRequest: string): Happened => ({
+  happening: 'github.pull_request.closed-unmerged',
+  summary: 'The pull request was closed without being merged.',
+  answers: false,
+  state: 'raised',
+  correlationKeys: {
+    branch: null,
+    marks: [{ kind: REVIEW_MARK, value: pullRequest }],
+  },
+  message: null,
+  ourOwn: false,
+  opens: null,
+  closedPullRequest: pullRequest,
+  closedUnmerged: true,
+});
 
 beforeAll(async () => {
   database = await openDatabase('review_request_races');
@@ -198,5 +218,55 @@ describe('two review requests for one pull request at once', () => {
     );
 
     expect(reviews).toHaveLength(1);
+  });
+});
+
+describe('a close of a pull request while a review request of it holds the pull request', () => {
+  it('ends the review only once the request lets go of the pull request', async () => {
+    const pullRequest = PullRequestUrl.of(CLOSED_PULL);
+    await reactions().react(
+      workspaceId,
+      null,
+      [requested('opened', CLOSED_PULL)],
+      'open',
+    );
+    let letGo = () => {};
+    const requesting = new Promise<void>((resolve) => {
+      letGo = resolve;
+    });
+    let locked = () => {};
+    const holding = new Promise<void>((resolve) => {
+      locked = resolve;
+    });
+    const request = context.inTransaction(async () => {
+      await new DrizzlePullRequestReviewLocks(context).lock(
+        workspaceId,
+        pullRequest,
+      );
+      locked();
+      await requesting;
+    });
+    await holding;
+
+    let closed = false;
+    const closing = reactions()
+      .react(workspaceId, null, [closedUnmerged(CLOSED_PULL)], 'close')
+      .then(() => {
+        closed = true;
+      });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(closed).toBe(false);
+
+    letGo();
+    await request;
+    await closing;
+
+    const reviews = await context.inTransaction(() =>
+      tasks.reviewsOf(workspaceId, pullRequest),
+    );
+    expect(reviews).toHaveLength(1);
+    expect(reviews.some((each) => each.reviewsOpenOn(line, pullRequest))).toBe(
+      false,
+    );
   });
 });
