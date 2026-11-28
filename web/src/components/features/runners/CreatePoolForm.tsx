@@ -3,6 +3,7 @@ import { type SubmitEvent, useId, useState } from 'react';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
 import { nonEmpty } from '@/lib/non-empty';
+import { LONGEST_SLUG, sanitizeSlug, slugify } from '@/lib/slug';
 
 type CreatePoolFormProps = {
   suggestedName: string;
@@ -24,7 +25,7 @@ export function CreatePoolForm({
   const refusalId = useId();
   const refused = nonEmpty(refusal);
   const [name, setName] = useState('');
-  const named = name.trim() || suggestedName;
+  const named = slugify(name) || suggestedName;
 
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -46,10 +47,11 @@ export function CreatePoolForm({
           aria-describedby={refused ? `${refusalId} ${hintId}` : hintId}
           autoComplete="off"
           spellCheck={false}
+          maxLength={LONGEST_SLUG}
           disabled={creating}
           value={name}
           onChange={(event) => {
-            setName(event.target.value);
+            setName(sanitizeSlug(event.target.value));
             onEdit();
           }}
         />

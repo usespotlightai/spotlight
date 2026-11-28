@@ -156,18 +156,28 @@ describe('AddHost', () => {
     );
   });
 
-  it('keeps the pool name as it is typed, for Spotlight to check', async () => {
+  it('writes the pool name in lowercase words joined by dashes as it is typed', async () => {
     const person = userEvent.setup();
 
     renderPage();
 
     const name = screen.getByLabelText('Pool name');
-    await person.clear(name);
     await person.type(name, ' My Mac Pool! ');
+
+    expect(name).toHaveValue('my-mac-pool-');
+
     await person.click(screen.getByRole('button', { name: 'Create pool' }));
 
-    expect(name).toHaveValue(' My Mac Pool! ');
-    expect(create).toHaveBeenCalledWith('My Mac Pool!');
+    expect(create).toHaveBeenCalledWith('my-mac-pool');
+  });
+
+  it('takes no more of the pool name than Spotlight keeps', () => {
+    renderPage();
+
+    expect(screen.getByLabelText('Pool name')).toHaveAttribute(
+      'maxLength',
+      '64',
+    );
   });
 
   it('says why Spotlight refused the pool name, beside the name', () => {

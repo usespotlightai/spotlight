@@ -1,3 +1,5 @@
+export const LONGEST_SLUG = 64;
+
 export function sanitizeSlug(value: string): string {
   return value
     .normalize('NFKD')

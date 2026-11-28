@@ -19,6 +19,7 @@ import {
 } from '@/hooks/api/useCreateWorkspaceToken';
 import { FieldRefusal, messageOf } from '@/lib/error';
 import { nonEmpty } from '@/lib/non-empty';
+import { LONGEST_SLUG, sanitizeSlug, slugify } from '@/lib/slug';
 import {
   expiryAfter,
   LIFETIMES,
@@ -55,7 +56,7 @@ export function CreateTokenDialog({
   const [grants, setGrants] = useState<ReadonlySet<TokenGrant>>(new Set());
   const [lifetime, setLifetime] = useState<string | null>(USUAL_LIFETIME);
 
-  const named = name.trim();
+  const named = slugify(name);
   const busy = create.isPending || create.isSuccess;
   const nameRefusal =
     create.error instanceof FieldRefusal && create.error.field === 'name'
@@ -135,6 +136,7 @@ export function CreateTokenDialog({
                 autoComplete="off"
                 spellCheck={false}
                 placeholder="terraform"
+                maxLength={LONGEST_SLUG}
                 disabled={busy}
                 value={name}
                 aria-invalid={nameRefusal !== null || undefined}
@@ -142,7 +144,7 @@ export function CreateTokenDialog({
                   nameRefusal === null ? undefined : nameRefusalId
                 }
                 onChange={(event) => {
-                  setName(event.target.value);
+                  setName(sanitizeSlug(event.target.value));
                   if (create.isError) create.reset();
                 }}
               />

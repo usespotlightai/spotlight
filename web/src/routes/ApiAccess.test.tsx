@@ -250,20 +250,33 @@ describe('ApiAccess', () => {
     );
   });
 
-  it('keeps the name as it is typed, for Spotlight to check', async () => {
+  it('writes the name in lowercase words joined by dashes as it is typed', async () => {
     const { person, dialog } = await openCreate();
     const name = within(dialog).getByLabelText('Name');
 
     await person.type(name, 'Local Terraform!');
+
+    expect(name).toHaveValue('local-terraform-');
+    expect(name).toHaveAttribute('maxLength', '64');
+
     await person.click(
       within(dialog).getByRole('button', { name: 'Create token' }),
     );
 
-    expect(name).toHaveValue('Local Terraform!');
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Local Terraform!' }),
+      expect.objectContaining({ name: 'local-terraform' }),
       expect.anything(),
     );
+  });
+
+  it('creates no token from a name with nothing to keep', async () => {
+    const { person, dialog } = await openCreate();
+
+    await person.type(within(dialog).getByLabelText('Name'), '!!!');
+
+    expect(
+      within(dialog).getByRole('button', { name: 'Create token' }),
+    ).toBeDisabled();
   });
 
   it('says why Spotlight refused the token name, under the name', async () => {
