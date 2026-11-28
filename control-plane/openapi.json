@@ -31082,7 +31082,7 @@
           "count": {
             "type": "number",
             "example": 2,
-            "description": "How many unread parts are of that kind"
+            "description": "How many unread questions are of that kind"
           }
         },
         "required": [
@@ -31128,6 +31128,11 @@
             "example": "disagreement_1",
             "description": "What the inbox request is about: for memories, the run that proposed them; for alert, the alert; for judge-disagreement, the disagreement. Null for a conversation"
           },
+          "asks": {
+            "type": "number",
+            "example": 2,
+            "description": "How many questions it puts to the person: one, or for a judge question each disputed claim still unanswered. The unread count and the preview count in questions"
+          },
           "at": {
             "type": "string",
             "example": "2026-08-28T21:15:00.000Z",
@@ -31159,6 +31164,7 @@
           "kind",
           "form",
           "about",
+          "asks",
           "at",
           "open",
           "unread",
@@ -31733,7 +31739,7 @@
           "unreadCount": {
             "type": "number",
             "example": 3,
-            "description": "How many of its parts the person has not seen yet. The inbox badge is the sum of these over the open entries"
+            "description": "How many questions on it the person has not seen yet: one per part, or per disputed claim still unanswered for a judge question. The inbox badge is the sum of these over the open entries"
           },
           "latest": {
             "nullable": true,
@@ -32314,7 +32320,7 @@
           "unreadCount": {
             "type": "number",
             "example": 3,
-            "description": "How many of its parts the person has not seen yet. The inbox badge is the sum of these over the open entries"
+            "description": "How many questions on it the person has not seen yet: one per part, or per disputed claim still unanswered for a judge question. The inbox badge is the sum of these over the open entries"
           },
           "latest": {
             "nullable": true,

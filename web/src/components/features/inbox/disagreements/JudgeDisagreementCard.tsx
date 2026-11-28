@@ -1,3 +1,5 @@
+import { use } from 'react';
+
 import { DisagreementAnswered } from '@/components/features/inbox/disagreements/DisagreementAnswered';
 import { DisagreementCardHeader } from '@/components/features/inbox/disagreements/DisagreementCardHeader';
 import { DisagreementClaimsRow } from '@/components/features/inbox/disagreements/DisagreementClaimsRow';
@@ -8,6 +10,7 @@ import {
   disagreementTitleOf,
   type JudgeDisagreement,
 } from '@/lib/judge-disagreement';
+import { NOT_ANSWERED, SettledPartContext } from '@/lib/settled-part';
 import { taskTracePath } from '@/lib/task';
 
 type JudgeDisagreementCardProps = {
@@ -24,6 +27,7 @@ export function JudgeDisagreementCard({
   answerer,
 }: JudgeDisagreementCardProps) {
   const send = useAnswerJudgeDisagreement();
+  const settled = use(SettledPartContext);
 
   const { notMet, state, withdrawnAt } = disagreement;
   const answering = state === 'open';
@@ -36,7 +40,11 @@ export function JudgeDisagreementCard({
     >
       <DisagreementCardHeader
         state={state}
-        title={disagreementTitleOf(disagreement, answerer)}
+        title={
+          settled && state === 'open'
+            ? NOT_ANSWERED
+            : disagreementTitleOf(disagreement, answerer)
+        }
         sending={send.isPending}
         at={state === 'withdrawn' ? withdrawnAt : (notMet?.answeredAt ?? null)}
         trace={taskTracePath(slug, teamId, disagreement.taskId)}

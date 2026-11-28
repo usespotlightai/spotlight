@@ -1,5 +1,6 @@
 import type { InboxItemViewResponseDto } from '@/lib/api';
 import type { InboxPart } from '@/lib/inbox';
+import { cardStateOf } from '@/lib/judge-disagreement';
 import {
   type InboxConversation,
   type InboxEntry,
@@ -7,6 +8,7 @@ import {
   shownConversation,
   type ShownConversation,
 } from '@/mocks/world/inbox';
+import { inboxStore } from '@/mocks/world/inbox-store';
 
 // What the control plane does in TaskInbox, played back for the mock: all
 // that waits on a person on one task is one item.
@@ -30,11 +32,31 @@ const kindOf = (entry: InboxConversation): Kind => {
   return entry.failure ? 'failure' : 'question';
 };
 
+// As the control plane counts: a judge disagreement asks each disputed
+// claim nobody answered yet, everything else one question.
+const asksOf = (entry: InboxConversation): number => {
+  const disagreement =
+    entry.inboxRequest?.form === 'judge-disagreement'
+      ? inboxStore().disagreements[entry.inboxRequest.about]
+      : undefined;
+  const open = disagreement
+    ? disagreement.disputedClaims.filter(
+        (claim) => cardStateOf(disagreement, claim) === 'open',
+      ).length
+    : 0;
+
+  return Math.max(1, open);
+};
+
+const questionsIn = (entries: readonly InboxConversation[]): number =>
+  entries.reduce((sum, each) => sum + asksOf(each), 0);
+
 const partOf = (entry: ShownConversation): InboxPart => ({
   id: entry.id,
   kind: kindOf(entry),
   form: entry.inboxRequest?.form ?? null,
   about: entry.inboxRequest?.about ?? null,
+  asks: asksOf(entry),
   at: entry.askedAt,
   open: !entry.resolved,
   unread: entry.unread,
@@ -71,7 +93,9 @@ const latestOf = (unread: readonly ShownConversation[]) => {
   return newest
     ? {
         kind: kindOf(newest),
-        count: unread.filter((each) => kindOf(each) === kindOf(newest)).length,
+        count: questionsIn(
+          unread.filter((each) => kindOf(each) === kindOf(newest)),
+        ),
       }
     : null;
 };
@@ -113,7 +137,7 @@ const groupOf = (entries: readonly InboxConversation[]): ShownGroup | null => {
     askedAt: newestFirst(parts).at(0)?.askedAt ?? anchor.askedAt,
     resolved,
     unread: unread.length > 0,
-    unreadCount: unread.length,
+    unreadCount: questionsIn(unread),
     section:
       unread.length > 0
         ? anchor.standing === 'following'

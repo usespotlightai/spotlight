@@ -3032,7 +3032,7 @@ export type InboxPartPreviewResponseDto = {
    */
   kind: 'question' | 'failure' | 'judge-question' | 'memories' | 'alert';
   /**
-   * How many unread parts are of that kind
+   * How many unread questions are of that kind
    */
   count: number;
 };
@@ -3054,6 +3054,10 @@ export type InboxPartResponseDto = {
    * What the inbox request is about: for memories, the run that proposed them; for alert, the alert; for judge-disagreement, the disagreement. Null for a conversation
    */
   about: string | null;
+  /**
+   * How many questions it puts to the person: one, or for a judge question each disputed claim still unanswered. The unread count and the preview count in questions
+   */
+  asks: number;
   /**
    * When it last arrived
    */
@@ -3322,7 +3326,7 @@ export type InboxItemResponseDto = {
    */
   unread: boolean;
   /**
-   * How many of its parts the person has not seen yet. The inbox badge is the sum of these over the open entries
+   * How many questions on it the person has not seen yet: one per part, or per disputed claim still unanswered for a judge question. The inbox badge is the sum of these over the open entries
    */
   unreadCount: number;
   /**
@@ -3587,7 +3591,7 @@ export type InboxItemViewResponseDto = {
    */
   unread: boolean;
   /**
-   * How many of its parts the person has not seen yet. The inbox badge is the sum of these over the open entries
+   * How many questions on it the person has not seen yet: one per part, or per disputed claim still unanswered for a judge question. The inbox badge is the sum of these over the open entries
    */
   unreadCount: number;
   /**

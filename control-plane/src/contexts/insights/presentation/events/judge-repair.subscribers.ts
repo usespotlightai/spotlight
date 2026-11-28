@@ -7,6 +7,7 @@ import type { StartClaimsRevisions } from '@insights/application/services/start-
 import type { WorkClaimsRevisions } from '@insights/application/services/work-claims-revisions.service';
 import type { ClaimsRevisionPicked } from '@insights/domain/events/claims-revision-picked.event';
 import type { JudgeDisagreementAnswered } from '@insights/domain/events/judge-disagreement-answered.event';
+import type { JudgeDisagreementClaimAnswered } from '@insights/domain/events/judge-disagreement-claim-answered.event';
 import type { JudgeDisagreementOpened } from '@insights/domain/events/judge-disagreement-opened.event';
 import type { JudgeDisagreementWithdrawn } from '@insights/domain/events/judge-disagreement-withdrawn.event';
 import type { PullRequestRecordClosed } from '@insights/domain/events/pull-request-record-closed.event';
@@ -44,10 +45,14 @@ const DISAGREEMENT_MOVED = [
   'judge-disagreement.answered',
 ];
 
-type InboxRequestMoved = DisagreementMoved | JudgeDisagreementWithdrawn;
+type InboxRequestMoved =
+  | DisagreementMoved
+  | JudgeDisagreementClaimAnswered
+  | JudgeDisagreementWithdrawn;
 
 const INBOX_REQUEST_MOVED = [
   ...DISAGREEMENT_MOVED,
+  'judge-disagreement.claim-answered',
   'judge-disagreement.withdrawn',
 ];
 

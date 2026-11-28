@@ -62,6 +62,7 @@ const piece = (
     kind,
     form: kind === 'judge-question' ? 'judge-disagreement' : null,
     about: kind === 'judge-question' ? `disagreement_${id}` : null,
+    asks: 1,
     open: true,
     unread: true,
     unreadSince: at(minute),

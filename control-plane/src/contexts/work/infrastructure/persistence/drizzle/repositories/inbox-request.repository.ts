@@ -17,6 +17,7 @@ import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
 import { InboxRequestAlreadyOpenError } from '@work/domain/exceptions/inbox-request-already-open.error';
 import { InboxRequestVersionConflictError } from '@work/domain/exceptions/inbox-request-version-conflict.error';
 import type { InboxRequestRepository } from '@work/domain/repositories/inbox-request.repository';
+import { InboxRequestAsks } from '@work/domain/value-objects/inbox-request-asks.vo';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
@@ -37,6 +38,7 @@ const toInboxRequest = (row: Row, reads: readonly ReadRow[]): InboxRequest =>
     taskId: TaskId.of(row.taskId),
     form: row.form,
     about: InboxRequestSubject.of(row.about),
+    asks: InboxRequestAsks.of(row.asks),
     askedOf: nonEmpty(row.askedOfId) ? UserId.of(row.askedOfId) : null,
     createdAt: row.createdAt,
     openedAt: row.openedAt,
@@ -65,6 +67,7 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
           taskId: added.taskId.value,
           form: added.form,
           about: added.about.value,
+          asks: added.asks.value,
           askedOfId: added.askedOf?.value ?? null,
           createdAt: added.createdAt,
           openedAt: added.openedAt,
@@ -93,6 +96,7 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
       const written = await this.context.db
         .update(inboxRequest)
         .set({
+          asks: saved.asks.value,
           openedAt: saved.openedAt,
           resolvedAt: saved.resolvedAt,
           resolvedByAPerson: saved.resolvedByAPerson,

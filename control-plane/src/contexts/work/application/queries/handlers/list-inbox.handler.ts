@@ -32,6 +32,7 @@ const itemDtoOf = (item: InboxItemSummary): InboxItemDto => ({
     kind: part.kind,
     form: part.form,
     about: part.about,
+    asks: part.asks,
     at: part.arrivedAt.toISOString(),
     open: part.open,
     unread: part.unread,

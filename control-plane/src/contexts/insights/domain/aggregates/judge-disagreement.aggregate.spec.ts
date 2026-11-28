@@ -175,6 +175,21 @@ describe('JudgeDisagreement', () => {
     ]);
   });
 
+  it('counts what it still asks: each disputed claim not answered yet, then nothing', () => {
+    const opened = openDisagreement('run_1', { labelFrom: 'merged' });
+    const first = opened.answerClaim(claimAnswer(1));
+
+    expect(opened.openQuestions).toBe(2);
+    expect(first.openQuestions).toBe(1);
+    expect(first.answerClaim(claimAnswer(2, GRACE, LATER)).openQuestions).toBe(
+      0,
+    );
+    expect(
+      openDisagreement('run_2', { claimResults: [true, true, true] })
+        .openQuestions,
+    ).toBe(1);
+  });
+
   it('refuses a claim that is not in dispute', () => {
     expect(() => openDisagreement('run_1').answerClaim(claimAnswer(0))).toThrow(
       ClaimNotInDisputeError,

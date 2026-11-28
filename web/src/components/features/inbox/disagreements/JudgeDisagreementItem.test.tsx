@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { JudgeDisagreementItem } from '@/components/features/inbox/disagreements/JudgeDisagreementItem';
 import type { JudgeDisagreement } from '@/lib/judge-disagreement';
+import { SettledPartContext } from '@/lib/settled-part';
 import {
   failedDisagreementOf,
   passedDisagreementOf,
@@ -245,6 +246,29 @@ describe('JudgeDisagreementItem', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(send(1)).toBeEnabled();
     expect(mutateClaim).toHaveBeenCalledTimes(2);
+  });
+
+  it('says what its resolved inbox item left unanswered, and still takes an answer', () => {
+    render(
+      <MemoryRouter>
+        <SettledPartContext value>
+          <JudgeDisagreementItem
+            slug="acme"
+            teamId="team_1"
+            disagreement={failedDisagreementOf({
+              answers: [answered(0, 'judge-right', 'user_sam')],
+            })}
+          />
+        </SettledPartContext>
+      </MemoryRouter>,
+    );
+
+    expectTitles(['Answered by you', 'Not answered']);
+    expect(
+      within(cards()[1] ?? document.body).getByRole('button', {
+        name: 'Send answer',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('titles each card by its own state, and shows a sent card read-only where it was', () => {

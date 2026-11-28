@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { use, useId, useRef, useState } from 'react';
 
 import { ProposedMemoryControls } from '@/components/features/inbox/memories/ProposedMemoryControls';
 import { ProposedMemoryFacts } from '@/components/features/inbox/memories/ProposedMemoryFacts';
@@ -20,6 +20,7 @@ import {
   proposalTitleOf,
   undecided,
 } from '@/lib/memory';
+import { NOT_DECIDED, SettledPartContext } from '@/lib/settled-part';
 import { cn } from '@/lib/utils';
 
 type ProposedMemoryCardProps = {
@@ -47,6 +48,7 @@ export function ProposedMemoryCard({
   const folded = rejected && !unfolded;
   const [body, setBody] = useState(memory.body);
   const open = undecided(memory);
+  const settled = use(SettledPartContext);
   const editing = editingOpen && open;
   const bodyId = useId();
   const written = body.trim();
@@ -67,7 +69,7 @@ export function ProposedMemoryCard({
         className={cn(folded && 'mb-0')}
         title={
           <DecisionTitle status={proposalStatusOf(memory)}>
-            {proposalTitleOf(memory)}
+            {settled && open ? NOT_DECIDED : proposalTitleOf(memory)}
             {folded && (
               <span className="ml-2 font-normal text-muted-foreground">
                 {memory.body}

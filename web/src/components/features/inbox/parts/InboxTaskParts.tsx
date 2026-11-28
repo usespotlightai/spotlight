@@ -2,6 +2,7 @@ import { StationAlertCard } from '@/components/features/inbox/alerts/StationAler
 import { ProposedMemories } from '@/components/features/inbox/memories/ProposedMemories';
 import { JudgeQuestionPart } from '@/components/features/inbox/parts/JudgeQuestionPart';
 import { type InboxItem, type InboxPart, requestPartsOf } from '@/lib/inbox';
+import { SettledPartContext } from '@/lib/settled-part';
 import { cn } from '@/lib/utils';
 
 type InboxTaskPartsProps = {
@@ -89,7 +90,9 @@ export function InboxTaskParts({
             {!part.open && <span>Resolved</span>}
           </p>
 
-          <PartBody slug={slug} item={item} part={part} />
+          <SettledPartContext value={!part.open}>
+            <PartBody slug={slug} item={item} part={part} />
+          </SettledPartContext>
         </li>
       ))}
     </ol>

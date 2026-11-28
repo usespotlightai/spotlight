@@ -9,6 +9,7 @@ import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.eve
 import { InboxRequestReopened } from '@work/domain/events/inbox-request-reopened.event';
 import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
 import type { ConversationStanding } from '@work/domain/services/conversation-audience';
+import { InboxRequestAsks } from '@work/domain/value-objects/inbox-request-asks.vo';
 import {
   INBOX_REQUEST_FORMS,
   type InboxRequestForm,
@@ -42,6 +43,7 @@ export class InboxRequest extends EventRecorder {
     readonly taskId: TaskId,
     readonly form: InboxRequestForm,
     readonly about: InboxRequestSubject,
+    readonly asks: InboxRequestAsks,
     readonly askedOf: UserId | null,
     readonly createdAt: Date,
     readonly openedAt: Date,
@@ -59,6 +61,7 @@ export class InboxRequest extends EventRecorder {
     taskId: TaskId;
     form: InboxRequestForm;
     about: InboxRequestSubject;
+    asks?: InboxRequestAsks;
     askedOf: UserId | null;
     now: Date;
   }): InboxRequest {
@@ -68,6 +71,7 @@ export class InboxRequest extends EventRecorder {
       input.taskId,
       input.form,
       input.about,
+      input.asks ?? InboxRequestAsks.ONE,
       input.askedOf,
       input.now,
       input.now,
@@ -94,6 +98,7 @@ export class InboxRequest extends EventRecorder {
     taskId: TaskId;
     form: InboxRequestForm;
     about: InboxRequestSubject;
+    asks: InboxRequestAsks;
     askedOf: UserId | null;
     createdAt: Date;
     openedAt: Date;
@@ -153,6 +158,7 @@ export class InboxRequest extends EventRecorder {
       input.taskId,
       input.form,
       input.about,
+      input.asks,
       input.askedOf,
       input.createdAt,
       input.openedAt,
@@ -295,6 +301,12 @@ export class InboxRequest extends EventRecorder {
     return read;
   }
 
+  // While it is open, the asker can say how many questions are left; an
+  // answered one does not count as new again.
+  stillAsks(asks: InboxRequestAsks): InboxRequest {
+    return !this.open || this.asks.equals(asks) ? this : this.with({ asks });
+  }
+
   resolve(now: Date, byAPerson = false): InboxRequest {
     if (!this.open) {
       return this;
@@ -327,6 +339,7 @@ export class InboxRequest extends EventRecorder {
       this.taskId,
       this.form,
       this.about,
+      this.asks,
       this.askedOf,
       this.createdAt,
       now,
@@ -350,6 +363,7 @@ export class InboxRequest extends EventRecorder {
 
   private with(
     change: {
+      asks?: InboxRequestAsks;
       reads?: readonly InboxRequestRead[];
       resolvedAt?: Date;
       resolvedByAPerson?: boolean;
@@ -362,6 +376,7 @@ export class InboxRequest extends EventRecorder {
       this.taskId,
       this.form,
       this.about,
+      change.asks ?? this.asks,
       this.askedOf,
       this.createdAt,
       this.openedAt,

@@ -20,6 +20,10 @@ export type InboxPartKind = (typeof INBOX_PART_KINDS)[number];
 
 export interface InboxPart {
   readonly kind: InboxPartKind;
+  // How many questions it puts to people: one, or for a judge disagreement
+  // each disputed claim still unanswered. Counts are in questions, so the
+  // item's "N new", its preview and the badge all count what people see.
+  readonly asks: number;
   readonly open: boolean;
   readonly unread: boolean;
   readonly unreadSince: Date | null;
@@ -75,6 +79,9 @@ const latestResolution = (parts: readonly InboxPart[]): Date | null =>
     null,
   );
 
+const questionsIn = (parts: readonly InboxPart[]): number =>
+  parts.reduce((sum, part) => sum + part.asks, 0);
+
 const previewOf = (unread: readonly InboxPart[]): InboxPartPreview | null => {
   const newest =
     newestFirst(unread).find((part) => TaskInbox.blocksTheLine(part.kind)) ??
@@ -83,7 +90,7 @@ const previewOf = (unread: readonly InboxPart[]): InboxPartPreview | null => {
   return newest
     ? {
         kind: newest.kind,
-        count: unread.filter((part) => part.kind === newest.kind).length,
+        count: questionsIn(unread.filter((part) => part.kind === newest.kind)),
       }
     : null;
 };
@@ -143,7 +150,7 @@ export const TaskInbox = {
     const resolved = parts.every((part) => !part.open);
 
     return {
-      unreadCount: unread.length,
+      unreadCount: questionsIn(unread),
       resolved,
       listedAsOpen: !resolved || unread.length > 0,
       latest: previewOf(unread),

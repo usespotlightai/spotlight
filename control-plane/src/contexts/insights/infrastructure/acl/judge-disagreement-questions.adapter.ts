@@ -13,12 +13,14 @@ export class JudgeDisagreementQuestions implements JudgeDisagreementQuestionsPor
     taskId: TaskId,
     disagreementId: JudgeDisagreementId,
     askedOf: UserId | null,
+    questions: number,
   ): Promise<void> {
     return this.inboxRequests.create({
       taskId,
       form: FORM,
       about: disagreementId.value,
       askedOf: askedOf?.value ?? null,
+      asks: questions,
     });
   }
 

@@ -1,0 +1,1 @@
+ALTER TABLE "inbox_request" ADD COLUMN "asks" integer DEFAULT 1 NOT NULL;

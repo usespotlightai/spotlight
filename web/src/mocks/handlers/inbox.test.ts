@@ -288,17 +288,26 @@ describe('the mock inbox', () => {
         resolveInboxRequest,
       );
 
-    it('lists the task once, counting four new', async () => {
+    const questionsOf = (parts: readonly InboxPart[]) =>
+      parts.reduce((sum, part) => sum + part.asks, 0);
+
+    it('lists the task once, counting each question on it, every claim in dispute too', async () => {
       onOneTask();
 
-      expect(await taskIn()).toEqual([
-        expect.objectContaining({
-          id: TASK,
-          unreadCount: 4,
-          conversationId: `${TASK}:0`,
-          latest: { kind: 'question', count: 1 },
-        }),
-      ]);
+      const rows = await taskIn();
+      const row = rows.at(0);
+
+      expect(rows).toHaveLength(1);
+      expect(row).toMatchObject({
+        id: TASK,
+        conversationId: `${TASK}:0`,
+        latest: { kind: 'question', count: 1 },
+      });
+      expect(row?.kind === 'task' && row.parts).toHaveLength(4);
+      expect(row?.unreadCount).toBe(
+        row?.kind === 'task' ? questionsOf(row.parts) : 0,
+      );
+      expect(row?.unreadCount).toBeGreaterThan(4);
     });
 
     it('counts down as the questions are answered, and resolves once the last one is', async () => {
@@ -309,7 +318,13 @@ describe('the mock inbox', () => {
         throwOnError: true,
       });
 
-      expect((await taskIn())[0]?.unreadCount).toBe(3);
+      const left = (await taskIn()).at(0);
+
+      expect(left?.unreadCount).toBe(
+        left?.kind === 'task'
+          ? questionsOf(left.parts.filter((part) => part.form !== null))
+          : 0,
+      );
 
       for (const requestId of GROUPED) {
         await resolveInboxRequest({

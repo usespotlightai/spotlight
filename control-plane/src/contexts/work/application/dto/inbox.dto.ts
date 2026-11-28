@@ -86,6 +86,7 @@ export interface InboxPartDto {
   readonly kind: InboxPartKind;
   readonly form: string | null;
   readonly about: string | null;
+  readonly asks: number;
   readonly at: string;
   readonly open: boolean;
   readonly unread: boolean;

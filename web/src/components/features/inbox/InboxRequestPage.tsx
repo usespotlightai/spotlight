@@ -6,6 +6,7 @@ import { InboxDetailLayout } from '@/components/features/inbox/InboxDetailLayout
 import { MemoryThread } from '@/components/features/inbox/memories/MemoryThread';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import type { InboxItem, InboxPart } from '@/lib/inbox';
+import { SettledPartContext } from '@/lib/settled-part';
 
 type InboxRequestPageProps = {
   slug: string;
@@ -15,6 +16,24 @@ type InboxRequestPageProps = {
 };
 
 export function InboxRequestPage({
+  slug,
+  item,
+  inboxRequest,
+  trail,
+}: InboxRequestPageProps): ReactElement | null {
+  return (
+    <SettledPartContext value={!inboxRequest.open}>
+      <RequestBody
+        slug={slug}
+        item={item}
+        inboxRequest={inboxRequest}
+        trail={trail}
+      />
+    </SettledPartContext>
+  );
+}
+
+function RequestBody({
   slug,
   item,
   inboxRequest,

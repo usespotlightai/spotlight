@@ -14,6 +14,7 @@ const part = (
   overrides: Partial<InboxPart> = {},
 ): InboxPart => ({
   kind,
+  asks: 1,
   open: true,
   unread: true,
   unreadSince: at(minute),
@@ -95,6 +96,23 @@ describe('TaskInbox.standingOf', () => {
     expect(
       TaskInbox.standingOf([part('question', 1), ...disagreements]),
     ).toMatchObject({ latest: { kind: 'question', count: 1 }, quiet: false });
+  });
+
+  it('counts the disputed claims a judge disagreement still asks, not the disagreement', () => {
+    const twoClaims = part('judge-question', 1, { asks: 2 });
+    const oneClaim = part('judge-question', 2);
+    const memories = part('memories', 3);
+
+    expect(TaskInbox.standingOf([twoClaims, oneClaim, memories])).toMatchObject(
+      {
+        unreadCount: 4,
+        latest: { kind: 'memories', count: 1 },
+      },
+    );
+    expect(TaskInbox.standingOf([twoClaims, oneClaim])).toMatchObject({
+      unreadCount: 3,
+      latest: { kind: 'judge-question', count: 3 },
+    });
   });
 
   it('previews how many judge questions are unread, and is quiet while only they are', () => {

@@ -114,6 +114,7 @@ describe('previewOf', () => {
     kind: 'judge-question',
     form: 'judge-disagreement',
     about: 'disagreement_1',
+    asks: 1,
     at: '2026-11-27T09:00:00.000Z',
     open: true,
     unread: false,

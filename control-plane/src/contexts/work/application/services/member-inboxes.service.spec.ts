@@ -48,6 +48,7 @@ const part = (
   kind: 'judge-question',
   form: 'judge-disagreement',
   about: `about_${id}`,
+  asks: 1,
   open: true,
   unread: true,
   unreadSince: ASKED_AT,

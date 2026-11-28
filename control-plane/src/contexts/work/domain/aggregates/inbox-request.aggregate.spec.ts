@@ -7,6 +7,7 @@ import {
   type InboxRequestVisibility,
 } from '@work/domain/aggregates/inbox-request.aggregate';
 import { InvalidInboxRequestError } from '@work/domain/exceptions/invalid-inbox-request.error';
+import { InboxRequestAsks } from '@work/domain/value-objects/inbox-request-asks.vo';
 import { inboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
@@ -68,6 +69,26 @@ describe('InboxRequest', () => {
     expect(resolved.open).toBe(false);
     expect(resolved.resolvedAt).toEqual(LATER);
     expect(resolved.resolve(NOW)).toBe(resolved);
+  });
+
+  it('counts the questions it still asks while it is open, one to begin with', () => {
+    const asking = created();
+    const fewer = asking
+      .stillAsks(InboxRequestAsks.of(3))
+      .stillAsks(InboxRequestAsks.of(2));
+
+    expect(asking.asks.value).toBe(1);
+    expect(fewer.asks.value).toBe(2);
+    expect(fewer.unreadBy(ADA)).toBe(true);
+
+    const resolved = fewer.resolve(LATER);
+
+    expect(resolved.stillAsks(InboxRequestAsks.of(5))).toBe(resolved);
+  });
+
+  it('rejects asking no question at all', () => {
+    expect(() => InboxRequestAsks.of(0)).toThrow(InvalidInboxRequestError);
+    expect(() => InboxRequestAsks.of(1.5)).toThrow(InvalidInboxRequestError);
   });
 
   it('remembers whether a person resolved it, until it reopens', () => {
@@ -168,6 +189,7 @@ describe('InboxRequest', () => {
         taskId: TaskId.of('task_1'),
         form: 'memories',
         about: InboxRequestSubject.of('run_1'),
+        asks: InboxRequestAsks.ONE,
         askedOf: null,
         createdAt: NOW,
         openedAt: LATER,
@@ -191,6 +213,7 @@ describe('InboxRequest', () => {
           taskId: TaskId.of('task_1'),
           form: 'memories',
           about: InboxRequestSubject.of('run_1'),
+          asks: InboxRequestAsks.ONE,
           askedOf: null,
           createdAt: LATER,
           openedAt: NOW,

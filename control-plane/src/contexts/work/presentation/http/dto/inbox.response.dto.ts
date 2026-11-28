@@ -189,6 +189,13 @@ export class InboxPartResponseDto {
   readonly about: string | null;
 
   @ApiProperty({
+    example: 2,
+    description:
+      'How many questions it puts to the person: one, or for a judge question each disputed claim still unanswered. The unread count and the preview count in questions',
+  })
+  readonly asks: number;
+
+  @ApiProperty({
     example: '2026-08-28T21:15:00.000Z',
     description: 'When it last arrived',
   })
@@ -219,6 +226,7 @@ export class InboxPartResponseDto {
     this.kind = part.kind;
     this.form = part.form;
     this.about = part.about;
+    this.asks = part.asks;
     this.at = part.at;
     this.open = part.open;
     this.unread = part.unread;
@@ -238,7 +246,7 @@ export class InboxPartPreviewResponseDto {
 
   @ApiProperty({
     example: 2,
-    description: 'How many unread parts are of that kind',
+    description: 'How many unread questions are of that kind',
   })
   readonly count: number;
 
@@ -764,7 +772,7 @@ export class InboxItemResponseDto {
   @ApiProperty({
     example: 3,
     description:
-      'How many of its parts the person has not seen yet. The inbox badge is the sum of these over the open entries',
+      'How many questions on it the person has not seen yet: one per part, or per disputed claim still unanswered for a judge question. The inbox badge is the sum of these over the open entries',
   })
   readonly unreadCount: number;
 

@@ -28,6 +28,7 @@ const part = (id: string, over: Partial<InboxPart> = {}): InboxPart => ({
   kind: 'judge-question',
   form: 'judge-disagreement',
   about: `disagreement_${id}`,
+  asks: 1,
   at: '2026-11-27T09:00:00.000Z',
   open: true,
   unread: true,

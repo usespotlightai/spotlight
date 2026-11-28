@@ -24,6 +24,7 @@ export const inboxRequest = pgTable(
     taskId: text('task_id').notNull(),
     form: inboxRequestForm('form').notNull(),
     about: text('about').notNull(),
+    asks: integer('asks').notNull().default(1),
     askedOfId: text('asked_of_id'),
     createdAt: timestamptz('created_at').notNull(),
     openedAt: timestamptz('opened_at').notNull(),
