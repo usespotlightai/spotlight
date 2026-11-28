@@ -4,5 +4,5 @@ import {
 } from '@/components/shared/TappableTooltip';
 
 export function WithTooltip(target: TooltipTarget) {
-  return <TappableTooltip {...target} delay={500} trackCursorAxis="x" />;
+  return <TappableTooltip {...target} trackCursorAxis="x" />;
 }

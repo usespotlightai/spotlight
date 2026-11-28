@@ -16,7 +16,7 @@ export type TooltipTarget = {
 };
 
 type TappableTooltipProps = TooltipTarget & {
-  delay: number;
+  delay?: number;
   trackCursorAxis: 'none' | 'x';
 };
 
