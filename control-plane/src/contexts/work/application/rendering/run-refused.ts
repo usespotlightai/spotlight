@@ -27,7 +27,6 @@ const CATALOG_FIXES: Readonly<Record<DeniedCatalogItem['reason'], string>> = {
   'wrong-kind': 'Move it to the station’s list for that kind.',
 };
 
-// Plain words for a person: what stops the run, and how to put it right. The code stays out of them.
 export const RunRefused = {
   text(refusal: RefusalReason): string {
     switch (refusal.code) {

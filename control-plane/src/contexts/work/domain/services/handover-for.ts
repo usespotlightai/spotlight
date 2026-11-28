@@ -19,7 +19,6 @@ const ownWords = (handover: Handover): TaskNoteBody | null =>
 const UNROUTED =
   'The run finished without saying where the task should go next.';
 
-// Spotlight refused to start the run: say so in plain words, then why. The note to a person adds that an answer starts it again; the run's account, which a deferred move quotes, does not.
 const refused = (
   station: StationName | null,
   because: string | null,

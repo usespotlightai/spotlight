@@ -1,7 +1,6 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
-// Where the team's configuration as code defines the line: the Terraform file and the repository it is in. Lines checks the path; Work only reads it.
 export class LineSource {
   private constructor(
     readonly repository: Repository,
