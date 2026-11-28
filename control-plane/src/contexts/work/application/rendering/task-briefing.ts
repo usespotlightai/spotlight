@@ -23,6 +23,7 @@ import {
 } from '@work/domain/services/run-reasoning';
 import { skillFolderOf } from '@work/domain/services/skill-folder';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
+import type { AppGrants } from '@work/domain/value-objects/app-grants.vo';
 import type {
   BoundSecret,
   BoundSecretBinding,
@@ -226,6 +227,14 @@ const workingCopyOf = (task: BriefedTask, line: LineMap): string | null => {
       ].join('\n\n');
 };
 
+const workflowsOf = (grants: AppGrants): string | null =>
+  grants.lacks('workflows')
+    ? [
+        '## Workflow files',
+        'The GitHub App may not change workflows, so GitHub refuses a push with a commit that adds, changes or deletes a file under `.github/workflows/`. Do not commit such a change. If the task needs one, say so plainly in your note, with the change for a person to make. They can let the App change workflows by accepting its updated permissions on GitHub.',
+      ].join('\n\n')
+    : null;
+
 export const TaskBriefing = {
   brief(input: {
     task: BriefedTask;
@@ -238,6 +247,7 @@ export const TaskBriefing = {
     boundSecrets: readonly BoundSecret[];
     sandboxEnv: readonly SandboxVariable[];
     drivenByAPerson?: boolean;
+    grants: AppGrants;
   }): string {
     const driven = input.drivenByAPerson ?? false;
     const station = input.line.stationAt(input.task.stationId);
@@ -274,6 +284,7 @@ export const TaskBriefing = {
 
       station?.decisions ? RECORDING_DECISIONS : null,
       workingCopyOf(input.task, input.line),
+      workflowsOf(input.grants),
       SpotlightCli.section,
       ConfiguringSpotlight.section,
       toolsOf(input.tools),

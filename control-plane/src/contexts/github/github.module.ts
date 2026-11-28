@@ -1,6 +1,7 @@
 import { CHECK_RUNS } from '@github/application/ports/check-runs.port';
 import { GITHUB_APP } from '@github/application/ports/github-app.port';
 import { GITHUB_WEBHOOKS } from '@github/application/ports/github-webhooks.port';
+import { INSTALLATION_PERMISSIONS } from '@github/application/ports/installation-permissions.port';
 import { INSTALLATION_REPOSITORIES } from '@github/application/ports/installation-repositories.port';
 import { PULL_REQUEST_COMMENTS } from '@github/application/ports/pull-request-comments.port';
 import { PULL_REQUEST_REACTIONS } from '@github/application/ports/pull-request-reactions.port';
@@ -26,6 +27,7 @@ import { Module } from '@nestjs/common';
     WORKSPACE_CONNECTIONS,
     REPOSITORY_ACCESS,
     INSTALLATION_REPOSITORIES,
+    INSTALLATION_PERMISSIONS,
     REPOSITORY_GIT,
     REPOSITORY_CONTENTS,
     PULL_REQUESTS,

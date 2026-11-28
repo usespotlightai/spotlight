@@ -43,6 +43,7 @@ const starting = ({
       pullRequestsTrustId: 'trust_plan',
       defaultBranchTrustId: 'trust_apply',
       variables: 'written',
+      workflows: 'permitted',
     }),
   );
   const handler = new StartChatHandler(

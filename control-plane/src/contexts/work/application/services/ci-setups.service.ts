@@ -1,9 +1,11 @@
+import type { InstallationPermissionsPort } from '@github/application/ports/installation-permissions.port';
 import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { GitHubActionsTrustsPort } from '@identity/application/ports/github-actions-trusts.port';
 import type { TokenScopeName } from '@identity/application/ports/workspace-access.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { AppGrantsMapper } from '@work/application/mappers/app-grants.mapper';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 
 const CI_APPLY_SCOPES: readonly TokenScopeName[] = CiSetup.APPLY_SCOPES;
@@ -14,6 +16,7 @@ export class CiSetups {
   constructor(
     private readonly settings: RepositorySettingsPort,
     private readonly trusts: GitHubActionsTrustsPort,
+    private readonly permissions: InstallationPermissionsPort,
     private readonly publicUrl: string,
   ) {}
 
@@ -22,9 +25,10 @@ export class CiSetups {
     by: UserId,
     repository: Repository,
   ): Promise<CiSetup> {
-    const [branch, subjectPrefix] = await Promise.all([
+    const [branch, subjectPrefix, permissions] = await Promise.all([
       this.settings.defaultBranchOf(workspaceId, repository),
       this.settings.oidcSubjectPrefixOf(workspaceId, repository),
+      this.permissions.of(workspaceId),
     ]);
     const trusted = await this.trusts.trust({
       workspaceId: workspaceId.value,
@@ -52,6 +56,7 @@ export class CiSetups {
       pullRequestsTrustId: trusted.pullRequests.id,
       defaultBranchTrustId: trusted.defaultBranch.id,
       variables,
+      workflows: CiSetup.workflowsUnder(AppGrantsMapper.toDomain(permissions)),
     });
   }
 }

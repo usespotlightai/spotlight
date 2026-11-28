@@ -59,6 +59,7 @@ export class OnboardingController {
       ),
       read.canSetUp,
       read.setupRefusal,
+      read.missingPermissions,
       read.viewerIsAdmin,
       read.setupChat
         ? new SetupChatResponseDto(

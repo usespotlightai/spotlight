@@ -154,6 +154,7 @@ const setupRow = (setup: ConfigFolder | null): ChatSetupRow | null =>
               pullRequestsTrustId: setup.ci.pullRequestsTrustId,
               defaultBranchTrustId: setup.ci.defaultBranchTrustId,
               variables: setup.ci.variables,
+              workflows: setup.ci.workflows,
             }
           : null,
       }

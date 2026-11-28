@@ -1,6 +1,9 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { AppGrants } from '@work/domain/value-objects/app-grants.vo';
 
 export type CiVariables = 'written' | 'not-permitted';
+
+export type CiWorkflows = 'permitted' | 'not-permitted';
 
 export type CiApplyScope = 'configure' | 'secrets' | 'runners';
 
@@ -23,7 +26,12 @@ export class CiSetup {
     readonly pullRequestsTrustId: string,
     readonly defaultBranchTrustId: string,
     readonly variables: CiVariables,
+    readonly workflows: CiWorkflows,
   ) {}
+
+  static workflowsUnder(grants: AppGrants): CiWorkflows {
+    return grants.lacks('workflows') ? 'not-permitted' : 'permitted';
+  }
 
   static of(input: {
     defaultBranch: string;
@@ -31,6 +39,7 @@ export class CiSetup {
     pullRequestsTrustId: string;
     defaultBranchTrustId: string;
     variables: CiVariables;
+    workflows: CiWorkflows;
   }): CiSetup {
     if (
       input.defaultBranch.trim() === '' ||
@@ -49,6 +58,7 @@ export class CiSetup {
       input.pullRequestsTrustId,
       input.defaultBranchTrustId,
       input.variables,
+      input.workflows,
     );
   }
 
@@ -58,7 +68,8 @@ export class CiSetup {
       this.defaultBranchProtected === other.defaultBranchProtected &&
       this.pullRequestsTrustId === other.pullRequestsTrustId &&
       this.defaultBranchTrustId === other.defaultBranchTrustId &&
-      this.variables === other.variables
+      this.variables === other.variables &&
+      this.workflows === other.workflows
     );
   }
 }

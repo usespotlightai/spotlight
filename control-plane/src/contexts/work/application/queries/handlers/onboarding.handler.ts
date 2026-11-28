@@ -5,6 +5,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
   OnboardingDto,
   ProvisioningName,
+  SetupPermissionName,
   SetupRefusalName,
 } from '@work/application/dto/onboarding.dto';
 import type { TeamWelcomesPort } from '@work/application/ports/team-welcomes.port';
@@ -20,6 +21,7 @@ import {
   type Provisioning,
   provisioningOf,
 } from '@work/domain/services/team-provisioning';
+import type { AppGrant } from '@work/domain/value-objects/app-grants.vo';
 
 const PROVISIONING_NAME: Record<Provisioning, ProvisioningName> = {
   pending: 'pending',
@@ -30,6 +32,11 @@ const SETUP_REFUSAL_NAME: Record<SetupRefusal, SetupRefusalName> = {
   'needs-an-admin': 'needs-an-admin',
   'code-unreachable': 'code-unreachable',
   'needs-egress': 'needs-egress',
+};
+
+const SETUP_PERMISSION_NAME: Record<AppGrant, SetupPermissionName> = {
+  workflows: 'workflows',
+  variables: 'variables',
 };
 
 export class OnboardingHandler implements QueryHandlerPort<
@@ -79,6 +86,9 @@ export class OnboardingHandler implements QueryHandlerPort<
         steps: shownFor(setup.state, setup.runners),
         canSetUp: SetupAdmission.readyIn(readiness),
         setupRefusal: refusal && SETUP_REFUSAL_NAME[refusal],
+        missingPermissions: setup.grants
+          .missingForSetup()
+          .map((each) => SETUP_PERMISSION_NAME[each]),
         viewerIsAdmin,
         setupChat: chat && {
           id: (await this.access.opensChat(

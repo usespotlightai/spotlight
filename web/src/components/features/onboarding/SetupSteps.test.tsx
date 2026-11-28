@@ -86,6 +86,7 @@ const onboarding = (
     : done.includes('harness')
       ? null
       : 'needs-egress',
+  missingPermissions: [],
   viewerIsAdmin: true,
   setupChat: null,
   ...over,
@@ -319,6 +320,57 @@ describe('SetupSteps', () => {
     showing();
 
     expect(screen.getByText('Choose the config folder')).toBeInTheDocument();
+  });
+
+  it('warns before the chat starts when the GitHub App can’t add the workflow or set the variables, and says how to let it', () => {
+    githubState.data = { connected: true, installUrl: INSTALL };
+    onboardingState.data = onboarding(
+      { missingPermissions: ['workflows', 'variables'] },
+      ['github', 'harness'],
+    );
+    showing();
+
+    expect(
+      screen.getByText(
+        /The GitHub App can’t add workflows or set repository variables, so the pull request will leave its workflow and variables for you to add\. To allow this, accept the App’s updated permissions on GitHub\./,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Review permissions on GitHub' }),
+    ).toHaveAttribute(
+      'href',
+      installUrlFor(INSTALL, {
+        slug: 'acme',
+        teamId: 'team_1',
+        from: '/w/acme/inbox/item_1',
+      }),
+    );
+    expect(screen.getByText('Choose the config folder')).toBeInTheDocument();
+  });
+
+  it('names only what the App lacks', () => {
+    onboardingState.data = onboarding({ missingPermissions: ['workflows'] }, [
+      'github',
+      'harness',
+    ]);
+    showing();
+
+    expect(
+      screen.getByText(
+        /The GitHub App can’t add workflows, so the pull request will leave its workflow for you to add\./,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/repository variables/)).toBeNull();
+  });
+
+  it('warns about nothing when the App may do what the setup needs', () => {
+    onboardingState.data = onboarding({}, ['github', 'harness']);
+    showing();
+
+    expect(screen.queryByText(/The GitHub App can’t/)).toBeNull();
+    expect(
+      screen.queryByRole('link', { name: 'Review permissions on GitHub' }),
+    ).toBeNull();
   });
 
   it('shows the setup disabled, with what to do first, until GitHub and a host are ready', () => {

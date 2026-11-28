@@ -40,6 +40,7 @@ export interface ChatCiRow {
   readonly pullRequestsTrustId: string;
   readonly defaultBranchTrustId: string;
   readonly variables: 'written' | 'not-permitted';
+  readonly workflows: 'permitted' | 'not-permitted';
 }
 
 export interface ChatSetupRow {

@@ -7,6 +7,10 @@ import {
   type CheckRunsPort,
 } from '@github/application/ports/check-runs.port';
 import {
+  INSTALLATION_PERMISSIONS,
+  type InstallationPermissionsPort,
+} from '@github/application/ports/installation-permissions.port';
+import {
   INSTALLATION_REPOSITORIES,
   type InstallationRepositoriesPort,
 } from '@github/application/ports/installation-repositories.port';
@@ -1212,16 +1216,19 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     provide: SetupStatus,
     inject: [
       WORKSPACE_CONNECTIONS,
+      INSTALLATION_PERMISSIONS,
       RUNNER_READINESS,
       CHAT_READER,
       CHAT_REPOSITORY,
     ],
     useFactory: (
       connections: WorkspaceConnectionsPort,
+      permissions: InstallationPermissionsPort,
       runners: RunnerReadinessPort,
       chats: ChatReaderPort,
       chatRepository: ChatRepository,
-    ) => new SetupStatus(connections, runners, chats, chatRepository),
+    ) =>
+      new SetupStatus(connections, permissions, runners, chats, chatRepository),
   },
 
   {
@@ -1516,12 +1523,18 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: CiSetups,
-    inject: [REPOSITORY_SETTINGS, GITHUB_ACTIONS_TRUSTS, ENV],
+    inject: [
+      REPOSITORY_SETTINGS,
+      GITHUB_ACTIONS_TRUSTS,
+      INSTALLATION_PERMISSIONS,
+      ENV,
+    ],
     useFactory: (
       settings: RepositorySettingsPort,
       trusts: GitHubActionsTrustsPort,
+      permissions: InstallationPermissionsPort,
       env: Env,
-    ) => new CiSetups(settings, trusts, publicUrlOf(env)),
+    ) => new CiSetups(settings, trusts, permissions, publicUrlOf(env)),
   },
 
   {
@@ -1653,6 +1666,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       SAVEPOINT,
       CONTENT_HASH,
       BOUND_SECRETS,
+      INSTALLATION_PERMISSIONS,
     ],
     useFactory: (
       ids: IdGeneratorPort,
@@ -1671,6 +1685,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       savepoint: SavepointPort,
       hash: ContentHashPort,
       bound: BoundSecretsPort,
+      permissions: InstallationPermissionsPort,
     ) =>
       new DispatchTask(
         ids,
@@ -1689,6 +1704,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         savepoint,
         hash,
         bound,
+        permissions,
       ),
   },
 

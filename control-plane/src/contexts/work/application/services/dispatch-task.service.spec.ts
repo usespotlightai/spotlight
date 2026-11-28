@@ -2,6 +2,7 @@ import type {
   CatalogRequest,
   ResolvedItems,
 } from '@catalog/application/contracts/catalog.contract';
+import type { InstallationPermissionsDto } from '@github/application/ports/installation-permissions.port';
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
@@ -353,6 +354,7 @@ let touchedOnTask: TouchedFile[] = [];
 let memoryFails = false;
 let awaitingValue: readonly string[] = [];
 let sandboxNotAllowed: readonly string[] = [];
+let granted: InstallationPermissionsDto | null = null;
 
 const dispatch = async (
   station: Station,
@@ -397,6 +399,7 @@ const dispatch = async (
           allowsSandbox: !sandboxNotAllowed.includes(name),
         })),
     },
+    { of: async () => granted },
   );
   const working = existing ?? task(station.id.value);
   const line = lineWith(station, repositories);
@@ -422,6 +425,7 @@ describe('DispatchTask', () => {
   beforeEach(() => {
     awaitingValue = [];
     sandboxNotAllowed = [];
+    granted = null;
     readyAs = {};
     briefedAt = [];
     remembered = { briefed: [], omitted: [], folder: null };
@@ -1020,6 +1024,28 @@ describe('DispatchTask', () => {
     ).toBe(true);
     expect(ordered[0]?.briefedTask?.title).toBe('Drain the queue');
     expect(written(run).briefing).toContain('## Drain the queue');
+  });
+
+  it('tells the run that GitHub refuses a workflow change when the App may not change workflows', async () => {
+    granted = { workflows: false, variables: true };
+
+    await dispatch(stations[1]);
+
+    const { briefing } = written(queued[0]);
+    expect(briefing).toContain('## Workflow files');
+    expect(briefing).toContain(
+      'The GitHub App may not change workflows, so GitHub refuses a push with a commit that adds, changes or deletes a file under `.github/workflows/`.',
+    );
+  });
+
+  it('says nothing about workflow files when the App may change workflows, or GitHub would not say', async () => {
+    granted = { workflows: true, variables: false };
+    await dispatch(stations[1]);
+    granted = null;
+    await dispatch(stations[1]);
+
+    expect(written(queued[0]).briefing).not.toContain('## Workflow files');
+    expect(written(queued[1]).briefing).not.toContain('## Workflow files');
   });
 
   it('requests the runner to say where the run started', async () => {

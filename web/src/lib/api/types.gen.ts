@@ -4610,6 +4610,10 @@ export type OnboardingResponseDto = {
    */
   setupRefusal: 'needs-an-admin' | 'code-unreachable' | 'needs-egress' | null;
   /**
+   * The GitHub App permissions that the setup uses and the installation has not granted: workflows (to add the GitHub Actions workflow) and variables (to set the repository variables). The setup chat can still start, and its pull request leaves these for a person to add. Empty when the installation has them, or when Spotlight cannot tell
+   */
+  missingPermissions: Array<'workflows' | 'variables'>;
+  /**
    * Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts
    */
   viewerIsAdmin: boolean;

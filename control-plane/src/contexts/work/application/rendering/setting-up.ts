@@ -8,6 +8,9 @@ const BRANCH = 'spotlight-configuration';
 
 const WORKFLOW = '.github/workflows/spotlight.yml';
 
+const STARTING_THE_WORKFLOW =
+  "Start from this, and add the `TF_VAR_` secrets that the variables need. Its two state steps sign in to Spotlight's state with the job's OIDC token. If the team keeps the state elsewhere, replace those two steps with that backend's credentials:";
+
 const downloadsOf = (release: Release | null): string =>
   `https://github.com/usespotlightai/spotlight/releases/download/${release?.value ?? 'canary'}`;
 
@@ -111,7 +114,12 @@ const ciStep = (
     ci.variables === 'written'
       ? `Spotlight set the repository variables \`${CiSetup.VARIABLES.url}\`, \`${CiSetup.VARIABLES.planTrust}\` and \`${CiSetup.VARIABLES.applyTrust}\`.`
       : `The GitHub App may not write repository variables. In the pull request, tell the person to add these repository variables: \`${CiSetup.VARIABLES.planTrust}\` = \`${ci.pullRequestsTrustId}\`, \`${CiSetup.VARIABLES.applyTrust}\` = \`${ci.defaultBranchTrustId}\`, and \`${CiSetup.VARIABLES.url}\` = the Spotlight address in \`$SPOTLIGHT_URL\`.`,
-    `Add \`${WORKFLOW}\` at the repository root. Start from this, and add the \`TF_VAR_\` secrets that the variables need. Its two state steps sign in to Spotlight's state with the job's OIDC token. If the team keeps the state elsewhere, replace those two steps with that backend's credentials:`,
+    [
+      ci.workflows === 'permitted'
+        ? `Add \`${WORKFLOW}\` at the repository root.`
+        : `The GitHub App may not change workflows, so GitHub refuses a push that adds \`${WORKFLOW}\` or any other file under \`.github/workflows/\`. Do not commit one unless the person tells you that the App may now change workflows. Put the workflow in the pull request description instead, and say plainly that the person must add it as \`${WORKFLOW}\` themselves, because the App may not. They can let the App change workflows by accepting its updated permissions on GitHub.`,
+      STARTING_THE_WORKFLOW,
+    ].join(' '),
     `\`\`\`yaml\n${workflowOf(configFolder.folder, ci.defaultBranch, release)}\n\`\`\``,
     'In the pull request, list each secret the person must add to the repository, and say what it is for. Also say that a pull request from a fork gets no OIDC token from GitHub, so its plan job fails.',
     ...(ci.defaultBranchProtected

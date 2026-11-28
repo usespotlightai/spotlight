@@ -1,9 +1,11 @@
+import type { InstallationPermissionsPort } from '@github/application/ports/installation-permissions.port';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { BoundSecretsPort } from '@secrets/application/ports/bound-secrets.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { AppGrantsMapper } from '@work/application/mappers/app-grants.mapper';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
@@ -60,6 +62,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly savepoint: SavepointPort,
     hash: ContentHashPort,
     bound: BoundSecretsPort,
+    private readonly permissions: InstallationPermissionsPort,
   ) {
     this.ordering = new StationOrdering(
       harnesses,
@@ -169,6 +172,9 @@ export class DispatchTask implements TaskDispatching {
       boundSecrets: order.boundSecrets,
       sandboxEnv: order.enabled.profile?.sandboxEnv ?? [],
       drivenByAPerson,
+      grants: AppGrantsMapper.toDomain(
+        await this.permissions.of(task.workspaceId),
+      ),
     });
     const injected = (order.enabled.profile?.injectedSecrets ?? []).map(
       (each) => each.value,
