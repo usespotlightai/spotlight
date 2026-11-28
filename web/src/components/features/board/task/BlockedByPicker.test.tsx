@@ -45,7 +45,7 @@ describe('BlockedByPicker', () => {
     ).not.toBeInTheDocument();
 
     await userEvent.click(
-      screen.getByRole('menuitemcheckbox', { name: 'Web 1/4' }),
+      await screen.findByRole('menuitemcheckbox', { name: 'Web 1/4' }),
     );
 
     expect(blocked).toHaveBeenCalledWith({
@@ -66,7 +66,7 @@ describe('BlockedByPicker', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Blocked by' }));
     await userEvent.click(
-      screen.getByRole('menuitemcheckbox', { name: 'Web 1/4' }),
+      await screen.findByRole('menuitemcheckbox', { name: 'Web 1/4' }),
     );
 
     expect(blocked).toHaveBeenCalledWith({
