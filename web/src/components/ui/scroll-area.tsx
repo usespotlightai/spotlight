@@ -2,6 +2,9 @@ import { ScrollArea as ScrollAreaPrimitive } from '@base-ui/react/scroll-area';
 import type { Ref, UIEventHandler } from 'react';
 import { cn } from '@/lib/utils';
 
+const VERTICAL_EDGE_FADE =
+  '[mask-image:linear-gradient(to_bottom,transparent,black_min(48px,var(--scroll-area-overflow-y-start,0px)),black_calc(100%-min(48px,var(--scroll-area-overflow-y-end,0px))),transparent)]';
+
 type Orientation = 'vertical' | 'horizontal' | 'both';
 
 type ScrollbarShown = 'on-hover' | 'while-scrolling' | 'hidden';
@@ -92,4 +95,4 @@ function ScrollBar({
   );
 }
 
-export { ScrollArea };
+export { ScrollArea, VERTICAL_EDGE_FADE };
