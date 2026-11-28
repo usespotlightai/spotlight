@@ -44,8 +44,9 @@ export function ExpandableText({
     <div className="group/expandable relative flex flex-col gap-1">
       <ScrollArea
         viewportRef={text}
+        viewportClassName="pr-3"
         className={cn(
-          'transition-[max-height] duration-200 ease-out motion-reduce:transition-none',
+          '-mr-3 transition-[max-height] duration-200 ease-out motion-reduce:transition-none',
           open ? HEIGHTS[size].expanded : HEIGHTS[size].collapsed,
           !open &&
             clipped &&
