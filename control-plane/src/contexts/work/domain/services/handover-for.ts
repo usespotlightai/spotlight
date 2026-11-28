@@ -1,6 +1,7 @@
 import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { PassDenial } from '@work/domain/value-objects/line-denial';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -17,6 +18,24 @@ const ownWords = (handover: Handover): TaskNoteBody | null =>
 
 const UNROUTED =
   'The run finished without saying where the task should go next.';
+
+const refused = (
+  station: StationName | null,
+  because: string | null,
+): ResolvedHandover => {
+  const why = because?.trim() ?? '';
+  const didNotStart = `${station?.value ?? 'The run'} didn’t start.`;
+
+  return ResolvedHandover.failed(
+    TaskNoteBody.of(
+      why === ''
+        ? `${didNotStart} Answer the task to start it again.`
+        : `${didNotStart} ${why} Then answer the task to start it again.`,
+    ),
+    TaskFailure.fromRun('refused'),
+    TaskNoteBody.of(why === '' ? didNotStart : `${didNotStart} ${why}`),
+  );
+};
 
 const DENIALS: Record<PassDenial, (key: string) => string> = {
   'already-there': (key) =>
@@ -47,7 +66,11 @@ export const HandoverFor = {
       );
     }
 
-    return HandoverFor.outcome(input.outcome, input.lastWords ?? null);
+    return HandoverFor.outcome(
+      input.outcome,
+      input.lastWords ?? null,
+      input.line?.stationAt(input.currentStation)?.name ?? null,
+    );
   },
 
   resolve(
@@ -116,6 +139,7 @@ export const HandoverFor = {
   outcome(
     outcome: RunResult | null,
     lastWords: string | null = null,
+    station: StationName | null = null,
   ): ResolvedHandover {
     if (!outcome) {
       const unreported = TaskNoteBody.of(
@@ -123,6 +147,10 @@ export const HandoverFor = {
       );
 
       return ResolvedHandover.review(unreported, unreported);
+    }
+
+    if (outcome.refused) {
+      return refused(station, outcome.message);
     }
 
     if (outcome.failure) {

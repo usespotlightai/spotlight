@@ -21,7 +21,6 @@ import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/r
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { eq } from 'drizzle-orm';
 import {
   afterAll,
@@ -406,11 +405,7 @@ describe('a catalog call (e2e)', () => {
           catalog: ['catalog.web-search@1.1.0'],
         }),
         refusal: [
-          DeniedCatalogItem.of({
-            id: 'catalog.web-search@1.1.0',
-            reason: 'unknown',
-            because: 'Catalog has no item catalog.web-search@1.1.0.',
-          }),
+          { description: 'Catalog has no item catalog.web-search@1.1.0.' },
         ],
       }),
     );
@@ -418,7 +413,9 @@ describe('a catalog call (e2e)', () => {
     const stored = await runs.findById(id);
 
     expect(stored?.state).toBe('failed');
-    expect(stored?.outcome?.detail).toMatch(/^catalog_item_unknown: /);
+    expect(stored?.outcome?.detail).toBe(
+      'Catalog has no item catalog.web-search@1.1.0.',
+    );
     expect(stored?.spec.value.catalog).toEqual(['catalog.web-search@1.1.0']);
 
     await db.delete(schema.run).where(eq(schema.run.id, id.value));

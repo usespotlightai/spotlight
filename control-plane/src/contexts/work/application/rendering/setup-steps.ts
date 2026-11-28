@@ -34,6 +34,8 @@ const WORDING: Record<SetupStepKey, Wording> = {
   },
 };
 
+export const CONFIGURATION_STEP: string = WORDING.configuration.title;
+
 const PLATFORM_RUNNERS: Wording = {
   title: 'Run agents on the platform runners',
   description:

@@ -26,6 +26,10 @@ export class RunResult {
     return this.failure !== null;
   }
 
+  get refused(): boolean {
+    return this.failure?.code === 'refused';
+  }
+
   get handsOver(): boolean {
     return !this.failed && !this.stopped;
   }

@@ -112,6 +112,7 @@ import { IntegrationName } from '@work/domain/value-objects/integration-name.vo'
 import { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
 import { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import { LineSource } from '@work/domain/value-objects/line-source.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -172,6 +173,7 @@ export const WORK_PAYLOAD_TYPES = [
   JudgeSettings,
   LineMap,
   LineRepositories,
+  LineSource,
   Reaction,
   RefUpdate,
   ReviewIntake,

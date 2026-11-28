@@ -1,14 +1,18 @@
-import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
-import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
+import type { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import type { LineSource } from '@work/domain/value-objects/line-source.vo';
 
-export class RepositoriesMissing implements RefusalReason {
-  private constructor(readonly station: StationName) {}
+export class RepositoriesMissing {
+  readonly code = 'line_has_no_repositories';
 
-  static at(station: StationName): RepositoriesMissing {
-    return new RepositoriesMissing(station);
-  }
+  private constructor(
+    readonly line: LineName,
+    readonly source: LineSource | null,
+  ) {}
 
-  get description(): string {
-    return `line_has_no_repositories: This line has no repositories. Add one in the line’s configuration. Station: ${this.station.value}`;
+  static of(line: {
+    readonly name: LineName;
+    readonly source: LineSource | null;
+  }): RepositoriesMissing {
+    return new RepositoriesMissing(line.name, line.source);
   }
 }

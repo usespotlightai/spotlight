@@ -493,7 +493,7 @@ describe('DispatchTask', () => {
       expect(enabledTools(queued[0])).toEqual(['catalog.web-search']);
     });
 
-    it('fails the run as catalog_item_unknown, rather than running without it, when the catalog no longer has the item', async () => {
+    it('fails the run, saying why, rather than running without it, when the catalog no longer has the item', async () => {
       resolvedItems = {
         tools: [],
         skills: [],
@@ -513,30 +513,32 @@ describe('DispatchTask', () => {
       );
 
       expect(refusedAs(queued[0])).toEqual([
-        'catalog_item_unknown: Catalog has no item catalog.web-search@1.1.0.',
+        'Catalog has no item catalog.web-search@1.1.0. Remove it from the station, or name a version that the catalog has.',
       ]);
     });
   });
 
   describe('why it refuses a run that the catalog denies an item to', () => {
-    it.each([
-      ['unknown', 'catalog_item_unknown'],
-      ['wrong-kind', 'catalog_item_wrong_kind'],
-    ] as const)('names a refusal for %s as %s', async (reason, code) => {
-      resolvedItems = {
-        tools: [],
-        skills: [],
-        denied: [{ id: WEB_SEARCH.id, reason, because: 'denied here' }],
-      };
+    it.each(['unknown', 'wrong-kind'] as const)(
+      'says why the catalog denies it as %s, in words without a code',
+      async (reason) => {
+        resolvedItems = {
+          tools: [],
+          skills: [],
+          denied: [{ id: WEB_SEARCH.id, reason, because: 'denied here' }],
+        };
 
-      await dispatch(
-        triage({ tools: ['catalog.web-search@1.1.0'] }),
-        undefined,
-        WIDGETS,
-      );
+        await dispatch(
+          triage({ tools: ['catalog.web-search@1.1.0'] }),
+          undefined,
+          WIDGETS,
+        );
 
-      expect(refusedAs(queued[0])).toEqual([`${code}: denied here`]);
-    });
+        expect(refusedAs(queued[0])).toEqual([
+          expect.stringMatching(/^denied here\. \w/) as unknown,
+        ]);
+      },
+    );
 
     it('names every refusal, each by its own reason', async () => {
       resolvedItems = {
@@ -566,8 +568,8 @@ describe('DispatchTask', () => {
       );
 
       expect(refusedAs(queued[0])).toEqual([
-        'catalog_item_wrong_kind: wrong kind here',
-        'catalog_item_unknown: unknown here',
+        expect.stringMatching(/^wrong kind here\. Move it to/) as unknown,
+        expect.stringMatching(/^unknown here\. Remove it/) as unknown,
       ]);
     });
   });
@@ -697,7 +699,7 @@ describe('DispatchTask', () => {
 
       expect(id).not.toBeNull();
       expect(refusedAs(queued[0])).toEqual([
-        'line_has_no_repositories: This line has no repositories. Add one in the line’s configuration. Station: Triage',
+        'The Default line has no repository yet. Add one in your team’s Terraform, as a `repository` block on the line’s `spotlight_line`. If the team has no configuration as code yet, start with “Set up configuration as code” on the setup checklist.',
       ]);
     });
 
@@ -813,7 +815,7 @@ describe('DispatchTask', () => {
 
       expect(id).not.toBeNull();
       expect(refusedAs(queued[0])).toEqual([
-        'secret_awaiting_value: Secret LINEAR_API_KEY has no value. Station: Triage',
+        'Secret LINEAR_API_KEY has no value yet. Set it on the Secrets settings page, with `spotlight secret set LINEAR_API_KEY`, or with `value_wo` and `value_wo_version` in Terraform.',
       ]);
     });
 
@@ -854,7 +856,7 @@ describe('DispatchTask', () => {
         await dispatch(naming('app'), undefined, WIDGETS);
 
         expect(refusedAs(queued[0])).toEqual([
-          'secret_sandbox_not_allowed: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
+          'Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set `sandbox = "env"` on the secret.',
         ]);
       });
 
@@ -864,7 +866,7 @@ describe('DispatchTask', () => {
         await dispatch(naming('app'), undefined, WIDGETS);
 
         expect(refusedAs(queued[0])).toEqual([
-          'secret_awaiting_value: Secret DEV_GITHUB_APP_KEY has no value. Station: Triage',
+          'Secret DEV_GITHUB_APP_KEY has no value yet. Set it on the Secrets settings page, with `spotlight secret set DEV_GITHUB_APP_KEY`, or with `value_wo` and `value_wo_version` in Terraform.',
         ]);
       });
     });
@@ -874,7 +876,7 @@ describe('DispatchTask', () => {
 
       expect(id).not.toBeNull();
       expect(refusedAs(queued[0])).toEqual([
-        'harness_profile_unknown: Harness profile reckless is not in this team. Station: Triage',
+        'The station uses harness profile reckless, which this team does not have. Add a `spotlight_harness_profile` with that key to the team’s Terraform, or change the station’s `profile`.',
       ]);
       expect(written(queued[0]).harnessSetup).toBeUndefined();
     });

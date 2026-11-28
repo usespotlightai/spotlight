@@ -137,9 +137,12 @@ describe('enabledAt, for a station that names a harness profile', () => {
     const enabled = enabledAt(station([], [], 'reckless'), [], [careful]);
 
     expect(enabled.profile).toBeNull();
-    expect(enabled.refusals.map((each) => each.description)).toEqual([
-      'harness_profile_unknown: Harness profile reckless is not in this team. Station: Implementation',
+    expect(enabled.refusals.map((each) => each.code)).toEqual([
+      'harness_profile_unknown',
     ]);
+    expect(
+      enabled.refusals.map((each) => 'profile' in each && each.profile.value),
+    ).toEqual(['reckless']);
   });
 
   it('enables no profile and refuses nothing where the station names none', () => {

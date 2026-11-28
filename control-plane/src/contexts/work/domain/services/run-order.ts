@@ -135,7 +135,7 @@ export const orderAt = ({
   );
   const refusals = [
     ...(at.needsCheckout && at.checkouts.length === 0
-      ? [RepositoriesMissing.at(station.name)]
+      ? [RepositoriesMissing.of(line)]
       : []),
     ...denied,
     ...launch.enabled.refusals,
@@ -145,10 +145,10 @@ export const orderAt = ({
           !each.allowsSandbox &&
           envSecrets.some((name) => name.equals(each.name)),
       )
-      .map((each) => SecretSandboxNotAllowed.at(station.name, each.name)),
+      .map((each) => SecretSandboxNotAllowed.of(each.name)),
     ...bound
       .filter((each) => each.awaitingValue)
-      .map((each) => SecretAwaitingValue.at(station.name, each.name)),
+      .map((each) => SecretAwaitingValue.of(each.name)),
   ];
 
   return {

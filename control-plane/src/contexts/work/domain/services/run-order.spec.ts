@@ -18,13 +18,15 @@ import {
   lineMapOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import { LineSource } from '@work/domain/value-objects/line-source.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import { describe, expect, it } from 'vitest';
 
 const TRIAGE = StationId.of('station_1');
 
-const LINE = lineMapOf({
+const LINE_PARTS = {
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
@@ -57,7 +59,9 @@ const LINE = lineMapOf({
       kind: 'completed',
     }),
   ],
-});
+};
+
+const LINE = lineMapOf(LINE_PARTS);
 
 const known = (
   name: string,
@@ -80,6 +84,7 @@ const orderWith = (
   boundSecrets: readonly BoundSecret[],
   sandboxEnv: ReadyProfile['sandboxEnv'] = [],
   at: { checkouts?: readonly TaskCheckout[]; needsCheckout?: boolean } = {},
+  line: LineMap = LINE,
 ) =>
   orderAt({
     at: {
@@ -88,7 +93,7 @@ const orderWith = (
       checkouts: at.checkouts ?? [],
       needsCheckout: at.needsCheckout,
     },
-    line: LINE,
+    line,
     harnesses: HarnessCatalogue.of([HarnessId.of('dev')]),
     ready: [],
     profiles: [
@@ -112,12 +117,14 @@ const refusalsWith = (
   boundSecrets: readonly BoundSecret[],
   sandboxEnv: ReadyProfile['sandboxEnv'] = [],
 ) =>
-  orderWith(boundSecrets, sandboxEnv)?.refusals.map((each) => each.description);
+  orderWith(boundSecrets, sandboxEnv)?.refusals.map((each) =>
+    'secret' in each ? `${each.code} ${each.secret.value}` : each.code,
+  );
 
 describe('orderAt', () => {
   it('refuses the run where a secret the profile injects has no value', () => {
     expect(refusalsWith([known('LINEAR_API_KEY', true)])).toEqual([
-      'secret_awaiting_value: Secret LINEAR_API_KEY has no value. Station: Triage',
+      'secret_awaiting_value LINEAR_API_KEY',
     ]);
   });
 
@@ -130,27 +137,49 @@ describe('orderAt', () => {
     ];
 
     expect(refusalsWith([known('DEV_GITHUB_APP_KEY', false)], appKey)).toEqual([
-      'secret_sandbox_not_allowed: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
+      'secret_sandbox_not_allowed DEV_GITHUB_APP_KEY',
     ]);
     expect(
       refusalsWith([known('DEV_GITHUB_APP_KEY', false, [], true)], appKey),
     ).toEqual([]);
     expect(refusalsWith([known('DEV_GITHUB_APP_KEY', true)], appKey)).toEqual([
-      'secret_sandbox_not_allowed: Secret DEV_GITHUB_APP_KEY does not allow its value in a sandbox. Set sandbox = "env" on the secret. Station: Triage',
-      'secret_awaiting_value: Secret DEV_GITHUB_APP_KEY has no value. Station: Triage',
+      'secret_sandbox_not_allowed DEV_GITHUB_APP_KEY',
+      'secret_awaiting_value DEV_GITHUB_APP_KEY',
     ]);
   });
 
   describe('a run that needs a checkout', () => {
-    const refusalsAt = (at: {
-      checkouts?: readonly TaskCheckout[];
-      needsCheckout?: boolean;
-    }) => orderWith([], [], at)?.refusals.map((each) => each.description);
+    const refusalsAt = (
+      at: {
+        checkouts?: readonly TaskCheckout[];
+        needsCheckout?: boolean;
+      },
+      line: LineMap = LINE,
+    ) =>
+      orderWith([], [], at, line)?.refusals.map((each) =>
+        each.code === 'line_has_no_repositories'
+          ? { line: each.line, source: each.source }
+          : each.code,
+      );
 
-    it('refuses the run where the line has no repository to check out', () => {
+    it('refuses the run where the line has no repository to check out, and names the line', () => {
       expect(refusalsAt({ needsCheckout: true })).toEqual([
-        'line_has_no_repositories: This line has no repositories. Add one in the line’s configuration. Station: Triage',
+        { line: LineName.of('Delivery'), source: null },
       ]);
+    });
+
+    it('names where the team’s configuration defines the line, where it says', () => {
+      const source = LineSource.of({
+        repository: Repository.of('acme/infra'),
+        path: 'teams/core/delivery.tf',
+      });
+
+      expect(
+        refusalsAt(
+          { needsCheckout: true },
+          lineMapOf({ ...LINE_PARTS, source }),
+        ),
+      ).toEqual([{ line: LineName.of('Delivery'), source }]);
     });
 
     it('does not refuse the run where it checks out a repository', () => {

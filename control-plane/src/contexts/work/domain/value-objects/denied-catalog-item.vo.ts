@@ -1,13 +1,11 @@
-import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
-
 export type CatalogDenialReason = 'unknown' | 'wrong-kind';
 
-const CODES: Readonly<Record<CatalogDenialReason, string>> = {
+const CODES = {
   unknown: 'catalog_item_unknown',
   'wrong-kind': 'catalog_item_wrong_kind',
-};
+} as const satisfies Readonly<Record<CatalogDenialReason, string>>;
 
-export class DeniedCatalogItem implements RefusalReason {
+export class DeniedCatalogItem {
   private constructor(
     readonly id: string,
     readonly reason: CatalogDenialReason,
@@ -22,7 +20,7 @@ export class DeniedCatalogItem implements RefusalReason {
     return new DeniedCatalogItem(input.id, input.reason, input.because);
   }
 
-  get description(): string {
-    return `${CODES[this.reason]}: ${this.because}`;
+  get code(): (typeof CODES)[CatalogDenialReason] {
+    return CODES[this.reason];
   }
 }

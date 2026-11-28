@@ -70,7 +70,7 @@ export class RunOutcome {
   ): RunOutcome {
     return RunOutcome.failedWith(
       'refused',
-      reasons.map((each) => each.description).join('; '),
+      reasons.map((each) => each.description.trim()).join(' '),
     );
   }
 

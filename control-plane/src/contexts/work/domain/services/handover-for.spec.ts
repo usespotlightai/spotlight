@@ -350,3 +350,54 @@ describe('HandoverFor.after', () => {
     ).toBe('The run finished without saying where the task should go next.');
   });
 });
+
+describe('HandoverFor, for a run Spotlight refused to start', () => {
+  const refused = (message: string | null) =>
+    RunResult.of({ exitCode: -1, failure: 'refused', message, stopped: false });
+  const after = (message: string | null, line: typeof LINE | null = LINE) =>
+    HandoverFor.after({
+      outcome: refused(message),
+      handover: null,
+      line,
+      currentStation: StationId.of('station_1'),
+    });
+  const WHY =
+    'The Delivery line has no repository yet. Add one in your team’s Terraform.';
+
+  it('says in plain words that the station did not start, why, and that an answer starts it again', () => {
+    const handover = after(WHY);
+
+    expect(handover.kind).toBe('review');
+    expect(handover.body.value).toBe(
+      `Triage didn’t start. ${WHY} Then answer the task to start it again.`,
+    );
+    expect(handover.body.value).not.toContain('The run failed');
+  });
+
+  it('gives as the run’s account, which a deferred move quotes, only what happened and why', () => {
+    expect(after(WHY).account?.value).toBe(`Triage didn’t start. ${WHY}`);
+  });
+
+  it('still says that an answer starts it again where it has no reason', () => {
+    const handover = after(null);
+
+    expect(handover.body.value).toBe(
+      'Triage didn’t start. Answer the task to start it again.',
+    );
+    expect(handover.account?.value).toBe('Triage didn’t start.');
+  });
+
+  it('speaks of the run where it cannot name the station', () => {
+    expect(after('Secret A has no value yet.', null).body.value).toBe(
+      'The run didn’t start. Secret A has no value yet. Then answer the task to start it again.',
+    );
+  });
+
+  it('keeps the refusal as the task’s failure, for those who read its code', () => {
+    const handover = after(WHY);
+
+    expect(handover.kind === 'review' && handover.failure?.code).toBe(
+      'refused',
+    );
+  });
+});

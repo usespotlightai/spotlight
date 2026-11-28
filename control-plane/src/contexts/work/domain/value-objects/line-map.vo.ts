@@ -21,6 +21,7 @@ import type {
   PassDenial,
 } from '@work/domain/value-objects/line-denial';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import type { LineSource } from '@work/domain/value-objects/line-source.vo';
 import type { Reaction } from '@work/domain/value-objects/reaction.vo';
 import type { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import type { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
@@ -41,6 +42,7 @@ export interface LineMapInput {
   readonly placement?: RunnerPlacement;
   readonly defaultAssignee?: string | null;
   readonly welcomesTeams?: boolean;
+  readonly source?: LineSource | null;
 }
 
 const topologyProblemOf = (stations: readonly Station[]): string | null => {
@@ -77,6 +79,7 @@ export class LineMap {
     readonly placement: RunnerPlacement,
     readonly defaultAssignee: string | null,
     readonly welcomesTeams: boolean,
+    readonly source: LineSource | null,
   ) {}
 
   static of(input: LineMapInput): LineMap {
@@ -103,6 +106,7 @@ export class LineMap {
       input.placement ?? RunnerPlacement.anywhere(),
       input.defaultAssignee ?? null,
       input.welcomesTeams ?? false,
+      input.source ?? null,
     );
   }
 
