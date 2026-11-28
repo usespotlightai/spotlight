@@ -7,8 +7,8 @@ import type { TaskPlacementsPort } from '@work/application/ports/task-placements
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { handedToRun } from '@work/application/services/handed-to-run';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import type { TaskCompleted } from '@work/domain/events/task-completed.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
-import type { TaskFinished } from '@work/domain/events/task-finished.event';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -18,6 +18,7 @@ const SAVE_ATTEMPTS = 3;
 type Release = (task: Task, line: LineMap) => Promise<Task>;
 
 // Each task that waits for a completed or deleted task, in a transaction of its own.
+// A task that only finished at the end of its line, with its pull request still open, releases nothing.
 export class ReleaseBlockedTasks {
   constructor(
     private readonly tasks: TaskRepository,
@@ -28,7 +29,7 @@ export class ReleaseBlockedTasks {
     private readonly clock: ClockPort,
   ) {}
 
-  onFinished(event: TaskFinished): Promise<void> {
+  onCompleted(event: TaskCompleted): Promise<void> {
     return this.releaseWaitingFor(
       event.workspaceId,
       event.taskId,
@@ -40,7 +41,7 @@ export class ReleaseBlockedTasks {
             )
           : [];
 
-        const next = task.blockerFinished(
+        const next = task.blockerCompleted(
           event.taskId,
           line,
           ranks,

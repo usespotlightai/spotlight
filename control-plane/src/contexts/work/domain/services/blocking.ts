@@ -5,27 +5,37 @@ import { InvalidTaskBlockerError } from '@work/domain/exceptions/invalid-task-bl
 import { TaskBlockingCycleError } from '@work/domain/exceptions/task-blocking-cycle.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { BlockingGraph } from '@work/domain/services/blocking-graph';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+
+// A task named as a blocker, and the line it is on.
+export interface Blocker {
+  readonly task: Task;
+  readonly line: LineMap;
+}
 
 // The tasks among `blockers` that block: a completed task blocks nothing, and a deleted one is not among them.
+// A task that finished at the end of its line, with its pull request still open, is not completed, so it blocks.
 const openAmong = (
   workspaceId: WorkspaceId,
-  blockers: readonly Task[],
+  blockers: readonly Blocker[],
 ): readonly Task[] =>
-  blockers.filter((blocker, at) => {
-    if (!blocker.workspaceId.equals(workspaceId)) {
-      throw new UnknownTaskError(blocker.id.value);
-    }
+  blockers
+    .filter(({ task: blocker, line }, at) => {
+      if (!blocker.workspaceId.equals(workspaceId)) {
+        throw new UnknownTaskError(blocker.id.value);
+      }
 
-    return (
-      !blocker.finished &&
-      blockers.findIndex((other) => other.id.equals(blocker.id)) === at
-    );
-  });
+      return (
+        !blocker.completedOn(line) &&
+        blockers.findIndex((other) => other.task.id.equals(blocker.id)) === at
+      );
+    })
+    .map((each) => each.task);
 
 export const Blocking = {
   forNewTask(
     workspaceId: WorkspaceId,
-    blockers: readonly Task[],
+    blockers: readonly Blocker[],
   ): readonly TaskId[] {
     return openAmong(workspaceId, blockers).map((each) => each.id);
   },
@@ -33,7 +43,7 @@ export const Blocking = {
   // A task cannot wait for itself, nor for a task that waits for it.
   forTask(
     task: Pick<Task, 'id' | 'workspaceId'>,
-    blockers: readonly Task[],
+    blockers: readonly Blocker[],
     graph: BlockingGraph,
   ): readonly TaskId[] {
     const open = openAmong(task.workspaceId, blockers);

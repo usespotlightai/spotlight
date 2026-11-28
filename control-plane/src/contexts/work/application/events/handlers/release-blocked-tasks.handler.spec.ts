@@ -2,14 +2,15 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ReleaseBlockedTasks } from '@work/application/events/handlers/release-blocked-tasks.handler';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { TaskCompleted } from '@work/domain/events/task-completed.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
-import { TaskFinished } from '@work/domain/events/task-finished.event';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
@@ -35,16 +36,41 @@ const line = deliveryLineOf({
   newId: fresh,
 });
 
-const opened = (title: string, blockedBy: readonly Task[] = []) =>
+const opened = (
+  title: string,
+  blockedBy: readonly Task[] = [],
+  at = line.backlog.id,
+) =>
   Task.add({
     line,
-    at: line.backlog.id,
+    at,
     title: TaskTitle.of(title),
     rank: TaskRank.of('i'),
     blockedBy: blockedBy.map((each) => each.id),
     now: NOW,
     newId: fresh,
   });
+
+const stationKeyed = (key: string) => {
+  const station = line.stationKeyed(StationKey.of(key));
+
+  if (!station) {
+    throw new Error(`The line has no station ${key}`);
+  }
+
+  return station;
+};
+
+const note = (body: string) => ({
+  line,
+  body: TaskNoteBody.of(body),
+  at: NOW,
+  voice: Voice.station(),
+});
+
+// Each completion among the events of `task`, as the outbox gives them to the handler.
+const completionsOf = (task: Task) =>
+  task.pullEvents().filter((each) => each instanceof TaskCompleted);
 
 const releasing = (stored: Task[], conflicts = 0) => {
   const saved: Task[] = [];
@@ -91,8 +117,8 @@ describe('ReleaseBlockedTasks', () => {
     const third = opened('Web 3/4', [first]);
     const { handler, saved, transactions } = releasing([first, second, third]);
 
-    await handler.onFinished(
-      new TaskFinished(first.id, WORKSPACE, line.completed.id, NOW),
+    await handler.onCompleted(
+      new TaskCompleted(first.id, WORKSPACE, line.completed.id, NOW),
     );
 
     expect(transactions.count).toBe(2);
@@ -106,14 +132,45 @@ describe('ReleaseBlockedTasks', () => {
     ]);
   });
 
+  it('keeps a task waiting while the task it waits for is finished at Code Review with its pull request open, and starts it once that task is completed', async () => {
+    const reviewing = opened('API 1/4', [], stationKeyed('code-review').id)
+      .assignRun(RunId.of('run_api'), line)
+      .finishHere(RunId.of('run_api'), line, note('Opened the pull request.'));
+    const waiting = opened('Web 2/4', [reviewing]);
+    const stored = [reviewing, waiting];
+    const { handler, saved } = releasing(stored);
+
+    for (const each of completionsOf(reviewing)) {
+      await handler.onCompleted(each);
+    }
+
+    expect(reviewing.finished).toBe(true);
+    expect(saved).toEqual([]);
+
+    const merged = reviewing.react(
+      line,
+      line.completed.id,
+      TaskRank.of('i'),
+      note('The pull request was merged.'),
+    );
+
+    for (const each of completionsOf(merged)) {
+      await handler.onCompleted(each);
+    }
+
+    expect(saved.map((each) => [each.stationId, each.blocked])).toEqual([
+      [line.entry?.id, false],
+    ]);
+  });
+
   it('keeps waiting a task that still waits for another', async () => {
     const first = opened('Web 1/4');
     const other = opened('Docs');
     const second = opened('Web 2/4', [first, other]);
     const { handler, saved } = releasing([first, other, second]);
 
-    await handler.onFinished(
-      new TaskFinished(first.id, WORKSPACE, line.completed.id, NOW),
+    await handler.onCompleted(
+      new TaskCompleted(first.id, WORKSPACE, line.completed.id, NOW),
     );
 
     expect(saved.map((each) => each.stationId)).toEqual([line.backlog.id]);
@@ -126,8 +183,8 @@ describe('ReleaseBlockedTasks', () => {
     const second = opened('Web 2/4', [first]);
     const { handler, saved } = releasing([first, second], 1);
 
-    await handler.onFinished(
-      new TaskFinished(first.id, WORKSPACE, line.completed.id, NOW),
+    await handler.onCompleted(
+      new TaskCompleted(first.id, WORKSPACE, line.completed.id, NOW),
     );
 
     expect(saved).toHaveLength(1);
@@ -138,16 +195,16 @@ describe('ReleaseBlockedTasks', () => {
     const second = opened('Web 2/4', [first]);
     const stored = [first, second];
     const { handler, saved } = releasing(stored);
-    const finished = new TaskFinished(
+    const completed = new TaskCompleted(
       first.id,
       WORKSPACE,
       line.completed.id,
       NOW,
     );
 
-    await handler.onFinished(finished);
+    await handler.onCompleted(completed);
     stored.splice(1, 1, ...saved);
-    await handler.onFinished(finished);
+    await handler.onCompleted(completed);
 
     expect(saved).toHaveLength(1);
   });
@@ -164,8 +221,8 @@ describe('ReleaseBlockedTasks', () => {
     );
     const { handler, saved } = releasing([first, done]);
 
-    await handler.onFinished(
-      new TaskFinished(first.id, WORKSPACE, line.completed.id, NOW),
+    await handler.onCompleted(
+      new TaskCompleted(first.id, WORKSPACE, line.completed.id, NOW),
     );
 
     expect(saved).toEqual([]);
@@ -178,8 +235,8 @@ describe('ReleaseBlockedTasks', () => {
     const { handler, saved } = releasing([first, second, third], 3);
 
     await expect(
-      handler.onFinished(
-        new TaskFinished(first.id, WORKSPACE, line.completed.id, NOW),
+      handler.onCompleted(
+        new TaskCompleted(first.id, WORKSPACE, line.completed.id, NOW),
       ),
     ).rejects.toThrow(AggregateError);
     expect(saved.map((each) => each.id)).toEqual([third.id]);

@@ -134,7 +134,10 @@ const creating = (line: LineMap | null, stored: readonly Task[] = []) => {
       find: vi.fn(async () => accepted()),
       save,
     }),
-    partial<LineMapsPort>({ find: vi.fn(async () => line) }),
+    partial<LineMapsPort>({
+      find: vi.fn(async () => line),
+      findByStation: vi.fn(async () => line),
+    }),
     { placementsAt: vi.fn(async () => []) },
     partial<CreateTask>({ create }),
     new AttachmentCopies(partial<AttachmentStorePort>({ copy })),

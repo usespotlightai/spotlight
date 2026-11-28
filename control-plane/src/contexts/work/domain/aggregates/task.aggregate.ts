@@ -28,6 +28,7 @@ import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskAssigned } from '@work/domain/events/task-assigned.event';
 import { TaskBaseMoved } from '@work/domain/events/task-base-moved.event';
 import { TaskBlockersChanged } from '@work/domain/events/task-blockers-changed.event';
+import { TaskCompleted } from '@work/domain/events/task-completed.event';
 import { TaskConversationRead } from '@work/domain/events/task-conversation-read.event';
 import { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
@@ -949,6 +950,9 @@ export class Task extends EventRecorder {
       moved.record(
         new TaskFinished(moved.id, moved.workspaceId, into.id, newNote.at),
       );
+      moved.record(
+        new TaskCompleted(moved.id, moved.workspaceId, into.id, newNote.at),
+      );
     }
 
     return moved;
@@ -1594,6 +1598,11 @@ export class Task extends EventRecorder {
 
   get finished(): boolean {
     return this.finishedAt !== null;
+  }
+
+  // A completed task is in the Completed station of its line. A task that finished at the end of its line, with its pull request still open, is finished but not completed.
+  completedOn(line: LineMap): boolean {
+    return line.completed.id.equals(this.stationId);
   }
 
   get reopensOnMention(): boolean {
@@ -3656,7 +3665,8 @@ export class Task extends EventRecorder {
         );
   }
 
-  blockerFinished(
+  // Call it when `blocker` is completed (TaskCompleted). A blocker that only finished blocks this task still.
+  blockerCompleted(
     blocker: TaskId,
     line: LineMap,
     ranksAtRelease: readonly TaskRank[],

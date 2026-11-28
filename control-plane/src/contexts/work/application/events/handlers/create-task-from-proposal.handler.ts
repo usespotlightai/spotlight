@@ -5,6 +5,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { AttachmentCopies } from '@work/application/services/attachment-copies';
+import { blockersOf } from '@work/application/services/blockers';
 import type { CreateTask } from '@work/application/services/create-task';
 import { requestedBase } from '@work/application/services/requested-base';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -68,7 +69,10 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
       await this.transaction.inTransaction(async () => {
         const blockedBy = Blocking.forNewTask(
           line.workspaceId,
-          await this.tasks.blockersAmong(event.blockedBy),
+          await blockersOf(
+            this.lines,
+            await this.tasks.blockersAmong(event.blockedBy),
+          ),
         );
         const at = Task.opensAt(line, station.id, blockedBy);
 

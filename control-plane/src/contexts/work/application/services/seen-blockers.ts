@@ -1,10 +1,11 @@
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import { blockersOf } from '@work/application/services/blockers';
 import type { WorkAccess } from '@work/application/services/work-access.service';
-import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { Blocker } from '@work/domain/services/blocking';
 
 // The tasks a person names as blockers: each must exist, on a team they see. Call it in the transaction that saves the blocked task.
 export class SeenBlockers {
@@ -17,24 +18,24 @@ export class SeenBlockers {
   async named(
     ids: readonly string[],
     viewer: UserId,
-  ): Promise<readonly Task[]> {
-    const blockers = await this.tasks.blockersAmong(
+  ): Promise<readonly Blocker[]> {
+    const tasks = await this.tasks.blockersAmong(
       ids.map((each) => TaskId.of(each)),
     );
 
     const unknown = ids.find(
-      (id) => !blockers.some((each) => each.id.value === id),
+      (id) => !tasks.some((each) => each.id.value === id),
     );
 
     if (unknown !== undefined) {
       throw new UnknownTaskError(unknown);
     }
 
-    for (const blocker of blockers) {
-      const line = await this.lines.findByStation(blocker.stationId);
+    const blockers = await blockersOf(this.lines, tasks);
 
-      if (!line || !(await this.access.seesTeam(line.teamId, viewer))) {
-        throw new UnknownTaskError(blocker.id.value);
+    for (const { task, line } of blockers) {
+      if (!(await this.access.seesTeam(line.teamId, viewer))) {
+        throw new UnknownTaskError(task.id.value);
       }
     }
 

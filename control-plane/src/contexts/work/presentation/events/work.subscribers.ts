@@ -96,6 +96,7 @@ import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.eve
 import type { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import type { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
+import type { TaskCompleted } from '@work/domain/events/task-completed.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import type { TaskFinished } from '@work/domain/events/task-finished.event';
 import type { TaskMarked } from '@work/domain/events/task-marked.event';
@@ -398,10 +399,10 @@ export const workSubscribers = (reactions: {
     ['task.deleted'],
     (event) => reactions.taskDraft.on(event),
   ),
-  subscribing<TaskFinished>(
-    'work.start-tasks-blocked-by-finished-task',
-    ['task.finished'],
-    (event) => reactions.blockedTasks.onFinished(event),
+  subscribing<TaskCompleted>(
+    'work.start-tasks-blocked-by-completed-task',
+    ['task.completed'],
+    (event) => reactions.blockedTasks.onCompleted(event),
     { callsOut: true },
   ),
   subscribing<TaskDeleted>(

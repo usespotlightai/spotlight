@@ -14,6 +14,8 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskBlockersChanged } from '@work/domain/events/task-blockers-changed.event';
+import { TaskCompleted } from '@work/domain/events/task-completed.event';
+import { TaskFinished } from '@work/domain/events/task-finished.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { InvalidTaskBlockerError } from '@work/domain/exceptions/invalid-task-blocker.error';
 import { TaskBlockedError } from '@work/domain/exceptions/task-blocked.error';
@@ -84,6 +86,13 @@ const lineIn = (workspaceId: string | undefined) =>
         stations: LINE.stations,
       });
 
+const blockerOf = (task: Task) => ({
+  task,
+  line: task.workspaceId.equals(LINE.workspaceId)
+    ? LINE
+    : lineIn(task.workspaceId.value),
+});
+
 const opened = (
   id: string,
   input: {
@@ -100,7 +109,10 @@ const opened = (
     title: TaskTitle.of(`Web ${id}`),
     rank: TaskRank.of('i'),
     createdBy: LEON,
-    blockedBy: Blocking.forNewTask(line.workspaceId, input.blockedBy ?? []),
+    blockedBy: Blocking.forNewTask(
+      line.workspaceId,
+      (input.blockedBy ?? []).map((each) => blockerOf(each)),
+    ),
     now: NOW,
     newId: () => id,
   });
@@ -120,11 +132,26 @@ const completed = (task: Task) =>
     { mover: LEON },
   );
 
+// A run finished it at the end of its line. Its pull request is still open.
+const finishedHere = (task: Task) =>
+  task.assignRun(RunId.of('run_1'), LINE).finishHere(RunId.of('run_1'), LINE, {
+    line: LINE,
+    body: TaskNoteBody.of('Opened the pull request.'),
+    at: NOW,
+    voice: Voice.station(),
+  });
+
 const blockedBy = (
   task: Task,
   blockers: readonly Task[],
   graph = BlockingGraph.empty(),
-) => task.blockBy(LINE, Blocking.forTask(task, blockers, graph), LEON, NOW);
+) =>
+  task.blockBy(
+    LINE,
+    Blocking.forTask(task, blockers.map(blockerOf), graph),
+    LEON,
+    NOW,
+  );
 
 const graphOf = (...tasks: Task[]) =>
   BlockingGraph.of(
@@ -154,6 +181,33 @@ describe('Task blocked by other tasks', () => {
 
     expect(second.blocked).toBe(false);
     expect(second.stationId).toEqual(TRIAGE);
+  });
+
+  it('is blocked by a task that finished at the end of its line with its pull request open', () => {
+    const first = finishedHere(opened('task_1', { at: TRIAGE }));
+    const second = opened('task_2', { at: TRIAGE, blockedBy: [first] });
+    const third = blockedBy(opened('task_3'), [first]);
+
+    expect(first.finished).toBe(true);
+    expect(first.completedOn(LINE)).toBe(false);
+    expect(ids(second)).toEqual(['task_1']);
+    expect(second.stationId).toEqual(BACKLOG);
+    expect(ids(third)).toEqual(['task_1']);
+  });
+
+  it('is completed only once it moves into Completed, not when it finishes at the end of its line', () => {
+    const finished = finishedHere(opened('task_1', { at: TRIAGE }));
+    const finishing = finished.pullEvents();
+
+    expect(finishing.some((each) => each instanceof TaskFinished)).toBe(true);
+    expect(finishing.some((each) => each instanceof TaskCompleted)).toBe(false);
+
+    const done = completed(finished);
+
+    expect(done.completedOn(LINE)).toBe(true);
+    expect(done.pullEvents()).toContainEqual(
+      new TaskCompleted(done.id, done.workspaceId, DONE, NOW),
+    );
   });
 
   it('cannot be blocked by a task of another workspace', () => {
@@ -263,13 +317,13 @@ describe('Task blocked by other tasks', () => {
     const other = opened('task_3');
     const second = opened('task_2', { blockedBy: [first, other] });
 
-    const halfway = second.blockerFinished(first.id, LINE, [], NOW);
+    const halfway = second.blockerCompleted(first.id, LINE, [], NOW);
 
     expect(halfway.stationId).toEqual(BACKLOG);
     expect(ids(halfway)).toEqual(['task_3']);
 
     halfway.pullEvents();
-    const started = halfway.blockerFinished(
+    const started = halfway.blockerCompleted(
       other.id,
       LINE,
       [TaskRank.of('m')],
@@ -301,7 +355,7 @@ describe('Task blocked by other tasks', () => {
     const first = opened('task_1');
     const second = opened('task_2', { blockedBy: [first] });
 
-    const released = second.blockerFinished(first.id, bare, [], NOW);
+    const released = second.blockerCompleted(first.id, bare, [], NOW);
 
     expect(released.blocked).toBe(false);
     expect(released.stationId).toEqual(BACKLOG);
@@ -310,7 +364,7 @@ describe('Task blocked by other tasks', () => {
   it('ignores a completed task it does not wait for', () => {
     const second = opened('task_2');
 
-    expect(second.blockerFinished(TaskId.of('task_1'), LINE, [], NOW)).toBe(
+    expect(second.blockerCompleted(TaskId.of('task_1'), LINE, [], NOW)).toBe(
       second,
     );
   });
