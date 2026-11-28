@@ -256,19 +256,19 @@ export const runnerStatus = (runner: ActiveRunner): string => {
   return runner.currentRun ? 'Running' : 'Starting';
 };
 
-export const hiddenRunTip = (run: LeasedRun): string => run.hidden ?? '';
+export const hiddenRunTip = (run: LeasedRun): string => run.hiddenReason ?? '';
 
 export const formatRun = (run: LeasedRun | null): string =>
-  run === null ? 'No run yet' : (run.title ?? run.hidden ?? '');
+  run === null ? 'No run yet' : (run.title ?? run.hiddenReason ?? '');
 
 export const hiddenFromViewer = (run: LeasedRun | null): boolean =>
-  run !== null && run.hidden !== null;
+  run !== null && run.hiddenReason !== null;
 
 export const leasedRunPath = (
   slug: string,
   run: LeasedRun | null,
 ): string | null =>
-  run?.opens ? runPath(slug, run.opens.teamId, run.opens.runId) : null;
+  run?.link ? runPath(slug, run.link.teamId, run.link.runId) : null;
 
 export const isWarm = (sandbox: IdleSandbox): boolean =>
   sandbox.warmLineId !== null;

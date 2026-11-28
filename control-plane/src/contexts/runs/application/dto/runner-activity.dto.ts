@@ -1,4 +1,4 @@
-interface OpenedRunDto {
+interface RunLinkDto {
   readonly runId: string;
   readonly teamId: string;
 }
@@ -9,8 +9,8 @@ export interface LeasedRunDto {
   readonly kind: string;
   readonly teamId: string | null;
   readonly title: string | null;
-  readonly hidden: string | null;
-  readonly opens: OpenedRunDto | null;
+  readonly hiddenReason: string | null;
+  readonly link: RunLinkDto | null;
 }
 
 interface BusyRunnerDto {

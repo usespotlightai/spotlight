@@ -1,4 +1,7 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type {
+  WorkspaceAccessPort,
+  WorkspaceMembership,
+} from '@identity/application/ports/workspace-access.port';
 import {
   type RequesterLabel,
   requesterRefOf,
@@ -18,11 +21,9 @@ import {
   TitleAudience,
   type TitleAudienceState,
 } from '@runs/domain/services/title-audience';
-import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface TitledRun extends ListedRun {
   readonly teamId: string | null;
@@ -34,14 +35,17 @@ export interface TitledRun extends ListedRun {
  */
 export interface RunTitle {
   readonly title: string | null;
-  readonly hidden: string | null;
-  readonly opens: { readonly runId: string; readonly teamId: string } | null;
+  readonly hiddenReason: string | null;
+  readonly link: { readonly runId: string; readonly teamId: string } | null;
 }
+
+/** The workspace whose runs are titled, by its id and its slug. */
+type TitledWorkspace = Pick<WorkspaceMembership, 'workspaceId' | 'slug'>;
 
 const UNNAMED: RunTitle = {
   title: UNNAMED_RUN_TITLE,
-  hidden: null,
-  opens: null,
+  hiddenReason: null,
+  link: null,
 };
 
 const unique = (runIds: readonly RunId[]): RunId[] =>
@@ -59,7 +63,7 @@ export class RunTitles {
   ) {}
 
   async of(
-    workspaceId: WorkspaceId,
+    workspace: TitledWorkspace,
     runs: readonly TitledRun[],
     viewer: UserId,
   ): Promise<ReadonlyMap<string, RunTitle>> {
@@ -102,7 +106,7 @@ export class RunTitles {
       }
 
       const found = await this.activity.runsOf(
-        workspaceId,
+        workspace.workspaceId,
         unique(following.map(({ state }) => state.runId)),
       );
       const unlabelled = found.filter((each) => labelOf(each) === null);
@@ -139,15 +143,16 @@ export class RunTitles {
     const gates = [...states.values()].flatMap((state) =>
       state.status === 'decided' ? [state.gate] : [],
     );
+    const gatedRuns = new Map(
+      gates.flatMap((gate) => {
+        const run = gate.by === 'run' ? known.get(gate.runId.value) : null;
+        return run ? [[run.runId.value, run] as const] : [];
+      }),
+    );
     const [readable, members] = await Promise.all([
-      this.viewers.readableAmong(
-        gates.flatMap((gate) => {
-          const run = gate.by === 'run' ? known.get(gate.runId.value) : null;
-          return run ? [run] : [];
-        }),
-        viewer,
-      ),
+      this.viewers.readableAmong([...gatedRuns.values()], viewer),
       this.membersAmong(
+        workspace,
         gates.flatMap((gate) => (gate.by === 'team' ? [gate.teamId] : [])),
         viewer,
       ),
@@ -172,34 +177,40 @@ export class RunTitles {
           shown.shows === 'title'
             ? {
                 title: label.title,
-                hidden: null,
-                opens: shown.opens,
+                hiddenReason: null,
+                link: shown.opens,
               }
             : {
                 title: null,
-                hidden: shown.hidden ?? TEAM_HIDDEN_TITLE,
-                opens: null,
+                hiddenReason: shown.hidden ?? TEAM_HIDDEN_TITLE,
+                link: null,
               },
         ] as const;
       }),
     );
   }
 
+  /** The teams among these whose members the viewer is one of, from one read of the workspace's teams. */
   private async membersAmong(
+    workspace: TitledWorkspace,
     teams: readonly TeamId[],
     viewer: UserId,
   ): Promise<ReadonlySet<string>> {
-    const ids = [...new Set(teams.map((each) => each.value))];
-    const member = await Promise.all(
-      ids.map(
-        async (id) =>
-          (await this.access.permissionsAsTeamMember(
-            TeamId.of(id),
-            PersonPrincipal.of(viewer),
-          )) !== null,
-      ),
-    );
+    if (teams.length === 0) {
+      return new Set();
+    }
 
-    return new Set(ids.filter((_, at) => member[at]));
+    const access = await this.access.teamAccessIn(workspace.slug, viewer);
+    const gated = new Set(teams.map((each) => each.value));
+
+    return new Set(
+      access && access.workspaceId.equals(workspace.workspaceId)
+        ? access.teams.flatMap((each) =>
+            each.actsOn && gated.has(each.teamId.value)
+              ? [each.teamId.value]
+              : [],
+          )
+        : [],
+    );
   }
 }

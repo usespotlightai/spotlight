@@ -45,7 +45,7 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
         keys,
       );
       const titles = await this.titles.of(
-        membership.workspaceId,
+        membership,
         [...leased, ...lastRuns],
         viewer,
       );
@@ -59,8 +59,8 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
           kind: each.requester.kind,
           teamId: each.teamId,
           title: titled?.title ?? null,
-          hidden: titled?.hidden ?? null,
-          opens: titled?.opens ?? null,
+          hiddenReason: titled?.hiddenReason ?? null,
+          link: titled?.link ?? null,
         };
       };
 

@@ -80,6 +80,26 @@ describe('TitleAudience', () => {
     });
   });
 
+  it('takes the team a listed run’s own title names, as of a deleted chat, and not the readers of the run', () => {
+    const deletedChat = {
+      runId: TASK,
+      teamId: 'team_1',
+      listed: true,
+      readers: { of: 'team-members', teamId: TEAM } as const,
+    };
+    const state = TitleAudience.following(follows, work(), deletedChat);
+
+    expect(state).toEqual({
+      status: 'decided',
+      gate: { by: 'team', teamId: TEAM },
+      opens: null,
+    });
+    expect(TitleAudience.shown(state, false)).toEqual({
+      shows: 'hidden',
+      hidden: null,
+    });
+  });
+
   it('shows nothing where no one may read the title', () => {
     const nobody = TitleAudience.following(follows, work(null), null);
 

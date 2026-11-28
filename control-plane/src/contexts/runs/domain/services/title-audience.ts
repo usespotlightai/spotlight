@@ -67,9 +67,9 @@ const teamOf = (teamId: TeamId): TitleAudienceState =>
   decided({ by: 'team', teamId });
 
 /**
- * Finds who may read a run's title from the readers its requester names. Work for another run follows that run: a
- * listed run's readers read it, an unlisted run's requester names the readers in turn, and where the run is gone the
- * members of the work's own team do.
+ * Finds who may read a run's title from the readers its requester names. Work for another run follows that run: the
+ * members of the team that run's title names read it, else a listed run's readers do, an unlisted run's requester
+ * names the readers in turn, and where the run is gone the members of the work's own team do.
  */
 export const TitleAudience = {
   /** Work for work for a run, such as a judging of an assist session's run, follows two runs; none goes further. */
@@ -110,6 +110,11 @@ export const TitleAudience = {
 
     const readers = followed.readers;
 
+    // The team the followed run's own title names, such as of a deleted chat, also reads the work's title.
+    if (readers?.of === 'team-members') {
+      return teamOf(readers.teamId);
+    }
+
     if (followed.listed) {
       return decided(
         {
@@ -122,10 +127,6 @@ export const TitleAudience = {
           state.opens && readers?.of === 'the-run' && readers.opens,
         ),
       );
-    }
-
-    if (readers?.of === 'team-members') {
-      return teamOf(readers.teamId);
     }
 
     return readers?.of === 'run' ? { ...state, runId: readers.runId } : NOBODY;

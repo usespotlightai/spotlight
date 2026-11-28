@@ -1923,7 +1923,7 @@ export type RecordEgressConnectionsRequestDto = {
   records: Array<EgressConnectionRequestDto>;
 };
 
-export type OpenedRunResponseDto = {
+export type RunLinkResponseDto = {
   runId: string;
   teamId: string;
 };
@@ -1940,17 +1940,17 @@ export type LeasedRunResponseDto = {
    */
   teamId: string | null;
   /**
-   * What the run does, in plain words: the title of its task or chat, or what the work for that task does. Null where it is hidden from the caller, or its requester names nothing
+   * What the run does, in plain words: the title of its task or chat, or what the work for that task does. Null where it is hidden from the caller
    */
   title: string | null;
   /**
    * What the caller sees in place of the title they may not read, such as that the work belongs to a team they are not on. Null where the title shows
    */
-  hidden: string | null;
+  hiddenReason: string | null;
   /**
-   * The run the title opens: the run itself, or the task run its work is for. Null where it opens none
+   * The run the title links to: the run itself, or the task run its work is for. Null where it links to none
    */
-  opens: OpenedRunResponseDto | null;
+  link: RunLinkResponseDto | null;
 };
 
 export type BusyRunnerResponseDto = {

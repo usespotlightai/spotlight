@@ -310,8 +310,8 @@ const leasedRun = (
   kind: 'task',
   teamId,
   title,
-  hidden: null,
-  opens: { runId: id, teamId },
+  hiddenReason: null,
+  link: { runId: id, teamId },
 });
 
 const BUSY_RUNNERS: RunnerActivityResponseDto['runners'] = [

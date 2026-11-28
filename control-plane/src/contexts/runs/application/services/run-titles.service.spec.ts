@@ -1,7 +1,4 @@
-import type {
-  TeamPermissions,
-  WorkspaceAccessPort,
-} from '@identity/application/ports/workspace-access.port';
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { RunPolicyContract } from '@runs/application/contracts/run-order.contract';
 import {
   type RequesterLabel,
@@ -23,6 +20,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 const VIEWER = UserId.of('user_1');
+const MEMBERSHIP = { workspaceId: WORKSPACE, slug: 'acme' };
 
 const POLICY: RunPolicyContract = {
   holdsTurn: false,
@@ -76,6 +74,12 @@ const SEARCH = runOf('run_search', {
   kind: 'search',
   id: 'search_1',
 });
+const DELETED_CHAT_RUN = runOf(
+  'run_deleted_chat',
+  { owner: 'work', kind: 'chat', id: 'chat_deleted' },
+  { listed: true },
+);
+const ON_DELETED_CHAT = sessionRunOf('on_deleted_chat');
 const SESSION_ON_SESSION = sessionRunOf('on_session');
 const SESSION_ON_LOOP = sessionRunOf('on_loop');
 const NO_TEAM_ON_GONE = runOf(
@@ -132,6 +136,14 @@ const LABELS: Record<string, RequesterLabel | undefined> = {
     'Building the change stack for “Plan the migration”',
     'run_chat',
   ),
+  [requesterRefOf(DELETED_CHAT_RUN.requester)]: {
+    title: 'Deleted agent chat',
+    readers: { of: 'team-members', teamId: TeamId.of('team_1') },
+  },
+  [requesterRefOf(ON_DELETED_CHAT.requester)]: sessionLabel(
+    'Checking proposed memories',
+    'run_deleted_chat',
+  ),
   [requesterRefOf(ON_GONE.requester)]: sessionLabel(
     'Checking proposed memories',
     'run_gone',
@@ -185,46 +197,59 @@ const titling = ({
       ),
   );
   const runsOf = vi.fn(async (_workspace: unknown, ids: readonly RunId[]) =>
-    [TASK_RUN, CHAT_RUN, REPLAY_RUN, JUDGING, SESSION_ON_LOOP].filter((each) =>
-      ids.some((id) => id.equals(each.runId)),
-    ),
+    [
+      TASK_RUN,
+      CHAT_RUN,
+      DELETED_CHAT_RUN,
+      REPLAY_RUN,
+      JUDGING,
+      SESSION_ON_LOOP,
+    ].filter((each) => ids.some((id) => id.equals(each.runId))),
   );
-  const permissionsAsTeamMember = vi.fn(async (teamId: TeamId) =>
-    teams.includes(teamId.value) ? partial<TeamPermissions>({ teamId }) : null,
-  );
+  const teamAccessIn = vi.fn(async () => ({
+    workspaceId: WORKSPACE,
+    teams: ['team_1', 'team_other'].map((each) => ({
+      teamId: TeamId.of(each),
+      sees: true,
+      actsOn: teams.includes(each),
+      joined: teams.includes(each),
+    })),
+  }));
 
   return {
     titles: new RunTitles(
       labels,
       partial<RunViewing>({ readableAmong }),
       partial<RunnerActivityReaderPort>({ runsOf }),
-      partial<WorkspaceAccessPort>({ permissionsAsTeamMember }),
+      partial<WorkspaceAccessPort>({ teamAccessIn }),
     ),
     runsOf,
+    readableAmong,
+    teamAccessIn,
   };
 };
 
 const UNNAMED_TITLE = {
   title: 'A run',
-  hidden: null,
-  opens: null,
+  hiddenReason: null,
+  link: null,
 };
 
 describe('RunTitles', () => {
   it('titles work for a task run to whoever reads that run, opening it', async () => {
     const { titles, runsOf } = titling({ readable: ['run_task'], teams: [] });
 
-    const titled = await titles.of(WORKSPACE, [JUDGING, TASK_RUN], VIEWER);
+    const titled = await titles.of(MEMBERSHIP, [JUDGING, TASK_RUN], VIEWER);
 
     expect(titled.get('run_judging')).toEqual({
       title: 'Judging Implementation on “Incident owners 2/5”',
-      hidden: null,
-      opens: { runId: 'run_task', teamId: 'team_1' },
+      hiddenReason: null,
+      link: { runId: 'run_task', teamId: 'team_1' },
     });
     expect(titled.get('run_task')).toEqual({
       title: 'Incident owners 2/5',
-      hidden: null,
-      opens: { runId: 'run_task', teamId: 'team_1' },
+      hiddenReason: null,
+      link: { runId: 'run_task', teamId: 'team_1' },
     });
     expect(runsOf).toHaveBeenCalledTimes(1);
   });
@@ -233,24 +258,24 @@ describe('RunTitles', () => {
     const { titles } = titling({ readable: [], teams: ['team_1'] });
 
     expect(
-      (await titles.of(WORKSPACE, [REPLAY_RUN], VIEWER)).get('run_replay'),
+      (await titles.of(MEMBERSHIP, [REPLAY_RUN], VIEWER)).get('run_replay'),
     ).toEqual({
       title: 'A replay run',
-      hidden: null,
-      opens: null,
+      hiddenReason: null,
+      link: null,
     });
   });
 
   it('hides the title of another team’s run from a viewer on a different team', async () => {
     const { titles } = titling({ readable: [], teams: ['team_1'] });
 
-    const titled = await titles.of(WORKSPACE, [REPLAY_RUN, SEARCH], VIEWER);
+    const titled = await titles.of(MEMBERSHIP, [REPLAY_RUN, SEARCH], VIEWER);
 
     expect(titled.get('run_replay')?.title).toBe('A replay run');
     expect(titled.get('run_search')).toEqual({
       title: null,
-      hidden: TASK_HIDDEN,
-      opens: null,
+      hiddenReason: TASK_HIDDEN,
+      link: null,
     });
   });
 
@@ -258,13 +283,13 @@ describe('RunTitles', () => {
     const { titles } = titling({ readable: [], teams: ['team_1'] });
 
     expect(
-      (await titles.of(WORKSPACE, [JUDGING_REPLAY], VIEWER)).get(
+      (await titles.of(MEMBERSHIP, [JUDGING_REPLAY], VIEWER)).get(
         'run_judging_replay',
       ),
     ).toEqual({
       title: 'Judging Implementation on “Incident owners 2/5”',
-      hidden: null,
-      opens: null,
+      hiddenReason: null,
+      link: null,
     });
   });
 
@@ -272,37 +297,37 @@ describe('RunTitles', () => {
     const { titles } = titling({ readable: [], teams: [] });
 
     const titled = await titles.of(
-      WORKSPACE,
+      MEMBERSHIP,
       [JUDGING, JUDGING_REPLAY, ON_CHAT, SEARCH],
       VIEWER,
     );
 
     expect(titled.get('run_judging')).toEqual({
       title: null,
-      hidden: TASK_HIDDEN,
-      opens: null,
+      hiddenReason: TASK_HIDDEN,
+      link: null,
     });
     expect(
-      (await titles.of(WORKSPACE, [REPLAY_RUN], VIEWER)).get('run_replay'),
+      (await titles.of(MEMBERSHIP, [REPLAY_RUN], VIEWER)).get('run_replay'),
     ).toEqual({
       title: null,
-      hidden: TASK_HIDDEN,
-      opens: null,
+      hiddenReason: TASK_HIDDEN,
+      link: null,
     });
-    expect(titled.get('run_judging_replay')?.hidden).toBe(TASK_HIDDEN);
-    expect(titled.get('run_on_chat')?.hidden).toBe(CHAT_HIDDEN);
-    expect(titled.get('run_search')?.hidden).toBe(TASK_HIDDEN);
+    expect(titled.get('run_judging_replay')?.hiddenReason).toBe(TASK_HIDDEN);
+    expect(titled.get('run_on_chat')?.hiddenReason).toBe(CHAT_HIDDEN);
+    expect(titled.get('run_search')?.hiddenReason).toBe(TASK_HIDDEN);
   });
 
   it('titles work for a run that is gone to the members of the work’s team', async () => {
     const { titles } = titling({ readable: [], teams: ['team_1'] });
 
     expect(
-      (await titles.of(WORKSPACE, [ON_GONE], VIEWER)).get('run_on_gone'),
+      (await titles.of(MEMBERSHIP, [ON_GONE], VIEWER)).get('run_on_gone'),
     ).toEqual({
       title: 'Checking proposed memories',
-      hidden: null,
-      opens: null,
+      hiddenReason: null,
+      link: null,
     });
   });
 
@@ -310,27 +335,79 @@ describe('RunTitles', () => {
     const { titles } = titling({ readable: ['run_chat'], teams: [] });
 
     expect(
-      (await titles.of(WORKSPACE, [ON_CHAT], VIEWER)).get('run_on_chat'),
+      (await titles.of(MEMBERSHIP, [ON_CHAT], VIEWER)).get('run_on_chat'),
     ).toEqual({
       title: 'Building the change stack for “Plan the migration”',
-      hidden: null,
-      opens: null,
+      hiddenReason: null,
+      link: null,
     });
+  });
+
+  it('titles work for a deleted chat’s run to the members of its team, as the chat run’s own title is', async () => {
+    const { titles } = titling({ readable: [], teams: ['team_1'] });
+
+    const titled = await titles.of(
+      MEMBERSHIP,
+      [ON_DELETED_CHAT, DELETED_CHAT_RUN],
+      VIEWER,
+    );
+
+    expect(titled.get('run_on_deleted_chat')).toEqual({
+      title: 'Checking proposed memories',
+      hiddenReason: null,
+      link: null,
+    });
+    expect(titled.get('run_deleted_chat')?.title).toBe('Deleted agent chat');
+    expect(
+      (
+        await titling({ readable: [], teams: [] }).titles.of(
+          MEMBERSHIP,
+          [ON_DELETED_CHAT],
+          VIEWER,
+        )
+      ).get('run_on_deleted_chat'),
+    ).toEqual({ title: null, hiddenReason: TASK_HIDDEN, link: null });
+  });
+
+  it('reads the viewer’s teams once for every team, and asks once about each run that gates a title', async () => {
+    const { titles, readableAmong, teamAccessIn } = titling({
+      readable: ['run_task'],
+      teams: ['team_1'],
+    });
+
+    await titles.of(
+      MEMBERSHIP,
+      [JUDGING, TASK_RUN, SESSION_ON_SESSION, REPLAY_RUN, SEARCH],
+      VIEWER,
+    );
+
+    expect(teamAccessIn).toHaveBeenCalledTimes(1);
+    expect(teamAccessIn).toHaveBeenCalledWith('acme', VIEWER);
+    expect(readableAmong).toHaveBeenCalledTimes(1);
+    expect(readableAmong).toHaveBeenCalledWith([TASK_RUN], VIEWER);
+  });
+
+  it('reads no teams where no title names one', async () => {
+    const { titles, teamAccessIn } = titling({ readable: [], teams: [] });
+
+    await titles.of(MEMBERSHIP, [JUDGING, TASK_RUN], VIEWER);
+
+    expect(teamAccessIn).not.toHaveBeenCalled();
   });
 
   it('follows work for work for a run, and no further', async () => {
     const { titles } = titling({ readable: ['run_task'], teams: [] });
 
     const titled = await titles.of(
-      WORKSPACE,
+      MEMBERSHIP,
       [SESSION_ON_SESSION, SESSION_ON_LOOP],
       VIEWER,
     );
 
     expect(titled.get('run_on_session')).toEqual({
       title: 'Judging the judge',
-      hidden: null,
-      opens: { runId: 'run_task', teamId: 'team_1' },
+      hiddenReason: null,
+      link: { runId: 'run_task', teamId: 'team_1' },
     });
     expect(titled.get('run_on_loop')).toEqual(UNNAMED_TITLE);
   });
@@ -342,7 +419,7 @@ describe('RunTitles', () => {
     });
 
     expect(
-      (await titles.of(WORKSPACE, [UNLISTED_OWN], VIEWER)).get('run_unlisted'),
+      (await titles.of(MEMBERSHIP, [UNLISTED_OWN], VIEWER)).get('run_unlisted'),
     ).toEqual(UNNAMED_TITLE);
   });
 
@@ -350,7 +427,7 @@ describe('RunTitles', () => {
     const { titles } = titling({ readable: [], teams: [] });
 
     const titled = await titles.of(
-      WORKSPACE,
+      MEMBERSHIP,
       [UNNAMED, NO_TEAM_ON_GONE],
       VIEWER,
     );

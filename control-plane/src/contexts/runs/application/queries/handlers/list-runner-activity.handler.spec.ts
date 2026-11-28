@@ -134,8 +134,8 @@ describe('ListRunnerActivityHandler', () => {
           kind: 'task',
           teamId: 'team_1',
           title: 'Drain the stuck retry queues',
-          hidden: null,
-          opens: { runId: 'run_7', teamId: 'team_1' },
+          hiddenReason: null,
+          link: { runId: 'run_7', teamId: 'team_1' },
         },
       },
       {
@@ -146,8 +146,8 @@ describe('ListRunnerActivityHandler', () => {
           kind: 'chat',
           teamId: 'team_1',
           title: null,
-          hidden: 'Hidden chat',
-          opens: null,
+          hiddenReason: 'Hidden chat',
+          link: null,
         },
       },
       {
@@ -158,8 +158,8 @@ describe('ListRunnerActivityHandler', () => {
           kind: 'search',
           teamId: 'team_1',
           title: 'A run',
-          hidden: null,
-          opens: null,
+          hiddenReason: null,
+          link: null,
         },
       },
     ]);
@@ -186,8 +186,8 @@ describe('ListRunnerActivityHandler', () => {
           kind: 'task',
           teamId: 'team_1',
           title: 'Drain the stuck retry queues',
-          hidden: null,
-          opens: { runId: 'run_6', teamId: 'team_1' },
+          hiddenReason: null,
+          link: { runId: 'run_6', teamId: 'team_1' },
         },
       },
     ]);

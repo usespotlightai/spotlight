@@ -28442,7 +28442,7 @@
           "records"
         ]
       },
-      "OpenedRunResponseDto": {
+      "RunLinkResponseDto": {
         "type": "object",
         "properties": {
           "runId": {
@@ -28484,21 +28484,21 @@
             "type": "string",
             "nullable": true,
             "example": "Judging Implementation on “Incident owners 2/5”",
-            "description": "What the run does, in plain words: the title of its task or chat, or what the work for that task does. Null where it is hidden from the caller, or its requester names nothing"
+            "description": "What the run does, in plain words: the title of its task or chat, or what the work for that task does. Null where it is hidden from the caller"
           },
-          "hidden": {
+          "hiddenReason": {
             "type": "string",
             "nullable": true,
             "example": null,
             "description": "What the caller sees in place of the title they may not read, such as that the work belongs to a team they are not on. Null where the title shows"
           },
-          "opens": {
+          "link": {
             "nullable": true,
-            "description": "The run the title opens: the run itself, or the task run its work is for. Null where it opens none",
+            "description": "The run the title links to: the run itself, or the task run its work is for. Null where it links to none",
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/OpenedRunResponseDto"
+                "$ref": "#/components/schemas/RunLinkResponseDto"
               }
             ]
           }
@@ -28509,8 +28509,8 @@
           "kind",
           "teamId",
           "title",
-          "hidden",
-          "opens"
+          "hiddenReason",
+          "link"
         ]
       },
       "BusyRunnerResponseDto": {

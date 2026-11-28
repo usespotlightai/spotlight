@@ -4,7 +4,7 @@ import type {
   RunnerActivityDto,
 } from '@runs/application/dto/runner-activity.dto';
 
-export class OpenedRunResponseDto {
+export class RunLinkResponseDto {
   @ApiProperty({ example: '3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63' })
   readonly runId: string;
 
@@ -43,7 +43,7 @@ export class LeasedRunResponseDto {
     nullable: true,
     example: 'Judging Implementation on “Incident owners 2/5”',
     description:
-      'What the run does, in plain words: the title of its task or chat, or what the work for that task does. Null where it is hidden from the caller, or its requester names nothing',
+      'What the run does, in plain words: the title of its task or chat, or what the work for that task does. Null where it is hidden from the caller',
   })
   readonly title: string | null;
 
@@ -54,15 +54,15 @@ export class LeasedRunResponseDto {
     description:
       'What the caller sees in place of the title they may not read, such as that the work belongs to a team they are not on. Null where the title shows',
   })
-  readonly hidden: string | null;
+  readonly hiddenReason: string | null;
 
   @ApiProperty({
-    type: OpenedRunResponseDto,
+    type: RunLinkResponseDto,
     nullable: true,
     description:
-      'The run the title opens: the run itself, or the task run its work is for. Null where it opens none',
+      'The run the title links to: the run itself, or the task run its work is for. Null where it links to none',
   })
-  readonly opens: OpenedRunResponseDto | null;
+  readonly link: RunLinkResponseDto | null;
 
   constructor(run: LeasedRunDto) {
     this.id = run.id;
@@ -70,9 +70,9 @@ export class LeasedRunResponseDto {
     this.kind = run.kind;
     this.teamId = run.teamId;
     this.title = run.title;
-    this.hidden = run.hidden;
-    this.opens = run.opens
-      ? new OpenedRunResponseDto(run.opens.runId, run.opens.teamId)
+    this.hiddenReason = run.hiddenReason;
+    this.link = run.link
+      ? new RunLinkResponseDto(run.link.runId, run.link.teamId)
       : null;
   }
 }

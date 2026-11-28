@@ -114,8 +114,8 @@ const LEASED_RUN = {
   kind: 'task' as const,
   teamId: 'team_1',
   title: 'Drain the stuck retry queues',
-  hidden: null,
-  opens: { runId: 'run_7', teamId: 'team_1' },
+  hiddenReason: null,
+  link: { runId: 'run_7', teamId: 'team_1' },
 };
 
 const JUDGING = {
@@ -123,14 +123,14 @@ const JUDGING = {
   id: 'run_9',
   kind: 'session',
   title: 'Judging Implementation on “Incident owners 2/5”',
-  opens: { runId: 'run_7', teamId: 'team_1' },
+  link: { runId: 'run_7', teamId: 'team_1' },
 };
 
 const HIDDEN_RUN = {
   ...LEASED_RUN,
   title: null,
-  hidden: 'Title hidden. This run belongs to a team you’re not on.',
-  opens: null,
+  hiddenReason: 'Title hidden. This run belongs to a team you’re not on.',
+  link: null,
 };
 
 const busy = (id: string): ActiveRunner => ({
@@ -465,14 +465,14 @@ describe('leasedRunPath', () => {
       ...LEASED_RUN,
       kind: 'replay',
       title: 'A replay run',
-      opens: null,
+      link: null,
     };
 
     expect(formatRun(replay)).toBe('A replay run');
     expect(leasedRunPath('acme', replay)).toBeNull();
   });
 
-  it('links the run the server says the title opens', () => {
+  it('links the run the server says the title links to', () => {
     expect(leasedRunPath('acme', LEASED_RUN)).toBe(
       '/w/acme/team/team_1/runs/run_7',
     );

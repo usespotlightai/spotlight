@@ -97,8 +97,8 @@ const LEASED_RUN = {
   kind: 'task',
   teamId: 'team_1',
   title: 'Drain the stuck retry queues',
-  hidden: null,
-  opens: { runId: 'run_1', teamId: 'team_1' },
+  hiddenReason: null,
+  link: { runId: 'run_1', teamId: 'team_1' },
 };
 
 const provisioned = (over: Record<string, unknown> = {}) => ({
@@ -448,7 +448,7 @@ describe('Runners', () => {
               id: 'run_judge',
               kind: 'session',
               title: 'Judging Implementation on “Incident owners 2/5”',
-              opens: { runId: 'run_1', teamId: 'team_1' },
+              link: { runId: 'run_1', teamId: 'team_1' },
             },
           }),
         ],
@@ -589,8 +589,9 @@ describe('Runners', () => {
             currentRun: {
               ...LEASED_RUN,
               title: null,
-              hidden: 'Title hidden. This run belongs to a team you’re not on.',
-              opens: null,
+              hiddenReason:
+                'Title hidden. This run belongs to a team you’re not on.',
+              link: null,
             },
           }),
         ],
@@ -622,7 +623,7 @@ describe('Runners', () => {
             ...LEASED_RUN,
             kind: 'session',
             title: 'Checking proposed memories',
-            opens: null,
+            link: null,
           },
         }),
       ],
