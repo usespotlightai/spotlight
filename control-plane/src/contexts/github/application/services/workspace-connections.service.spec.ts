@@ -31,6 +31,7 @@ const connections = (connected: boolean, saved: GitHubConnection[] = []) =>
     } satisfies GitHubConnectionRepository,
     {
       installationOf: vi.fn(async () => (connected ? INSTALLED : null)),
+      connectionsOf: vi.fn(async () => []),
     } satisfies GitHubConnectionReaderPort,
   );
 

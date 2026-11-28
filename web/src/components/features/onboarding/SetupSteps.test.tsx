@@ -31,7 +31,12 @@ vi.mock('@/hooks/api/useGitHub', () => ({
 }));
 
 const connectInstallation = vi.fn();
-let installed: { id: string; account: string }[] = [];
+let installed: {
+  id: string;
+  account: string;
+  usedElsewhere: boolean;
+  usedBy: string | null;
+}[] = [];
 
 vi.mock('@/hooks/api/useGitHubInstallations', () => ({
   useGitHubInstallations: () => ({
@@ -177,7 +182,9 @@ describe('SetupSteps', () => {
   });
 
   it('connects an installation that is already on GitHub, where GitHub would not send the person back', async () => {
-    installed = [{ id: '42', account: 'acme' }];
+    installed = [
+      { id: '42', account: 'acme', usedElsewhere: false, usedBy: null },
+    ];
     onboardingState.data = onboarding();
     showing();
 
@@ -192,7 +199,9 @@ describe('SetupSteps', () => {
   });
 
   it('offers to configure the App once it is installed', async () => {
-    installed = [{ id: '42', account: 'acme' }];
+    installed = [
+      { id: '42', account: 'acme', usedElsewhere: false, usedBy: null },
+    ];
     githubState.data = { connected: true, installUrl: INSTALL };
     onboardingState.data = onboarding({}, ['github']);
     showing();
@@ -213,7 +222,9 @@ describe('SetupSteps', () => {
   });
 
   it('collapses a done step, keeping the next one open', () => {
-    installed = [{ id: '42', account: 'acme' }];
+    installed = [
+      { id: '42', account: 'acme', usedElsewhere: false, usedBy: null },
+    ];
     githubState.data = { connected: true, installUrl: INSTALL };
     onboardingState.data = onboarding({}, ['github']);
     showing();

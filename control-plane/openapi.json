@@ -15653,7 +15653,7 @@
             "description": "No such workspace for this caller"
           },
           "409": {
-            "description": "The installation is already connected to another workspace"
+            "description": "Another workspace already uses the installation"
           }
         },
         "summary": "Point this workspace at a GitHub App installation",
@@ -35008,11 +35008,24 @@
             "type": "string",
             "example": "acme",
             "description": "The GitHub organisation or user the App is installed on"
+          },
+          "usedElsewhere": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether another workspace uses the installation, so this one cannot connect it"
+          },
+          "usedBy": {
+            "type": "string",
+            "nullable": true,
+            "example": "Tidepool Labs",
+            "description": "The name of the workspace that uses the installation, where the caller is a member of it"
           }
         },
         "required": [
           "id",
-          "account"
+          "account",
+          "usedElsewhere",
+          "usedBy"
         ]
       },
       "ConnectGitHubRequestDto": {

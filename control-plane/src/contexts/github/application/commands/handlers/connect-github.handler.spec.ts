@@ -12,10 +12,15 @@ import type {
   WorkspaceAccessPort,
   WorkspaceMembership,
 } from '@identity/application/ports/workspace-access.port';
+import type {
+  WorkspaceProfile,
+  WorkspaceReaderPort,
+} from '@identity/application/ports/workspace-reader.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { firstOf } from '@shared-kernel/domain/item-at';
+import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -32,6 +37,7 @@ const connecting = (
     membership?: WorkspaceMembership | null;
     administration?: InstallationAdministration;
     connectedWorkspace?: WorkspaceId | null;
+    seen?: Record<string, string>;
   } = {},
 ) => {
   const events = {
@@ -56,11 +62,15 @@ const connecting = (
   const administration = {
     of: vi.fn(async () => over.administration ?? 'admin'),
   } satisfies InstallationAdministrationPort;
+  const viewableOf = vi.fn(
+    async (_viewer: UserId, ids: readonly WorkspaceId[]) =>
+      ids.filter((each) => over.seen?.[each.value] !== undefined),
+  );
 
   const handler = new ConnectGitHubHandler(
     {
       mayView: vi.fn(),
-      viewableOf: vi.fn(),
+      viewableOf,
       teamAccessIn: vi.fn(),
       teamAccessOfMembers: vi.fn(),
       inWorkspaceOfTeam: vi.fn(),
@@ -74,6 +84,14 @@ const connecting = (
       accessOnTeam: vi.fn(),
       mayPlan: vi.fn(),
     } satisfies WorkspaceAccessPort,
+    partial<WorkspaceReaderPort>({
+      profileOf: vi.fn(async (id: WorkspaceId) =>
+        partial<WorkspaceProfile>({
+          id: id.value,
+          name: over.seen?.[id.value] ?? '',
+        }),
+      ),
+    }),
     {
       of: vi.fn(async (id: WorkspaceId) => GitHubConnection.none(id)),
       connectedWorkspaceOf: vi.fn(async () => over.connectedWorkspace ?? null),
@@ -86,7 +104,7 @@ const connecting = (
     transaction,
   );
 
-  return { handler, save, events, administration, inTransaction };
+  return { handler, save, events, administration, inTransaction, viewableOf };
 };
 
 const command = (installationId = '81234567') =>
@@ -155,15 +173,43 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('denies an installation another workspace has', async () => {
-    const { handler, save } = connecting({
+  it('denies an installation another workspace has, naming it where the caller is of it', async () => {
+    const { handler, save, viewableOf } = connecting({
+      connectedWorkspace: WorkspaceId.of('ws_2'),
+      seen: { ws_2: 'Tidepool Labs' },
+    });
+
+    await expect(handler.execute(command())).rejects.toMatchObject({
+      kind: 'conflict',
+      message:
+        'Tidepool Labs already uses this GitHub installation. Install the App on another account for this workspace.',
+    });
+    expect(save).not.toHaveBeenCalled();
+    expect(viewableOf).toHaveBeenCalledWith(UserId.of('user_1'), [
+      WorkspaceId.of('ws_2'),
+    ]);
+  });
+
+  it('denies an installation a workspace the caller can’t see has, without naming it', async () => {
+    const { handler } = connecting({
       connectedWorkspace: WorkspaceId.of('ws_2'),
     });
 
     await expect(handler.execute(command())).rejects.toMatchObject({
       kind: 'conflict',
+      message:
+        'Another workspace already uses this GitHub installation. Install the App on another account for this workspace.',
     });
-    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('takes again an installation the workspace already has', async () => {
+    const { handler, save, viewableOf } = connecting({
+      connectedWorkspace: WorkspaceId.of('ws_1'),
+    });
+
+    expect(await handler.execute(command())).toBe('ws_1');
+    expect(save).toHaveBeenCalled();
+    expect(viewableOf).not.toHaveBeenCalled();
   });
 
   it('fails, saying so, where GitHub would not answer at all', async () => {

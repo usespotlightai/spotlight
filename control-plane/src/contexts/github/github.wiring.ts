@@ -462,11 +462,17 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(
     ListGitHubInstallationsQuery,
     ListGitHubInstallationsHandler,
-    [WORKSPACE_READER, REACHABLE_INSTALLATIONS],
+    [
+      WORKSPACE_READER,
+      WORKSPACE_ACCESS,
+      REACHABLE_INSTALLATIONS,
+      DrizzleGitHubConnectionReader,
+    ],
   ),
 
   ...bindCommandHandler(ConnectGitHubCommand, ConnectGitHubHandler, [
     WORKSPACE_ACCESS,
+    WORKSPACE_READER,
     DrizzleGitHubConnections,
     INSTALLATION_ADMINISTRATION,
     TRANSACTION,

@@ -135,7 +135,7 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
       }
     } catch (error) {
       if (violates(error, UNIQUE_VIOLATION, 'installation')) {
-        throw new InstallationAlreadyConnectedError(installation.value);
+        throw new InstallationAlreadyConnectedError();
       }
       throw error;
     }

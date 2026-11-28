@@ -1,3 +1,4 @@
+import { messageOf } from '@/lib/error';
 import { nonEmpty } from '@/lib/non-empty';
 import { fieldOf, isRecord } from '@/lib/record';
 
@@ -73,12 +74,14 @@ const STATUS_TEXT: Partial<Record<number, string>> = {
   504: 'Gateway Timeout',
 };
 
+const UNANSWERED = 'Network error. Control plane didn’t respond.';
+
 const statusOf = (thrown: unknown): number | null => {
   const status = fieldOf(thrown, 'status') ?? fieldOf(thrown, 'statusCode');
   return typeof status === 'number' ? status : null;
 };
 
-export const failureHeadline = (thrown: unknown): string => {
+const failureHeadline = (thrown: unknown): string => {
   const sent = sentRequestOf(thrown);
   const status = sent?.status ?? statusOf(thrown);
 
@@ -93,10 +96,38 @@ export const failureHeadline = (thrown: unknown): string => {
   }
 
   if (sent) {
-    return 'Network error. Control plane didn’t respond.';
+    return UNANSWERED;
   }
 
   return thrown instanceof Error && thrown.name !== 'Error'
     ? thrown.name
     : 'Request failed';
+};
+
+// What a person reads: the server's own words, never the status or the request.
+export const failureMessage = (thrown: unknown): string => {
+  const sent = sentRequestOf(thrown);
+  const status = sent?.status ?? statusOf(thrown);
+
+  // A gateway's own page carries no status of its own, unlike the control plane's answers.
+  const fromGateway =
+    status !== null && isGatewayStatus(status) && statusOf(thrown) === null;
+
+  if (sent && (status === null || fromGateway)) {
+    return UNANSWERED;
+  }
+
+  return messageOf(thrown);
+};
+
+// The status and the request, for whoever debugs the app.
+export const failureDebugLine = (thrown: unknown): string | null => {
+  const sent = sentRequestOf(thrown);
+  const status = sent?.status ?? statusOf(thrown);
+  const parts = [
+    status === null ? null : failureHeadline(thrown),
+    sent ? `${sent.method} ${sent.path}` : null,
+  ].filter((each) => each !== null);
+
+  return parts.length > 0 ? parts.join(' · ') : null;
 };

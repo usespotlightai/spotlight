@@ -76,7 +76,12 @@ vi.mock('@/hooks/api/useDisconnectIntegration', () => ({
 }));
 
 const connectInstallation = vi.fn();
-let installed: { id: string; account: string }[] = [];
+let installed: {
+  id: string;
+  account: string;
+  usedElsewhere: boolean;
+  usedBy: string | null;
+}[] = [];
 
 vi.mock('@/hooks/api/useGitHubInstallations', () => ({
   useGitHubInstallations: () => query(installed),
@@ -254,7 +259,9 @@ describe('TeamIntegrations', () => {
   });
 
   it('connects an installation that is already on GitHub from the opened row', async () => {
-    installed = [{ id: '42', account: 'acme' }];
+    installed = [
+      { id: '42', account: 'acme', usedElsewhere: false, usedBy: null },
+    ];
     github.mockReturnValue(ready({ connected: false }));
     showing();
 

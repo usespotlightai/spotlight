@@ -1,9 +1,12 @@
 import type { ConnectGitHubCommand } from '@github/application/commands/connect-github.command';
 import { InstallationUnverifiableError } from '@github/application/errors/installation-unverifiable.error';
 import type { InstallationAdministrationPort } from '@github/application/ports/installation-administration.port';
+import { workspaceNamesSeenBy } from '@github/application/services/workspace-names';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
+import { isHeldElsewhere } from '@github/domain/services/installation-holder';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -15,6 +18,7 @@ export class ConnectGitHubHandler implements CommandHandlerPort<
 > {
   constructor(
     private readonly access: WorkspaceAccessPort,
+    private readonly workspaces: WorkspaceReaderPort,
     private readonly connections: GitHubConnectionRepository,
     private readonly administration: InstallationAdministrationPort,
     private readonly transaction: TransactionPort,
@@ -38,8 +42,15 @@ export class ConnectGitHubHandler implements CommandHandlerPort<
         throw new InstallationUnverifiableError();
       }
 
+      const known = await this.connections.connectedWorkspaceOf(installation);
+      const names = await workspaceNamesSeenBy(
+        { access: this.access, workspaces: this.workspaces },
+        by,
+        known && isHeldElsewhere(known, membership.workspaceId) ? [known] : [],
+      );
+
       await this.transaction.inTransaction(async () => {
-        const connectedWorkspace =
+        const holder =
           await this.connections.connectedWorkspaceOf(installation);
         const connection = await this.connections.of(membership.workspaceId);
 
@@ -47,7 +58,10 @@ export class ConnectGitHubHandler implements CommandHandlerPort<
           connection.connectTo(installation, {
             isWorkspaceAdmin: membership.isAdmin,
             isInstallationAdmin: administration === 'admin',
-            connectedWorkspace,
+            connectedWorkspace: holder && {
+              id: holder,
+              name: names.get(holder.value) ?? null,
+            },
           }),
         );
       });

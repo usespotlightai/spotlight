@@ -48,7 +48,7 @@ client.interceptors.error.use(withSentRequest);
 client.interceptors.error.use(withGatewayErrorReported);
 
 const queryClient = new QueryClient({
-  mutationCache: failuresToasted(),
+  mutationCache: failuresToasted({ debug: import.meta.env.DEV }),
   defaultOptions: {
     queries: {
       staleTime: STALE_MS,
