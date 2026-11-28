@@ -13,7 +13,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { z } from 'zod';
 
 /** The purpose of the sessions that consolidate a team's memories for an upkeep sweep. */
-const CONSOLIDATION_PURPOSE = 'memory.consolidate';
+export const CONSOLIDATION_PURPOSE = 'memory.consolidate';
 
 const MEMORIES_FILE = 'memories.json';
 

@@ -7,6 +7,7 @@ import type {
 import { ListRunnerActivityHandler } from '@runs/application/queries/handlers/list-runner-activity.handler';
 import { ListRunnerActivityQuery } from '@runs/application/queries/list-runner-activity.query';
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
+import { RunTitles } from '@runs/application/services/run-titles.service';
 import type { RunViewing } from '@runs/application/services/run-viewing.service';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -68,38 +69,56 @@ const listing = (member: boolean) => {
     owner: 'work',
     labelsOf: async () =>
       new Map([
-        ['work/task/task_1', { title: 'Drain the stuck retry queues' }],
-        ['work/chat/chat_1', { title: 'Plan the billing migration' }],
+        [
+          'work/task/task_1',
+          {
+            title: 'Drain the stuck retry queues',
+            readers: { of: 'the-run', opens: true, hidden: 'Hidden task' },
+          },
+        ],
+        [
+          'work/chat/chat_1',
+          {
+            title: 'Plan the billing migration',
+            readers: { of: 'the-run', opens: false, hidden: 'Hidden chat' },
+          },
+        ],
       ]),
   });
   const viewers = partial<RunViewing>({
     readableAmong: vi.fn(async () => new Set(['run_6', 'run_7'])),
   });
 
+  const access = partial<WorkspaceAccessPort>({
+    inWorkspace: vi.fn(async () =>
+      member
+        ? {
+            workspaceId: WORKSPACE,
+            slug: 'acme',
+            viewer: UserId.of('user_1'),
+            isAdmin: false,
+          }
+        : null,
+    ),
+  });
+
   const handler = new ListRunnerActivityHandler(
-    partial<WorkspaceAccessPort>({
-      inWorkspace: vi.fn(async () =>
-        member
-          ? {
-              workspaceId: WORKSPACE,
-              slug: 'acme',
-              viewer: UserId.of('user_1'),
-              isAdmin: false,
-            }
-          : null,
-      ),
-    }),
-    { leasedIn, lastRunsOf },
+    access,
+    { leasedIn, lastRunsOf, runsOf: vi.fn(async () => []) },
     { idleIn },
-    labels,
-    viewers,
+    new RunTitles(
+      labels,
+      viewers,
+      { leasedIn, lastRunsOf, runsOf: vi.fn(async () => []) },
+      access,
+    ),
   );
 
   return { handler, leasedIn, lastRunsOf, idleIn, viewers };
 };
 
 describe('ListRunnerActivityHandler', () => {
-  it('says which run each busy runner works on, by the kind its requester names, and labels only the runs the viewer may read', async () => {
+  it('says which run each busy runner works on, by the kind its requester names, and titles only the runs the viewer may read', async () => {
     const { handler, leasedIn, viewers } = listing(true);
 
     const activity = await handler.execute(
@@ -114,8 +133,9 @@ describe('ListRunnerActivityHandler', () => {
           state: 'claimed',
           kind: 'task',
           teamId: 'team_1',
-          readable: true,
           title: 'Drain the stuck retry queues',
+          hidden: null,
+          opens: { runId: 'run_7', teamId: 'team_1' },
         },
       },
       {
@@ -125,8 +145,9 @@ describe('ListRunnerActivityHandler', () => {
           state: 'claimed',
           kind: 'chat',
           teamId: 'team_1',
-          readable: false,
           title: null,
+          hidden: 'Hidden chat',
+          opens: null,
         },
       },
       {
@@ -136,14 +157,15 @@ describe('ListRunnerActivityHandler', () => {
           state: 'claimed',
           kind: 'search',
           teamId: 'team_1',
-          readable: false,
-          title: null,
+          title: 'A run',
+          hidden: null,
+          opens: null,
         },
       },
     ]);
     expect(leasedIn).toHaveBeenCalledWith(WORKSPACE);
     expect(viewers.readableAmong).toHaveBeenCalledWith(
-      [...LEASED, ...LAST_RUNS],
+      [...LEASED.slice(0, 2), ...LAST_RUNS],
       UserId.of('user_1'),
     );
   });
@@ -163,8 +185,9 @@ describe('ListRunnerActivityHandler', () => {
           state: 'completed',
           kind: 'task',
           teamId: 'team_1',
-          readable: true,
           title: 'Drain the stuck retry queues',
+          hidden: null,
+          opens: { runId: 'run_6', teamId: 'team_1' },
         },
       },
     ]);

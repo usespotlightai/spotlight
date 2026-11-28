@@ -1923,11 +1923,16 @@ export type RecordEgressConnectionsRequestDto = {
   records: Array<EgressConnectionRequestDto>;
 };
 
+export type OpenedRunResponseDto = {
+  runId: string;
+  teamId: string;
+};
+
 export type LeasedRunResponseDto = {
   id: string;
   state: string;
   /**
-   * The kind of work the run is for, as the requester that ordered it names it, for example task, chat or spec
+   * The kind of work the run is for, as the requester that ordered it names it, for example task, chat or session
    */
   kind: string;
   /**
@@ -1935,13 +1940,17 @@ export type LeasedRunResponseDto = {
    */
   teamId: string | null;
   /**
-   * Whether the caller reads the run’s team, and so may see its title and open it; false where the run is for no team
-   */
-  readable: boolean;
-  /**
-   * The title the run’s requester gives it; null where the requester gives none, or where the caller cannot read the run’s team
+   * What the run does, in plain words: the title of its task or chat, or what the work for that task does. Null where it is hidden from the caller, or its requester names nothing
    */
   title: string | null;
+  /**
+   * What the caller sees in place of the title they may not read, such as that the work belongs to a team they are not on. Null where the title shows
+   */
+  hidden: string | null;
+  /**
+   * The run the title opens: the run itself, or the task run its work is for. Null where it opens none
+   */
+  opens: OpenedRunResponseDto | null;
 };
 
 export type BusyRunnerResponseDto = {

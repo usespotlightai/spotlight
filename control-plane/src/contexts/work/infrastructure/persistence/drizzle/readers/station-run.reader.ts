@@ -26,6 +26,7 @@ import type {
   TracedRows,
   TracedWanted,
   UnfinishedRunRow,
+  WorkedRunRow,
 } from '@work/application/ports/station-run-reader.port';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
@@ -378,5 +379,22 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       })),
       notes: new Map(notes.map((each) => [each.taskId, each.body])),
     };
+  }
+
+  async workedOn(runIds: readonly string[]): Promise<readonly WorkedRunRow[]> {
+    if (runIds.length === 0) {
+      return [];
+    }
+
+    return this.db
+      .select({
+        runId: dispatch.id,
+        task: task.title,
+        station: workStation.name,
+      })
+      .from(dispatch)
+      .leftJoin(task, eq(task.id, dispatch.taskId))
+      .leftJoin(workStation, eq(workStation.stationId, dispatch.stationId))
+      .where(inArray(dispatch.id, [...runIds]));
   }
 }

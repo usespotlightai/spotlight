@@ -8,6 +8,7 @@ import type { EnqueuedRunDto } from '@runs/application/dto/run.dto';
 import { RunSpecMapper } from '@runs/application/mappers/run-spec.mapper';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
+import { SPEC_REQUESTER } from '@runs/application/services/spec-run-labels';
 import { RunOrderRefusedError } from '@runs/domain/exceptions/run-order-refused.error';
 import { UnknownHarnessError } from '@runs/domain/exceptions/unknown-harness.error';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
@@ -19,7 +20,7 @@ import { nonEmpty } from '@shared-kernel/domain/non-empty';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-const OWNER = 'workspace';
+const OWNER = SPEC_REQUESTER.owner;
 
 const SPEC_POLICY: RunPolicyContract = {
   holdsTurn: false,
@@ -78,7 +79,7 @@ export class EnqueueRunHandler implements CommandHandlerPort<
         spec: ordered.spec.value,
         requester: {
           owner: OWNER,
-          kind: 'spec',
+          kind: SPEC_REQUESTER.kind,
           id,
           token: null,
           team: null,

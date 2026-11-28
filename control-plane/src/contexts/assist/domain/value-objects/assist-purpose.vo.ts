@@ -18,6 +18,11 @@ export class AssistPurpose {
     return new AssistPurpose(value);
   }
 
+  /** The context that orders sessions of this purpose: `insights` for `insights.judge`. */
+  get context(): string {
+    return this.value.slice(0, this.value.indexOf('.'));
+  }
+
   equals(other: AssistPurpose): boolean {
     return other instanceof AssistPurpose && this.value === other.value;
   }

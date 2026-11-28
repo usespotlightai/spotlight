@@ -11,6 +11,7 @@ import type {
   TracedRunsWanted,
   TracedWork,
   UnfinishedStationRun,
+  WorkedRun,
 } from '@work/application/ports/station-runs.port';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import { runNumberAfter } from '@work/domain/services/station-run-number';
@@ -118,6 +119,10 @@ export class StationRuns implements StationRunsPort {
         }),
       ),
     };
+  }
+
+  workedOn(runIds: readonly string[]): Promise<readonly WorkedRun[]> {
+    return this.reader.workedOn(runIds);
   }
 
   async configsInOrder(

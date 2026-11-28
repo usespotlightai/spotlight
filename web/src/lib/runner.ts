@@ -256,54 +256,19 @@ export const runnerStatus = (runner: ActiveRunner): string => {
   return runner.currentRun ? 'Running' : 'Starting';
 };
 
-type UnnamedKind = Exclude<LeasedRun['kind'], 'task' | 'chat'>;
+export const hiddenRunTip = (run: LeasedRun): string => run.hidden ?? '';
 
-const UNNAMED_RUNS: Record<UnnamedKind, string> = {
-  replay: 'A replay run',
-  search: 'A search run',
-  spec: 'A run queued by hand',
-};
-
-const isUnnamed = (kind: LeasedRun['kind']): kind is UnnamedKind =>
-  kind in UNNAMED_RUNS;
-
-export const hiddenRunTip = (run: LeasedRun): string =>
-  run.kind === 'chat'
-    ? 'Title hidden. This agent chat belongs to a team you’re not on.'
-    : 'Title hidden. This run belongs to a team you’re not on.';
-
-const deletedRun = (run: LeasedRun): string =>
-  run.kind === 'chat' ? 'Deleted agent chat' : 'Deleted task';
-
-export const formatRun = (run: LeasedRun | null): string => {
-  if (run === null) {
-    return 'No run yet';
-  }
-
-  if (run.title !== null) {
-    return run.title;
-  }
-
-  if (isUnnamed(run.kind)) {
-    return UNNAMED_RUNS[run.kind];
-  }
-
-  return run.readable ? deletedRun(run) : hiddenRunTip(run);
-};
+export const formatRun = (run: LeasedRun | null): string =>
+  run === null ? 'No run yet' : (run.title ?? run.hidden ?? '');
 
 export const hiddenFromViewer = (run: LeasedRun | null): boolean =>
-  run !== null &&
-  !run.readable &&
-  run.teamId !== null &&
-  (run.kind === 'task' || run.kind === 'chat');
+  run !== null && run.hidden !== null;
 
 export const leasedRunPath = (
   slug: string,
   run: LeasedRun | null,
 ): string | null =>
-  run?.kind === 'task' && run.readable && run.teamId !== null
-    ? runPath(slug, run.teamId, run.id)
-    : null;
+  run?.opens ? runPath(slug, run.opens.teamId, run.opens.runId) : null;
 
 export const isWarm = (sandbox: IdleSandbox): boolean =>
   sandbox.warmLineId !== null;

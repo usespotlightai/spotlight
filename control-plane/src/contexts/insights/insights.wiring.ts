@@ -1,4 +1,8 @@
 import {
+  ASSIST_SESSION_LABELS,
+  type AssistSessionLabelsPort,
+} from '@assist/application/ports/assist-session-labels.port';
+import {
   ASSIST_SESSIONS,
   type AssistSessionsPort,
 } from '@assist/application/ports/assist-sessions.port';
@@ -131,6 +135,7 @@ import { WorkClaimsRevisions } from '@insights/application/services/work-claims-
 import { WorkClaimsSources } from '@insights/application/services/work-claims-sources.service';
 import { WorkJudgings } from '@insights/application/services/work-judgings.service';
 import { AlertInboxRequests } from '@insights/infrastructure/acl/alert-inbox-requests.adapter';
+import { InsightsSessionLabels } from '@insights/infrastructure/acl/assist-session-labels';
 import { DefinedSkills } from '@insights/infrastructure/acl/defined-skills.adapter';
 import { Evidence } from '@insights/infrastructure/acl/evidence.adapter';
 import { Lines } from '@insights/infrastructure/acl/lines.adapter';
@@ -271,6 +276,17 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     provide: MEMORY_USE,
     inject: [TEAM_MEMORY_USE],
     useFactory: (memory: TeamMemoryUsePort) => new MemoryUse(memory),
+  },
+  {
+    provide: InsightsSessionLabels,
+    inject: [ASSIST_SESSION_LABELS],
+    useFactory: (labels: AssistSessionLabelsPort) => {
+      const source = new InsightsSessionLabels();
+
+      labels.register(source);
+
+      return source;
+    },
   },
   {
     provide: JUDGE,

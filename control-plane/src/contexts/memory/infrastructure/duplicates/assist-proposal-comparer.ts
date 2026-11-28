@@ -10,7 +10,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { z } from 'zod';
 
 /** The purpose of the sessions that check what a run proposed to remember against the team's memories. */
-const COMPARISON_PURPOSE = 'memory.compare-proposals';
+export const COMPARISON_PURPOSE = 'memory.compare-proposals';
 
 const PROPOSALS_FILE = 'proposals.json';
 

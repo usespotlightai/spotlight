@@ -1,4 +1,8 @@
 import {
+  ASSIST_SESSION_LABELS,
+  type AssistSessionLabelsPort,
+} from '@assist/application/ports/assist-session-labels.port';
+import {
   ASSIST_SESSIONS,
   type AssistSessionsPort,
 } from '@assist/application/ports/assist-sessions.port';
@@ -136,6 +140,7 @@ import {
   MEMORIES,
   type MemoryRepository,
 } from '@memory/domain/repositories/memory.repository';
+import { MemorySessionLabels } from '@memory/infrastructure/acl/assist-session-labels';
 import { Lines } from '@memory/infrastructure/acl/lines.adapter';
 import { People } from '@memory/infrastructure/acl/people.adapter';
 import { RepositoryPaths } from '@memory/infrastructure/acl/repository-paths.adapter';
@@ -273,6 +278,17 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     provide: UPKEEP_NOTICES,
     inject: [NOTICES],
     useFactory: (notices: NoticesPort) => new UpkeepNotices(notices),
+  },
+  {
+    provide: MemorySessionLabels,
+    inject: [ASSIST_SESSION_LABELS],
+    useFactory: (labels: AssistSessionLabelsPort) => {
+      const source = new MemorySessionLabels();
+
+      labels.register(source);
+
+      return source;
+    },
   },
   {
     provide: MEMORY_CONSOLIDATOR,

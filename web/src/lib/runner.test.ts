@@ -11,6 +11,7 @@ import {
   type Host,
   heartbeatAt,
   hiddenFromViewer,
+  hiddenRunTip,
   type HostChild,
   hostChildren,
   hostInFilter,
@@ -112,8 +113,24 @@ const LEASED_RUN = {
   state: 'claimed',
   kind: 'task' as const,
   teamId: 'team_1',
-  readable: true,
   title: 'Drain the stuck retry queues',
+  hidden: null,
+  opens: { runId: 'run_7', teamId: 'team_1' },
+};
+
+const JUDGING = {
+  ...LEASED_RUN,
+  id: 'run_9',
+  kind: 'session',
+  title: 'Judging Implementation on “Incident owners 2/5”',
+  opens: { runId: 'run_7', teamId: 'team_1' },
+};
+
+const HIDDEN_RUN = {
+  ...LEASED_RUN,
+  title: null,
+  hidden: 'Title hidden. This run belongs to a team you’re not on.',
+  opens: null,
 };
 
 const busy = (id: string): ActiveRunner => ({
@@ -406,23 +423,19 @@ describe('withActivity', () => {
 });
 
 describe('formatRun', () => {
-  it('names the run, or says what kind it is where it cannot', () => {
+  it('says what the run does, as the server names it', () => {
     expect(formatRun(LEASED_RUN)).toBe('Drain the stuck retry queues');
-    expect(formatRun({ ...LEASED_RUN, kind: 'search', title: null })).toBe(
-      'A search run',
+    expect(formatRun(JUDGING)).toBe(
+      'Judging Implementation on “Incident owners 2/5”',
     );
-    expect(
-      formatRun({ ...LEASED_RUN, kind: 'spec', teamId: null, title: null }),
-    ).toBe('A run queued by hand');
     expect(formatRun(null)).toBe('No run yet');
   });
 
-  it('says the task or agent chat is deleted where the viewer reads its team but it has no title', () => {
-    expect(formatRun({ ...LEASED_RUN, title: null })).toBe('Deleted task');
-    expect(formatRun({ ...LEASED_RUN, kind: 'chat', title: null })).toBe(
-      'Deleted agent chat',
+  it('says the title is hidden only where the server hides it, in its words', () => {
+    expect(formatRun(HIDDEN_RUN)).toBe(
+      'Title hidden. This run belongs to a team you’re not on.',
     );
-    expect(formatRun({ ...LEASED_RUN, readable: false, title: null })).toBe(
+    expect(hiddenRunTip(HIDDEN_RUN)).toBe(
       'Title hidden. This run belongs to a team you’re not on.',
     );
   });
@@ -438,48 +451,36 @@ describe('runnerStatus', () => {
 });
 
 describe('hiddenFromViewer', () => {
-  it('hides a task run or chat of a team the viewer cannot read, never a replay, a search or a run for no team', () => {
-    expect(
-      hiddenFromViewer({ ...LEASED_RUN, readable: false, title: null }),
-    ).toBe(true);
-    expect(
-      hiddenFromViewer({
-        ...LEASED_RUN,
-        kind: 'chat',
-        readable: false,
-        title: null,
-      }),
-    ).toBe(true);
+  it('hides a run only where the server hides it', () => {
+    expect(hiddenFromViewer(HIDDEN_RUN)).toBe(true);
     expect(hiddenFromViewer(LEASED_RUN)).toBe(false);
-    expect(
-      hiddenFromViewer({
-        ...LEASED_RUN,
-        kind: 'search',
-        readable: false,
-        title: null,
-      }),
-    ).toBe(false);
-    expect(
-      hiddenFromViewer({
-        ...LEASED_RUN,
-        readable: false,
-        teamId: null,
-        title: null,
-      }),
-    ).toBe(false);
+    expect(hiddenFromViewer(JUDGING)).toBe(false);
     expect(hiddenFromViewer(null)).toBe(false);
   });
 });
 
 describe('leasedRunPath', () => {
-  it('links only a task run on a team the viewer reads', () => {
+  it('links a replay run to no run, naming it as the server does', () => {
+    const replay = {
+      ...LEASED_RUN,
+      kind: 'replay',
+      title: 'A replay run',
+      opens: null,
+    };
+
+    expect(formatRun(replay)).toBe('A replay run');
+    expect(leasedRunPath('acme', replay)).toBeNull();
+  });
+
+  it('links the run the server says the title opens', () => {
     expect(leasedRunPath('acme', LEASED_RUN)).toBe(
       '/w/acme/team/team_1/runs/run_7',
     );
-    expect(
-      leasedRunPath('acme', { ...LEASED_RUN, readable: false, title: null }),
-    ).toBeNull();
-    expect(leasedRunPath('acme', { ...LEASED_RUN, kind: 'chat' })).toBeNull();
+    expect(leasedRunPath('acme', JUDGING)).toBe(
+      '/w/acme/team/team_1/runs/run_7',
+    );
+    expect(leasedRunPath('acme', HIDDEN_RUN)).toBeNull();
+    expect(leasedRunPath('acme', null)).toBeNull();
   });
 });
 

@@ -188,7 +188,10 @@ import {
   RUN_WAITS,
   type RunWaitsPort,
 } from '@runs/application/ports/run-waits.port';
-import { RUNNER_ACTIVITY_READER } from '@runs/application/ports/runner-activity-reader.port';
+import {
+  RUNNER_ACTIVITY_READER,
+  type RunnerActivityReaderPort,
+} from '@runs/application/ports/runner-activity-reader.port';
 import { RUNS } from '@runs/application/ports/runs.port';
 import {
   SANDBOX_HOSTS,
@@ -274,11 +277,13 @@ import { RunJournalReadings } from '@runs/application/services/run-journal-readi
 import { RunLeases } from '@runs/application/services/run-leases.service';
 import { RunReadModel } from '@runs/application/services/run-read-model.service';
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
+import { RunTitles } from '@runs/application/services/run-titles.service';
 import { RunViewing } from '@runs/application/services/run-viewing.service';
 import { RunnerLeases } from '@runs/application/services/runner-leases.service';
 import { Runs } from '@runs/application/services/runs.service';
 import { SandboxArchives } from '@runs/application/services/sandbox-archives.service';
 import { SandboxLeases } from '@runs/application/services/sandbox-leases.service';
+import { SpecRunLabels } from '@runs/application/services/spec-run-labels';
 import { WarmSandboxKeeping } from '@runs/application/services/warm-sandbox-keeping.service';
 import { WatchRunStream } from '@runs/application/services/watch-run-stream.service';
 import {
@@ -601,9 +606,34 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   { provide: WORKING_COPY_IMAGES, useClass: DrizzleWorkingCopyImages },
 
-  RunRequesterLabels,
+  {
+    provide: RunRequesterLabels,
+    useFactory: () => {
+      const labels = new RunRequesterLabels();
+
+      labels.register(new SpecRunLabels());
+
+      return labels;
+    },
+  },
 
   { provide: RUN_REQUESTER_LABELS, useExisting: RunRequesterLabels },
+
+  {
+    provide: RunTitles,
+    inject: [
+      RunRequesterLabels,
+      RunViewing,
+      RUNNER_ACTIVITY_READER,
+      WORKSPACE_ACCESS,
+    ],
+    useFactory: (
+      labels: RunRequesterLabels,
+      viewers: RunViewing,
+      activity: RunnerActivityReaderPort,
+      access: WorkspaceAccessPort,
+    ) => new RunTitles(labels, viewers, activity, access),
+  },
 
   { provide: HARNESS_LAUNCH, useExisting: BuiltInHarnesses },
 
@@ -1073,8 +1103,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     RUNNER_ACTIVITY_READER,
     IDLE_WORKING_COPIES,
-    RunRequesterLabels,
-    RunViewing,
+    RunTitles,
   ]),
 
   {

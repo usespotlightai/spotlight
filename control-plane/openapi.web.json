@@ -8655,6 +8655,23 @@
           "connections"
         ]
       },
+      "OpenedRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "example": "3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63"
+          },
+          "teamId": {
+            "type": "string",
+            "example": "K7Q2M4ZC3VYH6N5RB8WX1TDJ9P"
+          }
+        },
+        "required": [
+          "runId",
+          "teamId"
+        ]
+      },
       "LeasedRunResponseDto": {
         "type": "object",
         "properties": {
@@ -8669,21 +8686,34 @@
           "kind": {
             "type": "string",
             "example": "task",
-            "description": "The kind of work the run is for, as the requester that ordered it names it, for example task, chat or spec"
+            "description": "The kind of work the run is for, as the requester that ordered it names it, for example task, chat or session"
           },
           "teamId": {
             "type": "string",
             "nullable": true,
             "description": "The team the run is for; null where it is for none"
           },
-          "readable": {
-            "type": "boolean",
-            "description": "Whether the caller reads the run’s team, and so may see its title and open it; false where the run is for no team"
-          },
           "title": {
             "type": "string",
             "nullable": true,
-            "description": "The title the run’s requester gives it; null where the requester gives none, or where the caller cannot read the run’s team"
+            "example": "Judging Implementation on “Incident owners 2/5”",
+            "description": "What the run does, in plain words: the title of its task or chat, or what the work for that task does. Null where it is hidden from the caller, or its requester names nothing"
+          },
+          "hidden": {
+            "type": "string",
+            "nullable": true,
+            "example": null,
+            "description": "What the caller sees in place of the title they may not read, such as that the work belongs to a team they are not on. Null where the title shows"
+          },
+          "opens": {
+            "nullable": true,
+            "description": "The run the title opens: the run itself, or the task run its work is for. Null where it opens none",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OpenedRunResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -8691,8 +8721,9 @@
           "state",
           "kind",
           "teamId",
-          "readable",
-          "title"
+          "title",
+          "hidden",
+          "opens"
         ]
       },
       "BusyRunnerResponseDto": {

@@ -4,14 +4,12 @@ import type {
   LeasedRunDto,
   RunnerActivityDto,
 } from '@runs/application/dto/runner-activity.dto';
-import { requesterRefOf } from '@runs/application/ports/run-requester-labels.port';
 import type {
   ActivityRunRow,
   RunnerActivityReaderPort,
 } from '@runs/application/ports/runner-activity-reader.port';
 import type { ListRunnerActivityQuery } from '@runs/application/queries/list-runner-activity.query';
-import type { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
-import type { RunViewing } from '@runs/application/services/run-viewing.service';
+import type { RunTitles } from '@runs/application/services/run-titles.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -24,8 +22,7 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
     private readonly access: WorkspaceAccessPort,
     private readonly activity: RunnerActivityReaderPort,
     private readonly idle: IdleWorkingCopiesPort,
-    private readonly labels: RunRequesterLabels,
-    private readonly viewers: RunViewing,
+    private readonly titles: RunTitles,
   ) {}
 
   async execute(
@@ -47,24 +44,23 @@ export class ListRunnerActivityHandler implements QueryHandlerPort<
         membership.workspaceId,
         keys,
       );
-      const runs = [...leased, ...lastRuns];
-      const [labels, readable] = await Promise.all([
-        this.labels.labelsOf(runs.map((each) => each.requester)),
-        this.viewers.readableAmong(runs, viewer),
-      ]);
+      const titles = await this.titles.of(
+        membership.workspaceId,
+        [...leased, ...lastRuns],
+        viewer,
+      );
 
       const shown = (each: ActivityRunRow): LeasedRunDto => {
-        const reads = readable.has(each.runId.value);
+        const titled = titles.get(each.runId.value);
 
         return {
           id: each.runId.value,
           state: each.state,
           kind: each.requester.kind,
           teamId: each.teamId,
-          readable: reads,
-          title: reads
-            ? (labels.get(requesterRefOf(each.requester))?.title ?? null)
-            : null,
+          title: titled?.title ?? null,
+          hidden: titled?.hidden ?? null,
+          opens: titled?.opens ?? null,
         };
       };
 

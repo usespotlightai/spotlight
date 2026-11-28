@@ -81,6 +81,30 @@ export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
     );
   }
 
+  async runsOf(
+    workspaceId: WorkspaceId,
+    runIds: readonly RunId[],
+  ): Promise<readonly ActivityRunRow[]> {
+    if (runIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.db
+      .select(COLUMNS)
+      .from(run)
+      .where(
+        and(
+          eq(run.workspaceId, workspaceId.value),
+          inArray(
+            run.id,
+            runIds.map((each) => each.value),
+          ),
+        ),
+      );
+
+    return rows.map(activityRunOf);
+  }
+
   async lastRunsOf(
     workspaceId: WorkspaceId,
     keys: readonly string[],

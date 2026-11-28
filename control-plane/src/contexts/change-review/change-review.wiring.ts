@@ -1,4 +1,8 @@
 import {
+  ASSIST_SESSION_LABELS,
+  type AssistSessionLabelsPort,
+} from '@assist/application/ports/assist-session-labels.port';
+import {
   ASSIST_SESSIONS,
   type AssistSessionsPort,
 } from '@assist/application/ports/assist-sessions.port';
@@ -153,6 +157,7 @@ import { WakeSessionWaits } from '@change-review/application/services/wake-sessi
 import { WorkAnswerGrades } from '@change-review/application/services/work-answer-grades.service';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
 import type { CodeReading } from '@change-review/domain/services/code-reading';
+import { ChangeReviewSessionLabels } from '@change-review/infrastructure/acl/assist-session-labels';
 import { People } from '@change-review/infrastructure/acl/people.adapter';
 import { RepositoryVisibility } from '@change-review/infrastructure/acl/repository-visibility.adapter';
 import { GitHubReviewPosting } from '@change-review/infrastructure/acl/review-posting.adapter';
@@ -398,6 +403,17 @@ const adapters: Provider[] = [
   { provide: CODE_READING, useClass: PatternCodeReading },
   { provide: SYMBOL_INDEXER, useValue: new ThreadedSymbolIndexer() },
   { provide: PATCH_WRITER, useClass: GitPatchWriter },
+  {
+    provide: ChangeReviewSessionLabels,
+    inject: [ASSIST_SESSION_LABELS],
+    useFactory: (labels: AssistSessionLabelsPort) => {
+      const source = new ChangeReviewSessionLabels();
+
+      labels.register(source);
+
+      return source;
+    },
+  },
   {
     provide: CHANGE_STACK_GENERATOR,
     inject: [ASSIST_SESSIONS],

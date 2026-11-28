@@ -47,6 +47,10 @@ const DRAFTING_KEY = /^(.+):(?:draft|redraft:(first|recheck)):(\d+)$/;
 
 const GRADING_KEY = /^(.+):(\d+):(\d+)$/;
 
+/** Whether a drafting key names a redraft after a check. */
+export const isRedraftKey = (key: string): boolean =>
+  nonEmpty(DRAFTING_KEY.exec(key)?.[2]);
+
 const draftingRoundOf = (key: string): DraftingRound | null => {
   const drafting = DRAFTING_KEY.exec(key) ?? [];
   const [stack, check, attempt] = [1, 2, 3].map((group) =>
