@@ -35,6 +35,8 @@ export class TellAdminsOfHostOutages {
       externalLink: null,
       headline: words.headline,
       points: words.points,
+      // The notice is one for every admin, so no admin resolves it while the hosts are still offline.
+      autoResolve: true,
     });
 
     // The outage may have ended while the notice was raised, its end finding no notice yet.

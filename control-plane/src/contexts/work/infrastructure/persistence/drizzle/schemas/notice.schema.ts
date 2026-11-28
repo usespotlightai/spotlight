@@ -2,6 +2,7 @@ import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -30,6 +31,8 @@ export const notice = pgTable(
     externalLabel: text('external_label'),
     headline: text('headline').notNull(),
     points: jsonb('points').$type<string[]>().notNull(),
+    // True when Spotlight resolves the notice once its cause ends; then no person resolves or reopens it.
+    autoResolve: boolean('auto_resolve').notNull().default(false),
     createdAt: timestamptz('created_at').notNull(),
     resolvedAt: timestamptz('resolved_at'),
     version: integer('version').notNull().default(0),

@@ -474,6 +474,10 @@ export class InboxController {
     description:
       'The caller is not a member of the team, nor a workspace admin',
   })
+  @ApiConflictResponse({
+    description:
+      'The notice resolves itself when its cause ends, so a person cannot resolve it',
+  })
   async resolveNotice(
     @Param('slug') slug: string,
     @Param('noticeId') noticeId: string,
@@ -497,6 +501,10 @@ export class InboxController {
   @ApiForbiddenResponse({
     description:
       'The caller is not a member of the team, nor a workspace admin',
+  })
+  @ApiConflictResponse({
+    description:
+      'The notice resolves itself when its cause ends, so a person cannot reopen it',
   })
   async reopenNotice(
     @Param('slug') slug: string,

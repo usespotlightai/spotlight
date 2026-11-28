@@ -72,6 +72,7 @@ const noticeFor = (viewer: string, raisedAt: Date) =>
       headline: 'The search stalled',
       points: ['Fix the claims.'],
     }),
+    autoResolve: false,
     at: raisedAt,
   });
 

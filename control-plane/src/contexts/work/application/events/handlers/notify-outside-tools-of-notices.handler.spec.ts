@@ -36,6 +36,7 @@ const raised = (
       headline: 'Spotlight opened a config pull request',
       points: ['Held-out gain: +39 points'],
     }),
+    autoResolve: false,
     at: NOW,
   });
 

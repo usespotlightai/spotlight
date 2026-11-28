@@ -1584,11 +1584,11 @@ export class DrizzleInboxReader implements InboxReaderPort {
             }),
             resolvable: Notice.resolvableBy(
               noticeStandingOf(scope, row.teamId),
-              row.resolvedAt,
+              row,
             ),
             reopenable: Notice.reopenableBy(
               noticeStandingOf(scope, row.teamId),
-              row.resolvedAt,
+              row,
             ),
           },
           cursorAt,

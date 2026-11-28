@@ -17203,6 +17203,10 @@ export type ResolveInboxNoticeErrors = {
    * No such notice for this caller
    */
   404: unknown;
+  /**
+   * The notice resolves itself when its cause ends, so a person cannot resolve it
+   */
+  409: unknown;
 };
 
 export type ResolveInboxNoticeResponses = {
@@ -17237,6 +17241,10 @@ export type ReopenInboxNoticeErrors = {
    * No such notice for this caller
    */
   404: unknown;
+  /**
+   * The notice resolves itself when its cause ends, so a person cannot reopen it
+   */
+  409: unknown;
 };
 
 export type ReopenInboxNoticeResponses = {

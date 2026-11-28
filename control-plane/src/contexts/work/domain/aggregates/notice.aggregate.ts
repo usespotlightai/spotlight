@@ -7,6 +7,7 @@ import { NoticeRaised } from '@work/domain/events/notice-raised.event';
 import { NoticeReopened } from '@work/domain/events/notice-reopened.event';
 import { NoticeResolved } from '@work/domain/events/notice-resolved.event';
 import { InvalidNoticeError } from '@work/domain/exceptions/invalid-notice.error';
+import { NoticeAutoResolveError } from '@work/domain/exceptions/notice-auto-resolve.error';
 import type { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import type { NoticeId } from '@work/domain/value-objects/notice-id.vo';
@@ -26,6 +27,8 @@ interface NoticeState {
   readonly link: NoticeLink;
   readonly externalLink: NoticeExternalLink | null;
   readonly wording: NoticeWording;
+  // True when Spotlight resolves the notice once its cause ends, such as a host outage. Then no person resolves or reopens it.
+  readonly autoResolve: boolean;
   readonly createdAt: Date;
   readonly resolvedAt: Date | null;
   readonly version: number;
@@ -40,6 +43,12 @@ export interface NoticeAudience {
 export type NoticeStanding =
   | { readonly kind: 'team'; readonly team: TeamStanding }
   | { readonly kind: 'workspace'; readonly isAdmin: boolean };
+
+// What a person needs to know of a notice to resolve or reopen it.
+export interface NoticeResolution {
+  readonly resolvedAt: Date | null;
+  readonly autoResolve: boolean;
+}
 
 // A notice about the whole workspace has no addressee: every owner and admin gets it.
 const checkedAudience = (
@@ -68,6 +77,7 @@ export class Notice extends EventRecorder {
     link: NoticeLink;
     externalLink: NoticeExternalLink | null;
     wording: NoticeWording;
+    autoResolve: boolean;
     at: Date;
   }): Notice {
     checkedAudience(input.teamId, input.addressee);
@@ -124,18 +134,28 @@ export class Notice extends EventRecorder {
       : standing.isAdmin;
   }
 
+  // A person resolves an open notice that does not resolve itself.
   static resolvableBy(
     standing: NoticeStanding,
-    resolvedAt: Date | null,
+    notice: NoticeResolution,
   ): boolean {
-    return Notice.actsOn(standing) && resolvedAt === null;
+    return (
+      Notice.actsOn(standing) &&
+      !notice.autoResolve &&
+      notice.resolvedAt === null
+    );
   }
 
+  // A person reopens a resolved notice that does not resolve itself. Reopened, such a notice would stay open with nobody to resolve it.
   static reopenableBy(
     standing: NoticeStanding,
-    resolvedAt: Date | null,
+    notice: NoticeResolution,
   ): boolean {
-    return Notice.actsOn(standing) && Notice.reopenable(resolvedAt);
+    return (
+      Notice.actsOn(standing) &&
+      !notice.autoResolve &&
+      Notice.reopenable(notice.resolvedAt)
+    );
   }
 
   // A person's inbox shows a team notice addressed to them, or to the team, of a team they see, and a notice about the whole workspace to its owners and admins.
@@ -214,6 +234,10 @@ export class Notice extends EventRecorder {
     return this.state.wording;
   }
 
+  get autoResolve(): boolean {
+    return this.state.autoResolve;
+  }
+
   get createdAt(): Date {
     return this.state.createdAt;
   }
@@ -250,6 +274,14 @@ export class Notice extends EventRecorder {
     );
   }
 
+  // A person resolves the notice. A notice that resolves itself refuses this.
+  resolveByPerson(at: Date): Notice {
+    this.assertChangedByPerson();
+
+    return this.resolve(at);
+  }
+
+  // Spotlight resolves the notice, for example when the cause of a notice that resolves itself ends.
   resolve(at: Date): Notice {
     if (this.state.resolvedAt) {
       return this;
@@ -269,7 +301,10 @@ export class Notice extends EventRecorder {
     return resolved;
   }
 
+  // Only a person reopens a notice, so a notice that resolves itself refuses this.
   reopen(at: Date): Notice {
+    this.assertChangedByPerson();
+
     if (!Notice.reopenable(this.state.resolvedAt)) {
       return this;
     }
@@ -287,5 +322,11 @@ export class Notice extends EventRecorder {
     );
 
     return reopened;
+  }
+
+  private assertChangedByPerson(): void {
+    if (this.state.autoResolve) {
+      throw new NoticeAutoResolveError(this.state.id.value);
+    }
   }
 }

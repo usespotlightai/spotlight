@@ -13448,6 +13448,9 @@
           },
           "404": {
             "description": "No such notice for this caller"
+          },
+          "409": {
+            "description": "The notice resolves itself when its cause ends, so a person cannot resolve it"
           }
         },
         "summary": "Resolve a notice, once its person has dealt with it",
@@ -13490,6 +13493,9 @@
           },
           "404": {
             "description": "No such notice for this caller"
+          },
+          "409": {
+            "description": "The notice resolves itself when its cause ends, so a person cannot reopen it"
           }
         },
         "summary": "Reopen a resolved notice",

@@ -44,6 +44,7 @@ const toNotice = (row: Row): Notice =>
           })
         : null,
     wording: NoticeWording.of({ headline: row.headline, points: row.points }),
+    autoResolve: row.autoResolve,
     createdAt: row.createdAt,
     resolvedAt: row.resolvedAt,
     version: row.version,
@@ -90,6 +91,7 @@ export class DrizzleNoticeRepository implements NoticeRepository {
       externalLabel: added.externalLink?.label ?? null,
       headline: added.wording.headline,
       points: [...added.wording.points],
+      autoResolve: added.autoResolve,
       createdAt: added.createdAt,
       resolvedAt: added.resolvedAt,
       version: added.version,

@@ -7,6 +7,7 @@ import type {
   NoticeFormName,
   NoticeOf,
   NoticesPort,
+  WorkspaceNoticeOf,
 } from '@work/application/ports/notices.port';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Notice } from '@work/domain/aggregates/notice.aggregate';
@@ -33,13 +34,11 @@ export class Notices implements NoticesPort {
   ) {}
 
   async create(input: NoticeOf): Promise<void> {
-    return this.added(this.noticeOf(input));
+    return this.added(this.noticeOf({ ...input, autoResolve: false }));
   }
 
   // A notice about the whole workspace, for its owners and admins: it has no team and no addressee, and its link leads within the workspace.
-  async createAboutWorkspace(
-    input: Omit<NoticeOf, 'teamId' | 'addressee'>,
-  ): Promise<void> {
+  async createAboutWorkspace(input: WorkspaceNoticeOf): Promise<void> {
     return this.added(
       this.noticeOf({ ...input, teamId: null, addressee: null }),
     );
@@ -95,7 +94,10 @@ export class Notices implements NoticesPort {
   }
 
   private noticeOf(
-    input: Omit<NoticeOf, 'teamId'> & { readonly teamId: TeamId | null },
+    input: Omit<NoticeOf, 'teamId'> & {
+      readonly teamId: TeamId | null;
+      readonly autoResolve: boolean;
+    },
   ): Notice {
     return Notice.create({
       id: NoticeId.of(this.ids.generate()),
@@ -112,6 +114,7 @@ export class Notices implements NoticesPort {
         headline: input.headline,
         points: input.points,
       }),
+      autoResolve: input.autoResolve,
       at: this.clock.now(),
     });
   }

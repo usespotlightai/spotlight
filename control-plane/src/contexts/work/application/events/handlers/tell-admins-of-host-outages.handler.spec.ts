@@ -48,7 +48,7 @@ const telling = (...open: (string | null)[]) => {
 };
 
 describe('TellAdminsOfHostOutages', () => {
-  it('creates one notice about the whole workspace for its admins, which leads to the runners settings', async () => {
+  it('creates one notice about the whole workspace for its admins, which leads to the runners settings and resolves itself', async () => {
     const { handler, notices, openOutageOf } = telling('outage_1', 'outage_1');
 
     await handler.began(BEGAN);
@@ -61,6 +61,7 @@ describe('TellAdminsOfHostOutages', () => {
         subject: 'host-outage outage_1',
         link: 'settings/runners',
         headline: 'dev-host, the only host of the pool default, is offline',
+        autoResolve: true,
       }),
     );
     expect(notices.resolveInWorkspace).not.toHaveBeenCalled();
