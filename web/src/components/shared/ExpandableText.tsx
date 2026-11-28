@@ -1,7 +1,7 @@
 import { ChevronDown } from 'lucide-react';
 import { type ReactNode, useId, useRef, useState } from 'react';
 
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, VERTICAL_EDGE_FADE } from '@/components/ui/scroll-area';
 import { useOverflows } from '@/hooks/useOverflows';
 import { cn } from '@/lib/utils';
 
@@ -44,8 +44,9 @@ export function ExpandableText({
     <div className="group/expandable relative flex flex-col gap-1">
       <ScrollArea
         viewportRef={text}
+        viewportClassName={cn('pr-3', open && VERTICAL_EDGE_FADE)}
         className={cn(
-          'transition-[max-height] duration-200 ease-out motion-reduce:transition-none',
+          '-mr-3 transition-[max-height] duration-200 ease-out motion-reduce:transition-none',
           open ? HEIGHTS[size].expanded : HEIGHTS[size].collapsed,
           !open &&
             clipped &&
