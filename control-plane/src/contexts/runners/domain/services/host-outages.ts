@@ -74,6 +74,16 @@ export const HostOutages = {
     );
   },
 
+  // Whether work waits decides only between the two marks: before the first a person hears of nothing, and after the second they hear of it either way.
+  hingesOnWaitingWork(outage: SourceOutage, now: Date): boolean {
+    const quietFor = now.getTime() - outage.since.getTime();
+
+    return (
+      quietFor >= TELLS_A_PERSON_WHILE_WORK_WAITS_AFTER_MS &&
+      quietFor < TELLS_A_PERSON_AFTER_MS
+    );
+  },
+
   // A person hears of the outage soon while work waits that its hosts could take, or once its hosts have been quiet for a few minutes.
   tellsAPerson(
     outage: SourceOutage,

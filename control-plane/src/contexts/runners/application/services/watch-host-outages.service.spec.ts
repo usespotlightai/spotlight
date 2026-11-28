@@ -22,6 +22,7 @@ import type {
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { partial } from '@shared-kernel/domain/partial.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 class InMemoryOutages implements HostOutageRepository {
@@ -56,10 +57,12 @@ const watching = (...known: RunnerHost[]) => {
   const outages = new InMemoryOutages();
   const errors: unknown[] = [];
   const asked: (readonly string[])[] = [];
+  let reads = 0;
   const state: {
     workWaits: boolean;
     pool: RunnerPool | null;
-  } = { workWaits: false, pool: aPullPool() };
+    otherPools: RunnerPool[];
+  } = { workWaits: false, pool: aPullPool(), otherPools: [] };
   let at = minutesAfter(0);
   let ids = 0;
 
@@ -70,12 +73,22 @@ const watching = (...known: RunnerHost[]) => {
     await new WatchHostOutages(
       outages,
       hosts.hosts,
-      partial<RunnerPoolRepository>({ find: async () => state.pool }),
+      partial<RunnerPoolRepository>({
+        find: async (id) =>
+          [state.pool, ...state.otherPools].find((each) =>
+            each?.id.equals(id),
+          ) ?? null,
+      }),
       partial<RunnerTrustRepository>({ find: async () => null }),
       {
-        waitsFor: async (_workspaceId, labels) => {
-          asked.push(labels);
-          return state.workWaits;
+        waitingIn: async () => {
+          reads += 1;
+          return {
+            couldBeTakenWith: (labels) => {
+              asked.push(labels);
+              return state.workWaits;
+            },
+          };
         },
       },
       { generate: () => `outage_${++ids}` },
@@ -90,7 +103,15 @@ const watching = (...known: RunnerHost[]) => {
     return outages.events.slice(before).map((each) => each.kind);
   };
 
-  return { sweepAt, hosts, outages, state, errors, asked };
+  return {
+    sweepAt,
+    hosts,
+    outages,
+    state,
+    errors,
+    asked,
+    reads: () => reads,
+  };
 };
 
 describe('WatchHostOutages', () => {
@@ -103,7 +124,31 @@ describe('WatchHostOutages', () => {
     expect(await watch.sweepAt(3)).toEqual([]);
     expect(await watch.sweepAt(30)).toEqual([]);
     expect(watch.outages.open.size).toBe(1);
-    expect(watch.asked[0]).toEqual(['linux']);
+    expect(watch.asked).toEqual([['linux']]);
+    expect(watch.reads()).toBe(1);
+  });
+
+  it('reads the queue once per workspace for all its quiet pools, and only while it decides whether a person hears of them', async () => {
+    const gpuPool = aPullPool({ id: PoolId.of('pool_2'), labels: ['gpu'] });
+    const watch = watching(
+      aNamedHost('dev-host'),
+      aNamedHost('gpu-host', { through: gpuPool }),
+    );
+    watch.state.otherPools = [gpuPool];
+
+    expect(await watch.sweepAt(1)).toEqual([]);
+    expect(watch.reads()).toBe(0);
+
+    expect(await watch.sweepAt(2)).toEqual([]);
+    expect(await watch.sweepAt(3)).toEqual([]);
+    expect(watch.reads()).toBe(2);
+    expect(watch.asked).toEqual([['linux'], ['gpu'], ['linux'], ['gpu']]);
+
+    expect(await watch.sweepAt(5)).toEqual([
+      'host-outage.began',
+      'host-outage.began',
+    ]);
+    expect(watch.reads()).toBe(2);
   });
 
   it('waits a few minutes before it raises an outage while no work waits that the hosts could take', async () => {

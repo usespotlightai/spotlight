@@ -8,7 +8,7 @@ const NOW = new Date('2026-11-27T20:30:00.000Z');
 const WORKSPACE = WorkspaceId.of('ws_1');
 
 describe('RunsQueuedWork', () => {
-  it('says work waits only while a run of the workspace waits that a runner with the labels could take', async () => {
+  it('reads the queue of the workspace once, and says for each set of labels whether a runner with them could take a waiting run', async () => {
     const asked: unknown[] = [];
     const queued = new RunsQueuedWork({
       unclaimedIn: async (workspaceId, now) => {
@@ -17,15 +17,10 @@ describe('RunsQueuedWork', () => {
       },
     });
 
-    await expect(
-      queued.waitsFor(WORKSPACE, ['gpu', 'linux'], NOW),
-    ).resolves.toBe(true);
-    await expect(queued.waitsFor(WORKSPACE, ['linux'], NOW)).resolves.toBe(
-      false,
-    );
-    expect(asked).toEqual([
-      ['ws_1', NOW],
-      ['ws_1', NOW],
-    ]);
+    const waiting = await queued.waitingIn(WORKSPACE, NOW);
+
+    expect(waiting.couldBeTakenWith(['gpu', 'linux'])).toBe(true);
+    expect(waiting.couldBeTakenWith(['linux'])).toBe(false);
+    expect(asked).toEqual([['ws_1', NOW]]);
   });
 });

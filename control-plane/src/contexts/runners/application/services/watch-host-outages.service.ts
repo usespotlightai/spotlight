@@ -1,4 +1,7 @@
-import type { QueuedWorkPort } from '@runners/application/ports/queued-work.port';
+import type {
+  QueuedWorkPort,
+  WaitingWork,
+} from '@runners/application/ports/queued-work.port';
 import { HostOutage } from '@runners/domain/aggregates/host-outage.aggregate';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { HostOutageVersionConflictError } from '@runners/domain/exceptions/host-outage-version-conflict.error';
@@ -93,20 +96,23 @@ export class WatchHostOutages {
       open,
     );
 
+    let waiting: WaitingWork | null = null;
+
     for (const outage of unraised) {
       const source = await this.sourceOf(outage.source);
 
-      if (
-        source &&
-        HostOutages.tellsAPerson(outage, {
-          workWaits: await this.queued.waitsFor(
-            workspaceId,
-            source.labels,
-            now,
-          ),
+      if (!source) {
+        continue;
+      }
+
+      const workWaits =
+        HostOutages.hingesOnWaitingWork(outage, now) &&
+        (waiting ??= await this.queued.waitingIn(
+          workspaceId,
           now,
-        })
-      ) {
+        )).couldBeTakenWith(source.labels);
+
+      if (HostOutages.tellsAPerson(outage, { workWaits, now })) {
         await this.raised(workspaceId, outage, source, now);
       }
     }

@@ -111,6 +111,25 @@ describe('HostOutages.ofSources', () => {
   });
 });
 
+describe('HostOutages.hingesOnWaitingWork', () => {
+  const outage = {
+    source: CredentialSource.ofId(POOL_ID),
+    hosts: ['dev-host'],
+    since: minutesAfter(0),
+  };
+
+  it('asks whether work waits only from two minutes of quiet until five', () => {
+    expect(HostOutages.hingesOnWaitingWork(outage, minutesAfter(1))).toBe(
+      false,
+    );
+    expect(HostOutages.hingesOnWaitingWork(outage, minutesAfter(2))).toBe(true);
+    expect(HostOutages.hingesOnWaitingWork(outage, minutesAfter(4))).toBe(true);
+    expect(HostOutages.hingesOnWaitingWork(outage, minutesAfter(5))).toBe(
+      false,
+    );
+  });
+});
+
 describe('HostOutages.tellsAPerson', () => {
   const outage = {
     source: CredentialSource.ofId(POOL_ID),

@@ -2,12 +2,13 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const QUEUED_WORK = Symbol('QUEUED_WORK');
 
+// The runs of a workspace that are queued while no runner is on its way to them, read at one moment.
+export interface WaitingWork {
+  // A runner with these labels could take one of them.
+  couldBeTakenWith(labels: readonly string[]): boolean;
+}
+
 // Work that waits for a runner. Runs keeps it, and answers for Runners.
 export interface QueuedWorkPort {
-  // A run of the workspace is queued, no runner is on its way to it, and a runner with these labels could take it.
-  waitsFor(
-    workspaceId: WorkspaceId,
-    labels: readonly string[],
-    now: Date,
-  ): Promise<boolean>;
+  waitingIn(workspaceId: WorkspaceId, now: Date): Promise<WaitingWork>;
 }
