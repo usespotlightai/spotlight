@@ -1859,11 +1859,14 @@ export class Task extends EventRecorder {
     }
   }
 
-  // A run that starts where the task landed takes the task up, and a finished task needs nobody.
   private askedAfterMove(line: LineMap, newNote: NewNote): Task {
-    return this.wantsRun(line) || this.finished || this.awaitingReview
+    return this.needsNobodyAfterMoveOn(line)
       ? this
       : this.askedAbout(newNote, null);
+  }
+
+  private needsNobodyAfterMoveOn(line: LineMap): boolean {
+    return this.wantsRun(line) || this.finished || this.awaitingReview;
   }
 
   get decisionPending(): boolean {

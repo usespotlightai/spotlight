@@ -80,7 +80,6 @@ export class NoteMove {
     );
   }
 
-  // A run that passes the task on already shows as a run.
   get madeOutsideARun(): boolean {
     return this.by !== 'run';
   }
