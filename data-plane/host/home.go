@@ -68,7 +68,6 @@ func Home(args []string, version string) int {
 }
 
 // Overview prints what is set up on this computer, for spotlight without a command outside a terminal.
-// It reads only this computer, so it answers at once: spotlight status also asks Spotlight and the container runtime.
 func Overview(out io.Writer, version string) error {
 	home, err := inspectHome(context.Background(), version, false)
 	if err != nil {

@@ -84,7 +84,6 @@ func inspect(ctx context.Context, version string) report {
 	return inspected(ctx, version, true)
 }
 
-// inspected reads the host's settings and service. With reach, it also asks Spotlight and the container runtime, which can take seconds.
 func inspected(ctx context.Context, version string, reach bool) report {
 	var r report
 	r.Config = config.Path()

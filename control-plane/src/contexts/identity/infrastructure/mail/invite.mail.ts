@@ -3,9 +3,10 @@ import type {
   InviteToSend,
 } from '@identity/application/ports/invite-mail.port';
 import { INVITE_LASTS_FOR_DAYS } from '@identity/domain/aggregates/workspace-invite.aggregate';
-import { appUrl, escaped } from '@identity/infrastructure/mail/mail.format';
+import { escaped } from '@identity/infrastructure/mail/mail.format';
 import { mailLayout } from '@identity/infrastructure/mail/mail.layout';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
+import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 
 const listed = (names: readonly string[]): string =>
@@ -30,7 +31,7 @@ export class InviteByMail implements InviteMailPort {
   ) {}
 
   linkTo(token: string): string {
-    return `${appUrl(this.env)}/invites/${token}`;
+    return `${publicUrlOf(this.env)}/invites/${token}`;
   }
 
   async send(invite: InviteToSend): Promise<void> {
@@ -55,7 +56,7 @@ export class InviteByMail implements InviteMailPort {
 
   private body(invite: InviteToSend, link: string): string {
     return mailLayout({
-      appUrl: appUrl(this.env),
+      appUrl: publicUrlOf(this.env),
       heading: `Join ${escaped(invite.workspaceName)} on Spotlight`,
       lead: `${escaped(invite.invitedBy)} invited you to join ${escaped(invite.workspaceName)} on Spotlight.${escaped(onTeams(invite.teamNames))}`,
       detail:

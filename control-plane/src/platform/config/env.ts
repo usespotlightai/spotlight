@@ -21,7 +21,6 @@ export function parseEnv(): Env {
   return parsed(envSchema.safeParse(process.env));
 }
 
-/** The URL people reach Spotlight at, with no trailing slash, so every link and address built from it agrees. */
 export const publicUrlOf = (env: Env): string =>
   (env.SPOTLIGHT_PUBLIC_URL ?? env.BETTER_AUTH_URL).replace(/\/+$/, '');
 
