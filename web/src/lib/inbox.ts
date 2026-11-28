@@ -537,5 +537,7 @@ export const firstUnreadNoteOf = (item: InboxItem): number | null =>
     ? item.firstUnread.position
     : null;
 
-export const answerPlaceholder = (station: string): string =>
-  `${station} reads your answer and decides the next step…`;
+export const answerPlaceholder = (station: string, hasAgent = true): string =>
+  hasAgent
+    ? `${station} reads your answer and decides the next step…`
+    : `${station} has no agent to read this. Move the task to a station to go on…`;

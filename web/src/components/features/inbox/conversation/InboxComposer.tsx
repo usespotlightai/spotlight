@@ -37,7 +37,10 @@ export function InboxComposer({
     <ChatInput
       slug={slug}
       label={`Answer ${station}`}
-      placeholder={answerPlaceholder(station)}
+      placeholder={answerPlaceholder(
+        station,
+        currentStation ? nonEmpty(currentStation.harness) : true,
+      )}
       pending={answer.isPending}
       running={stoppable}
       shared={shared}
