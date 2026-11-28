@@ -1,8 +1,10 @@
 import { chatsInMemory } from '@insights/application/ports/chats.fake-spec';
 import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
 import type { WorkPort } from '@insights/application/ports/work.port';
-import { RecordChatSpend } from '@insights/application/services/record-chat-spend.service';
-import type { RunUsageReceived } from '@insights/application/services/record-run-usage-summary.service';
+import {
+  type ChatUsageReceived,
+  RecordChatSpend,
+} from '@insights/application/services/record-chat-spend.service';
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -18,8 +20,8 @@ const inTransaction: TransactionPort = {
 };
 
 const WORK = partial<WorkPort>({
-  chatRunOf: async (runId) =>
-    runId.value === 'run_chat'
+  chatRunOf: async (runId, requester) =>
+    runId.value === 'run_chat' && requester.kind === 'chat'
       ? {
           runId,
           workspaceId: WorkspaceId.of('ws_1'),
@@ -32,9 +34,10 @@ const WORK = partial<WorkPort>({
       : null,
 });
 
-const usage = (change: Partial<RunUsageReceived> = {}): RunUsageReceived => ({
+const usage = (change: Partial<ChatUsageReceived> = {}): ChatUsageReceived => ({
   runId: 'run_chat',
   workspaceId: 'ws_1',
+  requester: { owner: 'work', kind: 'chat', id: 'chat_1', token: null },
   listed: true,
   ms: 1_000,
   steps: 1,
@@ -83,6 +86,32 @@ describe('RecordChatSpend', () => {
     await spend.usageRecorded(usage({ cost: null, currency: null }), AT);
 
     expect(chats.spending.get('run_chat')?.spend).toBeNull();
+  });
+
+  it('passes Work the requester of the run, so Work can tell a task run without reading', async () => {
+    const asked: unknown[] = [];
+    const spend = new RecordChatSpend(
+      partial<WorkPort>({
+        chatRunOf: async (_runId, requester) => {
+          asked.push(requester);
+
+          return null;
+        },
+      }),
+      chatsInMemory(),
+      deletionsInMemory(),
+      inTransaction,
+    );
+    const requester = {
+      owner: 'work',
+      kind: 'task',
+      id: 'task_1',
+      token: '0',
+    };
+
+    await spend.usageRecorded(usage({ requester }), AT);
+
+    expect(asked).toEqual([requester]);
   });
 
   it('keeps nothing of a run of no chat, an unlisted run, or a team that was deleted', async () => {

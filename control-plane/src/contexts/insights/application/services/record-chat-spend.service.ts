@@ -1,11 +1,18 @@
 import type { ChatsPort } from '@insights/application/ports/chats.port';
 import type { DeletionsPort } from '@insights/application/ports/deletions.port';
-import type { WorkPort } from '@insights/application/ports/work.port';
+import type {
+  RunRequester,
+  WorkPort,
+} from '@insights/application/ports/work.port';
 import type { RunUsageReceived } from '@insights/application/services/record-run-usage-summary.service';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+
+export interface ChatUsageReceived extends RunUsageReceived {
+  readonly requester: RunRequester;
+}
 
 export class RecordChatSpend {
   constructor(
@@ -15,9 +22,9 @@ export class RecordChatSpend {
     private readonly transaction: TransactionPort,
   ) {}
 
-  async usageRecorded(event: RunUsageReceived, at: Date): Promise<void> {
+  async usageRecorded(event: ChatUsageReceived, at: Date): Promise<void> {
     const run = event.listed
-      ? await this.work.chatRunOf(RunId.of(event.runId))
+      ? await this.work.chatRunOf(RunId.of(event.runId), event.requester)
       : null;
 
     if (!run) {

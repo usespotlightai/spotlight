@@ -39,6 +39,13 @@ export interface TaskRun {
   readonly teamId: TeamId;
 }
 
+export interface RunRequester {
+  readonly owner: string;
+  readonly kind: string;
+  readonly id: string;
+  readonly token: string | null;
+}
+
 export interface ChatRun {
   readonly runId: RunId;
   readonly workspaceId: WorkspaceId;
@@ -117,7 +124,7 @@ export interface WorkPort {
 
   taskRunOf(runId: RunId): Promise<TaskRun | null>;
 
-  chatRunOf(runId: RunId): Promise<ChatRun | null>;
+  chatRunOf(runId: RunId, requester: RunRequester): Promise<ChatRun | null>;
 
   unfinishedRuns(teamId: TeamId): Promise<readonly UnfinishedRun[]>;
 

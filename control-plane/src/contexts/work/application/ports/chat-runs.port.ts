@@ -10,7 +10,14 @@ export interface ChatRun {
   readonly repositories: readonly string[];
 }
 
+export interface ChatRunRequester {
+  readonly owner: string;
+  readonly kind: string;
+  readonly id: string;
+  readonly token: string | null;
+}
+
 export interface ChatRunsPort {
-  /** The chat a run worked for, with the harness, model and repositories it chats with; null for a run of no chat. */
-  of(runId: string): Promise<ChatRun | null>;
+  /** The chat a run worked for, with the harness, model and repositories it chats with; null, without reading anything, for a run no chat asked for. */
+  of(runId: string, requester: ChatRunRequester): Promise<ChatRun | null>;
 }

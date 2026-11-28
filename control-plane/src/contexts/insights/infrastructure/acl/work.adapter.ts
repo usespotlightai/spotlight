@@ -2,6 +2,7 @@ import type {
   ChatRun,
   ConfigInOrder,
   EndedRun,
+  RunRequester,
   StationConfigView,
   TaskRun,
   TracedWanted,
@@ -118,8 +119,11 @@ export class Work implements WorkPort {
       : null;
   }
 
-  async chatRunOf(runId: RunId): Promise<ChatRun | null> {
-    const run = await this.chats.of(runId.value);
+  async chatRunOf(
+    runId: RunId,
+    requester: RunRequester,
+  ): Promise<ChatRun | null> {
+    const run = await this.chats.of(runId.value, requester);
 
     return run
       ? {

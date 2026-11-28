@@ -104,6 +104,13 @@ describe('reading an ended run from Work', () => {
   });
 });
 
+const CHAT_REQUESTER = {
+  owner: 'work',
+  kind: 'chat',
+  id: 'chat_1',
+  token: null,
+};
+
 describe('reading a chat run from Work', () => {
   it('reads the chat a run worked for, and the team it is in', async () => {
     const work = new Work(
@@ -122,7 +129,7 @@ describe('reading a chat run from Work', () => {
       partial<LoggerPort>({}),
     );
 
-    const run = await work.chatRunOf(RunId.of('run_1'));
+    const run = await work.chatRunOf(RunId.of('run_1'), CHAT_REQUESTER);
 
     expect(run?.teamId.value).toBe('team_1');
     expect(run).toMatchObject({
@@ -140,6 +147,6 @@ describe('reading a chat run from Work', () => {
       partial<LoggerPort>({}),
     );
 
-    expect(await work.chatRunOf(RunId.of('run_1'))).toBeNull();
+    expect(await work.chatRunOf(RunId.of('run_1'), CHAT_REQUESTER)).toBeNull();
   });
 });

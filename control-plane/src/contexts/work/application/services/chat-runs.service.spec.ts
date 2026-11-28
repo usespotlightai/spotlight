@@ -9,6 +9,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ChatRuns } from '@work/application/services/chat-runs.service';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -53,6 +54,18 @@ const dispatched = (
 const chats = (chat: Chat | null): ChatRepository =>
   partial<ChatRepository>({ find: async () => chat });
 
+const ASKED_BY_CHAT = WorkRequesters.chat(CHAT.id, TeamId.of('team_1'));
+
+const ASKED_BY_TASK = WorkRequesters.task(
+  TaskId.of('task_1'),
+  TaskRevision.of(0),
+  TeamId.of('team_1'),
+);
+
+const unread = (): never => {
+  throw new Error('read');
+};
+
 describe('ChatRuns', () => {
   it('names the chat a run worked for, and what it chats with', async () => {
     const runs = new ChatRuns(
@@ -60,7 +73,7 @@ describe('ChatRuns', () => {
       chats(CHAT),
     );
 
-    expect(await runs.of('run_1')).toEqual({
+    expect(await runs.of('run_1', ASKED_BY_CHAT)).toEqual({
       runId: 'run_1',
       workspaceId: 'ws_1',
       teamId: 'team_1',
@@ -91,8 +104,25 @@ describe('ChatRuns', () => {
       chats(CHAT),
     );
 
-    expect(await task.of('run_1')).toBeNull();
-    expect(await gone.of('run_1')).toBeNull();
-    expect(await unordered.of('run_1')).toBeNull();
+    expect(await task.of('run_1', ASKED_BY_CHAT)).toBeNull();
+    expect(await gone.of('run_1', ASKED_BY_CHAT)).toBeNull();
+    expect(await unordered.of('run_1', ASKED_BY_CHAT)).toBeNull();
+  });
+
+  it('names no chat for a run a task or another context asked for, without reading anything', async () => {
+    const runs = new ChatRuns(
+      { add: unread, save: unread, find: unread },
+      partial<ChatRepository>({ find: unread }),
+    );
+
+    expect(await runs.of('run_1', ASKED_BY_TASK)).toBeNull();
+    expect(
+      await runs.of('run_1', {
+        owner: 'assist',
+        kind: 'chat',
+        id: 'chat_1',
+        token: null,
+      }),
+    ).toBeNull();
   });
 });
