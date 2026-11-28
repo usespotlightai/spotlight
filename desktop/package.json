@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
-    "electron": "45.4.1",
+    "electron": "45.5.0",
     "electron-builder": "26.18.0",
     "knip": "^6.48.0",
     "oxfmt": "0.80.0",
