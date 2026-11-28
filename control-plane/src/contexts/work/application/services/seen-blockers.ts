@@ -7,7 +7,6 @@ import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { Blocker } from '@work/domain/services/blocking';
 
-// The tasks a person names as blockers: each must exist, on a team they see. Call it in the transaction that saves the blocked task.
 export class SeenBlockers {
   constructor(
     private readonly tasks: Pick<TaskRepository, 'blockersAmong'>,

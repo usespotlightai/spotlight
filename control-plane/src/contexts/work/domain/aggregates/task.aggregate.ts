@@ -421,18 +421,12 @@ export class Task extends EventRecorder {
     });
   }
 
-  // A task that waits for other tasks waits in Backlog, wherever it was asked for.
   static opensAt(
     line: LineMap,
     at: StationId,
     blockedBy: readonly TaskId[],
   ): StationId {
     return blockedBy.length > 0 ? line.backlog.id : at;
-  }
-
-  // Where a task goes once nothing blocks it: the first station where an agent works.
-  static releasesTo(line: LineMap): Station | null {
-    return line.entry;
   }
 
   static revisionsOfLatestRunHere(
@@ -930,7 +924,6 @@ export class Task extends EventRecorder {
       claimedBy: null,
       ...this.appendNote(newNote, 'passed'),
       finishedAt: into.isCompleted ? newNote.at : null,
-      ...(into.isCompleted ? { blockedBy: [] } : {}),
       ...(takesOwnership ? { assignee: handMove.mover } : {}),
       revision: this.revision.next(),
       moveHeldTo: null,
@@ -946,16 +939,18 @@ export class Task extends EventRecorder {
       ),
     );
 
-    if (into.isCompleted) {
-      moved.record(
-        new TaskFinished(moved.id, moved.workspaceId, into.id, newNote.at),
-      );
-      moved.record(
-        new TaskCompleted(moved.id, moved.workspaceId, into.id, newNote.at),
-      );
+    if (!into.isCompleted) {
+      return moved;
     }
 
-    return moved;
+    moved.record(
+      new TaskFinished(moved.id, moved.workspaceId, into.id, newNote.at),
+    );
+    moved.record(
+      new TaskCompleted(moved.id, moved.workspaceId, into.id, newNote.at),
+    );
+
+    return moved.blockedOnlyBy([], handMove?.mover ?? null);
   }
 
   reorderTo(rank: TaskRank): Task {
@@ -1600,7 +1595,6 @@ export class Task extends EventRecorder {
     return this.finishedAt !== null;
   }
 
-  // A completed task is in the Completed station of its line. A task that finished at the end of its line, with its pull request still open, is finished but not completed.
   completedOn(line: LineMap): boolean {
     return line.completed.id.equals(this.stationId);
   }
@@ -3627,7 +3621,6 @@ export class Task extends EventRecorder {
     return blockedMoveTo(this, Task.stationOn(line, to));
   }
 
-  // `blockedBy` comes from Blocking, which checks the rules across tasks.
   blockBy(
     line: LineMap,
     blockedBy: readonly TaskId[],
@@ -3665,7 +3658,6 @@ export class Task extends EventRecorder {
         );
   }
 
-  // Call it when `blocker` is completed (TaskCompleted). A blocker that only finished blocks this task still.
   blockerCompleted(
     blocker: TaskId,
     line: LineMap,
@@ -3680,7 +3672,7 @@ export class Task extends EventRecorder {
       this.blockedBy.filter((each) => !each.equals(blocker)),
       null,
     );
-    const entry = Task.releasesTo(line);
+    const entry = line.entry;
 
     if (
       unblocked.blocked ||

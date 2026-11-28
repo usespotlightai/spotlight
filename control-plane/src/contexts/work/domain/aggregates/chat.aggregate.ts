@@ -942,7 +942,6 @@ export class Chat extends EventRecorder {
     });
   }
 
-  // The tasks that the proposals it waits for became. Each must be a task first, or be dismissed.
   private blockersOf(proposal: TaskProposal): readonly TaskId[] {
     return proposal.blockedBy.flatMap((position) => {
       const earlier = this.proposalAt(position);

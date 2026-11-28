@@ -53,7 +53,6 @@ const blockableAt = (line: LineMap | null, summary: TaskSummary): boolean => {
 };
 
 export const TaskMapper = {
-  // A blocking task on a team the viewer does not see keeps its title to that team.
   summaryToDto(
     summary: TaskSummary,
     reading: MessageReading,

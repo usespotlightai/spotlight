@@ -39,10 +39,8 @@ export interface HandMove {
 
 type EndsHold = (hold: HeldFor) => boolean;
 
-// Only a task that has not started can start to wait for other tasks.
 export const mayWaitAt = (station: Station): boolean => station.isBacklog;
 
-// A blocked task waits in Backlog. It may still be parked there, or completed.
 export const blockedMoveTo = (
   task: { readonly blocked: boolean },
   to: Station,

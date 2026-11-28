@@ -124,7 +124,6 @@ export const blockersNamed = (
 export const waitingFor = (task: Pick<Task, 'blockedBy'>): string | null =>
   blockersNamed(task, 'Waiting for');
 
-// The board lists the open tasks of the team: any of them but the task itself.
 export const blockerCandidates = (
   task: Pick<Task, 'id'>,
   board: readonly Task[],

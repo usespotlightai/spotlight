@@ -58,7 +58,10 @@ export class BlockTaskHandler implements CommandHandlerPort<
       const blockedBy = Blocking.forTask(
         task,
         named,
-        await this.blocking.graphIn(task.workspaceId),
+        await this.blocking.graphFrom(
+          task.workspaceId,
+          named.map((each) => each.task.id),
+        ),
       );
 
       const blocked = task.blockBy(line, blockedBy, viewer, this.clock.now());

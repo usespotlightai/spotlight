@@ -243,7 +243,6 @@ export class TaskNoteBody {
     );
   }
 
-  // Counts the blocking tasks: a title may be on a team that a reader of the trail does not see.
   static blockedBy(count: number): TaskNoteBody {
     if (count === 0) {
       return TaskNoteBody.of('No longer blocked by other tasks.');

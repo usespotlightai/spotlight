@@ -39,7 +39,6 @@ export interface TaskRepository {
     blocker: TaskId,
   ): Promise<readonly Task[]>;
 
-  // Locks the tasks against change until the transaction ends, so none completes or goes unseen meanwhile.
   blockersAmong(ids: readonly TaskId[]): Promise<readonly Task[]>;
 
   startingFrom(

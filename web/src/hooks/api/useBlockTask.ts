@@ -17,7 +17,6 @@ type BlockTaskInput = {
   blockedBy: readonly TaskBlockerResponseDto[];
 };
 
-// No optimistic update: whether the task may still move, and where, comes back from the server.
 export function useBlockTask(): UseMutationResult<
   TaskResponseDto,
   Error,

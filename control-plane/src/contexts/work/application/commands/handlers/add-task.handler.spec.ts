@@ -10,6 +10,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
@@ -24,7 +25,7 @@ import { FilesLoader } from '@work/application/services/files-loader.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
 import { SeenBlockers } from '@work/application/services/seen-blockers';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
-import type { Task } from '@work/domain/aggregates/task.aggregate';
+import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -34,6 +35,8 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ids: IdGeneratorPort = { generate: () => 'task_1' };
@@ -172,18 +175,41 @@ const addTask = (
   command: AddTaskCommand,
   board: LineMapsPort = lines(),
   seen = access(),
-) =>
-  new AddTaskHandler(
-    tasks(),
+  blockers: readonly Task[] = [],
+  transacted: string[] = [],
+) => {
+  const stored = {
+    ...tasks(),
+    blockersAmong: vi.fn(async (named: readonly TaskId[]) => {
+      if (named.length > 0) {
+        transacted.push('blockers read');
+      }
+
+      return blockers;
+    }),
+  };
+  const ownTransaction: TransactionPort = {
+    inTransaction: async (work) => {
+      transacted.push('opened');
+      const done = await work();
+      transacted.push('committed');
+
+      return done;
+    },
+  };
+
+  return new AddTaskHandler(
+    stored,
     new LineLoader(seen, board),
     ids,
     clock,
-    new CreateTask(tasks(), dispatch(), transaction, files),
+    new CreateTask(stored, dispatch(), transaction, files),
     files,
     { defaultBranchNameOf: async () => 'main' },
-    new SeenBlockers(tasks(), board, seen),
-    transaction,
+    new SeenBlockers(stored, board, seen),
+    ownTransaction,
   ).execute(command);
+};
 
 beforeEach(() => {
   added = undefined;
@@ -349,6 +375,63 @@ describe('AddTaskHandler', () => {
       refusal: expect.any(TeamMembershipRequiredError) as unknown,
     });
     expect(added).toBeUndefined();
+  });
+
+  it('opens no transaction of its own for a task that waits for nothing', async () => {
+    const transacted: string[] = [];
+
+    await addTask(
+      new AddTaskCommand(
+        'team_1',
+        'line_1',
+        'station_1',
+        'Fix the queue',
+        null,
+        'user_1',
+      ),
+      lines(),
+      access(),
+      [],
+      transacted,
+    );
+
+    expect(transacted).toEqual([]);
+    expect(added?.currentRunId?.value).toBe('run_1');
+  });
+
+  it('reads the tasks it waits for in the transaction that adds it, and opens it in Backlog', async () => {
+    const transacted: string[] = [];
+    const blocker = Task.add({
+      line: line(),
+      at: StationId.of('station_1'),
+      title: TaskTitle.of('Add the API'),
+      rank: TaskRank.of('i'),
+      now: created,
+      newId: () => 'task_0',
+    });
+
+    await addTask(
+      new AddTaskCommand(
+        'team_1',
+        'line_1',
+        'station_1',
+        'Show it on the web',
+        null,
+        'user_1',
+        [],
+        null,
+        ['task_0'],
+      ),
+      lines(),
+      access(),
+      [blocker],
+      transacted,
+    );
+
+    expect(transacted).toEqual(['opened', 'blockers read', 'committed']);
+    expect(added?.blockedBy).toEqual([blocker.id]);
+    expect(added?.stationId.value).toBe('station_0');
+    expect(added?.currentRunId).toBeNull();
   });
 
   it('rejects a task with no title', async () => {

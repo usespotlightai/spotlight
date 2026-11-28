@@ -132,7 +132,6 @@ const completed = (task: Task) =>
     { mover: LEON },
   );
 
-// A run finished it at the end of its line. Its pull request is still open.
 const finishedHere = (task: Task) =>
   task.assignRun(RunId.of('run_1'), LINE).finishHere(RunId.of('run_1'), LINE, {
     line: LINE,
@@ -288,10 +287,14 @@ describe('Task blocked by other tasks', () => {
       second.moveTo(LINE, TRIAGE, TaskRank.of('i'), note, { mover: LEON }),
     ).toThrow(TaskBlockedError);
 
+    second.pullEvents();
     const done = completed(second);
 
     expect(done.finished).toBe(true);
     expect(done.blocked).toBe(false);
+    expect(done.pullEvents()).toContainEqual(
+      new TaskBlockersChanged(second.id, second.workspaceId, [], LEON),
+    );
   });
 
   it('stays in Backlog when an event would move it to a work station', () => {
@@ -330,7 +333,7 @@ describe('Task blocked by other tasks', () => {
       NOW,
     );
 
-    expect(Task.releasesTo(LINE)?.id).toEqual(TRIAGE);
+    expect(LINE.entry?.id).toEqual(TRIAGE);
     expect(started.stationId).toEqual(TRIAGE);
     expect(started.rank.value > 'm').toBe(true);
     expect(started.blocked).toBe(false);

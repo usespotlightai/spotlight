@@ -5,7 +5,6 @@ interface BlockingLink {
   readonly blockedBy: readonly TaskId[];
 }
 
-// Which open tasks of one workspace wait for which others.
 export class BlockingGraph {
   private constructor(
     private readonly blockers: ReadonlyMap<string, readonly TaskId[]>,
@@ -21,7 +20,6 @@ export class BlockingGraph {
     return new BlockingGraph(new Map());
   }
 
-  // Whether `from` waits for `to`, directly or through other tasks.
   waitsFor(from: TaskId, to: TaskId): boolean {
     const seen = new Set<string>();
     const queue = [from.value];

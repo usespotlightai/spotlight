@@ -3,7 +3,6 @@ import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { Blocker } from '@work/domain/services/blocking';
 
-// Each task with the line it is on, so Blocking can tell if it is completed. A task on no line is unknown.
 export const blockersOf = async (
   lines: Pick<LineMapsPort, 'findByStation'>,
   tasks: readonly Task[],

@@ -17,7 +17,6 @@ export const PROPOSAL_STATES = [
 
 export type ProposalState = (typeof PROPOSAL_STATES)[number];
 
-// A proposal the person dismissed, or a newer one replaced, holds up no proposal that waits for it.
 export const proposalBlocks = (state: ProposalState): boolean =>
   state !== 'dismissed' && state !== 'replaced';
 

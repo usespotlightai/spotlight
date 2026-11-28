@@ -69,7 +69,7 @@ export class AddTaskHandler implements CommandHandlerPort<
         : null,
     );
 
-    return this.transaction.inTransaction(async () => {
+    const add = async (): Promise<string> => {
       const blockedBy = Blocking.forNewTask(
         line.workspaceId,
         await this.blockers.named(command.blockedBy, createdBy),
@@ -98,6 +98,10 @@ export class AddTaskHandler implements CommandHandlerPort<
       const created = await this.createTask.create({ task: added, line });
 
       return created.id.value;
-    });
+    };
+
+    return command.blockedBy.length === 0
+      ? add()
+      : this.transaction.inTransaction(add);
   }
 }

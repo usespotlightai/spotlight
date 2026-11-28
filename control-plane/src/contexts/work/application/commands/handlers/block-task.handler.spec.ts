@@ -104,8 +104,8 @@ const blocking = (stored: readonly Task[], graph = BlockingGraph.empty()) => {
         lockIn: async () => {
           steps.push('lock');
         },
-        graphIn: async () => {
-          steps.push('graph');
+        graphFrom: async (_, from: readonly TaskId[]) => {
+          steps.push(`graph from ${from.map((each) => each.value).join(', ')}`);
           return graph;
         },
       },
@@ -125,7 +125,7 @@ describe('BlockTaskHandler', () => {
     );
 
     expect(saved.map((each) => each.blockedBy)).toEqual([[first.id]]);
-    expect(steps).toEqual(['lock', 'blockers', 'graph']);
+    expect(steps).toEqual(['lock', 'blockers', 'graph from task_1']);
   });
 
   it('refuses a task that already waits for this one', async () => {

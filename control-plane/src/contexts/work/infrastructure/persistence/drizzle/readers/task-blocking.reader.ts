@@ -5,8 +5,12 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { TaskBlockingPort } from '@work/application/ports/task-blocking.port';
 import { BlockingGraph } from '@work/domain/services/blocking-graph';
-import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
+
+interface ReachableRow extends Record<string, unknown> {
+  readonly id: string;
+  readonly blocked_by: readonly string[];
+}
 
 @Injectable()
 export class DrizzleTaskBlocking implements TaskBlockingPort {
@@ -25,21 +29,33 @@ export class DrizzleTaskBlocking implements TaskBlockingPort {
     );
   }
 
-  async graphIn(workspaceId: WorkspaceId): Promise<BlockingGraph> {
-    const rows = await this.context.db
-      .select({ id: task.id, blockedBy: task.blockedBy })
-      .from(task)
-      .where(
-        and(
-          eq(task.workspaceId, workspaceId.value),
-          sql`cardinality(${task.blockedBy}) > 0`,
-        ),
-      );
+  async graphFrom(
+    workspaceId: WorkspaceId,
+    blockers: readonly TaskId[],
+  ): Promise<BlockingGraph> {
+    if (blockers.length === 0) {
+      return BlockingGraph.empty();
+    }
+
+    const result = await this.context.db.execute<ReachableRow>(sql`
+      with recursive reachable(id, blocked_by) as (
+        select id, blocked_by
+        from task
+        where workspace_id = ${workspaceId.value}
+          and id = any(${sql.param(blockers.map((each) => each.value))}::text[])
+        union
+        select waited.id, waited.blocked_by
+        from task waited
+        join reachable on waited.id = any(reachable.blocked_by)
+        where waited.workspace_id = ${workspaceId.value}
+      )
+      select id, blocked_by from reachable where cardinality(blocked_by) > 0
+    `);
 
     return BlockingGraph.of(
-      rows.map((row) => ({
+      result.rows.map((row) => ({
         task: TaskId.of(row.id),
-        blockedBy: row.blockedBy.map((each) => TaskId.of(each)),
+        blockedBy: row.blocked_by.map((each) => TaskId.of(each)),
       })),
     );
   }

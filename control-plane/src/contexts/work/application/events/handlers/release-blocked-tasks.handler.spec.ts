@@ -68,7 +68,6 @@ const note = (body: string) => ({
   voice: Voice.station(),
 });
 
-// Each completion among the events of `task`, as the outbox gives them to the handler.
 const completionsOf = (task: Task) =>
   task.pullEvents().filter((each) => each instanceof TaskCompleted);
 
