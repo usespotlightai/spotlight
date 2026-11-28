@@ -36,7 +36,9 @@ export class ResolveConversationHandler implements CommandHandlerPort<
     }
   }
 
-  private async resolveOnce(command: ResolveConversationCommand): Promise<void> {
+  private async resolveOnce(
+    command: ResolveConversationCommand,
+  ): Promise<void> {
     const { item, task, line, viewer } = await this.conversations.putTo(
       command.conversationId,
       command.resolvedBy,
