@@ -462,7 +462,7 @@ const waitingPreviewOf = (
       }
 
       // Only a note the station wrote is its question; a person's answer or
-      // a note from GitHub is shown as it is.
+      // a note from outside Spotlight is shown as it is.
       if (item.lastNote?.voice !== 'station') {
         return body;
       }
